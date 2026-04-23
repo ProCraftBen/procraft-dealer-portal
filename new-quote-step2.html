@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Dealer Portal — Select Products</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+    }
+    html, body {
+      height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: var(--green-dark);
+      padding: 0 20px; height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 200;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 30px; height: 30px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 13px; height: 13px; fill: var(--gold); }
+    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+    .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 5px 10px; background: transparent; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
+    .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* ── Progress ── */
+    .progress-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; }
+    .progress-steps { display: flex; align-items: center; padding: 12px 0; }
+    .step { display: flex; align-items: center; gap: 7px; flex: 1; }
+    .step:not(:last-child)::after { content: ''; flex: 1; height: 1px; background: var(--border); margin: 0 6px; }
+    .step-circle { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--muted); flex-shrink: 0; }
+    .step.done .step-circle { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .step.active .step-circle { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
+    .step-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .step.active .step-label { color: var(--green-dark); font-weight: 500; }
+    @media (max-width: 500px) { .step-label { display: none; } }
+
+    /* ── Main Layout ── */
+    .main-area {
+      display: grid;
+      grid-template-columns: 220px 1fr 260px;
+      grid-template-rows: 1fr auto;
+      height: calc(100vh - 56px - 53px - 52px);
+      overflow: hidden;
+    }
+
+    /* ── LEFT: Style List ── */
+    .style-list-panel {
+      grid-column: 1; grid-row: 1 / 3;
+      background: var(--white);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .style-list-header { padding: 12px 12px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .panel-label { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .search-box { position: relative; }
+    .search-box input { width: 100%; background: var(--cream); border: 1px solid var(--border); border-radius: 3px; padding: 8px 10px 8px 28px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.2s; }
+    .search-box input:focus { border-color: var(--green-mid); background: #fff; }
+    .search-box input::placeholder { color: #C4C0B8; }
+    .search-box .ico { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+    .style-list-body { flex: 1; overflow-y: auto; padding: 6px 0; }
+    .style-list-body::-webkit-scrollbar { width: 4px; }
+    .style-list-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .brand-group-label { padding: 10px 12px 4px; font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .style-list-item { display: flex; align-items: center; gap: 9px; padding: 8px 12px; cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; }
+    .style-list-item:hover { background: var(--cream); }
+    .style-list-item.selected { background: rgba(14,31,22,0.05); border-left-color: var(--green-dark); }
+    .style-color-dot { width: 16px; height: 16px; border-radius: 2px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.08); }
+    .style-list-info { flex: 1; min-width: 0; }
+    .style-list-name { font-size: 12px; font-weight: 500; color: var(--green-dark); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .style-list-code { font-size: 10px; color: var(--muted); }
+    .style-list-badge { font-size: 8px; letter-spacing: 0.05em; text-transform: uppercase; background: var(--cream); border: 1px solid var(--border); color: var(--muted); padding: 1px 4px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── CENTER: Preview ── */
+    .preview-panel {
+      grid-column: 2; grid-row: 1;
+      background: var(--cream);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 20px; overflow: hidden;
+    }
+    .preview-empty { text-align: center; color: var(--muted); }
+    .preview-empty svg { width: 36px; height: 36px; margin-bottom: 10px; opacity: 0.4; }
+    .preview-empty p { font-size: 13px; line-height: 1.6; }
+    .preview-content { text-align: center; width: 100%; display: none; }
+    .preview-img-wrap { display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+    .preview-swatch {
+      /* Proportional to 355×601 */
+      width: 120px; height: 203px;
+      border-radius: 4px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+      transition: background 0.3s;
+    }
+    .preview-img { max-height: 203px; max-width: 100%; object-fit: contain; border-radius: 3px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); display: none; }
+    .preview-name { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; color: var(--green-dark); margin-bottom: 4px; }
+    .preview-meta { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+    .btn-select-style { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 22px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 40px; }
+    .btn-select-style:hover { background: var(--green-mid); }
+    .btn-select-style.confirmed { background: var(--gold); color: var(--green-dark); }
+
+    /* ── RIGHT: Cart ── */
+    .cart-panel {
+      grid-column: 3; grid-row: 1 / 3;
+      background: var(--white);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .cart-header { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .cart-title { font-size: 10px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--green-dark); }
+    .cart-badge { background: var(--green-dark); color: #fff; border-radius: 20px; padding: 1px 7px; font-size: 11px; }
+    .cart-body { flex: 1; overflow-y: auto; }
+    .cart-body::-webkit-scrollbar { width: 4px; }
+    .cart-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .cart-empty { padding: 24px 14px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .cart-item { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .cart-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+    .cart-item-name { font-size: 11px; font-weight: 500; color: var(--green-dark); line-height: 1.4; }
+    .cart-item-detail { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .cart-item-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .cart-item-price { font-size: 12px; font-weight: 500; }
+    .btn-remove { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 15px; padding: 0 2px; line-height: 1; transition: color 0.15s; }
+    .btn-remove:hover { color: var(--error); }
+    .cart-footer { padding: 12px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .cart-total { display: flex; justify-content: space-between; font-size: 12px; font-weight: 500; color: var(--green-dark); margin-bottom: 5px; }
+    .cart-note { font-size: 9px; color: var(--muted); line-height: 1.5; }
+
+    /* ── BOTTOM: SKU Panel ── */
+    .sku-panel {
+      grid-column: 1 / 3; grid-row: 2;
+      background: var(--white);
+      border-top: 2px solid var(--border);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+      min-height: 200px; max-height: 280px;
+    }
+    .sku-panel-header {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0; flex-wrap: wrap; background: #FAFAF8;
+    }
+    .sku-panel-title { font-size: 10px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--green-dark); }
+    .sku-style-tag { background: rgba(14,31,22,0.07); color: var(--green-dark); font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 2px; }
+    .type-toggle { display: flex; gap: 5px; }
+    .type-btn { padding: 4px 12px; border: 1.5px solid var(--border); border-radius: 3px; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 11px; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+    .type-btn.active { border-color: var(--green-dark); background: rgba(14,31,22,0.06); color: var(--green-dark); font-weight: 500; }
+    .cat-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+    .cat-tab { padding: 3px 9px; border: 1px solid var(--border); border-radius: 20px; font-size: 10px; color: var(--muted); background: transparent; cursor: pointer; transition: all 0.15s; }
+    .cat-tab.active { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
+    .sku-search-wrap { margin-left: auto; position: relative; }
+    .sku-search-wrap input { background: var(--cream); border: 1px solid var(--border); border-radius: 3px; padding: 4px 10px 4px 24px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); outline: none; width: 140px; transition: border-color 0.2s, width 0.2s; }
+    .sku-search-wrap input:focus { border-color: var(--green-mid); background: #fff; width: 180px; }
+    .sku-search-wrap input::placeholder { color: #C4C0B8; }
+    .sku-search-wrap .ico { position: absolute; left: 7px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+
+    /* SKU Table */
+    .sku-table-wrap { flex: 1; overflow-y: auto; }
+    .sku-table-wrap::-webkit-scrollbar { width: 4px; }
+    .sku-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .sku-table { width: 100%; border-collapse: collapse; }
+    .sku-table thead th { padding: 7px 12px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; position: sticky; top: 0; z-index: 1; }
+    .sku-table thead th.th-right { text-align: right; }
+    .sku-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    .sku-table tbody tr:hover { background: #FAFAF8; }
+    .sku-table tbody tr:last-child { border-bottom: none; }
+    .sku-table td { padding: 7px 12px; font-size: 12px; vertical-align: middle; }
+    .td-code { font-weight: 500; color: var(--green-dark); white-space: nowrap; }
+    .td-desc { color: var(--text); }
+    .td-price { font-weight: 500; white-space: nowrap; }
+    .td-actions { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+    .qty-btn { width: 24px; height: 24px; border-radius: 3px; border: 1px solid var(--border); background: var(--white); color: var(--text); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+    .qty-btn:hover { border-color: var(--green-dark); color: var(--green-dark); }
+    .qty-input { width: 38px; text-align: center; border: 1px solid var(--border); border-radius: 3px; padding: 3px; font-size: 12px; color: var(--text); font-family: 'DM Sans', sans-serif; }
+    .qty-input:focus { outline: none; border-color: var(--green-mid); }
+    .btn-add { padding: 4px 9px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+    .btn-add:hover { background: var(--green-mid); }
+    .sku-placeholder { padding: 20px; text-align: center; font-size: 12px; color: var(--muted); }
+
+    /* ── Bottom Bar ── */
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1px solid var(--border); padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 150; height: 52px; gap: 12px; }
+    .bottom-left { font-size: 12px; color: var(--muted); }
+    .bottom-left strong { color: var(--green-dark); }
+    .btn-next { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 22px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 40px; }
+    .btn-next:hover { background: var(--green-mid); }
+    .btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+      .main-area { grid-template-columns: 1fr; grid-template-rows: 200px auto auto auto; height: auto; overflow: visible; }
+      .style-list-panel { grid-column: 1; grid-row: 1; border-right: none; border-bottom: 1px solid var(--border); }
+      .preview-panel { grid-column: 1; grid-row: 2; border-right: none; min-height: 240px; }
+      .sku-panel { grid-column: 1; grid-row: 3; border-right: none; max-height: 320px; }
+      .cart-panel { grid-column: 1; grid-row: 4; max-height: 280px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
+    <span class="nav-title">ProCraft</span>
+  </div>
+  <a href="new-quote.html" class="nav-back">← Back</a>
+</nav>
+
+<div class="progress-bar">
+  <div class="progress-steps">
+    <div class="step done"><div class="step-circle">✓</div><span class="step-label">Order Info</span></div>
+    <div class="step active"><div class="step-circle">2</div><span class="step-label">Products</span></div>
+    <div class="step"><div class="step-circle">3</div><span class="step-label">Review</span></div>
+  </div>
+</div>
+
+<div class="main-area">
+
+  <!-- LEFT -->
+  <div class="style-list-panel">
+    <div class="style-list-header">
+      <div class="panel-label">Door Styles</div>
+      <div class="search-box">
+        <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+        <input type="text" id="styleSearch" placeholder="Search styles..." oninput="filterStyles()"/>
+      </div>
+    </div>
+    <div class="style-list-body" id="styleListBody">
+      <div style="padding:14px;font-size:12px;color:var(--muted);">Loading...</div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="preview-panel">
+    <div class="preview-empty" id="previewEmpty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
+      <p>Select a door style<br>from the list to preview</p>
+    </div>
+    <div class="preview-content" id="previewContent">
+      <div class="preview-img-wrap">
+        <img class="preview-img" id="previewImg" src="" alt=""/>
+        <div class="preview-swatch" id="previewSwatch"></div>
+      </div>
+      <div class="preview-name" id="previewName"></div>
+      <div class="preview-meta" id="previewMeta"></div>
+      <button class="btn-select-style" id="btnSelectStyle" onclick="confirmStyle()">Select This Style</button>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="cart-panel">
+    <div class="cart-header">
+      <span class="cart-title">Quote Items</span>
+      <span class="cart-badge" id="cartCount">0</span>
+    </div>
+    <div class="cart-body" id="cartBody">
+      <div class="cart-empty">No items yet.<br>Select a style to begin.</div>
+    </div>
+    <div class="cart-footer" id="cartFooter" style="display:none;">
+      <div class="cart-total"><span>Subtotal</span><span id="cartTotal">$0.00</span></div>
+      <div class="cart-note">* Dealer pricing applied. Final confirmed upon processing.</div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: SKU -->
+  <div class="sku-panel">
+    <div class="sku-panel-header">
+      <span class="sku-panel-title">Items</span>
+      <span class="sku-style-tag" id="skuStyleTag">— select a style above —</span>
+      <div class="type-toggle" id="typeToggle" style="display:none;">
+        <button class="type-btn active" id="btnRTA" onclick="setType('RTA')">RTA</button>
+        <button class="type-btn" id="btnAssembled" onclick="setType('Assembled')">Assembled</button>
+      </div>
+      <div class="cat-tabs" id="catTabs"></div>
+      <div class="sku-search-wrap" id="skuSearchWrap" style="display:none;">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+        <input type="text" id="skuSearch" placeholder="Search SKU / description..." oninput="renderSkuTable()"/>
+      </div>
+    </div>
+    <div class="sku-table-wrap" id="skuTableWrap">
+      <div class="sku-placeholder">Select a door style and click "Select This Style" to view available items.</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-left"><strong id="bottomCount">0 items</strong> in quote</div>
+  <button class="btn-next" id="btnNext" onclick="goNext()" disabled>Review Quote →</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const { createClient } = supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+let dealer = null;
+let allStyles = [], allSkus = [], allPricing = [];
+let hoveredStyle = null;
+let activeStyle  = null;
+let currentType  = 'RTA';
+let currentCat   = 'All';
+let cartItems    = [];
+
+const colorMap = {
+  black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
+  grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
+};
+
+async function init() {
+  const { data:{ session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  const { data:d } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
+  dealer = d;
+  const [s,sk,p] = await Promise.all([
+    _supabase.from('door_styles').select('*').eq('is_active',true),
+    _supabase.from('skus').select('*'),
+    _supabase.from('pricing').select('*'),
+  ]);
+  allStyles=s.data||[]; allSkus=sk.data||[]; allPricing=p.data||[];
+  renderStyleList();
+}
+
+function filterStyles() { renderStyleList(); }
+
+function renderStyleList() {
+  const q = (document.getElementById('styleSearch').value||'').toLowerCase();
+  const body = document.getElementById('styleListBody');
+  let html = '';
+  ['ProCraft','Milania'].forEach(brand => {
+    const items = allStyles.filter(s =>
+      s.brand === brand &&
+      (!q || s.style_name.toLowerCase().includes(q) || s.style_code.toLowerCase().includes(q))
+    );
+    if (!items.length) return;
+    html += `<div class="brand-group-label">${brand}</div>`;
+    items.forEach(s => {
+      const bg = colorMap[s.color]||'#8A8A8A';
+      const sel = activeStyle && activeStyle.style_code === s.style_code;
+      html += `
+        <div class="style-list-item ${sel?'selected':''}" onclick="previewStyle('${s.style_code}')">
+          <div class="style-color-dot" style="background:${bg};"></div>
+          <div class="style-list-info">
+            <div class="style-list-name">${s.style_name}</div>
+            <div class="style-list-code">${s.style_code}</div>
+          </div>
+          <span class="style-list-badge">${s.construction_type||''}</span>
+        </div>`;
+    });
+  });
+  body.innerHTML = html || '<div style="padding:14px;font-size:12px;color:var(--muted);">No styles found.</div>';
+}
+
+function previewStyle(code) {
+  hoveredStyle = allStyles.find(s => s.style_code === code);
+  const bg = colorMap[hoveredStyle.color]||'#8A8A8A';
+  document.getElementById('previewEmpty').style.display = 'none';
+  document.getElementById('previewContent').style.display = 'block';
+
+  // Show image if available, else color swatch
+  const img    = document.getElementById('previewImg');
+  const swatch = document.getElementById('previewSwatch');
+  if (hoveredStyle.image_url) {
+    img.src = hoveredStyle.image_url;
+    img.style.display = 'block';
+    swatch.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    swatch.style.display = 'block';
+    swatch.style.background = bg;
+  }
+
+  document.getElementById('previewName').textContent = hoveredStyle.style_name;
+  document.getElementById('previewMeta').textContent =
+    `${hoveredStyle.style_code} · ${hoveredStyle.construction_type||''} · ${hoveredStyle.brand}`;
+
+  const btn = document.getElementById('btnSelectStyle');
+  const isActive = activeStyle && activeStyle.style_code === code;
+  btn.textContent = isActive ? '✓ Selected' : 'Select This Style';
+  btn.className = 'btn-select-style' + (isActive ? ' confirmed' : '');
+}
+
+function confirmStyle() {
+  if (!hoveredStyle) return;
+  activeStyle = hoveredStyle;
+  currentCat = 'All';
+  renderStyleList();
+  document.getElementById('skuStyleTag').textContent = activeStyle.style_name;
+  document.getElementById('typeToggle').style.display = 'flex';
+  document.getElementById('skuSearchWrap').style.display = 'block';
+  document.getElementById('btnSelectStyle').textContent = '✓ Selected';
+  document.getElementById('btnSelectStyle').className = 'btn-select-style confirmed';
+  renderCatTabs();
+  renderSkuTable();
+}
+
+function setType(t) {
+  currentType = t;
+  document.getElementById('btnRTA').classList.toggle('active', t==='RTA');
+  document.getElementById('btnAssembled').classList.toggle('active', t==='Assembled');
+  renderSkuTable();
+}
+
+function renderCatTabs() {
+  const codes = allPricing.filter(p=>p.style_code===activeStyle.style_code).map(p=>p.sku_code);
+  const cats = ['All',...new Set(allSkus.filter(s=>codes.includes(s.sku_code)).map(s=>s.category))];
+  document.getElementById('catTabs').innerHTML = cats.map(c=>`
+    <button class="cat-tab ${c===currentCat?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
+}
+
+function setCat(c) {
+  currentCat = c;
+  document.querySelectorAll('.cat-tab').forEach(b=>b.classList.toggle('active',b.textContent===c));
+  renderSkuTable();
+}
+
+function renderSkuTable() {
+  if (!activeStyle) return;
+  const m = dealer ? parseFloat(dealer.multiplier) : 1;
+  const q = (document.getElementById('skuSearch')?.value||'').toLowerCase();
+  const pf = allPricing.filter(p=>p.style_code===activeStyle.style_code);
+  let skus = allSkus.filter(s=>pf.find(p=>p.sku_code===s.sku_code));
+  if (currentCat!=='All') skus=skus.filter(s=>s.category===currentCat);
+  if (q) skus=skus.filter(s=>s.sku_code.toLowerCase().includes(q)||s.description.toLowerCase().includes(q));
+
+  const wrap = document.getElementById('skuTableWrap');
+  if (!skus.length) { wrap.innerHTML='<div class="sku-placeholder">No items found.</div>'; return; }
+
+  wrap.innerHTML = `
+    <table class="sku-table">
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Description</th>
+          <th>Unit Price</th>
+          <th class="th-right">Qty &amp; Add</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${skus.map(sku=>{
+          const pr = pf.find(p=>p.sku_code===sku.sku_code);
+          const base = parseFloat(pr.rta_price);
+          const fee  = parseFloat(sku.assemble_fee||0);
+          const unit = currentType==='RTA' ? base : base+fee;
+          const price = (unit*m).toFixed(2);
+          return `
+            <tr>
+              <td class="td-code">${sku.sku_code}</td>
+              <td class="td-desc">${sku.description}</td>
+              <td class="td-price">$${price}</td>
+              <td>
+                <div class="td-actions">
+                  <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)">−</button>
+                  <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"/>
+                  <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)">+</button>
+                  <button class="btn-add" onclick="addToCart('${sku.sku_code}',${price})">Add</button>
+                </div>
+              </td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+function chgQty(code, d) {
+  const el = document.getElementById('qty-'+code);
+  if (el) el.value = Math.max(0, parseInt(el.value||0)+d);
+}
+
+function addToCart(skuCode, unitPrice) {
+  const el  = document.getElementById('qty-'+skuCode);
+  const qty = parseInt(el?.value||0);
+  if (qty<=0) return;
+  const sku = allSkus.find(s=>s.sku_code===skuCode);
+  const key = `${activeStyle.style_code}-${skuCode}-${currentType}`;
+  const idx = cartItems.findIndex(i=>i.key===key);
+  if (idx>=0) { cartItems[idx].quantity+=qty; }
+  else {
+    cartItems.push({ key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
+      sku_code:skuCode, sku_desc:sku.description, type:currentType,
+      quantity:qty, unit_price:parseFloat(unitPrice) });
+  }
+  if (el) el.value=0;
+  renderCart();
+}
+
+function removeFromCart(key) {
+  cartItems=cartItems.filter(i=>i.key!==key);
+  renderCart();
+}
+
+function renderCart() {
+  const total    = cartItems.reduce((s,i)=>s+i.unit_price*i.quantity,0);
+  const totalQty = cartItems.reduce((s,i)=>s+i.quantity,0);
+  document.getElementById('cartCount').textContent  = cartItems.length;
+  document.getElementById('bottomCount').textContent = `${totalQty} item${totalQty!==1?'s':''}`;
+  document.getElementById('btnNext').disabled = cartItems.length===0;
+  if (!cartItems.length) {
+    document.getElementById('cartBody').innerHTML='<div class="cart-empty">No items yet.<br>Select a style to begin.</div>';
+    document.getElementById('cartFooter').style.display='none';
+    return;
+  }
+  document.getElementById('cartBody').innerHTML = cartItems.map(item=>`
+    <div class="cart-item">
+      <div class="cart-item-top">
+        <div>
+          <div class="cart-item-name">${item.style_name} · ${item.sku_code}</div>
+          <div class="cart-item-detail">${item.type} · Qty: ${item.quantity}</div>
+        </div>
+        <div class="cart-item-right">
+          <div class="cart-item-price">$${(item.unit_price*item.quantity).toFixed(2)}</div>
+          <button class="btn-remove" onclick="removeFromCart('${item.key}')">×</button>
+        </div>
+      </div>
+    </div>`).join('');
+  document.getElementById('cartTotal').textContent=`$${total.toFixed(2)}`;
+  document.getElementById('cartFooter').style.display='block';
+}
+
+function goNext() {
+  if (!cartItems.length) return;
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+  window.location.href='new-quote-step3.html';
+}
+
+init();
+</script>
+</body>
+</html>
