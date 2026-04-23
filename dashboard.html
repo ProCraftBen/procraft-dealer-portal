@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Dealer Portal — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:       #C9A84C;
+      --gold-light: #E2C97E;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --bg:         #F5F2EC;
+      --white:      #FFFFFF;
+
+      --status-pending:    #C9A84C;
+      --status-processing: #3B82F6;
+      --status-complete:   #16A34A;
+      --status-closed:     #6B7280;
+    }
+
+    html, body {
+      min-height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── Top Nav ── */
+    .navbar {
+      background: var(--green-dark);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-logo {
+      width: 32px; height: 32px;
+      background: rgba(201,168,76,0.15);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
+    .nav-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .nav-dealer {
+      font-size: 12px;
+      color: rgba(255,255,255,0.6);
+      display: none;
+    }
+    @media (min-width: 600px) { .nav-dealer { display: block; } }
+
+    .nav-logout {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 3px;
+      padding: 6px 12px;
+      background: transparent;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* ── Page Layout ── */
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    /* ── Page Header ── */
+    .page-header {
+      margin-bottom: 28px;
+    }
+    .page-header .greeting {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .page-header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--green-dark);
+    }
+
+    /* ── New Quote Button ── */
+    .btn-new-quote {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--green-dark);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 12px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-decoration: none;
+      min-height: 44px;
+    }
+    .btn-new-quote:hover { background: var(--green-mid); }
+    .btn-new-quote svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* ── Grid ── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    @media (min-width: 768px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    .panel-action {
+      font-size: 11px;
+      color: var(--gold);
+      text-decoration: none;
+      letter-spacing: 0.05em;
+      transition: opacity 0.2s;
+    }
+    .panel-action:hover { opacity: 0.7; }
+
+    /* ── Quote List ── */
+    .quote-list { padding: 0; }
+    .quote-item {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 12px;
+    }
+    .quote-item:last-child { border-bottom: none; }
+    .quote-item:hover { background: #FAFAF8; }
+
+    .quote-info { flex: 1; min-width: 0; }
+    .quote-number {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--green-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .quote-po {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .quote-right {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .quote-status {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .quote-status.pending    { color: var(--status-pending); }
+    .quote-status.processing { color: var(--status-processing); }
+    .quote-status.complete   { color: var(--status-complete); }
+    .quote-status.closed     { color: var(--status-closed); }
+
+    .quote-date {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty-state svg {
+      width: 32px; height: 32px;
+      fill: var(--border);
+      margin-bottom: 10px;
+    }
+
+    /* ── Loading ── */
+    .loading-rows {
+      padding: 20px;
+    }
+    .loading-row {
+      height: 16px;
+      background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+      border-radius: 3px;
+      margin-bottom: 12px;
+    }
+    .loading-row:nth-child(2) { width: 80%; }
+    .loading-row:nth-child(3) { width: 90%; }
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--green-dark);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Action buttons row ── */
+    .action-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg>
+    </div>
+    <span class="nav-title">ProCraft</span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-dealer" id="dealerName">—</span>
+    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<!-- Page -->
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="greeting">Welcome back</div>
+    <h1 id="companyName">Loading...</h1>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-num" id="statTotal">—</div>
+      <div class="stat-label">Total Quotes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="statPending">—</div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="statComplete">—</div>
+      <div class="stat-label">Complete</div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="action-row">
+    <a href="new-quote.html" class="btn-new-quote">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      New Quote
+    </a>
+  </div>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-grid">
+
+    <!-- Recent Quotes -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Recent Quotes</span>
+        <a href="quotes.html" class="panel-action">View All →</a>
+      </div>
+      <div class="quote-list" id="quoteList">
+        <div class="loading-rows">
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Orders placeholder -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Recent Orders</span>
+        <a href="orders.html" class="panel-action">View All →</a>
+      </div>
+      <div class="quote-list" id="orderList">
+        <div class="loading-rows">
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://acwgemgpnusworpxxoai.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const statusClass = {
+    'Pending':    'pending',
+    'Processing': 'processing',
+    'Complete':   'complete',
+    'Closed':     'closed'
+  };
+
+  function formatDate(str) {
+    const d = new Date(str);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  async function init() {
+    // Check auth
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+
+    const userId = session.user.id;
+
+    // Load dealer info
+    const { data: dealer } = await supabase
+      .from('dealers')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (dealer) {
+      document.getElementById('companyName').textContent = dealer.company_name;
+      document.getElementById('dealerName').textContent  = dealer.contact_name;
+    }
+
+    // Load quotes
+    const { data: quotes } = await supabase
+      .from('quotes')
+      .select('*')
+      .eq('dealer_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(8);
+
+    // Stats
+    const all      = quotes || [];
+    const pending  = all.filter(q => q.status === 'Pending').length;
+    const complete = all.filter(q => q.status === 'Complete').length;
+    document.getElementById('statTotal').textContent    = all.length;
+    document.getElementById('statPending').textContent  = pending;
+    document.getElementById('statComplete').textContent = complete;
+
+    // Render quotes
+    const quoteList = document.getElementById('quoteList');
+    if (!all.length) {
+      quoteList.innerHTML = `
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
+          No quotes yet. Create your first quote!
+        </div>`;
+    } else {
+      quoteList.innerHTML = all.map(q => `
+        <div class="quote-item" onclick="window.location.href='quote-detail.html?id=${q.id}'">
+          <div class="quote-info">
+            <div class="quote-number">${q.quote_number || 'Draft'}</div>
+            <div class="quote-po">PO#: ${q.po_number || '—'} · ${q.job_name || '—'}</div>
+          </div>
+          <div class="quote-right">
+            <div class="quote-status ${statusClass[q.status] || 'pending'}">${q.status}</div>
+            <div class="quote-date">${formatDate(q.created_at)}</div>
+          </div>
+        </div>`).join('');
+    }
+
+    // Orders placeholder
+    document.getElementById('orderList').innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+        No orders yet.
+      </div>`;
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    window.location.href = 'login.html';
+  }
+
+  init();
+</script>
+</body>
+</html>

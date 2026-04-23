@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Dealer Portal — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:        #C9A84C;
+      --green-dark:  #0E1F16;
+      --green-mid:   #1A3626;
+      --cream:       #F5F2EC;
+      --text:        #2C3A32;
+      --muted:       #7A8C82;
+      --border:      #DDD8CC;
+      --error:       #C0392B;
+    }
+    html, body {
+      min-height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: #F5F2EC;
+      color: var(--text);
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      background:
+        radial-gradient(ellipse 70% 60% at 85% 10%, rgba(201,168,76,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 10% 90%, rgba(14,31,22,0.05) 0%, transparent 55%),
+        #F5F2EC;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 48px 40px;
+      box-shadow: 0 4px 32px rgba(44,58,50,0.08);
+      animation: fadeUp 0.7s ease forwards;
+    }
+    .card-logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+    .logo-mark {
+      width: 52px; height: 52px;
+      background: var(--green-dark);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px;
+    }
+    .logo-mark svg { width: 22px; height: 22px; fill: var(--gold); }
+    .logo-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    .logo-sub {
+      font-size: 9px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .section-divider { height: 1px; background: var(--border); margin-bottom: 32px; }
+    .card-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px;
+      font-weight: 400;
+      color: var(--green-dark);
+      margin-bottom: 4px;
+    }
+    .card-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 28px; }
+    .error-msg {
+      background: rgba(192,57,43,0.07);
+      border: 1px solid rgba(192,57,43,0.25);
+      border-radius: 3px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--error);
+      margin-bottom: 18px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+    .field input {
+      width: 100%;
+      background: #FAFAFA;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 13px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .field input::placeholder { color: #C4C0B8; }
+    .field input:focus { border-color: var(--green-mid); background: #fff; }
+    .forgot {
+      display: block;
+      text-align: right;
+      font-size: 11px;
+      color: var(--gold);
+      text-decoration: none;
+      margin-top: -10px;
+      margin-bottom: 24px;
+    }
+    .btn-login {
+      width: 100%;
+      background: var(--green-dark);
+      border: none;
+      border-radius: 3px;
+      padding: 15px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-height: 48px;
+    }
+    .btn-login:hover { background: var(--green-mid); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+    .divider-or {
+      display: flex; align-items: center; gap: 12px;
+      margin: 20px 0;
+    }
+    .divider-or::before, .divider-or::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .divider-or span { font-size: 10px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; }
+    .btn-apply {
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 13px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      min-height: 48px;
+    }
+    .btn-apply:hover { border-color: var(--gold); color: var(--gold); }
+    .card-footer {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: #B8B4AC;
+      text-align: center;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 480px) { .card { padding: 36px 24px; } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg>
+      </div>
+      <div class="logo-name">ProCraft</div>
+      <div class="logo-sub">Dealer Portal · DC</div>
+    </div>
+    <div class="section-divider"></div>
+    <div class="card-title">Sign In</div>
+    <div class="card-subtitle">Enter your credentials to access your account</div>
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="field">
+      <label>Email Address</label>
+      <input type="email" id="email" placeholder="you@company.com" autocomplete="email"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <a href="#" class="forgot">Forgot password?</a>
+    <button class="btn-login" id="loginBtn">Sign In</button>
+    <div class="divider-or"><span>or</span></div>
+    <button class="btn-apply">Apply to Become a Dealer</button>
+    <div class="card-footer">© 2025 ProCraft Cabinetry DC · All rights reserved</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const { createClient } = supabase;
+    const _supabase = createClient(
+      'https://acwgemgpnusworpxxoai.supabase.co',
+      'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+    );
+
+    const loginBtn = document.getElementById('loginBtn');
+    const errMsg   = document.getElementById('errorMsg');
+
+    // Enter key support
+    document.getElementById('email').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('password').focus();
+    });
+    document.getElementById('password').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doLogin();
+    });
+    loginBtn.addEventListener('click', doLogin);
+
+    async function doLogin() {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        errMsg.textContent = 'Please enter your email and password.';
+        errMsg.classList.add('show');
+        return;
+      }
+
+      loginBtn.disabled    = true;
+      loginBtn.textContent = 'Signing in...';
+      errMsg.classList.remove('show');
+
+      const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        loginBtn.disabled    = false;
+        loginBtn.textContent = 'Sign In';
+        errMsg.textContent   = 'Invalid email or password. Please try again.';
+        errMsg.classList.add('show');
+        return;
+      }
+
+      window.location.href = 'dashboard.html';
+    }
+
+    // Already logged in?
+    _supabase.auth.getSession().then(function(result) {
+      if (result.data.session) window.location.href = 'dashboard.html';
+    });
+  </script>
+</body>
+</html>

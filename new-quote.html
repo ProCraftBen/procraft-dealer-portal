@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Dealer Portal — New Quote</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+    }
+    html, body {
+      min-height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: var(--green-dark);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo {
+      width: 32px; height: 32px;
+      background: rgba(201,168,76,0.15);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
+    .nav-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17px; font-weight: 500;
+      letter-spacing: 0.12em; text-transform: uppercase; color: #fff;
+    }
+    .nav-back {
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(255,255,255,0.5); cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 3px; padding: 6px 12px;
+      background: transparent; transition: color 0.2s, border-color 0.2s;
+      text-decoration: none;
+    }
+    .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* ── Progress Steps ── */
+    .progress-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+    .progress-steps {
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+    }
+    .step {
+      display: flex; align-items: center; gap: 8px;
+      flex: 1;
+    }
+    .step:not(:last-child)::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      margin: 0 8px;
+    }
+    .step-circle {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 500;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .step.active .step-circle {
+      background: var(--green-dark);
+      border-color: var(--green-dark);
+      color: #fff;
+    }
+    .step.done .step-circle {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #fff;
+    }
+    .step-label {
+      font-size: 10px; letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .step.active .step-label { color: var(--green-dark); font-weight: 500; }
+    @media (max-width: 500px) { .step-label { display: none; } }
+
+    /* ── Page ── */
+    .page {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+    .page-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px; font-weight: 400;
+      color: var(--green-dark);
+      margin-bottom: 24px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 28px 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--green-dark);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Fields ── */
+    .field { margin-bottom: 18px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 7px;
+    }
+    .field label .req { color: var(--gold); margin-left: 2px; }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      background: #FAFAFA;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 12px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .field input::placeholder,
+    .field textarea::placeholder { color: #C4C0B8; }
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: var(--green-mid);
+      background: #fff;
+    }
+    .field textarea { resize: vertical; min-height: 80px; }
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 480px) { .field-row { grid-template-columns: 1fr; } }
+
+    /* ── Address Cards ── */
+    .address-toggle {
+      display: flex; gap: 12px; margin-bottom: 16px;
+    }
+    .toggle-btn {
+      flex: 1;
+      padding: 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .toggle-btn.active {
+      border-color: var(--green-dark);
+      background: rgba(14,31,22,0.04);
+      color: var(--green-dark);
+      font-weight: 500;
+    }
+
+    .address-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .address-card {
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .address-card:hover { border-color: var(--green-mid); }
+    .address-card.selected {
+      border-color: var(--green-dark);
+      background: rgba(14,31,22,0.04);
+    }
+    .address-card .addr-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: var(--green-dark);
+    }
+    .address-card .addr-detail {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .btn-add-address {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--gold);
+      background: transparent; border: none;
+      cursor: pointer; padding: 0;
+      transition: opacity 0.2s;
+    }
+    .btn-add-address:hover { opacity: 0.7; }
+
+    /* ── New address form ── */
+    .new-address-form {
+      border: 1.5px dashed var(--border);
+      border-radius: 3px;
+      padding: 20px;
+      margin-top: 12px;
+      display: none;
+    }
+    .new-address-form.show { display: block; }
+    .new-address-form .form-title {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+    }
+
+    /* ── Billing info display ── */
+    .billing-display {
+      background: #FAFAFA;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+    }
+    .billing-display strong { color: var(--green-dark); }
+
+    /* ── Bottom bar ── */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      z-index: 50;
+    }
+    .btn-next {
+      background: var(--green-dark);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 13px 28px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-height: 48px;
+    }
+    .btn-next:hover { background: var(--green-mid); }
+    .btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg {
+      background: rgba(192,57,43,0.07);
+      border: 1px solid rgba(192,57,43,0.25);
+      border-radius: 3px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--error);
+      margin-bottom: 16px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg>
+    </div>
+    <span class="nav-title">ProCraft</span>
+  </div>
+  <a href="dashboard.html" class="nav-back">← Dashboard</a>
+</nav>
+
+<!-- Progress -->
+<div class="progress-bar">
+  <div class="progress-steps">
+    <div class="step active">
+      <div class="step-circle">1</div>
+      <span class="step-label">Order Info</span>
+    </div>
+    <div class="step">
+      <div class="step-circle">2</div>
+      <span class="step-label">Products</span>
+    </div>
+    <div class="step">
+      <div class="step-circle">3</div>
+      <span class="step-label">Review</span>
+    </div>
+  </div>
+</div>
+
+<!-- Page -->
+<div class="page">
+  <div class="page-title">New Quote</div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Order Info -->
+  <div class="card">
+    <div class="card-title">Order Information</div>
+    <div class="field-row">
+      <div class="field">
+        <label>PO Number <span class="req">*</span></label>
+        <input type="text" id="poNumber" placeholder="e.g. PO-2025-001"/>
+      </div>
+      <div class="field">
+        <label>Job Name <span class="req">*</span></label>
+        <input type="text" id="jobName" placeholder="e.g. Smith Kitchen Remodel"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes (Optional)</label>
+      <textarea id="notes" placeholder="Any special instructions or comments..."></textarea>
+    </div>
+  </div>
+
+  <!-- Billing Address -->
+  <div class="card">
+    <div class="card-title">Billing Address</div>
+    <div class="billing-display" id="billingDisplay">Loading...</div>
+  </div>
+
+  <!-- Shipping Address -->
+  <div class="card">
+    <div class="card-title">Shipping Address</div>
+
+    <div class="address-toggle">
+      <button class="toggle-btn active" id="btnSameBilling" onclick="setShippingMode('same')">
+        Same as Billing
+      </button>
+      <button class="toggle-btn" id="btnDiffShipping" onclick="setShippingMode('different')">
+        Different Address
+      </button>
+    </div>
+
+    <!-- Saved addresses -->
+    <div id="savedAddressSection" style="display:none;">
+      <div class="address-grid" id="addressGrid">
+        <!-- populated by JS -->
+      </div>
+      <button class="btn-add-address" onclick="toggleNewAddressForm()">
+        + Add New Address
+      </button>
+
+      <!-- New address form -->
+      <div class="new-address-form" id="newAddressForm">
+        <div class="form-title">New Shipping Address</div>
+        <div class="field">
+          <label>Recipient Name</label>
+          <input type="text" id="newRecipient" placeholder="Full name"/>
+        </div>
+        <div class="field">
+          <label>Address</label>
+          <input type="text" id="newAddress" placeholder="Street address"/>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>City</label>
+            <input type="text" id="newCity" placeholder="City"/>
+          </div>
+          <div class="field">
+            <label>State</label>
+            <input type="text" id="newState" placeholder="e.g. MD" maxlength="2"/>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>ZIP Code</label>
+            <input type="text" id="newZip" placeholder="00000"/>
+          </div>
+          <div class="field">
+            <label>Phone</label>
+            <input type="tel" id="newPhone" placeholder="000-000-0000"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Bottom Bar -->
+<div class="bottom-bar">
+  <button class="btn-next" id="btnNext" onclick="goNext()">Next: Select Products →</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const { createClient } = supabase;
+  const _supabase = createClient(
+    'https://acwgemgpnusworpxxoai.supabase.co',
+    'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+  );
+
+  let dealer = null;
+  let savedAddresses = [];
+  let selectedAddressId = null;
+  let shippingMode = 'same';
+
+  async function init() {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+
+    const userId = session.user.id;
+
+    // Load dealer
+    const { data: d } = await _supabase
+      .from('dealers')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    dealer = d;
+    if (dealer) {
+      document.getElementById('billingDisplay').innerHTML = `
+        <strong>${dealer.company_name}</strong><br>
+        ${dealer.contact_name}<br>
+        ${dealer.city}, ${dealer.state}<br>
+        ${dealer.phone || ''}
+      `;
+    }
+
+    // Load saved addresses
+    const { data: addrs } = await _supabase
+      .from('addresses')
+      .select('*')
+      .eq('dealer_id', userId);
+
+    savedAddresses = addrs || [];
+    renderAddresses();
+  }
+
+  function renderAddresses() {
+    const grid = document.getElementById('addressGrid');
+    if (!savedAddresses.length) {
+      grid.innerHTML = '<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">No saved addresses yet.</p>';
+      return;
+    }
+    grid.innerHTML = savedAddresses.map(a => `
+      <div class="address-card ${selectedAddressId === a.id ? 'selected' : ''}"
+           onclick="selectAddress('${a.id}')">
+        <div class="addr-name">${a.recipient_name || dealer.contact_name}</div>
+        <div class="addr-detail">
+          ${a.address_line}<br>
+          ${a.city}, ${a.state} ${a.zip_code}<br>
+          ${a.phone || ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function selectAddress(id) {
+    selectedAddressId = id;
+    renderAddresses();
+    document.getElementById('newAddressForm').classList.remove('show');
+  }
+
+  function setShippingMode(mode) {
+    shippingMode = mode;
+    document.getElementById('btnSameBilling').classList.toggle('active', mode === 'same');
+    document.getElementById('btnDiffShipping').classList.toggle('active', mode === 'different');
+    document.getElementById('savedAddressSection').style.display = mode === 'different' ? 'block' : 'none';
+  }
+
+  function toggleNewAddressForm() {
+    const form = document.getElementById('newAddressForm');
+    form.classList.toggle('show');
+    selectedAddressId = null;
+    renderAddresses();
+  }
+
+  async function goNext() {
+    const errMsg   = document.getElementById('errorMsg');
+    const poNumber = document.getElementById('poNumber').value.trim();
+    const jobName  = document.getElementById('jobName').value.trim();
+    const notes    = document.getElementById('notes').value.trim();
+
+    // Validate
+    if (!poNumber || !jobName) {
+      errMsg.textContent = 'Please fill in PO Number and Job Name.';
+      errMsg.classList.add('show');
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    errMsg.classList.remove('show');
+
+    let shippingAddressId = null;
+
+    // Handle new address
+    if (shippingMode === 'different') {
+      const newAddrForm = document.getElementById('newAddressForm');
+      if (newAddrForm.classList.contains('show')) {
+        // Save new address first
+        const { data: newAddr, error } = await _supabase
+          .from('addresses')
+          .insert({
+            dealer_id:      dealer.id,
+            recipient_name: document.getElementById('newRecipient').value.trim(),
+            address_line:   document.getElementById('newAddress').value.trim(),
+            city:           document.getElementById('newCity').value.trim(),
+            state:          document.getElementById('newState').value.trim(),
+            zip_code:       document.getElementById('newZip').value.trim(),
+            phone:          document.getElementById('newPhone').value.trim(),
+          })
+          .select()
+          .single();
+
+        if (error) {
+          errMsg.textContent = 'Error saving address. Please try again.';
+          errMsg.classList.add('show');
+          return;
+        }
+        shippingAddressId = newAddr.id;
+      } else {
+        shippingAddressId = selectedAddressId;
+      }
+    }
+
+    // Save to sessionStorage and go to step 2
+    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId };
+    sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
+    window.location.href = 'new-quote-step2.html';
+  }
+
+  init();
+</script>
+</body>
+</html>
