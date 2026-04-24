@@ -429,7 +429,7 @@
     }
 
     // Load quotes
-    const { data: quotes } = await supabase
+    const { data: quotes } = await _supabase
       .from('quotes')
       .select('*')
       .eq('dealer_id', userId)
