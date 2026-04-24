@@ -394,7 +394,8 @@
 <script>
   const SUPABASE_URL = 'https://acwgemgpnusworpxxoai.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const { createClient } = window.supabase;
+  const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   const statusClass = {
     'Pending':    'pending',
@@ -410,7 +411,7 @@
 
   async function init() {
     // Check auth
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await _supabase.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
 
     const userId = session.user.id;
@@ -474,7 +475,7 @@
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await _supabase.auth.signOut();
     window.location.href = 'login.html';
   }
 
