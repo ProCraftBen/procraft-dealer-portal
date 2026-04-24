@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Dealers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    /* Navbar */
+    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
+    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+    .nav-badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; background: var(--gold); color: var(--green-dark); padding: 2px 7px; border-radius: 2px; font-weight: 500; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: #fff; }
+    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
+    .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* Page */
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+
+    .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 44px; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-primary svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* Table */
+    .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
+    .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .table-count { font-size: 11px; color: var(--muted); }
+    .overflow-x { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
+
+    .td-company { font-weight: 500; color: var(--green-dark); font-size: 13px; }
+    .td-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .badge-active { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.05em; background: rgba(22,163,74,0.1); color: #16A34A; }
+    .badge-inactive { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.05em; background: rgba(107,114,128,0.1); color: #6B7280; }
+
+    .btn-edit { font-size: 11px; color: var(--gold); background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; margin-right: 6px; }
+    .btn-edit:hover { opacity: 0.7; }
+    .btn-toggle { font-size: 11px; background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; color: var(--muted); }
+    .btn-toggle:hover { opacity: 0.7; }
+
+    /* Empty */
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+    .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin-bottom: 12px; }
+
+    /* Loading */
+    .loading-rows { padding: 20px; }
+    .loading-row { height: 16px; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 3px; margin-bottom: 14px; }
+    .loading-row:nth-child(2) { width: 80%; }
+    .loading-row:nth-child(3) { width: 90%; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: var(--white); border-radius: 4px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--white); z-index: 1; }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); }
+    .modal-close { width: 32px; height: 32px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; }
+    .modal-close:hover { background: var(--cream); }
+    .modal-body { padding: 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* Form */
+    .form-section { margin-bottom: 24px; }
+    .form-section-title { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 480px) { .form-grid { grid-template-columns: 1fr; } }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .form-label .required { color: var(--error); margin-left: 2px; }
+    .form-input { height: 38px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); transition: border-color 0.2s; }
+    .form-input:focus { outline: none; border-color: var(--gold); }
+    .form-input:disabled { background: var(--cream); color: var(--muted); }
+    .form-hint { font-size: 10px; color: var(--muted); }
+
+    .checkbox-row { display: flex; align-items: center; gap: 8px; height: 38px; }
+    .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green-dark); cursor: pointer; }
+    .checkbox-row label { font-size: 13px; color: var(--text); cursor: pointer; }
+
+    .btn-cancel { height: 40px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; cursor: pointer; transition: color 0.2s; }
+    .btn-cancel:hover { color: var(--text); }
+    .btn-save { height: 40px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 0 24px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
+    .btn-save:hover { background: var(--green-mid); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 10px 14px; font-size: 12px; color: var(--error); margin-bottom: 16px; display: none; }
+    .error-msg.show { display: block; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; }
+    .toast.show { display: block; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
+    <span class="nav-title">ProCraft</span>
+    <span class="nav-badge">Admin</span>
+  </div>
+  <div class="nav-right">
+    <a href="admin.html" class="nav-link">Dashboard</a>
+    <a href="admin-quotes.html" class="nav-link">Quotes</a>
+    <a href="admin-dealers.html" class="nav-link active">Dealers</a>
+    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">Dealers</div>
+    <button class="btn-primary" onclick="openNewDealer()">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Add Dealer
+    </button>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="table-title">All Dealers</span>
+      <span class="table-count" id="tableCount"></span>
+    </div>
+    <div class="overflow-x">
+      <table>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Location</th>
+            <th>Email</th>
+            <th>Multiplier</th>
+            <th>Tax Rate</th>
+            <th>Shipping</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="dealersBody">
+          <tr><td colspan="8"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add Dealer</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="error-msg" id="formError"></div>
+
+      <!-- Account Info -->
+      <div class="form-section">
+        <div class="form-section-title">Account Information</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Company Name <span class="required">*</span></label>
+            <input class="form-input" id="f_company_name" type="text" placeholder="ABC Cabinetry"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contact Name <span class="required">*</span></label>
+            <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email <span class="required">*</span></label>
+            <input class="form-input" id="f_email" type="email" placeholder="john@abccabinetry.com"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone <span class="required">*</span></label>
+            <input class="form-input" id="f_phone" type="tel" placeholder="(202) 555-0100"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div class="form-section">
+        <div class="form-section-title">Address</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">City <span class="required">*</span></label>
+            <input class="form-input" id="f_city" type="text" placeholder="Washington"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">State <span class="required">*</span></label>
+            <input class="form-input" id="f_state" type="text" placeholder="DC"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Zip Code <span class="required">*</span></label>
+            <input class="form-input" id="f_zip_code" type="text" placeholder="20001"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div class="form-section">
+        <div class="form-section-title">Pricing Settings</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Multiplier <span class="required">*</span></label>
+            <input class="form-input" id="f_multiplier" type="number" step="0.01" min="1" placeholder="1.30"/>
+            <span class="form-hint">e.g. 1.30 = 30% markup</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tax Rate (%) <span class="required">*</span></label>
+            <input class="form-input" id="f_tax_rate" type="number" step="0.1" min="0" max="20" placeholder="6"/>
+            <span class="form-hint">e.g. 6 = 6% tax</span>
+          </div>
+          <div class="form-group">
+            <div class="checkbox-row">
+              <input type="checkbox" id="f_tax_exempt" onchange="toggleTaxExempt()"/>
+              <label for="f_tax_exempt">Tax Exempt</label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shipping Fee ($) <span class="required">*</span></label>
+            <input class="form-input" id="f_shipping_fee" type="number" step="1" min="0" placeholder="150"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Free Shipping Threshold ($) <span class="required">*</span></label>
+            <input class="form-input" id="f_free_shipping_threshold" type="number" step="100" min="0" placeholder="2000"/>
+            <span class="form-hint">Orders above this amount get free shipping</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="btnSave" onclick="saveDealer()">Add Dealer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const { createClient } = window.supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+let editingDealerId = null;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function toggleTaxExempt() {
+  const exempt = document.getElementById('f_tax_exempt').checked;
+  const taxInput = document.getElementById('f_tax_rate');
+  taxInput.disabled = exempt;
+  if (exempt) taxInput.value = '0';
+}
+
+async function init() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  if (me?.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
+  await loadDealers();
+}
+
+async function loadDealers() {
+  const { data: dealers } = await _supabase
+    .from('dealers')
+    .select('*')
+    .order('company_name');
+
+  const tbody = document.getElementById('dealersBody');
+  document.getElementById('tableCount').textContent = `${dealers?.length || 0} dealer${dealers?.length !== 1 ? 's' : ''}`;
+
+  if (!dealers?.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = dealers.map(d => `
+    <tr>
+      <td>
+        <div class="td-company">${d.company_name}</div>
+        <div class="td-sub">${d.contact_name}</div>
+      </td>
+      <td>${d.city}, ${d.state} ${d.zip_code || ''}</td>
+      <td>${d.email || '—'}</td>
+      <td>${d.multiplier ? `${d.multiplier}x` : '—'}</td>
+      <td>${d.tax_exempt ? '<span style="color:#16A34A;font-size:11px;">Exempt</span>' : `${((d.tax_rate || 0) * 100).toFixed(1)}%`}</td>
+      <td>$${d.shipping_fee || 0} <span style="font-size:10px;color:var(--muted);">(free ≥$${d.free_shipping_threshold || 0})</span></td>
+      <td>${d.is_active ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-edit" onclick="openEditDealer('${d.id}')">Edit</button>
+        <button class="btn-toggle" onclick="toggleActive('${d.id}', ${d.is_active})">${d.is_active ? 'Deactivate' : 'Activate'}</button>
+      </td>
+    </tr>`).join('');
+}
+
+function openNewDealer() {
+  editingDealerId = null;
+  document.getElementById('modalTitle').textContent = 'Add Dealer';
+  document.getElementById('btnSave').textContent = 'Add Dealer';
+  clearForm();
+  // Email field editable for new dealer
+  document.getElementById('f_email').disabled = false;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+async function openEditDealer(dealerId) {
+  editingDealerId = dealerId;
+  document.getElementById('modalTitle').textContent = 'Edit Dealer';
+  document.getElementById('btnSave').textContent = 'Save Changes';
+
+  const { data: d } = await _supabase.from('dealers').select('*').eq('id', dealerId).single();
+  if (!d) return;
+
+  document.getElementById('f_company_name').value = d.company_name || '';
+  document.getElementById('f_contact_name').value  = d.contact_name || '';
+  document.getElementById('f_email').value         = d.email || '';
+  document.getElementById('f_email').disabled      = true; // can't change email
+  document.getElementById('f_phone').value         = d.phone || '';
+  document.getElementById('f_city').value          = d.city || '';
+  document.getElementById('f_state').value         = d.state || '';
+  document.getElementById('f_zip_code').value      = d.zip_code || '';
+  document.getElementById('f_multiplier').value    = d.multiplier || '';
+  document.getElementById('f_tax_exempt').checked  = d.tax_exempt || false;
+  document.getElementById('f_tax_rate').value      = d.tax_exempt ? '0' : ((d.tax_rate || 0) * 100).toFixed(1);
+  document.getElementById('f_tax_rate').disabled   = d.tax_exempt || false;
+  document.getElementById('f_shipping_fee').value             = d.shipping_fee || '';
+  document.getElementById('f_free_shipping_threshold').value  = d.free_shipping_threshold || '';
+
+  document.getElementById('formError').classList.remove('show');
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+  editingDealerId = null;
+}
+
+function clearForm() {
+  ['f_company_name','f_contact_name','f_email','f_phone','f_city','f_state','f_zip_code','f_multiplier','f_tax_rate','f_shipping_fee','f_free_shipping_threshold'].forEach(id => {
+    document.getElementById(id).value = '';
+    document.getElementById(id).disabled = false;
+  });
+  document.getElementById('f_tax_exempt').checked = false;
+  document.getElementById('formError').classList.remove('show');
+}
+
+async function saveDealer() {
+  const btn = document.getElementById('btnSave');
+  const errEl = document.getElementById('formError');
+  errEl.classList.remove('show');
+
+  const fields = {
+    company_name:             document.getElementById('f_company_name').value.trim(),
+    contact_name:             document.getElementById('f_contact_name').value.trim(),
+    email:                    document.getElementById('f_email').value.trim(),
+    phone:                    document.getElementById('f_phone').value.trim(),
+    city:                     document.getElementById('f_city').value.trim(),
+    state:                    document.getElementById('f_state').value.trim(),
+    zip_code:                 document.getElementById('f_zip_code').value.trim(),
+    multiplier:               document.getElementById('f_multiplier').value,
+    tax_rate:                 document.getElementById('f_tax_rate').value,
+    tax_exempt:               document.getElementById('f_tax_exempt').checked,
+    shipping_fee:             document.getElementById('f_shipping_fee').value,
+    free_shipping_threshold:  document.getElementById('f_free_shipping_threshold').value,
+  };
+
+  // Validate
+  for (const [key, val] of Object.entries(fields)) {
+    if (key === 'tax_rate' && fields.tax_exempt) continue;
+    if (!val && val !== false) {
+      errEl.textContent = 'Please fill in all required fields.';
+      errEl.classList.add('show');
+      return;
+    }
+  }
+
+  btn.disabled = true;
+  btn.textContent = editingDealerId ? 'Saving...' : 'Creating...';
+
+  try {
+    if (editingDealerId) {
+      // Edit existing dealer
+      const { error } = await _supabase.from('dealers').update({
+        company_name:            fields.company_name,
+        contact_name:            fields.contact_name,
+        phone:                   fields.phone,
+        city:                    fields.city,
+        state:                   fields.state,
+        zip_code:                fields.zip_code,
+        multiplier:              parseFloat(fields.multiplier),
+        tax_rate:                fields.tax_exempt ? 0 : parseFloat(fields.tax_rate) / 100,
+        tax_exempt:              fields.tax_exempt,
+        shipping_fee:            parseFloat(fields.shipping_fee),
+        free_shipping_threshold: parseFloat(fields.free_shipping_threshold),
+      }).eq('id', editingDealerId);
+
+      if (error) throw error;
+      showToast('Dealer updated successfully.');
+
+    } else {
+      // New dealer — call Edge Function
+      const { data: { session } } = await _supabase.auth.getSession();
+      const res = await fetch(
+        'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/create-dealer',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(fields),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to create dealer.');
+      showToast('Dealer created. Welcome email sent.');
+    }
+
+    closeModal();
+    await loadDealers();
+
+  } catch (err) {
+    errEl.textContent = err.message || 'Something went wrong.';
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = editingDealerId ? 'Save Changes' : 'Add Dealer';
+  }
+}
+
+async function toggleActive(dealerId, currentStatus) {
+  const newStatus = !currentStatus;
+  const { error } = await _supabase.from('dealers').update({ is_active: newStatus }).eq('id', dealerId);
+  if (error) { showToast('Failed to update status.'); return; }
+  showToast(newStatus ? 'Dealer activated.' : 'Dealer deactivated.');
+  await loadDealers();
+}
+
+async function handleLogout() {
+  await _supabase.auth.signOut();
+  window.location.href = 'login.html';
+}
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+init();
+</script>
+</body>
+</html>
