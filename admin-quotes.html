@@ -345,13 +345,14 @@ function renderTable() {
         <td><div>${q.po_number || '—'}</div><div style="font-size:11px;color:var(--muted)">${q.job_name || '—'}</div></td>
         <td class="td-date">${formatDate(q.created_at)}</td>
         <td class="td-amount">${fmt(q.grand_total)}</td>
-        <td onclick="event.stopPropagation()">
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">
           <select class="status-select ${sc}" id="status-${q.id}" onchange="updateStatus('${q.id}', this)">
             <option value="Pending"    ${q.status==='Pending'    ?'selected':''}>Pending</option>
             <option value="Processing" ${q.status==='Processing' ?'selected':''}>Processing</option>
             <option value="Complete"   ${q.status==='Complete'   ?'selected':''}>Complete</option>
             <option value="Closed"     ${q.status==='Closed'     ?'selected':''}>Closed</option>
           </select>
+          <button id="save-${q.id}" onclick="saveStatus('${q.id}')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>
         </td>
         <td></td>
       </tr>
@@ -402,21 +403,28 @@ function toggleDetail(idx) {
   }
 }
 
-async function updateStatus(quoteId, selectEl) {
+function updateStatus(quoteId, selectEl) {
+  // 顯示 Save 按鈕
+  const saveBtn = document.getElementById(`save-${quoteId}`);
+  if (saveBtn) saveBtn.style.display = 'inline-block';
+}
+
+async function saveStatus(quoteId) {
+  const selectEl = document.getElementById(`status-${quoteId}`);
+  const saveBtn  = document.getElementById(`save-${quoteId}`);
   const newStatus = selectEl.value;
+
   const { error } = await _supabase.from('quotes').update({ status: newStatus }).eq('id', quoteId);
-  if (error) {
-    showToast('Failed to update status.');
-    return;
-  }
-  // Update style
+  if (error) { showToast('Failed to update status.'); return; }
+
   selectEl.className = `status-select ${statusClass[newStatus] || 'pending'}`;
-  // Update local data
+  saveBtn.style.display = 'none';
   const q = allQuotes.find(q => q.id === quoteId);
   if (q) q.status = newStatus;
   renderStats();
   showToast(`Status updated to ${newStatus}`);
 }
+  
 
 function applyFilters() { loadQuotes(); }
 
