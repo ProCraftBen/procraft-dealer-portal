@@ -402,11 +402,7 @@ async function submitQuote() {
   try {
     const { data:{ session } } = await _supabase.auth.getSession();
 
-    // Generate quote number
-    const { count } = await _supabase.from('quotes').select('*', { count: 'exact', head: true });
-    const quoteNum = `PCDQ${String((count || 0) + 1).padStart(6, '0')}`;
-
-    // Calculate totals
+    // 計算金額
     const subtotal  = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
     const taxRate   = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const shipFee   = parseFloat(dealer?.shipping_fee || 0);
@@ -416,7 +412,13 @@ async function submitQuote() {
     const tax       = subtotal * taxRate;
     const grand     = subtotal + shipping + tax;
 
-    // Insert quote
+    // 用 DB function 產生安全的 quote number（見下方說明）
+    const { data: numData, error: numError } = await _supabase
+      .rpc('generate_quote_number');
+    if (numError) throw numError;
+    const quoteNum = numData;
+
+    // 寫入 quotes
     const { data: quote, error: quoteError } = await _supabase
       .from('quotes')
       .insert({
@@ -427,13 +429,17 @@ async function submitQuote() {
         shipping_address_id: step1Data.shippingAddressId || null,
         status:              'Pending',
         notes:               step1Data.notes || null,
+        subtotal:            parseFloat(subtotal.toFixed(2)),
+        shipping_cost:       parseFloat(shipping.toFixed(2)),
+        tax_amount:          parseFloat(tax.toFixed(2)),
+        grand_total:         parseFloat(grand.toFixed(2)),
       })
       .select()
       .single();
 
     if (quoteError) throw quoteError;
 
-    // Insert quote items
+    // 寫入 quote_items
     const items = step2Data.map(item => ({
       quote_id:   quote.id,
       style_code: item.style_code,
@@ -446,11 +452,11 @@ async function submitQuote() {
     const { error: itemsError } = await _supabase.from('quote_items').insert(items);
     if (itemsError) throw itemsError;
 
-    // Clear sessionStorage
+    // 清除 sessionStorage
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
 
-    // Show success
+    // 顯示成功
     document.getElementById('successQuoteNum').textContent = quoteNum;
     document.getElementById('successOverlay').classList.add('show');
 
@@ -458,7 +464,7 @@ async function submitQuote() {
     console.error(err);
     btn.classList.remove('loading');
     btn.disabled = false;
-    errMsg.textContent = 'Something went wrong. Please try again.';
+    errMsg.textContent = err.message || 'Something went wrong. Please try again.';
     errMsg.classList.add('show');
     window.scrollTo(0,0);
   }
