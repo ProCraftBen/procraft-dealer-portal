@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Dealer Portal — Review Quote</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    /* ── Navbar ── */
+    .navbar { background: var(--green-dark); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 30px; height: 30px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 13px; height: 13px; fill: var(--gold); }
+    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+    .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 5px 10px; background: transparent; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
+    .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* ── Progress ── */
+    .progress-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; }
+    .progress-steps { display: flex; align-items: center; padding: 12px 0; }
+    .step { display: flex; align-items: center; gap: 7px; flex: 1; }
+    .step:not(:last-child)::after { content: ''; flex: 1; height: 1px; background: var(--border); margin: 0 6px; }
+    .step-circle { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--muted); flex-shrink: 0; }
+    .step.done .step-circle { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .step.active .step-circle { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
+    .step-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+    .step.active .step-label { color: var(--green-dark); font-weight: 500; }
+    @media (max-width: 500px) { .step-label { display: none; } }
+
+    /* ── Page ── */
+    .page { max-width: 780px; margin: 0 auto; padding: 28px 20px 100px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); margin-bottom: 24px; }
+
+    /* ── Card ── */
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .card-body { padding: 18px 20px; }
+
+    /* ── Info Grid ── */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-item {}
+    .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .info-value { font-size: 13px; color: var(--text); line-height: 1.5; }
+    .info-value.empty { color: var(--muted); font-style: italic; }
+
+    /* ── Items Table ── */
+    .items-table { width: 100%; border-collapse: collapse; }
+    .items-table thead th { padding: 9px 14px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; }
+    .items-table thead th.th-right { text-align: right; }
+    .items-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    .items-table tbody tr:last-child { border-bottom: none; }
+    .items-table td { padding: 10px 14px; font-size: 13px; vertical-align: middle; }
+    .td-style { font-weight: 500; color: var(--green-dark); }
+    .td-sku { color: var(--muted); font-size: 12px; }
+    .td-type { }
+    .td-type .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; letter-spacing: 0.05em; }
+    .td-type .type-badge.rta { background: rgba(14,31,22,0.07); color: var(--green-dark); }
+    .td-type .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
+    .td-right { text-align: right; }
+    .td-total { font-weight: 500; }
+
+    /* ── Totals ── */
+    .totals-section { padding: 0 20px 18px; }
+    .total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .total-row:last-child { border-bottom: none; }
+    .total-row.grand { padding-top: 12px; }
+    .total-label { color: var(--text); }
+    .total-value { font-weight: 500; color: var(--text); }
+    .total-row.grand .total-label { font-size: 14px; font-weight: 500; color: var(--green-dark); }
+    .total-row.grand .total-value { font-size: 16px; font-weight: 500; color: var(--green-dark); }
+    .total-note { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .free-shipping { color: var(--green-mid); font-size: 11px; }
+    .tax-exempt { color: var(--green-mid); font-size: 11px; }
+
+    /* ── Edit Button ── */
+    .btn-edit { font-size: 11px; color: var(--gold); background: none; border: none; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.2s; text-decoration: none; }
+    .btn-edit:hover { opacity: 0.7; }
+
+    /* ── Notes ── */
+    .notes-display { font-size: 13px; color: var(--text); line-height: 1.6; font-style: italic; }
+
+    /* ── Submit Section ── */
+    .submit-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 24px 20px; margin-bottom: 16px; text-align: center; }
+    .submit-note { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+    .btn-submit {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green-dark); color: #fff; border: none; border-radius: 3px;
+      padding: 15px 40px; font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.2s; min-height: 52px;
+    }
+    .btn-submit:hover { background: var(--green-mid); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-submit svg { width: 16px; height: 16px; fill: currentColor; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    .btn-submit.loading .btn-text { display: none; }
+    .btn-submit.loading .spinner { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 12px 16px; font-size: 12px; color: var(--error); margin-bottom: 16px; display: none; }
+    .error-msg.show { display: block; }
+
+    /* ── Success Overlay ── */
+    .success-overlay {
+      position: fixed; inset: 0; background: var(--cream);
+      z-index: 500; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 40px 20px; text-align: center;
+    }
+    .success-overlay.show { display: flex; }
+    .success-icon { width: 72px; height: 72px; background: var(--green-dark); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; }
+    .success-icon svg { width: 32px; height: 32px; fill: none; stroke: var(--gold); stroke-width: 2.5; stroke-linecap: round; }
+    .success-title { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 400; color: var(--green-dark); margin-bottom: 8px; }
+    .success-quote-num { font-size: 20px; color: var(--gold); font-weight: 500; margin-bottom: 16px; letter-spacing: 0.05em; }
+    .success-msg { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 400px; margin-bottom: 32px; }
+    .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
+    .btn-dashboard:hover { background: var(--green-mid); }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
+    <span class="nav-title">ProCraft</span>
+  </div>
+  <a href="new-quote-step2.html" class="nav-back">← Edit Items</a>
+</nav>
+
+<div class="progress-bar">
+  <div class="progress-steps">
+    <div class="step done"><div class="step-circle">✓</div><span class="step-label">Order Info</span></div>
+    <div class="step done"><div class="step-circle">✓</div><span class="step-label">Products</span></div>
+    <div class="step active"><div class="step-circle">3</div><span class="step-label">Review</span></div>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-title">Review Your Quote</div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Order Info -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Order Information</span>
+      <a href="new-quote.html" class="btn-edit">Edit ✎</a>
+    </div>
+    <div class="card-body">
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-label">PO Number</div>
+          <div class="info-value" id="reviewPO">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Job Name</div>
+          <div class="info-value" id="reviewJobName">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Dealer</div>
+          <div class="info-value" id="reviewDealer">—</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Contact</div>
+          <div class="info-value" id="reviewContact">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shipping Address -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Shipping Address</span>
+      <a href="new-quote.html" class="btn-edit">Edit ✎</a>
+    </div>
+    <div class="card-body">
+      <div class="info-value" id="reviewShipping">—</div>
+    </div>
+  </div>
+
+  <!-- Items -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Items</span>
+      <a href="new-quote-step2.html" class="btn-edit">Edit ✎</a>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Door Style</th>
+            <th>SKU</th>
+            <th>Type</th>
+            <th class="th-right">Qty</th>
+            <th class="th-right">Unit Price</th>
+            <th class="th-right">Total</th>
+          </tr>
+        </thead>
+        <tbody id="itemsTableBody"></tbody>
+      </table>
+    </div>
+    <!-- Totals -->
+    <div class="totals-section">
+      <div class="total-row">
+        <span class="total-label">Subtotal</span>
+        <span class="total-value" id="totalSubtotal">$0.00</span>
+      </div>
+      <div class="total-row" id="shippingRow">
+        <div>
+          <span class="total-label">Shipping</span>
+          <div class="total-note" id="shippingNote"></div>
+        </div>
+        <span class="total-value" id="totalShipping">$0.00</span>
+      </div>
+      <div class="total-row" id="taxRow">
+        <div>
+          <span class="total-label">Tax</span>
+          <div class="total-note" id="taxNote"></div>
+        </div>
+        <span class="total-value" id="totalTax">$0.00</span>
+      </div>
+      <div class="total-row grand">
+        <span class="total-label">Order Total</span>
+        <span class="total-value" id="totalGrand">$0.00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="card" id="notesCard" style="display:none;">
+    <div class="card-header"><span class="card-title">Notes</span></div>
+    <div class="card-body">
+      <div class="notes-display" id="reviewNotes"></div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-card">
+    <div class="submit-note">
+      Please review your quote carefully before submitting.<br>
+      Our team will contact you to confirm pricing and availability.
+    </div>
+    <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
+      <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      <span class="btn-text">Submit Quote</span>
+      <div class="spinner"></div>
+    </button>
+  </div>
+
+</div>
+
+<!-- Success Overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-icon">
+    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <div class="success-title">Quote Submitted!</div>
+  <div class="success-quote-num" id="successQuoteNum"></div>
+  <div class="success-msg">
+    Thank you! Your quote has been received.<br>
+    Our team will review it and get back to you shortly.<br>
+    A confirmation has been sent to your email.
+  </div>
+  <button class="btn-dashboard" onclick="window.location.href='dashboard.html'">
+    Back to Dashboard
+  </button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const { createClient } = supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+let dealer    = null;
+let step1Data = null;
+let step2Data = null;
+let shippingAddress = null;
+
+async function init() {
+  const { data:{ session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  // Load data from sessionStorage
+  const s1 = sessionStorage.getItem('quoteStep1');
+  const s2 = sessionStorage.getItem('quoteStep2');
+  if (!s1 || !s2) { window.location.href = 'new-quote.html'; return; }
+
+  step1Data = JSON.parse(s1);
+  step2Data = JSON.parse(s2);
+
+  // Load dealer
+  const { data:d } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
+  dealer = d;
+
+  // Load shipping address if needed
+  if (step1Data.shippingMode === 'different' && step1Data.shippingAddressId) {
+    const { data:addr } = await _supabase.from('addresses').select('*').eq('id', step1Data.shippingAddressId).single();
+    shippingAddress = addr;
+  }
+
+  renderReview();
+}
+
+function renderReview() {
+  // Order info
+  document.getElementById('reviewPO').textContent       = step1Data.poNumber || '—';
+  document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
+  document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
+  document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
+
+  // Shipping
+  const shippingEl = document.getElementById('reviewShipping');
+  if (step1Data.shippingMode === 'same') {
+    shippingEl.innerHTML = `
+      <strong>${dealer?.company_name}</strong><br>
+      ${dealer?.city || ''}, ${dealer?.state || ''}<br>
+      ${dealer?.phone || ''}`;
+  } else if (shippingAddress) {
+    shippingEl.innerHTML = `
+      <strong>${shippingAddress.recipient_name}</strong><br>
+      ${shippingAddress.address_line}<br>
+      ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}<br>
+      ${shippingAddress.phone || ''}`;
+  }
+
+  // Notes
+  if (step1Data.notes) {
+    document.getElementById('notesCard').style.display = 'block';
+    document.getElementById('reviewNotes').textContent = step1Data.notes;
+  }
+
+  // Items table
+  const subtotal = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  document.getElementById('itemsTableBody').innerHTML = step2Data.map(item => `
+    <tr>
+      <td class="td-style">${item.style_name}</td>
+      <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
+      <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
+      <td class="td-right">${item.quantity}</td>
+      <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+      <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
+    </tr>`).join('');
+
+  // Totals
+  const taxRate    = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+  const shipFee    = parseFloat(dealer?.shipping_fee || 0);
+  const threshold  = parseFloat(dealer?.free_shipping_threshold || 0);
+  const freeShip   = threshold > 0 && subtotal >= threshold;
+  const shipping   = freeShip ? 0 : shipFee;
+  const tax        = subtotal * taxRate;
+  const grand      = subtotal + shipping + tax;
+
+  document.getElementById('totalSubtotal').textContent = `$${subtotal.toFixed(2)}`;
+
+  document.getElementById('totalShipping').textContent = shipping === 0
+    ? (freeShip ? 'FREE' : '$0.00')
+    : `$${shipping.toFixed(2)}`;
+  if (freeShip) {
+    document.getElementById('shippingNote').innerHTML = `<span class="free-shipping">✓ Free shipping on orders over $${threshold.toFixed(0)}</span>`;
+  }
+
+  if (dealer?.tax_exempt) {
+    document.getElementById('totalTax').textContent = '$0.00';
+    document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
+  } else {
+    document.getElementById('totalTax').textContent = `$${tax.toFixed(2)}`;
+    document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(0)}% tax rate`;
+  }
+
+  document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
+}
+
+async function submitQuote() {
+  const btn    = document.getElementById('btnSubmit');
+  const errMsg = document.getElementById('errorMsg');
+  btn.classList.add('loading');
+  btn.disabled = true;
+  errMsg.classList.remove('show');
+
+  try {
+    const { data:{ session } } = await _supabase.auth.getSession();
+
+    // Generate quote number
+    const { count } = await _supabase.from('quotes').select('*', { count: 'exact', head: true });
+    const quoteNum = `PCDQ${String((count || 0) + 1).padStart(6, '0')}`;
+
+    // Calculate totals
+    const subtotal  = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const taxRate   = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+    const shipFee   = parseFloat(dealer?.shipping_fee || 0);
+    const threshold = parseFloat(dealer?.free_shipping_threshold || 0);
+    const freeShip  = threshold > 0 && subtotal >= threshold;
+    const shipping  = freeShip ? 0 : shipFee;
+    const tax       = subtotal * taxRate;
+    const grand     = subtotal + shipping + tax;
+
+    // Insert quote
+    const { data: quote, error: quoteError } = await _supabase
+      .from('quotes')
+      .insert({
+        quote_number:        quoteNum,
+        dealer_id:           session.user.id,
+        job_name:            step1Data.jobName,
+        po_number:           step1Data.poNumber,
+        shipping_address_id: step1Data.shippingAddressId || null,
+        status:              'Pending',
+        notes:               step1Data.notes || null,
+      })
+      .select()
+      .single();
+
+    if (quoteError) throw quoteError;
+
+    // Insert quote items
+    const items = step2Data.map(item => ({
+      quote_id:   quote.id,
+      style_code: item.style_code,
+      sku_code:   item.sku_code,
+      type:       item.type,
+      quantity:   item.quantity,
+      unit_price: item.unit_price,
+    }));
+
+    const { error: itemsError } = await _supabase.from('quote_items').insert(items);
+    if (itemsError) throw itemsError;
+
+    // Clear sessionStorage
+    sessionStorage.removeItem('quoteStep1');
+    sessionStorage.removeItem('quoteStep2');
+
+    // Show success
+    document.getElementById('successQuoteNum').textContent = quoteNum;
+    document.getElementById('successOverlay').classList.add('show');
+
+  } catch (err) {
+    console.error(err);
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    errMsg.textContent = 'Something went wrong. Please try again.';
+    errMsg.classList.add('show');
+    window.scrollTo(0,0);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
