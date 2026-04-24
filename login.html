@@ -255,12 +255,25 @@
         return;
       }
 
-      window.location.href = 'dashboard.html';
+      const { data: dealer } = await _supabase
+        .from('dealers')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+      
+      window.location.href = dealer?.role === 'admin' ? 'admin.html' : 'dashboard.html';
     }
 
     // Already logged in?
     _supabase.auth.getSession().then(function(result) {
-      if (result.data.session) window.location.href = 'dashboard.html';
+      if (result.data.session) {
+        const { data: dealer } = await _supabase
+          .from('dealers')
+          .select('role')
+          .eq('id', result.data.session.user.id)
+          .single();
+        window.location.href = dealer?.role === 'admin' ? 'admin.html' : 'dashboard.html';
+}
     });
   </script>
 </body>
