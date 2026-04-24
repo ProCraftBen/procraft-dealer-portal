@@ -265,7 +265,7 @@
     }
 
     // Already logged in?
-    _supabase.auth.getSession().then(function(result) {
+    _supabase.auth.getSession().then(async function(result) {
       if (result.data.session) {
         const { data: dealer } = await _supabase
           .from('dealers')
@@ -273,7 +273,7 @@
           .eq('id', result.data.session.user.id)
           .single();
         window.location.href = dealer?.role === 'admin' ? 'admin.html' : 'dashboard.html';
-}
+      }
     });
   </script>
 </body>
