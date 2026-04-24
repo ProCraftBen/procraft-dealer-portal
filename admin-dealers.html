@@ -203,24 +203,69 @@
         </div>
       </div>
 
-      <!-- Address -->
-      <div class="form-section">
-        <div class="form-section-title">Address</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label">City <span class="required">*</span></label>
-            <input class="form-input" id="f_city" type="text" placeholder="Washington"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">State <span class="required">*</span></label>
-            <input class="form-input" id="f_state" type="text" placeholder="DC"/>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Zip Code <span class="required">*</span></label>
-            <input class="form-input" id="f_zip_code" type="text" placeholder="20001"/>
-          </div>
+    <!-- Address -->
+    <div class="form-section">
+      <div class="form-section-title">Address</div>
+    
+      <div class="form-grid">
+    
+        <!-- Address Line 1 -->
+        <div class="form-group full">
+          <label class="form-label">Street Address <span class="required">*</span></label>
+          <input 
+            class="form-input" 
+            id="f_address_line1" 
+            type="text" 
+            placeholder="123 Main St"
+          />
         </div>
+    
+        <!-- Address Line 2 -->
+        <div class="form-group full">
+          <label class="form-label">Address Line 2</label>
+          <input 
+            class="form-input" 
+            id="f_address_line2" 
+            type="text" 
+            placeholder="Suite, Apt, Unit (optional)"
+          />
+        </div>
+    
+        <!-- City -->
+        <div class="form-group">
+          <label class="form-label">City <span class="required">*</span></label>
+          <input 
+            class="form-input" 
+            id="f_city" 
+            type="text" 
+            placeholder="Washington"
+          />
+        </div>
+    
+        <!-- State -->
+        <div class="form-group">
+          <label class="form-label">State <span class="required">*</span></label>
+          <input 
+            class="form-input" 
+            id="f_state" 
+            type="text" 
+            placeholder="MD"
+          />
+        </div>
+    
+        <!-- Zip Code -->
+        <div class="form-group">
+          <label class="form-label">Zip Code <span class="required">*</span></label>
+          <input 
+            class="form-input" 
+            id="f_zip_code" 
+            type="text" 
+            placeholder="20740"
+          />
+        </div>
+    
       </div>
+    </div>
 
       <!-- Pricing -->
       <div class="form-section">
