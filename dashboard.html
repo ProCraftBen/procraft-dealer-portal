@@ -417,7 +417,7 @@
     const userId = session.user.id;
 
     // Load dealer info
-    const { data: dealer } = await supabase
+    const { data: dealer } = await _supabase
       .from('dealers')
       .select('*')
       .eq('id', userId)
