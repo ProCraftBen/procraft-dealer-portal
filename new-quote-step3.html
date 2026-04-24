@@ -452,6 +452,44 @@ async function submitQuote() {
     const { error: itemsError } = await _supabase.from('quote_items').insert(items);
     if (itemsError) throw itemsError;
 
+        // 呼叫 Edge Function 寄信
+    const { data: { session: currentSession } } = await _supabase.auth.getSession();
+    await fetch(
+      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({
+          quote: {
+            quote_number: quoteNum,
+            po_number:    step1Data.poNumber,
+            job_name:     step1Data.jobName,
+            subtotal:     subtotal.toFixed(2),
+            shipping_cost: shipping.toFixed(2),
+            tax_amount:   tax.toFixed(2),
+            grand_total:  grand.toFixed(2),
+          },
+          dealer: {
+            company_name: dealer.company_name,
+            contact_name: dealer.contact_name,
+            email:        dealer.email,
+          },
+          items: step2Data.map(i => ({
+            style_code: i.style_code,
+            sku_code:   i.sku_code,
+            type:       i.type,
+            quantity:   i.quantity,
+            unit_price: i.unit_price,
+          })),
+        }),
+      }
+    );
+
+
+    
     // 清除 sessionStorage
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
