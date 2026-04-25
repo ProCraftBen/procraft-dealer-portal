@@ -310,6 +310,22 @@
           }
       }
     });
+
+  async function forgotPassword(e) {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  if (!email) {
+    errMsg.textContent = 'Please enter your email address first.';
+    errMsg.classList.add('show');
+    return;
+  }
+  const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://procraftben.github.io/procraft-dealer-portal/reset-password.html',
+  });
+  errMsg.classList.remove('show');
+  alert('If this email is registered, a reset link has been sent. Please check your inbox.');
+}
+    
   </script>
 </body>
 </html>
