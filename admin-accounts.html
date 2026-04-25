@@ -230,7 +230,7 @@
   <div class="confirm-box">
     <div class="confirm-title">Delete Admin Account</div>
     <div class="confirm-msg" id="confirmMsg"></div>
-    <input class="confirm-input" id="confirmInput" type="text" placeholder='Type "deletedealer" to confirm' oninput="checkConfirmInput()"/>
+    <input class="confirm-input" id="confirmInput" type="text" placeholder='Type "deleteadmin" to confirm' oninput="checkConfirmInput()"/>
     <div class="confirm-buttons">
       <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
       <button class="btn-danger" id="btnConfirmDelete" onclick="executeDelete()" disabled>Delete</button>
@@ -464,7 +464,7 @@ function openDeleteConfirm(accountId, name) {
 function checkConfirmInput() {
   const val = document.getElementById('confirmInput').value;
   const btn = document.getElementById('btnConfirmDelete');
-  const match = val === 'deletedealer';
+  const match = val === 'deleteadmin';
   btn.disabled = !match;
   btn.classList.toggle('ready', match);
 }
