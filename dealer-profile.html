@@ -278,29 +278,18 @@ async function handleFiles(files) {
   const remaining = 10 - images.length;
   if (remaining <= 0) { showError('Maximum 10 photos allowed.'); return; }
 
-  const toUpload = files.slice(0, remaining).filter(f => {
+  const toAdd = files.slice(0, remaining).filter(f => {
     if (!['image/jpeg','image/png'].includes(f.type)) { showError(`${f.name} is not a JPG or PNG.`); return false; }
     if (f.size > 2 * 1024 * 1024) { showError(`${f.name} exceeds 2MB limit.`); return false; }
     return true;
   });
 
-  if (!toUpload.length) return;
+  if (!toAdd.length) return;
 
-  const progress = document.getElementById('uploadProgress');
-  progress.textContent = `Uploading ${toUpload.length} photo(s)...`;
-  progress.classList.add('show');
-
-  for (const file of toUpload) {
-    const ext  = file.name.split('.').pop();
-    console.log('currentUser.id:', currentUser.id);
-    const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await _supabase.storage.from('dealer-image').upload(path, file);
-    if (error) { showError(`Failed to upload ${file.name}.`); continue; }
-    const { data } = _supabase.storage.from('dealer-image').getPublicUrl(path);
-    images.push({ url: data.publicUrl, path });
+  for (const file of toAdd) {
+    const localUrl = URL.createObjectURL(file);
+    images.push({ url: localUrl, path: null, file });
   }
-
-  progress.classList.remove('show');
   renderImages();
 }
 
@@ -356,6 +345,18 @@ async function saveProfile() {
   btn.disabled = true;
 
   try {
+      // 上傳新圖片（path 為 null 的是新的）
+      for (let i = 0; i < images.length; i++) {
+        if (images[i].path === null && images[i].file) {
+          const file = images[i].file;
+          const ext  = file.name.split('.').pop();
+          const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: uploadErr } = await _supabase.storage.from('dealer-image').upload(path, file);
+          if (uploadErr) { showError(`Failed to upload photo.`); return; }
+          const { data } = _supabase.storage.from('dealer-image').getPublicUrl(path);
+          images[i] = { url: data.publicUrl, path };
+        }
+      }
       // 取得舊的圖片列表
       const { data: oldDealer } = await _supabase
         .from('dealers')
