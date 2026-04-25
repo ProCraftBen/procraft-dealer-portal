@@ -300,7 +300,7 @@ async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
-  if (me?.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
+  if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
   await loadDealers();
 }
 
