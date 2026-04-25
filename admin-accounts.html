@@ -215,6 +215,19 @@
   </div>
 </div>
 
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Delete Admin Account</div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <input class="confirm-input" id="confirmInput" type="text" placeholder='Type "deletedealer" to confirm' oninput="checkConfirmInput()"/>
+    <div class="confirm-buttons">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-danger" id="btnConfirmDelete" onclick="executeDelete()" disabled>Delete</button>
+    </div>
+  </div>
+</div>
+  
+  
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -287,10 +300,12 @@ async function loadAccounts() {
       <td>${formatDate(a.created_at)}</td>
       <td>${a.is_active !== false ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
       <td style="white-space:nowrap">
-        ${canEdit ? `
-          <button class="btn-toggle" onclick="toggleActive('${a.id}', '${a.contact_name}', ${a.is_active !== false})">
-            ${a.is_active !== false ? 'Deactivate' : 'Activate'}
-          </button>` : `<button class="btn-toggle btn-disabled">—</button>`}
+      ${canEdit ? `
+        <button class="btn-toggle" onclick="toggleActive('${a.id}', '${a.contact_name}', ${a.is_active !== false})">
+          ${a.is_active !== false ? 'Deactivate' : 'Activate'}
+        </button>
+        <button class="btn-toggle" style="color:var(--error);border-color:rgba(192,57,43,0.3);" onclick="openDeleteConfirm('${a.id}', '${a.contact_name}')">Delete</button>
+      ` : `<button class="btn-toggle btn-disabled">—</button>`}
       </td>
     </tr>`;
   }).join('');
@@ -424,6 +439,62 @@ async function handleLogout() {
   window.location.href = 'login.html';
 }
 
+let deletingAccountId = null;
+
+function openDeleteConfirm(accountId, name) {
+  deletingAccountId = accountId;
+  document.getElementById('confirmMsg').innerHTML = `You are about to permanently delete admin account <strong>${name}</strong>. This cannot be undone.`;
+  document.getElementById('confirmInput').value = '';
+  document.getElementById('btnConfirmDelete').disabled = true;
+  document.getElementById('btnConfirmDelete').classList.remove('ready');
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+
+function checkConfirmInput() {
+  const val = document.getElementById('confirmInput').value;
+  const btn = document.getElementById('btnConfirmDelete');
+  const match = val === 'deletedealer';
+  btn.disabled = !match;
+  btn.classList.toggle('ready', match);
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('show');
+  deletingAccountId = null;
+}
+
+async function executeDelete() {
+  const btn = document.getElementById('btnConfirmDelete');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const res = await fetch(
+      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/delete-dealer',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ dealer_id: deletingAccountId }),
+      }
+    );
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to delete account.');
+
+    showToast('Admin account deleted.');
+    closeConfirm();
+    await loadAccounts();
+
+  } catch (err) {
+    showToast('Error: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+  }
+}
+  
 init();
 </script>
 </body>
