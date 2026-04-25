@@ -278,7 +278,13 @@
       
       console.log('role:', dealer?.role);
       console.log('is admin:', ['admin','super_admin'].includes(dealer?.role));
-      window.location.href = ['admin','super_admin'].includes(dealer?.role) ? 'admin.html' : 'dashboard.html';
+      if (['admin','super_admin'].includes(dealer?.role)) {
+          window.location.href = 'admin.html';
+        } else if (!dealer?.profile_completed) {
+          window.location.href = 'dealer-profile.html';
+        } else {
+          window.location.href = 'dashboard.html';
+        }
     }
 
     // Already logged in?
@@ -295,7 +301,13 @@
         }
         console.log('role:', dealer?.role);
         console.log('is admin:', ['admin','super_admin'].includes(dealer?.role));
-        window.location.href = ['admin','super_admin'].includes(dealer?.role) ? 'admin.html' : 'dashboard.html';
+        if (['admin','super_admin'].includes(dealer?.role)) {
+            window.location.href = 'admin.html';
+          } else if (!dealer?.profile_completed) {
+            window.location.href = 'dealer-profile.html';
+          } else {
+            window.location.href = 'dashboard.html';
+          }
       }
     });
   </script>
