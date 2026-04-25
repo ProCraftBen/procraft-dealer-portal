@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ProCraft — My Profile</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7PvXRsQ5r5KAIyLYQ1uZvgdaqGQ_pkA0&libraries=places&callback=initMaps" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -137,6 +138,66 @@
         <label class="form-label">Website</label>
         <input class="form-input" id="f_website" type="url" placeholder="https://www.yourstore.com"/>
       </div>
+    </div>
+  </div>
+
+  <!-- Contact Info -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Contact Information</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Company Name</label>
+        <input class="form-input" id="f_company_name" type="text" disabled style="background:var(--cream);color:var(--muted);"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contact Name <span class="required">*</span></label>
+        <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" id="f_email" type="email" disabled style="background:var(--cream);color:var(--muted);"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone <span class="required">*</span></label>
+        <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Google My Business</label>
+        <input class="form-input" id="f_gmb_url" type="url" placeholder="https://g.page/your-business"/>
+        <span style="font-size:10px;color:var(--muted);margin-top:4px;display:block;">Optional — paste your Google Business profile link</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Address -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Store Address</span></div>
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label">Address Line 1 <span class="required">*</span></label>
+        <input class="form-input" id="f_address_line1" type="text" placeholder="Start typing address..." autocomplete="off"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address Line 2</label>
+        <input class="form-input" id="f_address_line2" type="text" placeholder="Suite 100"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label class="form-label">City <span class="required">*</span></label>
+          <input class="form-input" id="f_city" type="text" placeholder="Washington"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">State <span class="required">*</span></label>
+          <input class="form-input" id="f_state" type="text" placeholder="DC"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Zip Code <span class="required">*</span></label>
+          <input class="form-input" id="f_zip_code" type="text" placeholder="20001"/>
+        </div>
+      </div>
+      <input type="hidden" id="f_lat"/>
+      <input type="hidden" id="f_lng"/>
+      <input type="hidden" id="f_address_formatted"/>
     </div>
   </div>
 
@@ -310,7 +371,22 @@ async function init() {
     document.getElementById('backBtn').style.display = 'inline-block';
   }
 
-  // Populate existing data
+  // Populate contact info
+  document.getElementById('f_company_name').value = dealer.company_name || '';
+  document.getElementById('f_contact_name').value = dealer.contact_name || '';
+  document.getElementById('f_email').value         = dealer.email || '';
+  document.getElementById('f_phone').value         = dealer.phone || '';
+  document.getElementById('f_gmb_url').value       = dealer.google_my_business_url || '';
+  document.getElementById('f_address_line1').value = dealer.address_line1 || '';
+  document.getElementById('f_address_line2').value = dealer.address_line2 || '';
+  document.getElementById('f_city').value          = dealer.city || '';
+  document.getElementById('f_state').value         = dealer.state || '';
+  document.getElementById('f_zip_code').value      = dealer.zip_code || '';
+  document.getElementById('f_lat').value           = dealer.lat || '';
+  document.getElementById('f_lng').value           = dealer.lng || '';
+  document.getElementById('f_address_formatted').value = dealer.address_formatted || '';
+
+  // Populate store info
   if (dealer.heading)     { document.getElementById('f_heading').value     = dealer.heading;     updateCount('f_heading','count_heading',30); }
   if (dealer.description) { document.getElementById('f_description').value = dealer.description; updateCount('f_description','count_description',200); }
   if (dealer.website)     { document.getElementById('f_website').value     = dealer.website; }
@@ -334,7 +410,21 @@ async function saveProfile() {
   const heading     = document.getElementById('f_heading').value.trim();
   const description = document.getElementById('f_description').value.trim();
   const website     = document.getElementById('f_website').value.trim();
+  const contact_name    = document.getElementById('f_contact_name').value.trim();
+  const phone           = document.getElementById('f_phone').value.trim();
+  const gmb_url         = document.getElementById('f_gmb_url').value.trim();
+  const address_line1   = document.getElementById('f_address_line1').value.trim();
+  const address_line2   = document.getElementById('f_address_line2').value.trim();
+  const city            = document.getElementById('f_city').value.trim();
+  const state           = document.getElementById('f_state').value.trim();
+  const zip_code        = document.getElementById('f_zip_code').value.trim();
+  const lat             = document.getElementById('f_lat').value;
+  const lng             = document.getElementById('f_lng').value;
+  const address_formatted = document.getElementById('f_address_formatted').value;
 
+  if (!contact_name) { showError('Please enter a contact name.'); return; }
+  if (!phone)        { showError('Please enter a phone number.'); return; }
+  if (!address_line1 || !city || !state || !zip_code) { showError('Please fill in your store address.'); return; }
   if (!heading)     { showError('Please enter a store heading.'); return; }
   if (heading.length > 30) { showError('Heading must be 30 characters or less.'); return; }
   if (!description) { showError('Please enter a description.'); return; }
@@ -386,6 +476,17 @@ async function saveProfile() {
         await _supabase.storage.from('dealer-image').remove(toDelete);
       }
     const { error } = await _supabase.from('dealers').update({
+      contact_name,
+      phone,
+      google_my_business_url: gmb_url || null,
+      address_line1,
+      address_line2:     address_line2 || null,
+      city,
+      state,
+      zip_code,
+      lat:               lat ? parseFloat(lat) : null,
+      lng:               lng ? parseFloat(lng) : null,
+      address_formatted: address_formatted || null,
       heading,
       description,
       website:           website || null,
@@ -421,6 +522,34 @@ function showError(msg) {
 async function handleLogout() {
   await _supabase.auth.signOut();
   window.location.href = 'login.html';
+}
+
+function initMaps() {
+  const input = document.getElementById('f_address_line1');
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    types: ['address'],
+    componentRestrictions: { country: 'us' },
+  });
+  autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace();
+    if (!place.geometry) return;
+    let streetNumber = '', route = '', city = '', state = '', zip = '';
+    for (const component of place.address_components) {
+      const type = component.types[0];
+      if (type === 'street_number') streetNumber = component.long_name;
+      if (type === 'route')         route        = component.long_name;
+      if (type === 'locality')      city         = component.long_name;
+      if (type === 'administrative_area_level_1') state = component.short_name;
+      if (type === 'postal_code')   zip          = component.long_name;
+    }
+    document.getElementById('f_address_line1').value    = `${streetNumber} ${route}`.trim();
+    document.getElementById('f_city').value              = city;
+    document.getElementById('f_state').value             = state;
+    document.getElementById('f_zip_code').value          = zip;
+    document.getElementById('f_lat').value               = place.geometry.location.lat();
+    document.getElementById('f_lng').value               = place.geometry.location.lng();
+    document.getElementById('f_address_formatted').value = place.formatted_address;
+  });
 }
 
 init();
