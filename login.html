@@ -276,6 +276,9 @@
         return;
       }
       
+      console.log('role:', dealer?.role);
+      console.log('is admin:', ['admin','super_admin'].includes(dealer?.role));
+      alert('role: ' + dealer?.role); // 暫時加這行，會暫停頁面跳轉
       window.location.href = ['admin','super_admin'].includes(dealer?.role) ? 'admin.html' : 'dashboard.html';
     }
 
@@ -291,6 +294,9 @@
           await _supabase.auth.signOut();
           return;
         }
+        console.log('role:', dealer?.role);
+        console.log('is admin:', ['admin','super_admin'].includes(dealer?.role));
+        alert('role: ' + dealer?.role); // 暫時加這行，會暫停頁面跳轉
         window.location.href = ['admin','super_admin'].includes(dealer?.role) ? 'admin.html' : 'dashboard.html';
       }
     });
