@@ -108,6 +108,7 @@
   👋 Welcome to ProCraft Dealer Portal! Please take a few minutes to <strong>set up your store profile</strong> — this helps customers find and connect with your showroom.
 </div>
 
+
 <nav class="navbar">
   <div class="nav-brand">
     <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
@@ -115,12 +116,22 @@
   </div>
   <div class="nav-right">
     <a href="dashboard.html" class="nav-back" id="backBtn">← Dashboard</a>
-    <!-- Contact Info -->
+    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-title">Store Profile</div>
+  <div class="page-sub">Complete your profile so customers can find your showroom on the ProCraft Dealer Locator.</div>
+
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="success-msg" id="successMsg">✓ Profile saved successfully!</div>
+
+  <!-- Contact Info -->
   <div class="card">
     <div class="card-header"><span class="card-title">Contact Information</span></div>
     <div class="card-body">
       <p class="section-desc">The following information was set up by ProCraft. Contact us if any details need to be corrected.</p>
-
       <div class="confirmed-row">
         <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         <div>
@@ -135,7 +146,6 @@
           <div class="confirmed-value" id="display_email">—</div>
         </div>
       </div>
-
       <div class="form-group">
         <label class="form-label">Contact Name <span class="required">*</span></label>
         <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
@@ -194,7 +204,7 @@
     </div>
   </div>
 
-  <!-- Store Info -->
+  <!-- Store Presentation -->
   <div class="card">
     <div class="card-header"><span class="card-title">Store Presentation <span class="badge-optional">Recommended</span></span></div>
     <div class="card-body">
@@ -209,7 +219,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Description <span class="badge-optional">Optional</span></label>
-        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="e.g. Family-owned showroom serving the DC metro area since 2005. We carry ProCraft's full cabinet line with over 50 door styles on display. Visit us to explore your dream kitchen." oninput="updateCount('f_description','count_description',200); updatePreview();"></textarea>
+        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="e.g. Family-owned showroom serving the DC metro area since 2005. We carry ProCraft's full cabinet line with over 50 door styles on display." oninput="updateCount('f_description','count_description',200); updatePreview();"></textarea>
         <div class="hint-row">
           <span class="form-hint">Tell customers about your showroom, specialties, and what makes you unique</span>
           <span class="char-count" id="count_description">0/200</span>
@@ -231,7 +241,7 @@
   <div class="card">
     <div class="card-header"><span class="card-title">Store Photos <span class="required">*</span></span></div>
     <div class="card-body">
-      <p class="section-desc">Upload at least one photo of your showroom. The first photo will be used as your featured image on the dealer locator. You can drag to reorder.</p>
+      <p class="section-desc">Upload at least one photo of your showroom. The first photo will be used as your featured image on the dealer locator.</p>
       <div class="upload-area" id="uploadArea" onclick="document.getElementById('uploadInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
         <svg class="upload-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
         <div class="upload-text">Click to upload or drag & drop photos</div>
@@ -243,18 +253,6 @@
       <div class="image-count-label" id="imageCountLabel"></div>
     </div>
   </div>
-
-
-  <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
-  </div>
-</nav>
-
-<div class="page">
-  <div class="page-title">Store Profile</div>
-  <div class="page-sub">Complete your profile so customers can find your showroom on the ProCraft Dealer Locator.</div>
-
-  <div class="error-msg" id="errorMsg"></div>
-  <div class="success-msg" id="successMsg">✓ Profile saved successfully!</div>
 
   <button class="btn-submit" id="btnSubmit" onclick="saveProfile()">
     <span class="btn-text">Save Profile</span>
@@ -591,5 +589,8 @@ function initMaps() {
 
 init();
 </script>
+</body>
+</html>
+
 </body>
 </html>
