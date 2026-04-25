@@ -88,12 +88,24 @@
     .btn-submit.loading .btn-text { display: none; }
     .btn-submit.loading .spinner { display: block; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .badge-optional { font-size: 9px; font-weight: 400; letter-spacing: 0.05em; text-transform: none; color: var(--muted); background: var(--cream); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; margin-left: 8px; vertical-align: middle; }
+    .section-desc { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; padding: 10px 14px; background: rgba(201,168,76,0.06); border-left: 3px solid var(--gold); border-radius: 0 3px 3px 0; }
+    .preview-box { margin-top: 12px; padding: 14px 16px; background: var(--cream); border: 1px solid var(--border); border-radius: 3px; display: none; }
+    .preview-box.show { display: block; }
+    .preview-label { font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .preview-heading { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; color: var(--green-dark); margin-bottom: 4px; }
+    .preview-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .form-input:disabled { background: var(--cream); color: var(--muted); cursor: not-allowed; }
+    .confirmed-row { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--cream); border: 1px solid var(--border); border-radius: 3px; margin-bottom: 12px; }
+    .confirmed-icon { width: 16px; height: 16px; fill: var(--success); flex-shrink: 0; }
+    .confirmed-text { font-size: 12px; color: var(--muted); }
+    .confirmed-value { font-size: 13px; color: var(--text); font-weight: 500; }
   </style>
 </head>
 <body>
 
 <div class="first-time-banner" id="firstTimeBanner">
-  👋 Welcome! Before you start, please <strong>complete your store profile</strong>. This info will appear on your public dealer page.
+  👋 Welcome to ProCraft Dealer Portal! Please take a few minutes to <strong>set up your store profile</strong> — this helps customers find and connect with your showroom.
 </div>
 
 <nav class="navbar">
@@ -109,34 +121,40 @@
 
 <div class="page">
   <div class="page-title">Store Profile</div>
-  <div class="page-sub">This information will be displayed on your public dealer page.</div>
+  <div class="page-sub">Complete your profile so customers can find your showroom on the ProCraft Dealer Locator.</div>
 
   <div class="error-msg" id="errorMsg"></div>
   <div class="success-msg" id="successMsg">✓ Profile saved successfully!</div>
 
   <!-- Store Info -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Store Information</span></div>
+    <div class="card-header"><span class="card-title">Store Presentation <span class="badge-optional">Recommended</span></span></div>
     <div class="card-body">
+      <p class="section-desc">This text appears on your public dealer page. If left blank, those sections will not be shown. We recommend filling these in to attract more customers.</p>
       <div class="form-group">
-        <label class="form-label">Store Heading <span class="required">*</span></label>
-        <input class="form-input" id="f_heading" type="text" maxlength="30" placeholder="Your store tagline or name" oninput="updateCount('f_heading','count_heading',30)"/>
+        <label class="form-label">Store Heading <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_heading" type="text" maxlength="30" placeholder="e.g. Maryland's Premier Cabinet Showroom" oninput="updateCount('f_heading','count_heading',30); updatePreview();"/>
         <div class="hint-row">
-          <span class="form-hint">Short headline shown on your dealer page</span>
+          <span class="form-hint">A short tagline that appears at the top of your dealer page</span>
           <span class="char-count" id="count_heading">0/30</span>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Description <span class="required">*</span></label>
-        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="Tell customers about your showroom, specialties, and experience..." oninput="updateCount('f_description','count_description',200)"></textarea>
+        <label class="form-label">Description <span class="badge-optional">Optional</span></label>
+        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="e.g. Family-owned showroom serving the DC metro area since 2005. We carry ProCraft's full cabinet line with over 50 door styles on display. Visit us to explore your dream kitchen." oninput="updateCount('f_description','count_description',200); updatePreview();"></textarea>
         <div class="hint-row">
-          <span class="form-hint">Brief description of your business</span>
+          <span class="form-hint">Tell customers about your showroom, specialties, and what makes you unique</span>
           <span class="char-count" id="count_description">0/200</span>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Website</label>
-        <input class="form-input" id="f_website" type="url" placeholder="https://www.yourstore.com"/>
+      <div class="preview-box" id="previewBox">
+        <div class="preview-label">Preview — how it looks on your dealer page</div>
+        <div class="preview-heading" id="previewHeading"></div>
+        <div class="preview-desc" id="previewDesc"></div>
+      </div>
+      <div class="form-group" style="margin-top:18px;">
+        <label class="form-label">Website <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_website" type="url" placeholder="https://www.yourshowroom.com"/>
       </div>
     </div>
   </div>
@@ -145,34 +163,44 @@
   <div class="card">
     <div class="card-header"><span class="card-title">Contact Information</span></div>
     <div class="card-body">
-      <div class="form-group">
-        <label class="form-label">Company Name</label>
-        <input class="form-input" id="f_company_name" type="text" disabled style="background:var(--cream);color:var(--muted);"/>
+      <p class="section-desc">The following information was set up by ProCraft. Contact us if any details need to be corrected.</p>
+
+      <div class="confirmed-row">
+        <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        <div>
+          <div class="confirmed-text">Company Name</div>
+          <div class="confirmed-value" id="display_company_name">—</div>
+        </div>
       </div>
+      <div class="confirmed-row">
+        <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        <div>
+          <div class="confirmed-text">Email Address</div>
+          <div class="confirmed-value" id="display_email">—</div>
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Contact Name <span class="required">*</span></label>
         <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" id="f_email" type="email" disabled style="background:var(--cream);color:var(--muted);"/>
       </div>
       <div class="form-group">
         <label class="form-label">Phone <span class="required">*</span></label>
         <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
       </div>
       <div class="form-group">
-        <label class="form-label">Google My Business</label>
+        <label class="form-label">Google My Business <span class="badge-optional">Optional</span></label>
         <input class="form-input" id="f_gmb_url" type="url" placeholder="https://g.page/your-business"/>
-        <span style="font-size:10px;color:var(--muted);margin-top:4px;display:block;">Optional — paste your Google Business profile link</span>
+        <span class="form-hint" style="margin-top:4px;display:block;">Link to your Google Business profile so customers can find reviews and directions.</span>
       </div>
     </div>
   </div>
 
   <!-- Address -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Store Address</span></div>
+    <div class="card-header"><span class="card-title">Store Address <span class="required">*</span></span></div>
     <div class="card-body">
+      <p class="section-desc">Your address is used to show your location on the ProCraft Dealer Locator map. Start typing to use Google address search for accurate results.</p>
       <div class="form-group">
         <label class="form-label">Address Line 1 <span class="required">*</span></label>
         <input class="form-input" id="f_address_line1" type="text" placeholder="Start typing address..." autocomplete="off"/>
@@ -205,6 +233,7 @@
   <div class="card">
     <div class="card-header"><span class="card-title">Business Hours <span class="required">*</span></span></div>
     <div class="card-body">
+      <p class="section-desc">Let customers know when your showroom is open. Set each day to Open, By Appointment, or Closed.</p>
       <div class="hours-list" id="hoursList"></div>
     </div>
   </div>
@@ -213,6 +242,7 @@
   <div class="card">
     <div class="card-header"><span class="card-title">Store Photos <span class="required">*</span></span></div>
     <div class="card-body">
+      <p class="section-desc">Upload at least one photo of your showroom. The first photo will be used as your featured image on the dealer locator. You can drag to reorder.</p>
       <div class="upload-area" id="uploadArea" onclick="document.getElementById('uploadInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
         <svg class="upload-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
         <div class="upload-text">Click to upload or drag & drop photos</div>
@@ -372,9 +402,9 @@ async function init() {
   }
 
   // Populate contact info
-  document.getElementById('f_company_name').value = dealer.company_name || '';
+  document.getElementById('display_company_name').textContent = dealer.company_name || '—';
+  document.getElementById('display_email').textContent        = dealer.email || '—';
   document.getElementById('f_contact_name').value = dealer.contact_name || '';
-  document.getElementById('f_email').value         = dealer.email || '';
   document.getElementById('f_phone').value         = dealer.phone || '';
   document.getElementById('f_gmb_url').value       = dealer.google_my_business_url || '';
   document.getElementById('f_address_line1').value = dealer.address_line1 || '';
@@ -390,6 +420,7 @@ async function init() {
   if (dealer.heading)     { document.getElementById('f_heading').value     = dealer.heading;     updateCount('f_heading','count_heading',30); }
   if (dealer.description) { document.getElementById('f_description').value = dealer.description; updateCount('f_description','count_description',200); }
   if (dealer.website)     { document.getElementById('f_website').value     = dealer.website; }
+  updatePreview();
 
   buildHoursUI(dealer.business_hours);
 
@@ -425,9 +456,7 @@ async function saveProfile() {
   if (!contact_name) { showError('Please enter a contact name.'); return; }
   if (!phone)        { showError('Please enter a phone number.'); return; }
   if (!address_line1 || !city || !state || !zip_code) { showError('Please fill in your store address.'); return; }
-  if (!heading)     { showError('Please enter a store heading.'); return; }
   if (heading.length > 30) { showError('Heading must be 30 characters or less.'); return; }
-  if (!description) { showError('Please enter a description.'); return; }
   if (description.length > 200) { showError('Description must be 200 characters or less.'); return; }
   if (!images.length) { showError('Please upload at least one store photo.'); return; }
 
@@ -471,10 +500,7 @@ async function saveProfile() {
       }
       console.log('delete data:', delData);
       console.log('delete error:', delErr);
-      
-      if (toDelete.length) {
-        await _supabase.storage.from('dealer-image').remove(toDelete);
-      }
+
     const { error } = await _supabase.from('dealers').update({
       contact_name,
       phone,
@@ -522,6 +548,16 @@ function showError(msg) {
 async function handleLogout() {
   await _supabase.auth.signOut();
   window.location.href = 'login.html';
+}
+
+function updatePreview() {
+  const heading = document.getElementById('f_heading').value.trim();
+  const desc    = document.getElementById('f_description').value.trim();
+  const box     = document.getElementById('previewBox');
+  if (!heading && !desc) { box.classList.remove('show'); return; }
+  box.classList.add('show');
+  document.getElementById('previewHeading').textContent = heading || '';
+  document.getElementById('previewDesc').textContent    = desc || '';
 }
 
 function initMaps() {
