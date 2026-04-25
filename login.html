@@ -257,7 +257,7 @@
 
       const { data: dealer, error: dealerError } = await _supabase
         .from('dealers')
-        .select('role, is_active')
+        .select('role, is_active, profile_completed')
         .eq('id', data.user.id)
         .single();
       
@@ -292,7 +292,7 @@
       if (result.data.session) {
         const { data: dealer } = await _supabase
           .from('dealers')
-          .select('role, is_active')
+          .select('role, is_active, profile_completed')
           .eq('id', result.data.session.user.id)
           .single();
         if (!dealer?.is_active) {
