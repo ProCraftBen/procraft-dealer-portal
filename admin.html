@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --status-pending:    #C9A84C;
+      --status-processing: #3B82F6;
+      --status-complete:   #16A34A;
+      --status-closed:     #6B7280;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    /* Navbar */
+    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
+    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+    .nav-badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; background: var(--gold); color: var(--green-dark); padding: 2px 7px; border-radius: 2px; font-weight: 500; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: #fff; }
+    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
+    .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* Page */
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 28px; }
+    .greeting { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+
+    /* Action row */
+    .action-row { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+    .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; min-height: 44px; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-primary svg { width: 14px; height: 14px; fill: currentColor; }
+    .btn-secondary { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: var(--green-dark); border: 1px solid var(--border); border-radius: 3px; padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; min-height: 44px; }
+    .btn-secondary:hover { background: rgba(14,31,22,0.05); }
+
+    /* Stats */
+    .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    @media (max-width: 700px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 20px; }
+    .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 500; color: var(--green-dark); line-height: 1; margin-bottom: 6px; }
+    .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+    .stat-card.gold .stat-num { color: var(--gold); }
+    .stat-card.blue .stat-num { color: var(--status-processing); }
+    .stat-card.green .stat-num { color: var(--status-complete); }
+
+    /* Grid */
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+    /* Panel */
+    .panel { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
+    .panel-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .panel-action { font-size: 11px; color: var(--gold); text-decoration: none; transition: opacity 0.2s; }
+    .panel-action:hover { opacity: 0.7; }
+
+    /* Quote list */
+    .quote-item { padding: 13px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; gap: 12px; }
+    .quote-item:last-child { border-bottom: none; }
+    .quote-item:hover { background: #FAFAF8; }
+    .quote-num { font-size: 13px; font-weight: 500; color: var(--green-dark); }
+    .quote-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .quote-right { text-align: right; flex-shrink: 0; }
+    .quote-amount { font-size: 13px; font-weight: 500; color: var(--text); }
+    .quote-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; }
+    .status-dot.pending    { background: var(--status-pending); }
+    .status-dot.processing { background: var(--status-processing); }
+    .status-dot.complete   { background: var(--status-complete); }
+    .status-dot.closed     { background: var(--status-closed); }
+
+    /* Dealer list */
+    .dealer-item { padding: 13px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; gap: 12px; }
+    .dealer-item:last-child { border-bottom: none; }
+    .dealer-item:hover { background: #FAFAF8; }
+    .dealer-name { font-size: 13px; font-weight: 500; color: var(--green-dark); }
+    .dealer-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .dealer-right { text-align: right; flex-shrink: 0; }
+    .badge-active { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(22,163,74,0.1); color: #16A34A; }
+    .dealer-since { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Empty */
+    .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+    .empty-state svg { width: 32px; height: 32px; fill: var(--border); margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto; }
+
+    /* Loading */
+    .loading-rows { padding: 16px 20px; }
+    .loading-row { height: 14px; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 3px; margin-bottom: 12px; }
+    .loading-row:nth-child(2) { width: 80%; }
+    .loading-row:nth-child(3) { width: 90%; }
+    .loading-row:nth-child(4) { width: 75%; }
+    .loading-row:nth-child(5) { width: 85%; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
+    <span class="nav-title">ProCraft</span>
+    <span class="nav-badge">Admin</span>
+  </div>
+  <div class="nav-right">
+    <a href="admin.html" class="nav-link active">Dashboard</a>
+    <a href="admin-quotes.html" class="nav-link">Quotes</a>
+    <a href="admin-dealers.html" class="nav-link">Dealers</a>
+    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="greeting">Admin Dashboard</div>
+    <div class="page-title">Welcome back, <span id="adminName">—</span></div>
+  </div>
+
+  <!-- Actions -->
+  <div class="action-row">
+    <a href="admin-dealers.html" class="btn-primary" onclick="openAddDealer()">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Add Dealer
+    </a>
+    <a href="admin-quotes.html" class="btn-secondary">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
+      View All Quotes
+    </a>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-num" id="statDealers">—</div>
+      <div class="stat-label">Total Dealers</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="statQuotes">—</div>
+      <div class="stat-label">Total Quotes</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-num" id="statPending">—</div>
+      <div class="stat-label">Pending Quotes</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-num" id="statMonthly">—</div>
+      <div class="stat-label">Quotes This Month</div>
+    </div>
+  </div>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-grid">
+
+    <!-- Recent Quotes -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Recent Quotes</span>
+        <a href="admin-quotes.html" class="panel-action">View All →</a>
+      </div>
+      <div id="recentQuotes">
+        <div class="loading-rows">
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Dealers -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Recent Dealers</span>
+        <a href="admin-dealers.html" class="panel-action">View All →</a>
+      </div>
+      <div id="recentDealers">
+        <div class="loading-rows">
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+          <div class="loading-row"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const { createClient } = window.supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+
+function formatDate(str) {
+  return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmt(n) {
+  return '$' + parseFloat(n || 0).toFixed(2);
+}
+
+async function init() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  const { data: me } = await _supabase.from('dealers').select('role, contact_name').eq('id', session.user.id).single();
+  if (me?.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
+
+  document.getElementById('adminName').textContent = me.contact_name || 'Admin';
+
+  await Promise.all([loadStats(), loadRecentQuotes(), loadRecentDealers()]);
+}
+
+async function loadStats() {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+  const [dealersRes, quotesRes, pendingRes, monthlyRes] = await Promise.all([
+    _supabase.from('dealers').select('id', { count: 'exact', head: true }).neq('role', 'admin'),
+    _supabase.from('quotes').select('id', { count: 'exact', head: true }),
+    _supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'Pending'),
+    _supabase.from('quotes').select('id', { count: 'exact', head: true }).gte('created_at', monthStart),
+  ]);
+
+  document.getElementById('statDealers').textContent = dealersRes.count ?? '—';
+  document.getElementById('statQuotes').textContent  = quotesRes.count  ?? '—';
+  document.getElementById('statPending').textContent = pendingRes.count  ?? '—';
+  document.getElementById('statMonthly').textContent = monthlyRes.count  ?? '—';
+}
+
+async function loadRecentQuotes() {
+  const { data: quotes } = await _supabase
+    .from('quotes')
+    .select('*, dealers(company_name)')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const el = document.getElementById('recentQuotes');
+  if (!quotes?.length) {
+    el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes yet.</div>`;
+    return;
+  }
+
+  el.innerHTML = quotes.map(q => `
+    <div class="quote-item" onclick="window.location.href='admin-quotes.html'">
+      <div>
+        <div class="quote-num">
+          <span class="status-dot ${statusClass[q.status] || 'pending'}"></span>
+          ${q.quote_number || '—'}
+        </div>
+        <div class="quote-sub">${q.dealers?.company_name || '—'} · ${q.job_name || '—'}</div>
+      </div>
+      <div class="quote-right">
+        <div class="quote-amount">${fmt(q.grand_total)}</div>
+        <div class="quote-date">${formatDate(q.created_at)}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadRecentDealers() {
+  const { data: dealers } = await _supabase
+    .from('dealers')
+    .select('*')
+    .neq('role', 'admin')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const el = document.getElementById('recentDealers');
+  if (!dealers?.length) {
+    el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div>`;
+    return;
+  }
+
+  el.innerHTML = dealers.map(d => `
+    <div class="dealer-item" onclick="window.location.href='admin-dealers.html'">
+      <div>
+        <div class="dealer-name">${d.company_name}</div>
+        <div class="dealer-sub">${d.contact_name} · ${d.city}, ${d.state}</div>
+      </div>
+      <div class="dealer-right">
+        <span class="badge-active">Active</span>
+        <div class="dealer-since">${formatDate(d.created_at)}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function handleLogout() {
+  await _supabase.auth.signOut();
+  window.location.href = 'login.html';
+}
+
+init();
+</script>
+</body>
+</html>
