@@ -365,21 +365,53 @@ function renderReview() {
 
   // Totals
   const taxRate    = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-  const shipFee    = parseFloat(dealer?.shipping_fee || 0);
-  const threshold  = parseFloat(dealer?.free_shipping_threshold || 0);
-  const freeShip   = threshold > 0 && subtotal >= threshold;
-  const shipping   = freeShip ? 0 : shipFee;
-  const tax        = subtotal * taxRate;
-  const grand      = subtotal + shipping + tax;
+
+  // Logistic 運費計算
+  const logisticType = step1Data.logisticType || 'pickup';
+  const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
+
+  let shipping = 0;
+  let shippingLabel = '';
+  let shippingNote  = '';
+
+  if (logisticType === 'pickup') {
+    shipping = 0;
+    shippingLabel = 'FREE';
+    shippingNote  = '✓ Pick Up @ ProCraft DC';
+  } else if (logisticType === 'delivery') {
+    shipping = deliveryFee;
+    shippingLabel = `$${shipping.toFixed(2)}`;
+    shippingNote  = 'Delivery fee based on distance';
+  } else if (logisticType === 'shipping') {
+    if (subtotal <= 3000) {
+      shipping = 0;
+      shippingLabel = 'TBD';
+      shippingNote  = '⚠ Contact Sales Team to confirm shipping fee';
+    } else if (subtotal <= 6000) {
+      shipping = subtotal * 0.15;
+      shippingLabel = `$${shipping.toFixed(2)}`;
+      shippingNote  = '15% shipping rate';
+    } else if (subtotal <= 9000) {
+      shipping = subtotal * 0.12;
+      shippingLabel = `$${shipping.toFixed(2)}`;
+      shippingNote  = '12% shipping rate';
+    } else if (subtotal <= 12000) {
+      shipping = subtotal * 0.10;
+      shippingLabel = `$${shipping.toFixed(2)}`;
+      shippingNote  = '10% shipping rate';
+    } else {
+      shipping = 0;
+      shippingLabel = 'FREE';
+      shippingNote  = '✓ Free shipping on orders over $12,000';
+    }
+  }
+
+  const tax   = subtotal * taxRate;
+  const grand = subtotal + shipping + tax;
 
   document.getElementById('totalSubtotal').textContent = `$${subtotal.toFixed(2)}`;
-
-  document.getElementById('totalShipping').textContent = shipping === 0
-    ? (freeShip ? 'FREE' : '$0.00')
-    : `$${shipping.toFixed(2)}`;
-  if (freeShip) {
-    document.getElementById('shippingNote').innerHTML = `<span class="free-shipping">✓ Free shipping on orders over $${threshold.toFixed(0)}</span>`;
-  }
+  document.getElementById('totalShipping').textContent = shippingLabel;
+  document.getElementById('shippingNote').innerHTML = `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
 
   if (dealer?.tax_exempt) {
     document.getElementById('totalTax').textContent = '$0.00';
@@ -403,14 +435,26 @@ async function submitQuote() {
     const { data:{ session } } = await _supabase.auth.getSession();
 
     // 計算金額
-    const subtotal  = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-    const taxRate   = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-    const shipFee   = parseFloat(dealer?.shipping_fee || 0);
-    const threshold = parseFloat(dealer?.free_shipping_threshold || 0);
-    const freeShip  = threshold > 0 && subtotal >= threshold;
-    const shipping  = freeShip ? 0 : shipFee;
-    const tax       = subtotal * taxRate;
-    const grand     = subtotal + shipping + tax;
+    const subtotal     = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+    const logisticType = step1Data.logisticType || 'pickup';
+    const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
+
+    let shipping = 0;
+    if (logisticType === 'pickup') {
+      shipping = 0;
+    } else if (logisticType === 'delivery') {
+      shipping = deliveryFee;
+    } else if (logisticType === 'shipping') {
+      if (subtotal <= 3000)       shipping = 0;
+      else if (subtotal <= 6000)  shipping = subtotal * 0.15;
+      else if (subtotal <= 9000)  shipping = subtotal * 0.12;
+      else if (subtotal <= 12000) shipping = subtotal * 0.10;
+      else                        shipping = 0;
+    }
+
+    const tax   = subtotal * taxRate;
+    const grand = subtotal + shipping + tax;
 
     // 用 DB function 產生安全的 quote number（見下方說明）
     const { data: numData, error: numError } = await _supabase
@@ -429,6 +473,8 @@ async function submitQuote() {
         shipping_address_id: step1Data.shippingAddressId || null,
         status:              'Pending',
         notes:               step1Data.notes || null,
+        logistic_type:       logisticType,
+        delivery_fee:        parseFloat(shipping.toFixed(2)),
         subtotal:            parseFloat(subtotal.toFixed(2)),
         shipping_cost:       parseFloat(shipping.toFixed(2)),
         tax_amount:          parseFloat(tax.toFixed(2)),
