@@ -115,51 +115,7 @@
   </div>
   <div class="nav-right">
     <a href="dashboard.html" class="nav-back" id="backBtn">← Dashboard</a>
-    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
-  </div>
-</nav>
-
-<div class="page">
-  <div class="page-title">Store Profile</div>
-  <div class="page-sub">Complete your profile so customers can find your showroom on the ProCraft Dealer Locator.</div>
-
-  <div class="error-msg" id="errorMsg"></div>
-  <div class="success-msg" id="successMsg">✓ Profile saved successfully!</div>
-
-  <!-- Store Info -->
-  <div class="card">
-    <div class="card-header"><span class="card-title">Store Presentation <span class="badge-optional">Recommended</span></span></div>
-    <div class="card-body">
-      <p class="section-desc">This text appears on your public dealer page. If left blank, those sections will not be shown. We recommend filling these in to attract more customers.</p>
-      <div class="form-group">
-        <label class="form-label">Store Heading <span class="badge-optional">Optional</span></label>
-        <input class="form-input" id="f_heading" type="text" maxlength="30" placeholder="e.g. Maryland's Premier Cabinet Showroom" oninput="updateCount('f_heading','count_heading',30); updatePreview();"/>
-        <div class="hint-row">
-          <span class="form-hint">A short tagline that appears at the top of your dealer page</span>
-          <span class="char-count" id="count_heading">0/30</span>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Description <span class="badge-optional">Optional</span></label>
-        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="e.g. Family-owned showroom serving the DC metro area since 2005. We carry ProCraft's full cabinet line with over 50 door styles on display. Visit us to explore your dream kitchen." oninput="updateCount('f_description','count_description',200); updatePreview();"></textarea>
-        <div class="hint-row">
-          <span class="form-hint">Tell customers about your showroom, specialties, and what makes you unique</span>
-          <span class="char-count" id="count_description">0/200</span>
-        </div>
-      </div>
-      <div class="preview-box" id="previewBox">
-        <div class="preview-label">Preview — how it looks on your dealer page</div>
-        <div class="preview-heading" id="previewHeading"></div>
-        <div class="preview-desc" id="previewDesc"></div>
-      </div>
-      <div class="form-group" style="margin-top:18px;">
-        <label class="form-label">Website <span class="badge-optional">Optional</span></label>
-        <input class="form-input" id="f_website" type="url" placeholder="https://www.yourshowroom.com"/>
-      </div>
-    </div>
-  </div>
-
-  <!-- Contact Info -->
+    <!-- Contact Info -->
   <div class="card">
     <div class="card-header"><span class="card-title">Contact Information</span></div>
     <div class="card-body">
@@ -238,6 +194,39 @@
     </div>
   </div>
 
+  <!-- Store Info -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Store Presentation <span class="badge-optional">Recommended</span></span></div>
+    <div class="card-body">
+      <p class="section-desc">This text appears on your public dealer page. If left blank, those sections will not be shown. We recommend filling these in to attract more customers.</p>
+      <div class="form-group">
+        <label class="form-label">Store Heading <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_heading" type="text" maxlength="30" placeholder="e.g. Maryland's Premier Cabinet Showroom" oninput="updateCount('f_heading','count_heading',30); updatePreview();"/>
+        <div class="hint-row">
+          <span class="form-hint">A short tagline that appears at the top of your dealer page</span>
+          <span class="char-count" id="count_heading">0/30</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description <span class="badge-optional">Optional</span></label>
+        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="e.g. Family-owned showroom serving the DC metro area since 2005. We carry ProCraft's full cabinet line with over 50 door styles on display. Visit us to explore your dream kitchen." oninput="updateCount('f_description','count_description',200); updatePreview();"></textarea>
+        <div class="hint-row">
+          <span class="form-hint">Tell customers about your showroom, specialties, and what makes you unique</span>
+          <span class="char-count" id="count_description">0/200</span>
+        </div>
+      </div>
+      <div class="preview-box" id="previewBox">
+        <div class="preview-label">Preview — how it looks on your dealer page</div>
+        <div class="preview-heading" id="previewHeading"></div>
+        <div class="preview-desc" id="previewDesc"></div>
+      </div>
+      <div class="form-group" style="margin-top:18px;">
+        <label class="form-label">Website <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_website" type="url" placeholder="https://www.yourshowroom.com"/>
+      </div>
+    </div>
+  </div>
+
   <!-- Photos -->
   <div class="card">
     <div class="card-header"><span class="card-title">Store Photos <span class="required">*</span></span></div>
@@ -254,6 +243,18 @@
       <div class="image-count-label" id="imageCountLabel"></div>
     </div>
   </div>
+
+
+  <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-title">Store Profile</div>
+  <div class="page-sub">Complete your profile so customers can find your showroom on the ProCraft Dealer Locator.</div>
+
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="success-msg" id="successMsg">✓ Profile saved successfully!</div>
 
   <button class="btn-submit" id="btnSubmit" onclick="saveProfile()">
     <span class="btn-text">Save Profile</span>
