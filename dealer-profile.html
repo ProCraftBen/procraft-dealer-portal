@@ -375,7 +375,10 @@ async function saveProfile() {
 
       console.log('toDelete length:', toDelete.length);
       console.log('about to delete:', toDelete);
-      const { data: delData, error: delErr } = await _supabase.storage.from('dealer-image').remove(toDelete);
+      let delData = null, delErr = null;
+      if (toDelete.length > 0) {
+        ({ data: delData, error: delErr } = await _supabase.storage.from('dealer-image').remove(toDelete));
+      }
       console.log('delete data:', delData);
       console.log('delete error:', delErr);
       
