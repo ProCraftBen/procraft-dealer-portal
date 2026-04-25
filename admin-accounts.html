@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Accounts</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
+    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+    .nav-badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; background: var(--gold); color: var(--green-dark); padding: 2px 7px; border-radius: 2px; font-weight: 500; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: #fff; }
+    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
+    .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    .page { max-width: 1000px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+
+    .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 44px; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-primary svg { width: 14px; height: 14px; fill: currentColor; }
+
+    .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 24px; }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
+    .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .table-count { font-size: 11px; color: var(--muted); }
+    .overflow-x { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
+
+    .td-name { font-weight: 500; color: var(--green-dark); font-size: 13px; }
+    .td-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .badge-super { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(201,168,76,0.15); color: #8B6914; }
+    .badge-admin { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(14,31,22,0.08); color: var(--green-dark); }
+    .badge-active { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(22,163,74,0.1); color: #16A34A; }
+    .badge-inactive { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(107,114,128,0.1); color: #6B7280; }
+    .badge-you { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; background: rgba(59,130,246,0.1); color: #3B82F6; margin-left: 6px; }
+
+    .btn-edit { font-size: 11px; color: var(--gold); background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; margin-right: 6px; }
+    .btn-edit:hover { opacity: 0.7; }
+    .btn-toggle { font-size: 11px; background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; color: var(--muted); }
+    .btn-toggle:hover { opacity: 0.7; }
+    .btn-disabled { opacity: 0.3; cursor: not-allowed !important; pointer-events: none; }
+
+    /* Audit Log */
+    .log-item { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; }
+    .log-item:last-child { border-bottom: none; }
+    .log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex-shrink: 0; margin-top: 5px; }
+    .log-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+    .log-text strong { color: var(--green-dark); }
+    .log-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+    .empty-state svg { width: 32px; height: 32px; fill: var(--border); margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto; }
+
+    .loading-rows { padding: 16px 20px; }
+    .loading-row { height: 14px; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 3px; margin-bottom: 12px; }
+    .loading-row:nth-child(2) { width: 80%; }
+    .loading-row:nth-child(3) { width: 90%; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: var(--white); border-radius: 4px; width: 100%; max-width: 480px; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); }
+    .modal-close { width: 32px; height: 32px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; }
+    .modal-close:hover { background: var(--cream); }
+    .modal-body { padding: 24px; }
+    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+    .form-group { margin-bottom: 18px; }
+    .form-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
+    .required { color: var(--error); margin-left: 2px; }
+    .form-input { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); transition: border-color 0.2s; }
+    .form-input:focus { outline: none; border-color: var(--gold); }
+    .form-select { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); }
+    .form-hint { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 10px 14px; font-size: 12px; color: var(--error); margin-bottom: 16px; display: none; }
+    .error-msg.show { display: block; }
+
+    .btn-cancel { height: 40px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; cursor: pointer; }
+    .btn-save { height: 40px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 0 24px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
+    .btn-save:hover { background: var(--green-mid); }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; }
+    .toast.show { display: block; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
+    <span class="nav-title">ProCraft</span>
+    <span class="nav-badge">Admin</span>
+  </div>
+  <div class="nav-right">
+    <a href="admin.html" class="nav-link">Dashboard</a>
+    <a href="admin-quotes.html" class="nav-link">Quotes</a>
+    <a href="admin-dealers.html" class="nav-link">Dealers</a>
+    <a href="admin-accounts.html" class="nav-link active">Accounts</a>
+    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">Admin Accounts</div>
+    <button class="btn-primary" id="btnAddAdmin" onclick="openNewAdmin()" style="display:none;">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Add Admin
+    </button>
+  </div>
+
+  <!-- Accounts Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="table-title">All Admin Accounts</span>
+      <span class="table-count" id="tableCount"></span>
+    </div>
+    <div class="overflow-x">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Joined</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="accountsBody">
+          <tr><td colspan="6"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Audit Log -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="table-title">Recent Activity</span>
+    </div>
+    <div id="auditLog">
+      <div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add Admin</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="error-msg" id="formError"></div>
+      <div class="form-group">
+        <label class="form-label">Full Name <span class="required">*</span></label>
+        <input class="form-input" id="f_name" type="text" placeholder="Jane Smith"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email <span class="required">*</span></label>
+        <input class="form-input" id="f_email" type="email" placeholder="jane@procraftdc.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role <span class="required">*</span></label>
+        <select class="form-select" id="f_role">
+          <option value="admin">Admin</option>
+          <option value="super_admin">Super Admin</option>
+        </select>
+        <div class="form-hint">Super Admin can manage other admin accounts.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Temporary Password <span class="required">*</span></label>
+        <input class="form-input" id="f_password" type="text" placeholder="Min. 8 characters"/>
+        <div class="form-hint">The admin will be asked to change this on first login.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="btnSave" onclick="saveAdmin()">Add Admin</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const { createClient } = window.supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+let currentUserId = null;
+let isSuperAdmin  = false;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function formatDate(str) {
+  return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDateTime(str) {
+  const d = new Date(str);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+async function init() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  currentUserId = session.user.id;
+
+  const { data: me } = await _supabase.from('dealers').select('role').eq('id', currentUserId).single();
+  if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
+
+  isSuperAdmin = me.role === 'super_admin';
+  if (isSuperAdmin) document.getElementById('btnAddAdmin').style.display = 'inline-flex';
+
+  await Promise.all([loadAccounts(), loadAuditLog()]);
+}
+
+async function loadAccounts() {
+  const { data: accounts } = await _supabase
+    .from('dealers')
+    .select('*')
+    .in('role', ['admin', 'super_admin'])
+    .order('created_at', { ascending: true });
+
+  const tbody = document.getElementById('accountsBody');
+  document.getElementById('tableCount').textContent = `${accounts?.length || 0} account${accounts?.length !== 1 ? 's' : ''}`;
+
+  if (!accounts?.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>No admin accounts found.</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = accounts.map(a => {
+    const isMe = a.id === currentUserId;
+    const canEdit = isSuperAdmin && !isMe;
+    return `
+    <tr>
+      <td>
+        <div class="td-name">${a.contact_name || '—'}${isMe ? '<span class="badge-you">You</span>' : ''}</div>
+      </td>
+      <td>${a.email || '—'}</td>
+      <td>${a.role === 'super_admin' ? '<span class="badge-super">Super Admin</span>' : '<span class="badge-admin">Admin</span>'}</td>
+      <td>${formatDate(a.created_at)}</td>
+      <td>${a.is_active !== false ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
+      <td style="white-space:nowrap">
+        ${canEdit ? `
+          <button class="btn-toggle" onclick="toggleActive('${a.id}', '${a.contact_name}', ${a.is_active !== false})">
+            ${a.is_active !== false ? 'Deactivate' : 'Activate'}
+          </button>` : `<button class="btn-toggle btn-disabled">—</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadAuditLog() {
+  const { data: logs } = await _supabase
+    .from('audit_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  const el = document.getElementById('auditLog');
+  if (!logs?.length) {
+    el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M13 2.05V4.05C17.39 4.59 20.5 8.58 19.96 12.97C19.5 16.61 16.64 19.5 13 19.93V21.93C18.5 21.38 22.5 16.5 21.95 11C21.5 6.25 17.73 2.5 13 2.05M11 2.06C9.05 2.25 7.19 3 5.67 4.26L7.1 5.74C8.22 4.84 9.57 4.26 11 4.06V2.06M4.26 5.67C3 7.19 2.25 9.04 2.05 11H4.05C4.24 9.58 4.8 8.23 5.69 7.1L4.26 5.67M2.06 13C2.26 14.96 3.03 16.81 4.27 18.33L5.69 16.9C4.81 15.77 4.24 14.42 4.06 13H2.06M7.1 18.37L5.67 19.74C7.18 21 9.04 21.79 11 22V20C9.58 19.82 8.23 19.25 7.1 18.37M12 7L8 11H11V17H13V11H16L12 7Z"/></svg>No activity yet.</div>`;
+    return;
+  }
+
+  el.innerHTML = logs.map(log => `
+    <div class="log-item">
+      <div class="log-dot"></div>
+      <div>
+        <div class="log-text"><strong>${log.actor_name || 'System'}</strong> ${log.action}${log.target_name ? ` — <strong>${log.target_name}</strong>` : ''}</div>
+        <div class="log-time">${formatDateTime(log.created_at)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function openNewAdmin() {
+  document.getElementById('modalTitle').textContent = 'Add Admin';
+  document.getElementById('btnSave').textContent = 'Add Admin';
+  document.getElementById('f_name').value = '';
+  document.getElementById('f_email').value = '';
+  document.getElementById('f_password').value = '';
+  document.getElementById('f_role').value = 'admin';
+  document.getElementById('formError').classList.remove('show');
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+async function saveAdmin() {
+  const btn   = document.getElementById('btnSave');
+  const errEl = document.getElementById('formError');
+  errEl.classList.remove('show');
+
+  const name     = document.getElementById('f_name').value.trim();
+  const email    = document.getElementById('f_email').value.trim();
+  const password = document.getElementById('f_password').value;
+  const role     = document.getElementById('f_role').value;
+
+  if (!name || !email || !password) {
+    errEl.textContent = 'Please fill in all fields.';
+    errEl.classList.add('show');
+    return;
+  }
+  if (password.length < 8) {
+    errEl.textContent = 'Password must be at least 8 characters.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const res = await fetch(
+      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/create-admin',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ name, email, password, role }),
+      }
+    );
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to create admin.');
+
+    // Log the action
+    await logAction(`added a new ${role === 'super_admin' ? 'Super Admin' : 'Admin'} account`, 'admin', result.userId, name);
+
+    showToast(`Admin account created for ${name}.`);
+    closeModal();
+    await loadAccounts();
+
+  } catch (err) {
+    errEl.textContent = err.message || 'Something went wrong.';
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Add Admin';
+  }
+}
+
+async function toggleActive(accountId, accountName, currentStatus) {
+  const newStatus = !currentStatus;
+  const { error } = await _supabase.from('dealers').update({ is_active: newStatus }).eq('id', accountId);
+  if (error) { showToast('Failed to update account.'); return; }
+
+  await logAction(newStatus ? 'activated admin account' : 'deactivated admin account', 'admin', accountId, accountName);
+
+  showToast(newStatus ? `${accountName} activated.` : `${accountName} deactivated.`);
+  await loadAccounts();
+  await loadAuditLog();
+}
+
+async function logAction(action, targetType, targetId, targetName) {
+  const { data: { session } } = await _supabase.auth.getSession();
+  const { data: me } = await _supabase.from('dealers').select('contact_name').eq('id', session.user.id).single();
+  await _supabase.from('audit_logs').insert({
+    actor_id:    session.user.id,
+    actor_name:  me?.contact_name || 'Admin',
+    action,
+    target_type: targetType,
+    target_id:   targetId,
+    target_name: targetName,
+  });
+}
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+async function handleLogout() {
+  await _supabase.auth.signOut();
+  window.location.href = 'login.html';
+}
+
+init();
+</script>
+</body>
+</html>
