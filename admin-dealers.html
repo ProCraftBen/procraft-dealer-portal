@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ProCraft Admin — Dealers</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7PvXRsQ5r5KAIyLYQ1uZvgdaqGQ_pkA0&libraries=places&callback=initMaps" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -212,7 +213,7 @@
         <div class="form-grid">
           <div class="form-group full">
             <label class="form-label">Address Line 1 <span class="required">*</span></label>
-            <input class="form-input" id="f_address_line1" type="text" placeholder="123 Main St"/>
+            <input class="form-input" id="f_address_line1" type="text" placeholder="Start typing address..." autocomplete="off"/>
           </div>
           <div class="form-group full">
             <label class="form-label">Address Line 2</label>
@@ -230,6 +231,9 @@
             <label class="form-label">Zip Code <span class="required">*</span></label>
             <input class="form-input" id="f_zip_code" type="text" placeholder="20001"/>
           </div>
+          <input type="hidden" id="f_lat"/>
+          <input type="hidden" id="f_lng"/>
+          <input type="hidden" id="f_address_formatted"/>
         </div>
       </div>
 
@@ -391,6 +395,9 @@ async function openEditDealer(dealerId) {
   document.getElementById('f_tax_rate').disabled           = d.tax_exempt || false;
   document.getElementById('f_shipping_fee').value          = d.shipping_fee || '';
   document.getElementById('f_free_shipping_threshold').value = d.free_shipping_threshold || '';
+  document.getElementById('f_lat').value               = d.lat || '';
+  document.getElementById('f_lng').value               = d.lng || '';
+  document.getElementById('f_address_formatted').value = d.address_formatted || '';
 
   document.getElementById('formError').classList.remove('show');
   document.getElementById('modalOverlay').classList.add('show');
@@ -404,7 +411,8 @@ function closeModal() {
 function clearForm() {
   ['f_company_name','f_contact_name','f_email','f_phone','f_slug',
    'f_address_line1','f_address_line2','f_city','f_state','f_zip_code',
-   'f_multiplier','f_tax_rate','f_shipping_fee','f_free_shipping_threshold'
+   'f_multiplier','f_tax_rate','f_shipping_fee','f_free_shipping_threshold',
+   'f_lat','f_lng','f_address_formatted'
   ].forEach(id => {
     const el = document.getElementById(id);
     el.value = '';
@@ -430,6 +438,9 @@ async function saveDealer() {
     city:                    document.getElementById('f_city').value.trim(),
     state:                   document.getElementById('f_state').value.trim(),
     zip_code:                document.getElementById('f_zip_code').value.trim(),
+    lat:                     document.getElementById('f_lat').value || null,
+    lng:                     document.getElementById('f_lng').value || null,
+    address_formatted:       document.getElementById('f_address_formatted').value || null,
     multiplier:              document.getElementById('f_multiplier').value,
     tax_rate:                document.getElementById('f_tax_rate').value,
     tax_exempt:              document.getElementById('f_tax_exempt').checked,
@@ -437,7 +448,7 @@ async function saveDealer() {
     free_shipping_threshold: document.getElementById('f_free_shipping_threshold').value,
   };
 
-  const optionalFields = ['address_line2', 'slug'];
+  const optionalFields = ['address_line2', 'slug', 'lat', 'lng', 'address_formatted'];
   for (const [key, val] of Object.entries(fields)) {
     if (optionalFields.includes(key)) continue;
     if (key === 'tax_rate' && fields.tax_exempt) continue;
@@ -463,6 +474,9 @@ async function saveDealer() {
         city:                    fields.city,
         state:                   fields.state,
         zip_code:                fields.zip_code,
+        lat:                     fields.lat ? parseFloat(fields.lat) : null,
+        lng:                     fields.lng ? parseFloat(fields.lng) : null,
+        address_formatted:       fields.address_formatted || null,
         multiplier:              parseFloat(fields.multiplier),
         tax_rate:                fields.tax_exempt ? 0 : parseFloat(fields.tax_rate) / 100,
         tax_exempt:              fields.tax_exempt,
@@ -571,6 +585,38 @@ document.getElementById('f_company_name').addEventListener('input', function() {
 document.getElementById('modalOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
+
+// Google Maps Places Autocomplete
+function initMaps() {
+  const input = document.getElementById('f_address_line1');
+  const autocomplete = new google.maps.places.Autocomplete(input, {
+    types: ['address'],
+    componentRestrictions: { country: 'us' },
+  });
+
+  autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace();
+    if (!place.geometry) return;
+
+    let streetNumber = '', route = '', city = '', state = '', zip = '';
+    for (const component of place.address_components) {
+      const type = component.types[0];
+      if (type === 'street_number') streetNumber = component.long_name;
+      if (type === 'route')         route        = component.long_name;
+      if (type === 'locality')      city         = component.long_name;
+      if (type === 'administrative_area_level_1') state = component.short_name;
+      if (type === 'postal_code')   zip          = component.long_name;
+    }
+
+    document.getElementById('f_address_line1').value    = `${streetNumber} ${route}`.trim();
+    document.getElementById('f_city').value              = city;
+    document.getElementById('f_state').value             = state;
+    document.getElementById('f_zip_code').value          = zip;
+    document.getElementById('f_lat').value               = place.geometry.location.lat();
+    document.getElementById('f_lng').value               = place.geometry.location.lng();
+    document.getElementById('f_address_formatted').value = place.formatted_address;
+  });
+}
 
 init();
 </script>
