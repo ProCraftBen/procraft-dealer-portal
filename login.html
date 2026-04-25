@@ -257,9 +257,18 @@
 
       const { data: dealer } = await _supabase
         .from('dealers')
-        .select('role')
+        .select('role, is_active')
         .eq('id', data.user.id)
         .single();
+      
+      if (!dealer?.is_active) {
+        await _supabase.auth.signOut();
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Sign In';
+        errMsg.textContent = 'Your account has been deactivated. Please contact ProCraft DC.';
+        errMsg.classList.add('show');
+        return;
+      }
       
       window.location.href = dealer?.role === 'admin' ? 'admin.html' : 'dashboard.html';
     }
@@ -269,9 +278,13 @@
       if (result.data.session) {
         const { data: dealer } = await _supabase
           .from('dealers')
-          .select('role')
+          .select('role, is_active')
           .eq('id', result.data.session.user.id)
           .single();
+        if (!dealer?.is_active) {
+          await _supabase.auth.signOut();
+          return;
+        }
         window.location.href = dealer?.role === 'admin' ? 'admin.html' : 'dashboard.html';
       }
     });
