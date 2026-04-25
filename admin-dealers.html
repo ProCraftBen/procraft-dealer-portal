@@ -487,8 +487,12 @@ async function saveDealer() {
     }
     closeModal();
     await loadDealers();
-  } catch (err) {
-    errEl.textContent = err.message || 'Something went wrong.';
+    } catch (err) {
+      if (err.message?.includes('unique') || err.message?.includes('duplicate')) {
+        errEl.textContent = 'This slug is already taken. Please choose a different one.';
+      } else {
+        errEl.textContent = err.message || 'Something went wrong.';
+      }
     errEl.classList.add('show');
   } finally {
     btn.disabled = false;
