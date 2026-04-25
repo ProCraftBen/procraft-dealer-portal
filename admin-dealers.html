@@ -491,7 +491,7 @@ async function saveDealer() {
       if (err.message?.includes('unique') || err.message?.includes('duplicate')) {
         errEl.textContent = 'This slug is already taken. Please choose a different one.';
       } else {
-        errEl.textContent = err.message || 'Something went wrong.';
+        errEl.textContent = err.message || 'Somethin g went wrong.';
       }
     errEl.classList.add('show');
   } finally {
