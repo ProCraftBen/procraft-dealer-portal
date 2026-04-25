@@ -228,6 +228,7 @@ async function init() {
   if (!session) { window.location.href = 'login.html'; return; }
 
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  console.log('admin.html me:', me); // 加這行
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
   document.getElementById('adminName').textContent = me.contact_name || 'Admin';
