@@ -372,7 +372,13 @@ async function saveProfile() {
       console.log('oldPaths:', oldPaths);
       console.log('newPaths:', newPaths);
       console.log('toDelete:', toDelete);
-    
+
+      console.log('toDelete length:', toDelete.length);
+      console.log('about to delete:', toDelete);
+      const { data: delData, error: delErr } = await _supabase.storage.from('dealer-image').remove(toDelete);
+      console.log('delete data:', delData);
+      console.log('delete error:', delErr);
+      
       if (toDelete.length) {
         await _supabase.storage.from('dealer-image').remove(toDelete);
       }
