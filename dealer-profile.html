@@ -369,7 +369,6 @@ async function saveProfile() {
       const oldPaths  = oldImages.map(i => i.path).filter(Boolean);
       const toDelete  = oldPaths.filter(p => !newPaths.includes(p));
 
-
       console.log('oldPaths:', oldPaths);
       console.log('newPaths:', newPaths);
       console.log('toDelete:', toDelete);
