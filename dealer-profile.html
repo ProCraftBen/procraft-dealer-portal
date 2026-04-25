@@ -294,6 +294,21 @@ async function handleFiles(files) {
     const ext  = file.name.split('.').pop();
     console.log('currentUser.id:', currentUser.id);
     const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    // 取得舊的圖片列表
+    const { data: oldDealer } = await _supabase
+      .from('dealers')
+      .select('images')
+      .eq('id', currentUser.id)
+      .single();
+    
+    const oldImages = oldDealer?.images || [];
+    const newPaths  = images.map(i => i.path).filter(Boolean);
+    const oldPaths  = oldImages.map(i => i.path).filter(Boolean);
+    const toDelete  = oldPaths.filter(p => !newPaths.includes(p));
+    
+    if (toDelete.length) {
+      await _supabase.storage.from('dealer-image').remove(toDelete);
+    }
     const { error } = await _supabase.storage.from('dealer-image').upload(path, file);
     if (error) { showError(`Failed to upload ${file.name}.`); continue; }
     const { data } = _supabase.storage.from('dealer-image').getPublicUrl(path);
