@@ -366,6 +366,27 @@
       <label>Notes (Optional)</label>
       <textarea id="notes" placeholder="Any special instructions or comments..."></textarea>
     </div>
+    <div class="field">
+      <label>Logistic <span class="req">*</span></label>
+      <select id="logisticType" onchange="handleLogisticChange()" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
+        <option value="pickup">Pick Up @ ProCraft DC — Free</option>
+        <option value="delivery">Delivery (up to 3 hours from ProCraft DC)</option>
+        <option value="shipping">Shipping (3+ hours / Warehouse)</option>
+      </select>
+    </div>
+    <div class="field" id="deliveryDistanceField" style="display:none;">
+      <label>Delivery Distance</label>
+      <select id="deliveryDistance" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
+        <option value="100">Less than 30 minutes — $100</option>
+        <option value="200">31 to 90 minutes — $200</option>
+        <option value="300">91 to 120 minutes — $300</option>
+        <option value="400">121 to 150 minutes — $400</option>
+        <option value="500">151 to 180 minutes — $500</option>
+      </select>
+    </div>
+    <div id="shippingTierNote" style="display:none;font-size:12px;color:var(--muted);background:rgba(201,168,76,0.06);border-left:3px solid var(--gold);padding:10px 14px;border-radius:0 3px 3px 0;margin-top:4px;">
+      Shipping fee will be calculated based on your order subtotal. Orders under $3,000 require Sales confirmation.
+    </div>
   </div>
 
   <!-- Billing Address -->
@@ -524,6 +545,12 @@
     renderAddresses();
   }
 
+  function handleLogisticChange() {
+    const type = document.getElementById('logisticType').value;
+    document.getElementById('deliveryDistanceField').style.display = type === 'delivery' ? 'block' : 'none';
+    document.getElementById('shippingTierNote').style.display = type === 'shipping' ? 'block' : 'none';
+  }
+
   async function goNext() {
     const errMsg   = document.getElementById('errorMsg');
     const poNumber = document.getElementById('poNumber').value.trim();
@@ -573,7 +600,9 @@
     }
 
     // Save to sessionStorage and go to step 2
-    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId };
+    const logisticType     = document.getElementById('logisticType').value;
+    const deliveryFee      = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
+    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
     window.location.href = 'new-quote-step2.html';
   }
