@@ -211,6 +211,7 @@
             <th>SKU</th>
             <th>Type</th>
             <th class="th-right">Qty</th>
+            <th class="th-right">MSRP</th>
             <th class="th-right">Unit Price</th>
             <th class="th-right">Total</th>
           </tr>
@@ -354,14 +355,15 @@ function renderReview() {
   // Items table
   const subtotal = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
   document.getElementById('itemsTableBody').innerHTML = step2Data.map(item => `
-    <tr>
-      <td class="td-style">${item.style_name}</td>
-      <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
-      <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
-      <td class="td-right">${item.quantity}</td>
-      <td class="td-right">$${item.unit_price.toFixed(2)}</td>
-      <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
-    </tr>`).join('');
+      <tr>
+        <td class="td-style">${item.style_name}</td>
+        <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
+        <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
+        <td class="td-right">${item.quantity}</td>
+        <td class="td-right" style="color:var(--muted);">$${item.msrp ? item.msrp.toFixed(2) : '—'}</td>
+        <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+        <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
+      </tr>`).join('');
 
   // Totals
   const taxRate    = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
@@ -493,6 +495,7 @@ async function submitQuote() {
       type:       item.type,
       quantity:   item.quantity,
       unit_price: item.unit_price,
+      msrp:       item.msrp || null,
     }));
 
     const { error: itemsError } = await _supabase.from('quote_items').insert(items);
