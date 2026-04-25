@@ -227,8 +227,8 @@ async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
 
-  const { data: me } = await _supabase.from('dealers').select('role, contact_name').eq('id', session.user.id).single();
-  if (me?.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
+  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
   document.getElementById('adminName').textContent = me.contact_name || 'Admin';
 
