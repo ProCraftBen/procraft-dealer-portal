@@ -270,7 +270,7 @@
         return;
       }
       
-      window.location.href = dealer?.role === 'admin' ? 'admin.html' : 'dashboard.html';
+      window.location.href = ['admin','super_admin'].includes(dealer?.role) ? 'admin.html' : 'dashboard.html';
     }
 
     // Already logged in?
@@ -285,7 +285,7 @@
           await _supabase.auth.signOut();
           return;
         }
-        window.location.href = dealer?.role === 'admin' ? 'admin.html' : 'dashboard.html';
+        window.location.href = ['admin','super_admin'].includes(dealer?.role) ? 'admin.html' : 'dashboard.html';
       }
     });
   </script>
