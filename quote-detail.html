@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft — Quote Detail</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #0E1F16;
+      --green-mid:  #1A3626;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --status-pending:    #C9A84C;
+      --status-processing: #3B82F6;
+      --status-complete:   #16A34A;
+      --status-closed:     #6B7280;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    /* Navbar */
+    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
+    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
+    .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* Page */
+    .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+
+    /* Header row */
+    .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
+    .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+    .quote-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .status-badge { display: inline-block; padding: 5px 14px; border-radius: 3px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+    .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
+    .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
+    .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
+    .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+
+    .btn-print { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
+    .btn-print:hover { background: var(--green-mid); }
+    .btn-print svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* Card */
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
+    .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .card-body { padding: 20px; }
+
+    /* Info grid */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .info-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+
+    /* Items table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    thead th.r { text-align: right; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
+    tbody td.r { text-align: right; }
+    .td-style { font-weight: 500; color: var(--green-dark); }
+    .td-sku { color: var(--muted); font-size: 11px; }
+    .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; }
+    .type-badge.rta { background: rgba(14,31,22,0.07); color: var(--green-dark); }
+    .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
+
+    /* Totals */
+    .totals { padding: 4px 20px 20px; }
+    .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .total-row:last-child { border-bottom: none; }
+    .total-row.grand { padding-top: 12px; }
+    .total-row.grand .total-label { font-size: 14px; font-weight: 500; color: var(--green-dark); }
+    .total-row.grand .total-val { font-size: 16px; font-weight: 500; color: var(--green-dark); }
+    .total-label { color: var(--muted); }
+    .total-val { font-weight: 500; }
+    .free-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
+    .exempt-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
+
+    /* Loading / Error */
+    .loading-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
+    .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
+
+    /* Print styles */
+    @media print {
+      .navbar, .btn-print, .nav-back { display: none !important; }
+      .page { padding: 0; max-width: 100%; }
+      body { background: #fff; }
+      .card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+      .quote-header { margin-bottom: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-brand">
+    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
+    <span class="nav-title">ProCraft</span>
+  </div>
+  <div class="nav-right">
+    <a href="dashboard.html" class="nav-back">← Back to Dashboard</a>
+  </div>
+</nav>
+
+<div class="page" id="pageContent">
+  <div class="loading-wrap">
+    <div class="spinner-large"></div>
+    Loading quote...
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const { createClient } = window.supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+
+function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
+function formatDate(str) {
+  return new Date(str).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+async function init() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  const params = new URLSearchParams(window.location.search);
+  const quoteId = params.get('id');
+  if (!quoteId) { showError('No quote ID provided.'); return; }
+
+  // Load quote + items
+  const { data: quote, error: qErr } = await _supabase
+    .from('quotes')
+    .select('*, quote_items(*)')
+    .eq('id', quoteId)
+    .single();
+
+  if (qErr || !quote) { showError('Quote not found.'); return; }
+
+  // Security: dealer can only see own quotes
+  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  if (me?.role !== 'admin' && quote.dealer_id !== session.user.id) {
+    showError('You do not have permission to view this quote.');
+    return;
+  }
+
+  // Load dealer info
+  const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
+
+  // Load shipping address if exists
+  let shippingAddr = null;
+  if (quote.shipping_address_id) {
+    const { data: addr } = await _supabase.from('addresses').select('*').eq('id', quote.shipping_address_id).single();
+    shippingAddr = addr;
+  }
+
+  renderQuote(quote, dealer, shippingAddr);
+}
+
+function renderQuote(quote, dealer, addr) {
+  const items = quote.quote_items || [];
+  const sc    = statusClass[quote.status] || 'pending';
+
+  const shippingHtml = addr
+    ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>
+       ${addr.address_line}<br>
+       ${addr.city}, ${addr.state} ${addr.zip_code}`
+    : `<strong>${dealer?.company_name || '—'}</strong><br>
+       ${dealer?.city || ''}, ${dealer?.state || ''}`;
+
+  const itemsHtml = items.length ? items.map(i => `
+    <tr>
+      <td class="td-style">${i.style_code || '—'}</td>
+      <td class="td-sku">${i.sku_code || '—'}</td>
+      <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
+      <td class="r">${i.quantity}</td>
+      <td class="r">${fmt(i.unit_price)}</td>
+      <td class="r">${fmt(i.unit_price * i.quantity)}</td>
+    </tr>`).join('')
+  : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+
+  const freeShip = parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
+  const taxExempt = parseFloat(quote.tax_amount) === 0;
+
+  document.getElementById('pageContent').innerHTML = `
+    <div class="quote-header">
+      <div>
+        <div class="quote-number">${quote.quote_number || '—'}</div>
+        <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
+      </div>
+      <div class="header-right">
+        <span class="status-badge ${sc}">${quote.status}</span>
+        <button class="btn-print" onclick="window.print()">
+          <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
+          Download PDF
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Order Information</span></div>
+      <div class="card-body">
+        <div class="info-grid">
+          <div>
+            <div class="info-label">PO Number</div>
+            <div class="info-value">${quote.po_number || '—'}</div>
+          </div>
+          <div>
+            <div class="info-label">Job Name</div>
+            <div class="info-value">${quote.job_name || '—'}</div>
+          </div>
+          <div>
+            <div class="info-label">Dealer</div>
+            <div class="info-value">${dealer?.company_name || '—'}</div>
+          </div>
+          <div>
+            <div class="info-label">Contact</div>
+            <div class="info-value">${dealer?.contact_name || '—'}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Shipping Address</span></div>
+      <div class="card-body">
+        <div class="info-value">${shippingHtml}</div>
+      </div>
+    </div>
+
+    ${quote.notes ? `
+    <div class="card">
+      <div class="card-header"><span class="card-title">Notes</span></div>
+      <div class="card-body">
+        <div class="info-value" style="font-style:italic;">${quote.notes}</div>
+      </div>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Items</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Door Style</th>
+              <th>SKU</th>
+              <th>Type</th>
+              <th class="r">Qty</th>
+              <th class="r">Unit Price</th>
+              <th class="r">Total</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+      </div>
+      <div class="totals">
+        <div class="total-row">
+          <span class="total-label">Subtotal</span>
+          <span class="total-val">${fmt(quote.subtotal)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">
+            Shipping
+            ${freeShip ? '<span class="free-tag">✓ Free shipping</span>' : ''}
+          </span>
+          <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">
+            Tax
+            ${taxExempt ? '<span class="exempt-tag">✓ Tax exempt</span>' : ''}
+          </span>
+          <span class="total-val">${fmt(quote.tax_amount)}</span>
+        </div>
+        <div class="total-row grand">
+          <span class="total-label">Order Total</span>
+          <span class="total-val">${fmt(quote.grand_total)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showError(msg) {
+  document.getElementById('pageContent').innerHTML = `
+    <div class="error-wrap">
+      <svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--border);margin:0 auto 16px;display:block;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      ${msg}
+    </div>`;
+}
+
+init();
+</script>
+</body>
+</html>
