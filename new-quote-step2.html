@@ -594,6 +594,7 @@ function renderSkuTable() {
         <tr>
           <th>SKU</th>
           <th>Description</th>
+          <th>MSRP</th>
           <th>Unit Price</th>
           <th class="th-right">Qty &amp; Add</th>
         </tr>
@@ -609,6 +610,7 @@ function renderSkuTable() {
             <tr>
               <td class="td-code">${sku.sku_code}</td>
               <td class="td-desc">${sku.description}</td>
+              <td class="td-price" style="color:var(--muted);">$${base.toFixed(2)}</td>
               <td class="td-price">$${price}</td>
               <td>
                 <div class="td-actions">
