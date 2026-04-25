@@ -384,8 +384,23 @@
         <option value="500">151 to 180 minutes — $500</option>
       </select>
     </div>
-    <div id="shippingTierNote" style="display:none;font-size:12px;color:var(--muted);background:rgba(201,168,76,0.06);border-left:3px solid var(--gold);padding:10px 14px;border-radius:0 3px 3px 0;margin-top:4px;">
-      Shipping fee will be calculated based on your order subtotal. Orders under $3,000 require Sales confirmation.
+    <div id="shippingTierNote" style="display:none;font-size:12px;color:var(--muted);margin-top:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:rgba(201,168,76,0.1);">
+            <th style="padding:8px 12px;text-align:left;border:1px solid var(--border);font-weight:500;color:var(--green-dark);">Order Subtotal</th>
+            <th style="padding:8px 12px;text-align:right;border:1px solid var(--border);font-weight:500;color:var(--green-dark);">Shipping Fee</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="padding:8px 12px;border:1px solid var(--border);">$0 – $3,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;color:var(--error);">Contact Sales Team</td></tr>
+          <tr style="background:#fafaf8;"><td style="padding:8px 12px;border:1px solid var(--border);">$3,001 – $6,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;">15%</td></tr>
+          <tr><td style="padding:8px 12px;border:1px solid var(--border);">$6,001 – $9,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;">12%</td></tr>
+          <tr style="background:#fafaf8;"><td style="padding:8px 12px;border:1px solid var(--border);">$9,001 – $12,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;">10%</td></tr>
+          <tr><td style="padding:8px 12px;border:1px solid var(--border);">$12,001+</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;color:var(--success);">Free Shipping</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:6px;font-size:11px;">Final shipping fee will be confirmed based on your order subtotal at checkout.</p>
     </div>
   </div>
 
