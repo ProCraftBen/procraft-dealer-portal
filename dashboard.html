@@ -419,6 +419,8 @@
     if (!session) { window.location.href = 'login.html'; return; }
 
     const userId = session.user.id;
+    const { data: me } = await _supabase.from('dealers').select('role').eq('id', userId).single();
+    if (['admin','super_admin'].includes(me?.role)) { window.location.href = 'admin.html'; return; }
 
     // Load dealer info
     const { data: dealer } = await _supabase
