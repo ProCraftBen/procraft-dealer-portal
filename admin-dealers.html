@@ -116,6 +116,19 @@
 
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; }
     .toast.show { display: block; }
+
+
+    .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .confirm-overlay.show { display: flex; }
+    .confirm-box { background: var(--white); border-radius: 4px; width: 100%; max-width: 400px; padding: 28px; }
+    .confirm-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--error); margin-bottom: 8px; }
+    .confirm-msg { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+    .confirm-input { width: 100%; height: 38px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; margin-bottom: 16px; }
+    .confirm-input:focus { outline: none; border-color: var(--error); }
+    .confirm-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-danger { height: 38px; background: var(--error); color: #fff; border: none; border-radius: 3px; padding: 0 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; opacity: 0.4; }
+    .btn-danger.ready { opacity: 1; cursor: pointer; }
+    
   </style>
 </head>
 <body>
@@ -270,6 +283,19 @@
   </div>
 </div>
 
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Delete Dealer</div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <input class="confirm-input" id="confirmInput" type="text" placeholder='Type "deletedealer" to confirm' oninput="checkConfirmInput()"/>
+    <div class="confirm-buttons">
+      <button class="btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn-danger" id="btnConfirmDelete" onclick="executeDelete()" disabled>Delete</button>
+    </div>
+  </div>
+</div>
+
+  
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -305,6 +331,10 @@ async function init() {
 }
 
 async function loadDealers() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  const { data: currentUser } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  const canDelete = currentUser?.role === 'super_admin';
+
   const { data: dealers } = await _supabase
     .from('dealers')
     .select('*')
@@ -333,6 +363,7 @@ async function loadDealers() {
       <td style="white-space:nowrap">
         <button class="btn-edit" onclick="openEditDealer('${d.id}')">Edit</button>
         <button class="btn-toggle" onclick="toggleActive('${d.id}', ${d.is_active})">${d.is_active ? 'Deactivate' : 'Activate'}</button>
+        ${canDelete ? `<button class="btn-toggle" style="color:var(--error);border-color:rgba(192,57,43,0.3);" onclick="openDeleteConfirm('${d.id}', '${d.company_name}')">Delete</button>` : ''}
       </td>
     </tr>`).join('');
 }
@@ -496,6 +527,64 @@ document.getElementById('modalOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 
+let deletingDealerId = null;
+
+function openDeleteConfirm(dealerId, companyName) {
+  deletingDealerId = dealerId;
+  document.getElementById('confirmMsg').innerHTML = `You are about to permanently delete <strong>${companyName}</strong> and all their quotes. This cannot be undone.`;
+  document.getElementById('confirmInput').value = '';
+  document.getElementById('btnConfirmDelete').disabled = true;
+  document.getElementById('btnConfirmDelete').classList.remove('ready');
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+
+function checkConfirmInput() {
+  const val = document.getElementById('confirmInput').value;
+  const btn = document.getElementById('btnConfirmDelete');
+  const match = val === 'deletedealer';
+  btn.disabled = !match;
+  btn.classList.toggle('ready', match);
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('show');
+  deletingDealerId = null;
+}
+
+async function executeDelete() {
+  const btn = document.getElementById('btnConfirmDelete');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const res = await fetch(
+      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/delete-dealer',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ dealer_id: deletingDealerId }),
+      }
+    );
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Failed to delete dealer.');
+
+    showToast('Dealer deleted successfully.');
+    closeConfirm();
+    await loadDealers();
+
+  } catch (err) {
+    showToast('Error: ' + err.message);
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+  }
+}
+
+
+  
 init();
 function formatPhone(input) {
   // 只保留數字
