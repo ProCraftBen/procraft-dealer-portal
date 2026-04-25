@@ -258,7 +258,7 @@ async function init() {
 
   // Check admin
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
-  if (me?.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
+  if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
   // Load dealers
   const { data: dealers } = await _supabase.from('dealers').select('id, company_name, contact_name, email, city, state').order('company_name');
