@@ -259,7 +259,7 @@ function setFeatured(idx) {
 async function removeImage(idx) {
   const img = images[idx];
   if (img.path) {
-    await _supabase.storage.from('dealer-images').remove([img.path]);
+    await _supabase.storage.from('dealer-image').remove([img.path]);
   }
   images.splice(idx, 1);
   renderImages();
@@ -294,9 +294,9 @@ async function handleFiles(files) {
     const ext  = file.name.split('.').pop();
     console.log('currentUser.id:', currentUser.id);
     const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await _supabase.storage.from('dealer-images').upload(path, file);
+    const { error } = await _supabase.storage.from('dealer-image').upload(path, file);
     if (error) { showError(`Failed to upload ${file.name}.`); continue; }
-    const { data } = _supabase.storage.from('dealer-images').getPublicUrl(path);
+    const { data } = _supabase.storage.from('dealer-image').getPublicUrl(path);
     images.push({ url: data.publicUrl, path });
   }
 
