@@ -255,13 +255,15 @@
         return;
       }
 
-      const { data: dealer } = await _supabase
+      const { data: dealer, error: dealerError } = await _supabase
         .from('dealers')
         .select('role, is_active')
         .eq('id', data.user.id)
         .single();
-
-      console.log('dealer:', dealer); // 加這行
+      
+      console.log('dealer:', dealer);
+      console.log('dealerError:', dealerError);
+      console.log('user id:', data.user.id);
 
       
       
