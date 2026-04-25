@@ -601,7 +601,7 @@ function renderSkuTable() {
       <tbody>
         ${skus.map(sku=>{
           const pr = pf.find(p=>p.sku_code===sku.sku_code);
-          const base = parseFloat(pr.rta_price);
+          const base = parseFloat(pr.msrp);
           const fee  = parseFloat(sku.assemble_fee||0);
           const unit = currentType==='RTA' ? base : base+fee;
           const price = (unit*m).toFixed(2);
@@ -638,9 +638,12 @@ function addToCart(skuCode, unitPrice) {
   const idx = cartItems.findIndex(i=>i.key===key);
   if (idx>=0) { cartItems[idx].quantity+=qty; }
   else {
-    cartItems.push({ key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
-      sku_code:skuCode, sku_desc:sku.description, type:currentType,
-      quantity:qty, unit_price:parseFloat(unitPrice) });
+      const pr2 = allPricing.find(p=>p.style_code===activeStyle.style_code && p.sku_code===skuCode);
+      const msrpValue = pr2 ? parseFloat(pr2.msrp) : 0;
+      
+      cartItems.push({ key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
+            sku_code:skuCode, sku_desc:sku.description, type:currentType,
+            quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue });
   }
   if (el) el.value=0;
   renderCart();
