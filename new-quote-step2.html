@@ -405,7 +405,7 @@ const _supabase = createClient(
 );
 
 let dealer = null;
-let allStyles = [], allSkus = [], allPricing = [];
+let allStyles = [], allSkus = [];
 let hoveredStyle = null;
 let activeStyle  = null;
 let currentType  = 'RTA';
@@ -432,12 +432,11 @@ async function init() {
   }
 
   dealer = d;
-  const [s,sk,p] = await Promise.all([
+  const [s,sk] = await Promise.all([
     _supabase.from('door_styles').select('*').eq('is_active',true),
-    _supabase.from('skus').select('*'),
-    _supabase.from('pricing').select('*'),
+    _supabase.from('skus').select('*').eq('is_active',true),
   ]);
-  allStyles=s.data||[]; allSkus=sk.data||[]; allPricing=p.data||[];
+  allStyles=s.data||[]; allSkus=sk.data||[];
   // open all subcats by default
   allStyles.forEach(s => {
     const key = `${s.brand}__${s.subcategory||'Other'}`;
@@ -577,8 +576,7 @@ function confirmStyle() {
 }
 
 function renderCatTabs() {
-  const codes = allPricing.filter(p=>p.style_code===activeStyle.style_code).map(p=>p.sku_code);
-  const cats = ['All',...new Set(allSkus.filter(s=>codes.includes(s.sku_code)).map(s=>s.category))];
+  const cats = ['All',...new Set(allSkus.filter(s=>s.style_code===activeStyle.style_code).map(s=>s.category))];
   document.getElementById('catTabs').innerHTML = cats.map(c=>`
     <button class="cat-tab ${c===currentCat?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
 }
@@ -594,8 +592,7 @@ function renderSkuTable() {
   const stockM    = dealer ? parseFloat(dealer.stock_multiplier    || 1) : 1;
   const nonStockM = dealer ? parseFloat(dealer.non_stock_multiplier || 1) : 1;
   const q = (document.getElementById('skuSearch')?.value||'').toLowerCase();
-  const pf = allPricing.filter(p=>p.style_code===activeStyle.style_code);
-  let skus = allSkus.filter(s=>pf.find(p=>p.sku_code===s.sku_code));
+  let skus = allSkus.filter(s=>s.style_code===activeStyle.style_code);
   if (currentCat!=='All') skus=skus.filter(s=>s.category===currentCat);
   if (q) skus=skus.filter(s=>s.sku_code.toLowerCase().includes(q)||s.description.toLowerCase().includes(q));
 
@@ -615,8 +612,7 @@ function renderSkuTable() {
       </thead>
       <tbody>
         ${skus.map(sku=>{
-          const pr        = pf.find(p=>p.sku_code===sku.sku_code);
-          const base      = parseFloat(pr?.msrp || 0);
+          const base      = parseFloat(sku.msrp || 0);
           const fee       = parseFloat(sku.assemble_fee || 0);
           const m         = sku.is_stock ? stockM : nonStockM;
           const unitPrice = (base * m).toFixed(2);
@@ -658,8 +654,7 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
   const idx = cartItems.findIndex(i=>i.key===key);
   if (idx>=0) { cartItems[idx].quantity+=qty; }
   else {
-    const pr2 = allPricing.find(p=>p.style_code===activeStyle.style_code && p.sku_code===skuCode);
-    const msrpValue = pr2 ? parseFloat(pr2.msrp) : 0;
+    const msrpValue = parseFloat(sku.msrp || 0);
     cartItems.push({
       key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
       sku_code:skuCode, sku_desc:sku.description, type,
