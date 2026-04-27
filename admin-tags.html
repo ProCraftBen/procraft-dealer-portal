@@ -288,8 +288,13 @@ async function selectTag(tagId) {
       <div class="bulk-edit-title">Batch Update — applies to all checked dealers</div>
       <div class="bulk-fields">
         <div class="bulk-group">
-          <label class="bulk-label">Multiplier</label>
-          <input class="bulk-input" type="number" id="bulkMultiplier" step="0.01" min="1" placeholder="e.g. 1.30"/>
+          <label class="bulk-label">Stock Multiplier</label>
+          <input class="bulk-input" type="number" id="bulkStockMultiplier" step="0.01" min="0.01" placeholder="e.g. 1.30"/>
+          <span class="bulk-hint">Leave blank to skip</span>
+        </div>
+        <div class="bulk-group">
+          <label class="bulk-label">Non-Stock Multiplier</label>
+          <input class="bulk-input" type="number" id="bulkNonStockMultiplier" step="0.01" min="0.01" placeholder="e.g. 1.50"/>
           <span class="bulk-hint">Leave blank to skip</span>
         </div>
         <div class="bulk-group">
@@ -368,14 +373,16 @@ async function applyBulkEdit() {
   const checked = [...document.querySelectorAll('#dealerCheckList input[type="checkbox"]:checked')].map(c => c.value);
   if (!checked.length) { showToast('No dealers selected.'); return; }
 
-  const multiplier  = document.getElementById('bulkMultiplier').value;
-  const taxRate     = document.getElementById('bulkTaxRate').value;
-  const taxExempt   = document.getElementById('bulkTaxExempt').checked;
+  const stockMultiplier    = document.getElementById('bulkStockMultiplier').value;
+  const nonStockMultiplier = document.getElementById('bulkNonStockMultiplier').value;
+  const taxRate            = document.getElementById('bulkTaxRate').value;
+  const taxExempt          = document.getElementById('bulkTaxExempt').checked;
 
   const updates = {};
-  if (multiplier) updates.multiplier = parseFloat(multiplier);
-  if (taxRate)    updates.tax_rate   = parseFloat(taxRate) / 100;
-  if (taxExempt)  updates.tax_exempt = true;
+  if (stockMultiplier)    updates.stock_multiplier     = parseFloat(stockMultiplier);
+  if (nonStockMultiplier) updates.non_stock_multiplier = parseFloat(nonStockMultiplier);
+  if (taxRate)            updates.tax_rate             = parseFloat(taxRate) / 100;
+  if (taxExempt)          updates.tax_exempt           = true;
 
   if (!Object.keys(updates).length) { showToast('No changes to apply.'); return; }
 
