@@ -65,23 +65,24 @@
       padding: 0 24px;
     }
     .progress-steps {
-      max-width: 700px;
+      max-width: 480px;
       margin: 0 auto;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       padding: 16px 0;
     }
     .step {
       display: flex; align-items: center; gap: 8px;
-      flex: 1;
+      flex: none;
     }
     .step:not(:last-child)::after {
       content: '';
-      flex: 1;
+      width: 60px;
       height: 1px;
       background: var(--border);
       margin: 0 8px;
+      flex-shrink: 0;
     }
     .step-circle {
       width: 28px; height: 28px;
@@ -270,6 +271,105 @@
       color: var(--text);
     }
     .billing-display strong { color: var(--green-dark); }
+    .billing-edit-link {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--gold);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      letter-spacing: 0.05em;
+      transition: opacity 0.2s;
+    }
+    .billing-edit-link:hover { opacity: 0.7; }
+    .billing-form { display: none; margin-top: 14px; }
+    .billing-form.show { display: block; }
+
+    /* ── Address card actions ── */
+    .address-card-wrap { position: relative; }
+    .address-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .addr-action-btn {
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 3px 8px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .addr-action-btn:hover { border-color: var(--green-dark); color: var(--green-dark); }
+    .addr-action-btn.delete:hover { border-color: var(--error); color: var(--error); }
+    .addr-action-btn.default-btn {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .addr-default-badge {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    /* ── Edit address modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(14,31,22,0.5);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: var(--white);
+      border-radius: 4px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-title {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--green-dark);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-actions {
+      display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;
+    }
+    .btn-modal-cancel {
+      padding: 10px 18px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px; cursor: pointer;
+      color: var(--muted);
+    }
+    .btn-modal-save {
+      padding: 10px 18px;
+      background: var(--green-dark);
+      border: none;
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px; cursor: pointer;
+      color: #fff;
+      letter-spacing: 0.1em;
+    }
 
     /* ── Bottom bar ── */
     .bottom-bar {
@@ -408,6 +508,38 @@
   <div class="card">
     <div class="card-title">Billing Address</div>
     <div class="billing-display" id="billingDisplay">Loading...</div>
+    <button class="billing-edit-link" onclick="toggleBillingForm()">Edit ✎</button>
+    <div class="billing-form" id="billingForm">
+      <div class="field">
+        <label>Address Line 1 <span class="req">*</span></label>
+        <input type="text" id="billingLine1" placeholder="Street address"/>
+      </div>
+      <div class="field">
+        <label>Address Line 2</label>
+        <input type="text" id="billingLine2" placeholder="Suite, unit, floor (optional)"/>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>City <span class="req">*</span></label>
+          <input type="text" id="billingCity" placeholder="City"/>
+        </div>
+        <div class="field">
+          <label>State <span class="req">*</span></label>
+          <input type="text" id="billingState" placeholder="MD" maxlength="2"/>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>ZIP Code <span class="req">*</span></label>
+          <input type="text" id="billingZip" placeholder="00000" maxlength="10"/>
+        </div>
+        <div class="field">
+          <label>Phone</label>
+          <input type="tel" id="billingPhone" placeholder="2025550100" maxlength="10"
+            oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Shipping Address -->
@@ -440,8 +572,12 @@
           <input type="text" id="newRecipient" placeholder="Full name"/>
         </div>
         <div class="field">
-          <label>Address</label>
-          <input type="text" id="newAddress" placeholder="Street address"/>
+          <label>Address Line 1</label>
+          <input type="text" id="newAddress" placeholder="Start typing street address…" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label>Address Line 2</label>
+          <input type="text" id="newAddressLine2" placeholder="Suite, unit, floor (optional)"/>
         </div>
         <div class="field-row">
           <div class="field">
@@ -460,15 +596,58 @@
           </div>
           <div class="field">
             <label>Phone</label>
-            <input type="tel" id="newPhone" placeholder="2025550100" maxlength="10" 
+            <input type="tel" id="newPhone" placeholder="2025550100" maxlength="10"
               oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
           </div>
         </div>
       </div>
     </div>
-
   </div>
 </div>
+
+<!-- Edit Address Modal -->
+<div class="modal-overlay" id="editAddrModal">
+  <div class="modal-box">
+    <div class="modal-title">Edit Address</div>
+    <input type="hidden" id="editAddrId"/>
+    <div class="field">
+      <label>Recipient Name</label>
+      <input type="text" id="editRecipient" placeholder="Full name"/>
+    </div>
+    <div class="field">
+      <label>Address Line 1</label>
+      <input type="text" id="editAddressLine1" placeholder="Street address" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <label>Address Line 2</label>
+      <input type="text" id="editAddressLine2" placeholder="Suite, unit, floor (optional)"/>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>City</label>
+        <input type="text" id="editCity" placeholder="City"/>
+      </div>
+      <div class="field">
+        <label>State</label>
+        <input type="text" id="editState" placeholder="MD" maxlength="2"/>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>ZIP Code</label>
+        <input type="text" id="editZip" placeholder="00000"/>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="editPhone" placeholder="2025550100" maxlength="10"
+          oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-modal-save" onclick="saveEditAddress()">Save Address</button>
+    </div>
+  </div>
 
 <!-- Bottom Bar -->
 <div class="bottom-bar">
@@ -476,6 +655,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7PvXRsQ5r5KAIyLYQ1uZvgdaqGQ_pkA0&libraries=places"></script>
 <script>
   const { createClient } = supabase;
   const _supabase = createClient(
@@ -494,19 +674,27 @@
 
     const userId = session.user.id;
 
-    // Load dealer
+    // Load dealer + is_active check
     const { data: d } = await _supabase
       .from('dealers')
       .select('*')
       .eq('id', userId)
       .single();
 
+    if (!d?.is_active) {
+      await _supabase.auth.signOut();
+      window.location.href = 'login.html';
+      return;
+    }
+
     dealer = d;
     if (dealer) {
+      const line2 = dealer.address_line2 ? `<br>${dealer.address_line2}` : '';
       document.getElementById('billingDisplay').innerHTML = `
         <strong>${dealer.company_name}</strong><br>
         ${dealer.contact_name}<br>
-        ${dealer.city}, ${dealer.state}<br>
+        ${dealer.address_line1 || dealer.address_formatted || '—'}${line2}<br>
+        ${dealer.city || ''}, ${dealer.state || ''} ${dealer.zip_code || ''}<br>
         ${dealer.phone || ''}
       `;
     }
@@ -519,6 +707,41 @@
 
     savedAddresses = addrs || [];
     renderAddresses();
+
+    // Restore Step 1 data if coming back from Edit
+    const saved = sessionStorage.getItem('quoteStep1');
+    if (saved) {
+      try {
+        const s1 = JSON.parse(saved);
+        document.getElementById('poNumber').value = s1.poNumber || '';
+        document.getElementById('jobName').value  = s1.jobName  || '';
+        document.getElementById('notes').value    = s1.notes    || '';
+        if (s1.logisticType) {
+          document.getElementById('logisticType').value = s1.logisticType;
+          handleLogisticChange();
+          if (s1.logisticType === 'delivery' && s1.deliveryFee) {
+            document.getElementById('deliveryDistance').value = s1.deliveryFee;
+          }
+        }
+        if (s1.shippingMode === 'different') {
+          setShippingMode('different');
+          if (s1.shippingAddressId) {
+            selectedAddressId = s1.shippingAddressId;
+            renderAddresses();
+          }
+        }
+      } catch(e) { /* ignore parse errors */ }
+    }
+
+    // Poll is_active every 60s — kick out if deactivated
+    setInterval(async () => {
+      const { data: check } = await _supabase
+        .from('dealers').select('is_active').eq('id', userId).single();
+      if (!check?.is_active) {
+        await _supabase.auth.signOut();
+        window.location.href = 'login.html';
+      }
+    }, 60000);
   }
 
   function renderAddresses() {
@@ -528,13 +751,22 @@
       return;
     }
     grid.innerHTML = savedAddresses.map(a => `
-      <div class="address-card ${selectedAddressId === a.id ? 'selected' : ''}"
-           onclick="selectAddress('${a.id}')">
-        <div class="addr-name">${a.recipient_name || dealer.contact_name}</div>
-        <div class="addr-detail">
-          ${a.address_line}<br>
-          ${a.city}, ${a.state} ${a.zip_code}<br>
-          ${a.phone || ''}
+      <div class="address-card-wrap">
+        <div class="address-card ${selectedAddressId === a.id ? 'selected' : ''}"
+             onclick="selectAddress('${a.id}')">
+          ${a.is_default ? '<div class="addr-default-badge">★ Default</div>' : ''}
+          <div class="addr-name">${a.recipient_name || dealer.contact_name}</div>
+          <div class="addr-detail">
+            ${a.address_line}<br>
+            ${a.address_line2 ? a.address_line2 + '<br>' : ''}
+            ${a.city}, ${a.state} ${a.zip_code}<br>
+            ${a.phone || ''}
+          </div>
+        </div>
+        <div class="address-card-actions">
+          <button class="addr-action-btn" onclick="openEditAddress('${a.id}')">Edit</button>
+          <button class="addr-action-btn delete" onclick="deleteAddress('${a.id}')">Delete</button>
+          ${!a.is_default ? `<button class="addr-action-btn default-btn" onclick="setDefaultAddress('${a.id}')">Set Default</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -557,6 +789,141 @@
     const form = document.getElementById('newAddressForm');
     form.classList.toggle('show');
     selectedAddressId = null;
+    renderAddresses();
+    // Init Places autocomplete on the new address field
+    if (form.classList.contains('show')) initNewAddressAutocomplete();
+  }
+
+  // ── Billing edit ──
+  function toggleBillingForm() {
+    const form = document.getElementById('billingForm');
+    form.classList.toggle('show');
+    if (form.classList.contains('show') && dealer) {
+      document.getElementById('billingLine1').value  = dealer.address_line1 || '';
+      document.getElementById('billingLine2').value  = dealer.address_line2 || '';
+      document.getElementById('billingCity').value   = dealer.city          || '';
+      document.getElementById('billingState').value  = dealer.state         || '';
+      document.getElementById('billingZip').value    = dealer.zip_code      || '';
+      document.getElementById('billingPhone').value  = dealer.phone         || '';
+    }
+  }
+
+  // ── Google Places — new address ──
+  let newAutocompleteInited = false;
+  function initNewAddressAutocomplete() {
+    if (newAutocompleteInited) return;
+    newAutocompleteInited = true;
+    const input = document.getElementById('newAddress');
+    const ac = new google.maps.places.Autocomplete(input, {
+      componentRestrictions: { country: 'us' },
+      fields: ['address_components'],
+      types: ['address'],
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      let street = '', city = '', state = '', zip = '';
+      (place.address_components || []).forEach(c => {
+        if (c.types.includes('street_number'))               street = c.long_name + ' ';
+        if (c.types.includes('route'))                       street += c.long_name;
+        if (c.types.includes('locality'))                    city   = c.long_name;
+        if (c.types.includes('administrative_area_level_1')) state  = c.short_name;
+        if (c.types.includes('postal_code'))                 zip    = c.long_name;
+      });
+      input.value                                    = street.trim();
+      document.getElementById('newCity').value       = city;
+      document.getElementById('newState').value      = state;
+      document.getElementById('newZip').value        = zip;
+    });
+  }
+
+  // ── Google Places — edit address modal ──
+  let editAutocompleteInited = false;
+  function initEditAddressAutocomplete() {
+    if (editAutocompleteInited) return;
+    editAutocompleteInited = true;
+    const input = document.getElementById('editAddressLine1');
+    const ac = new google.maps.places.Autocomplete(input, {
+      componentRestrictions: { country: 'us' },
+      fields: ['address_components'],
+      types: ['address'],
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      let street = '', city = '', state = '', zip = '';
+      (place.address_components || []).forEach(c => {
+        if (c.types.includes('street_number'))               street = c.long_name + ' ';
+        if (c.types.includes('route'))                       street += c.long_name;
+        if (c.types.includes('locality'))                    city   = c.long_name;
+        if (c.types.includes('administrative_area_level_1')) state  = c.short_name;
+        if (c.types.includes('postal_code'))                 zip    = c.long_name;
+      });
+      input.value                                      = street.trim();
+      document.getElementById('editCity').value        = city;
+      document.getElementById('editState').value       = state;
+      document.getElementById('editZip').value         = zip;
+    });
+  }
+
+  // ── Edit saved address ──
+  function openEditAddress(id) {
+    const a = savedAddresses.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('editAddrId').value       = id;
+    document.getElementById('editRecipient').value    = a.recipient_name || '';
+    document.getElementById('editAddressLine1').value = a.address_line   || '';
+    document.getElementById('editAddressLine2').value = a.address_line2  || '';
+    document.getElementById('editCity').value         = a.city           || '';
+    document.getElementById('editState').value        = a.state          || '';
+    document.getElementById('editZip').value          = a.zip_code       || '';
+    document.getElementById('editPhone').value        = a.phone          || '';
+    document.getElementById('editAddrModal').classList.add('show');
+    initEditAddressAutocomplete();
+  }
+
+  function closeEditModal() {
+    document.getElementById('editAddrModal').classList.remove('show');
+  }
+
+  async function saveEditAddress() {
+    const id = document.getElementById('editAddrId').value;
+    const payload = {
+      recipient_name: document.getElementById('editRecipient').value.trim(),
+      address_line:   document.getElementById('editAddressLine1').value.trim(),
+      address_line2:  document.getElementById('editAddressLine2').value.trim(),
+      city:           document.getElementById('editCity').value.trim(),
+      state:          document.getElementById('editState').value.trim(),
+      zip_code:       document.getElementById('editZip').value.trim(),
+      phone:          document.getElementById('editPhone').value.trim(),
+    };
+    const { error } = await _supabase.from('addresses').update(payload).eq('id', id);
+    if (error) { alert('Error saving address.'); return; }
+    const idx = savedAddresses.findIndex(x => x.id === id);
+    if (idx >= 0) savedAddresses[idx] = { ...savedAddresses[idx], ...payload };
+    closeEditModal();
+    renderAddresses();
+  }
+
+  // ── Delete address ──
+  async function deleteAddress(id) {
+    if (!confirm('Delete this address?')) return;
+    const { error } = await _supabase.from('addresses').delete().eq('id', id);
+    if (error) { alert('Error deleting address.'); return; }
+    savedAddresses = savedAddresses.filter(x => x.id !== id);
+    if (selectedAddressId === id) selectedAddressId = null;
+    renderAddresses();
+  }
+
+  // ── Set default address ──
+  async function setDefaultAddress(id) {
+    const { data: { session } } = await _supabase.auth.getSession();
+    // Clear existing defaults
+    await _supabase.from('addresses')
+      .update({ is_default: false })
+      .eq('dealer_id', session.user.id);
+    // Set new default
+    await _supabase.from('addresses').update({ is_default: true }).eq('id', id);
+    savedAddresses = savedAddresses.map(a => ({ ...a, is_default: a.id === id }));
+    selectedAddressId = id;
     renderAddresses();
   }
 
@@ -595,6 +962,7 @@
             dealer_id:      dealer.id,
             recipient_name: document.getElementById('newRecipient').value.trim(),
             address_line:   document.getElementById('newAddress').value.trim(),
+            address_line2:  document.getElementById('newAddressLine2').value.trim(),
             city:           document.getElementById('newCity').value.trim(),
             state:          document.getElementById('newState').value.trim(),
             zip_code:       document.getElementById('newZip').value.trim(),
@@ -609,15 +977,29 @@
           return;
         }
         shippingAddressId = newAddr.id;
+        savedAddresses.push(newAddr);
+        document.getElementById('newAddressForm').classList.remove('show');
+        newAutocompleteInited = false;
       } else {
         shippingAddressId = selectedAddressId;
       }
     }
 
+    // Capture billing override if form was edited
+    const billingFormVisible = document.getElementById('billingForm').classList.contains('show');
+    const billingOverride = billingFormVisible ? {
+      address_line1: document.getElementById('billingLine1').value.trim(),
+      address_line2: document.getElementById('billingLine2').value.trim(),
+      city:          document.getElementById('billingCity').value.trim(),
+      state:         document.getElementById('billingState').value.trim(),
+      zip_code:      document.getElementById('billingZip').value.trim(),
+      phone:         document.getElementById('billingPhone').value.trim(),
+    } : null;
+
     // Save to sessionStorage and go to step 2
-    const logisticType     = document.getElementById('logisticType').value;
-    const deliveryFee      = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
-    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee };
+    const logisticType = document.getElementById('logisticType').value;
+    const deliveryFee  = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
+    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee, billingOverride };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
     window.location.href = 'new-quote-step2.html';
   }
