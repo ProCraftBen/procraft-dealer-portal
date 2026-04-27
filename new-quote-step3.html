@@ -213,6 +213,7 @@
             <th class="th-right">Qty</th>
             <th class="th-right">MSRP</th>
             <th class="th-right">Unit Price</th>
+            <th class="th-right">Assemble Fee</th>
             <th class="th-right">Total</th>
           </tr>
         </thead>
@@ -224,6 +225,13 @@
       <div class="total-row">
         <span class="total-label">Subtotal</span>
         <span class="total-value" id="totalSubtotal">$0.00</span>
+      </div>
+      <div class="total-row" id="assembleRow" style="display:none;">
+        <div>
+          <span class="total-label">Assemble Fee</span>
+          <div class="total-note" style="font-size:11px;color:var(--muted);">Assembled items only</div>
+        </div>
+        <span class="total-value" id="totalAssemble" style="color:#8B6914;">$0.00</span>
       </div>
       <div class="total-row" id="shippingRow">
         <div>
@@ -370,7 +378,9 @@ function renderReview() {
   }
 
   // Items table
-  const subtotal = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+
   document.getElementById('itemsTableBody').innerHTML = step2Data.map(item => `
       <tr>
         <td class="td-style">${item.style_name}</td>
@@ -379,6 +389,7 @@ function renderReview() {
         <td class="td-right">${item.quantity}</td>
         <td class="td-right" style="color:var(--muted);">$${item.msrp ? item.msrp.toFixed(2) : '—'}</td>
         <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+        <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
         <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
       </tr>`).join('');
 
@@ -426,9 +437,18 @@ function renderReview() {
   }
 
   const tax   = subtotal * taxRate;
-  const grand = subtotal + shipping + tax;
+  const grand = subtotal + assembleTotal + shipping + tax;
 
   document.getElementById('totalSubtotal').textContent = `$${subtotal.toFixed(2)}`;
+
+  // Assemble fee row
+  if (assembleTotal > 0) {
+    document.getElementById('assembleRow').style.display = 'flex';
+    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
+  } else {
+    document.getElementById('assembleRow').style.display = 'none';
+  }
+
   document.getElementById('totalShipping').textContent = shippingLabel;
   document.getElementById('shippingNote').innerHTML = `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
 
@@ -454,7 +474,8 @@ async function submitQuote() {
     const { data:{ session } } = await _supabase.auth.getSession();
 
     // 計算金額
-    const subtotal     = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
     const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const logisticType = step1Data.logisticType || 'pickup';
     const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
@@ -473,7 +494,7 @@ async function submitQuote() {
     }
 
     const tax   = subtotal * taxRate;
-    const grand = subtotal + shipping + tax;
+    const grand = subtotal + assembleTotal + shipping + tax;
 
     // 用 DB function 產生安全的 quote number（見下方說明）
     const { data: numData, error: numError } = await _supabase
@@ -495,6 +516,7 @@ async function submitQuote() {
         logistic_type:       logisticType,
         delivery_fee:        parseFloat(shipping.toFixed(2)),
         subtotal:            parseFloat(subtotal.toFixed(2)),
+        assemble_total:      parseFloat(assembleTotal.toFixed(2)),
         shipping_cost:       parseFloat(shipping.toFixed(2)),
         tax_amount:          parseFloat(tax.toFixed(2)),
         grand_total:         parseFloat(grand.toFixed(2)),
@@ -506,13 +528,14 @@ async function submitQuote() {
 
     // 寫入 quote_items
     const items = step2Data.map(item => ({
-      quote_id:   quote.id,
-      style_code: item.style_code,
-      sku_code:   item.sku_code,
-      type:       item.type,
-      quantity:   item.quantity,
-      unit_price: item.unit_price,
-      msrp:       item.msrp || null,
+      quote_id:     quote.id,
+      style_code:   item.style_code,
+      sku_code:     item.sku_code,
+      type:         item.type,
+      quantity:     item.quantity,
+      unit_price:   item.unit_price,
+      msrp:         item.msrp || null,
+      assemble_fee: item.assemble_fee || 0,
     }));
 
     const { error: itemsError } = await _supabase.from('quote_items').insert(items);
