@@ -262,13 +262,8 @@ async function init() {
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
-  // Load dealers only (exclude admin/super_admin from dropdown)
-  const { data: dealers, error: dealerErr } = await _supabase
-    .from('dealers')
-    .select('id, company_name, contact_name, email, city, state, role')
-    .in('role', ['dealer'])
-    .order('company_name');
-  if (dealerErr) console.error('dealers fetch error:', dealerErr);
+  // Load dealers
+  const { data: dealers } = await _supabase.from('dealers').select('id, company_name, contact_name, email, city, state').order('company_name');
   dealers?.forEach(d => allDealers[d.id] = d);
 
   // Populate dealer filter
@@ -299,12 +294,7 @@ async function loadQuotes() {
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
 
-  const { data: quotes, error } = await query;
-  if (error) {
-    console.error('loadQuotes error:', error);
-    showToast('Failed to load quotes: ' + error.message);
-    return;
-  }
+  const { data: quotes } = await query;
   allQuotes = quotes || [];
   renderStats();
   renderTable();
@@ -332,22 +322,24 @@ function renderTable() {
 
     const itemsHtml = items.length ? `
       <table class="items-mini">
-        <thead><tr><th>Style</th><th>SKU</th><th>Type</th><th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Total</th></tr></thead>
+        <thead><tr><th>Style</th><th>SKU</th><th>Type</th><th class="r">Qty</th><th class="r">MSRP</th><th class="r">Unit Price</th><th class="r">Total</th></tr></thead>
         <tbody>
           ${items.map(i => `<tr>
             <td>${i.style_code || '—'}</td>
             <td>${i.sku_code || '—'}</td>
             <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
             <td class="r">${i.quantity}</td>
+            <td class="r" style="color:var(--muted);font-size:11px;">${i.msrp ? fmt(i.msrp) : '—'}</td>
             <td class="r">${fmt(i.unit_price)}</td>
             <td class="r">${fmt(i.unit_price * i.quantity)}</td>
           </tr>`).join('')}
         </tbody>
       </table>
       <div class="totals-mini">
+        <div class="total-mini-row"><span class="total-mini-label">Logistic</span><span class="total-mini-value" style="text-transform:capitalize;">${q.logistic_type || '—'}${q.logistic_type === 'delivery' ? ` <span style="color:var(--muted);font-size:11px;">(${fmt(q.delivery_fee)})</span>` : ''}</span></div>
         <div class="total-mini-row"><span class="total-mini-label">Subtotal</span><span class="total-mini-value">${fmt(q.subtotal)}</span></div>
-        <div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">${fmt(q.shipping_cost)}</span></div>
-        <div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">${fmt(q.tax_amount)}</span></div>
+        <div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">${parseFloat(q.shipping_cost) === 0 ? '<span style="color:#16A34A;">FREE</span>' : fmt(q.shipping_cost)}</span></div>
+        <div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">${parseFloat(q.tax_amount) === 0 ? '<span style="color:#16A34A;">Exempt</span>' : fmt(q.tax_amount)}</span></div>
         <div class="total-mini-row grand"><span class="total-mini-label">Total</span><span class="total-mini-value">${fmt(q.grand_total)}</span></div>
       </div>` : '<p style="font-size:12px;color:var(--muted);">No items.</p>';
 
@@ -367,7 +359,14 @@ function renderTable() {
           </select>
           <button id="save-${q.id}" onclick="saveStatus('${q.id}')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>
         </td>
-        <td></td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">
+          <a href="quote-detail.html?id=${q.id}" 
+             style="display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:all 0.2s;"
+             onmouseover="this.style.borderColor='var(--green-dark)';this.style.color='var(--green-dark)'"
+             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+            View →
+          </a>
+        </td>
       </tr>
       <tr class="detail-row" id="detail-${idx}">
         <td colspan="7" class="detail-cell">
