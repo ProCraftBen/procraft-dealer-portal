@@ -390,7 +390,24 @@ async function init() {
 
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
   if (!dealer) { window.location.href = 'login.html'; return; }
+
+  if (!dealer.is_active) {
+    await _supabase.auth.signOut();
+    window.location.href = 'login.html';
+    return;
+  }
+
   currentUser = dealer;
+
+  // Poll is_active every 60s
+  setInterval(async () => {
+    const { data: check } = await _supabase
+      .from('dealers').select('is_active').eq('id', session.user.id).single();
+    if (!check?.is_active) {
+      await _supabase.auth.signOut();
+      window.location.href = 'login.html';
+    }
+  }, 60000);
 
   isFirstTime = !dealer.profile_completed;
   if (isFirstTime) {
