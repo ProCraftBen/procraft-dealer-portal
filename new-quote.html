@@ -704,7 +704,8 @@
     const { data: addrs } = await _supabase
       .from('addresses')
       .select('*')
-      .eq('dealer_id', userId);
+      .eq('dealer_id', userId)
+      .eq('is_deleted', false);
 
     savedAddresses = addrs || [];
     renderAddresses();
@@ -907,7 +908,7 @@
   // ── Delete address ──
   async function deleteAddress(id) {
     if (!confirm('Delete this address?')) return;
-    const { error } = await _supabase.from('addresses').delete().eq('id', id);
+    const { error } = await _supabase.from('addresses').update({ is_deleted: true }).eq('id', id);
     if (error) { alert('Error deleting address.'); return; }
     savedAddresses = savedAddresses.filter(x => x.id !== id);
     if (selectedAddressId === id) selectedAddressId = null;
