@@ -114,7 +114,7 @@
     <span class="nav-title">ProCraft</span>
   </div>
   <div class="nav-right">
-    <a href="dashboard.html" class="nav-back">← Back to Dashboard</a>
+    <a href="#" class="nav-back" id="navBack">← Back</a>
   </div>
 </nav>
 
@@ -167,6 +167,18 @@ async function init() {
   // Load dealer info
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
 
+  // Set back button based on role
+  const navBack = document.getElementById('navBack');
+  if (navBack) {
+    if (['admin','super_admin'].includes(me?.role)) {
+      navBack.href = 'admin-quotes.html';
+      navBack.textContent = '← Back to Quotes';
+    } else {
+      navBack.href = 'dashboard.html';
+      navBack.textContent = '← Back to Dashboard';
+    }
+  }
+
   // Load shipping address if exists
   let shippingAddr = null;
   if (quote.shipping_address_id) {
@@ -194,10 +206,11 @@ function renderQuote(quote, dealer, addr) {
       <td class="td-sku">${i.sku_code || '—'}</td>
       <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
       <td class="r">${i.quantity}</td>
+      <td class="r" style="color:var(--muted);font-size:12px;">${i.msrp ? fmt(i.msrp) : '—'}</td>
       <td class="r">${fmt(i.unit_price)}</td>
       <td class="r">${fmt(i.unit_price * i.quantity)}</td>
     </tr>`).join('')
-  : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+  : `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
 
   const freeShip = parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
   const taxExempt = parseFloat(quote.tax_amount) === 0;
@@ -237,6 +250,14 @@ function renderQuote(quote, dealer, addr) {
             <div class="info-label">Contact</div>
             <div class="info-value">${dealer?.contact_name || '—'}</div>
           </div>
+          <div>
+            <div class="info-label">Logistic</div>
+            <div class="info-value" style="text-transform:capitalize;">${quote.logistic_type || '—'}</div>
+          </div>
+          <div>
+            <div class="info-label">Delivery Fee</div>
+            <div class="info-value">${quote.logistic_type === 'delivery' ? fmt(quote.delivery_fee) : '—'}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -266,6 +287,7 @@ function renderQuote(quote, dealer, addr) {
               <th>SKU</th>
               <th>Type</th>
               <th class="r">Qty</th>
+              <th class="r">MSRP</th>
               <th class="r">Unit Price</th>
               <th class="r">Total</th>
             </tr>
