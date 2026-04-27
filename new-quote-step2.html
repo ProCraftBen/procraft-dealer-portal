@@ -470,7 +470,7 @@ function renderStyleList() {
   const body = document.getElementById('styleListBody');
   let html = '';
 
-  const brands = ['ProCraft','Milania'];
+  const brands = [...new Set(allStyles.map(s => s.brand))].sort();
   brands.forEach(brand => {
     const brandStyles = allStyles.filter(s =>
       s.brand === brand &&
