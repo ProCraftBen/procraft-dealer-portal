@@ -349,10 +349,6 @@
     <div class="sku-panel-header">
       <span class="sku-panel-title">Items</span>
       <span class="sku-style-tag" id="skuStyleTag">— select a style above —</span>
-      <div class="type-toggle" id="typeToggle" style="display:none;">
-        <button class="type-btn active" id="btnRTA" onclick="setType('RTA')">RTA</button>
-        <button class="type-btn" id="btnAssembled" onclick="setType('Assembled')">Assembled</button>
-      </div>
       <div class="cat-tabs" id="catTabs"></div>
       <div class="sku-search-wrap" id="skuSearchWrap" style="display:none;">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
@@ -573,18 +569,10 @@ function confirmStyle() {
   currentCat = 'All';
   renderStyleList();
   document.getElementById('skuStyleTag').textContent = activeStyle.style_name;
-  document.getElementById('typeToggle').style.display = 'flex';
   document.getElementById('skuSearchWrap').style.display = 'block';
   document.getElementById('btnSelectStyle').textContent = '✓ Selected';
   document.getElementById('btnSelectStyle').className = 'btn-select-style confirmed';
   renderCatTabs();
-  renderSkuTable();
-}
-
-function setType(t) {
-  currentType = t;
-  document.getElementById('btnRTA').classList.toggle('active', t==='RTA');
-  document.getElementById('btnAssembled').classList.toggle('active', t==='Assembled');
   renderSkuTable();
 }
 
@@ -603,7 +591,8 @@ function setCat(c) {
 
 function renderSkuTable() {
   if (!activeStyle) return;
-  const m = dealer ? parseFloat(dealer.multiplier) : 1;
+  const stockM    = dealer ? parseFloat(dealer.stock_multiplier    || 1) : 1;
+  const nonStockM = dealer ? parseFloat(dealer.non_stock_multiplier || 1) : 1;
   const q = (document.getElementById('skuSearch')?.value||'').toLowerCase();
   const pf = allPricing.filter(p=>p.style_code===activeStyle.style_code);
   let skus = allSkus.filter(s=>pf.find(p=>p.sku_code===s.sku_code));
@@ -626,23 +615,27 @@ function renderSkuTable() {
       </thead>
       <tbody>
         ${skus.map(sku=>{
-          const pr = pf.find(p=>p.sku_code===sku.sku_code);
-          const base = parseFloat(pr.msrp);
-          const fee  = parseFloat(sku.assemble_fee||0);
-          const unit = currentType==='RTA' ? base : base+fee;
-          const price = (unit*m).toFixed(2);
+          const pr        = pf.find(p=>p.sku_code===sku.sku_code);
+          const base      = parseFloat(pr?.msrp || 0);
+          const fee       = parseFloat(sku.assemble_fee || 0);
+          const m         = sku.is_stock ? stockM : nonStockM;
+          const unitPrice = (base * m).toFixed(2);
+          const stockTag  = sku.is_stock
+            ? '<span style="font-size:9px;background:rgba(22,163,74,0.1);color:#16A34A;border-radius:2px;padding:1px 5px;">STOCK</span>'
+            : '<span style="font-size:9px;background:rgba(59,130,246,0.1);color:#3B82F6;border-radius:2px;padding:1px 5px;">NON-STOCK</span>';
           return `
             <tr>
-              <td class="td-code">${sku.sku_code}</td>
+              <td class="td-code">${sku.sku_code} ${stockTag}</td>
               <td class="td-desc">${sku.description}</td>
               <td class="td-price" style="color:var(--muted);">$${base.toFixed(2)}</td>
-              <td class="td-price">$${price}</td>
+              <td class="td-price">$${unitPrice}</td>
               <td>
                 <div class="td-actions">
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)">−</button>
                   <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"/>
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)">+</button>
-                  <button class="btn-add" onclick="addToCart('${sku.sku_code}',${price})">Add</button>
+                  <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;">RTA</button>
+                  ${fee > 0 ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${fee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);">ASM +$${fee.toFixed(2)}</button>` : ''}
                 </div>
               </td>
             </tr>`;
@@ -656,25 +649,27 @@ function chgQty(code, d) {
   if (el) el.value = Math.max(0, parseInt(el.value||0)+d);
 }
 
-function addToCart(skuCode, unitPrice) {
+function addToCart(skuCode, type, unitPrice, assembledFee) {
   const el  = document.getElementById('qty-'+skuCode);
   const qty = parseInt(el?.value||0);
   if (qty<=0) { showToast('Please enter a quantity first'); return; }
   const sku = allSkus.find(s=>s.sku_code===skuCode);
-  const key = `${activeStyle.style_code}-${skuCode}-${currentType}`;
+  const key = `${activeStyle.style_code}-${skuCode}-${type}`;
   const idx = cartItems.findIndex(i=>i.key===key);
   if (idx>=0) { cartItems[idx].quantity+=qty; }
   else {
-      const pr2 = allPricing.find(p=>p.style_code===activeStyle.style_code && p.sku_code===skuCode);
-      const msrpValue = pr2 ? parseFloat(pr2.msrp) : 0;
-      
-      cartItems.push({ key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
-            sku_code:skuCode, sku_desc:sku.description, type:currentType,
-            quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue });
+    const pr2 = allPricing.find(p=>p.style_code===activeStyle.style_code && p.sku_code===skuCode);
+    const msrpValue = pr2 ? parseFloat(pr2.msrp) : 0;
+    cartItems.push({
+      key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
+      sku_code:skuCode, sku_desc:sku.description, type,
+      quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue,
+      assemble_fee: parseFloat(assembledFee||0)
+    });
   }
   if (el) el.value=0;
   renderCart();
-  showToast(`${sku.sku_code} × ${qty} added`);
+  showToast(`${sku.sku_code} (${type}) × ${qty} added`);
 }
 
 function removeFromCart(key) {
@@ -683,9 +678,10 @@ function removeFromCart(key) {
 }
 
 function renderCart() {
-  const total    = cartItems.reduce((s,i)=>s+i.unit_price*i.quantity,0);
-  const totalQty = cartItems.reduce((s,i)=>s+i.quantity,0);
-  const totalLines = cartItems.length;
+  const subtotal     = cartItems.reduce((s,i)=>s+i.unit_price*i.quantity,0);
+  const assembleTotal = cartItems.reduce((s,i)=>s+(i.assemble_fee||0)*i.quantity,0);
+  const totalQty     = cartItems.reduce((s,i)=>s+i.quantity,0);
+  const totalLines   = cartItems.length;
 
   document.getElementById('cartFabBadge').textContent = totalLines;
   document.getElementById('bottomCount').textContent = `${totalQty} item${totalQty!==1?'s':''}`;
@@ -702,7 +698,7 @@ function renderCart() {
       <div class="cart-item-top">
         <div>
           <div class="cart-item-name">${item.style_name} · ${item.sku_code}</div>
-          <div class="cart-item-detail">${item.type} · Qty: ${item.quantity} · $${item.unit_price.toFixed(2)}/ea</div>
+          <div class="cart-item-detail">${item.type} · Qty: ${item.quantity} · $${item.unit_price.toFixed(2)}/ea${item.assemble_fee>0 ? ` · Assemble: +$${item.assemble_fee.toFixed(2)}/ea` : ''}</div>
         </div>
         <div class="cart-item-right">
           <div class="cart-item-price">$${(item.unit_price*item.quantity).toFixed(2)}</div>
@@ -711,8 +707,25 @@ function renderCart() {
       </div>
     </div>`).join('');
 
-  document.getElementById('cartTotal').textContent=`$${total.toFixed(2)}`;
-  document.getElementById('cartFooter').style.display='block';
+  // Show subtotal + assemble fee breakdown
+  const footerEl = document.getElementById('cartFooter');
+  footerEl.style.display='block';
+  document.getElementById('cartTotal').textContent=`$${subtotal.toFixed(2)}`;
+  
+  // Add/update assemble fee row
+  let asmRow = document.getElementById('cartAssembleRow');
+  if (!asmRow) {
+    asmRow = document.createElement('div');
+    asmRow.id = 'cartAssembleRow';
+    asmRow.style.cssText = 'font-size:11px;color:var(--muted);padding:4px 0;display:flex;justify-content:space-between;';
+    footerEl.insertBefore(asmRow, footerEl.firstChild);
+  }
+  if (assembleTotal > 0) {
+    asmRow.innerHTML = `<span>Assemble Fee (est.)</span><span>+$${assembleTotal.toFixed(2)}</span>`;
+    asmRow.style.display='flex';
+  } else {
+    asmRow.style.display='none';
+  }
 }
 
 function toggleCart() {
