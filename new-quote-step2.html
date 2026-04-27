@@ -433,7 +433,7 @@ async function init() {
 
   dealer = d;
   const [s,sk] = await Promise.all([
-    _supabase.from('door_styles').select('*').eq('is_active',true),
+    _supabase.from('door_styles').select('*').eq('is_active',true).order('subcategory'),
     _supabase.from('skus').select('*').eq('is_active',true),
   ]);
   allStyles=s.data||[]; allSkus=sk.data||[];
@@ -612,7 +612,10 @@ function renderSkuTable() {
       </thead>
       <tbody>
         ${skus.map(sku=>{
-          const base      = parseFloat(sku.msrp || 0);
+          const grp       = (activeStyle.grp || 'GROUP A').toUpperCase();
+          const base      = grp === 'GROUP C' ? parseFloat(sku.msrp_group_c || 0)
+                          : grp === 'GROUP B' ? parseFloat(sku.msrp_group_b || 0)
+                          : parseFloat(sku.msrp_group_a || 0);
           const fee       = parseFloat(sku.assemble_fee || 0);
           const m         = sku.is_stock ? stockM : nonStockM;
           const unitPrice = (base * m).toFixed(2);
@@ -654,7 +657,10 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
   const idx = cartItems.findIndex(i=>i.key===key);
   if (idx>=0) { cartItems[idx].quantity+=qty; }
   else {
-    const msrpValue = parseFloat(sku.msrp || 0);
+    const grp2      = (activeStyle.grp || 'GROUP A').toUpperCase();
+    const msrpValue = grp2 === 'GROUP C' ? parseFloat(sku.msrp_group_c || 0)
+                    : grp2 === 'GROUP B' ? parseFloat(sku.msrp_group_b || 0)
+                    : parseFloat(sku.msrp_group_a || 0);
     cartItems.push({
       key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
       sku_code:skuCode, sku_desc:sku.description, type,
