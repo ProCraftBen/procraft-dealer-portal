@@ -576,7 +576,7 @@ function confirmStyle() {
 }
 
 function renderCatTabs() {
-  const cats = ['All',...new Set(allSkus.filter(s=>s.style_code===activeStyle.style_code).map(s=>s.category))];
+  const cats = ['All',...new Set(allSkus.map(s=>s.category))];
   document.getElementById('catTabs').innerHTML = cats.map(c=>`
     <button class="cat-tab ${c===currentCat?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
 }
@@ -592,7 +592,7 @@ function renderSkuTable() {
   const stockM    = dealer ? parseFloat(dealer.stock_multiplier    || 1) : 1;
   const nonStockM = dealer ? parseFloat(dealer.non_stock_multiplier || 1) : 1;
   const q = (document.getElementById('skuSearch')?.value||'').toLowerCase();
-  let skus = allSkus.filter(s=>s.style_code===activeStyle.style_code);
+  let skus = allSkus;
   if (currentCat!=='All') skus=skus.filter(s=>s.category===currentCat);
   if (q) skus=skus.filter(s=>s.sku_code.toLowerCase().includes(q)||s.description.toLowerCase().includes(q));
 
