@@ -333,7 +333,7 @@ async function loadDealers() {
   const { data: currentUser } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   const canDelete = currentUser?.role === 'super_admin';
 
-  const { data: dealers } = await _supabase.from('dealers').select('*').order('company_name');
+  const { data: dealers } = await _supabase.from('dealers').select('*').eq('role', 'dealer').order('company_name');
 
   const tbody = document.getElementById('dealersBody');
   document.getElementById('tableCount').textContent = `${dealers?.length || 0} dealer${dealers?.length !== 1 ? 's' : ''}`;
