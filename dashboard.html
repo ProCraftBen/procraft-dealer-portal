@@ -422,8 +422,23 @@
     if (!session) { window.location.href = 'login.html'; return; }
 
     const userId = session.user.id;
-    const { data: me } = await _supabase.from('dealers').select('role').eq('id', userId).single();
+    const { data: me } = await _supabase.from('dealers').select('role, is_active').eq('id', userId).single();
     if (['admin','super_admin'].includes(me?.role)) { window.location.href = 'admin.html'; return; }
+    if (!me?.is_active) {
+      await _supabase.auth.signOut();
+      window.location.href = 'login.html';
+      return;
+    }
+
+    // Poll is_active every 60s
+    setInterval(async () => {
+      const { data: check } = await _supabase
+        .from('dealers').select('is_active').eq('id', userId).single();
+      if (!check?.is_active) {
+        await _supabase.auth.signOut();
+        window.location.href = 'login.html';
+      }
+    }, 60000);
 
     // Load dealer info
     const { data: dealer } = await _supabase
