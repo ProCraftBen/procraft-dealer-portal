@@ -455,7 +455,7 @@ async function init() {
   }
 
   renderStyleList();
-  updateCartBadge();
+  renderCart(); // renders badge + cart drawer correctly
 
   // Poll is_active every 60s
   setInterval(async () => {
