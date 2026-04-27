@@ -159,7 +159,7 @@ async function init() {
 
   // Security: dealer can only see own quotes
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
-  if (me?.role !== 'admin' && quote.dealer_id !== session.user.id) {
+  if (!['admin','super_admin'].includes(me?.role) && quote.dealer_id !== session.user.id) {
     showError('You do not have permission to view this quote.');
     return;
   }
