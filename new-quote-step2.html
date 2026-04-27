@@ -31,9 +31,9 @@
 
     /* ── Progress ── */
     .progress-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; }
-    .progress-steps { display: flex; align-items: center; padding: 12px 0; }
-    .step { display: flex; align-items: center; gap: 7px; flex: 1; }
-    .step:not(:last-child)::after { content: ''; flex: 1; height: 1px; background: var(--border); margin: 0 6px; }
+    .progress-steps { display: flex; align-items: center; justify-content: center; padding: 12px 0; max-width: 480px; margin: 0 auto; }
+    .step { display: flex; align-items: center; gap: 7px; flex: none; }
+    .step:not(:last-child)::after { content: ''; width: 60px; height: 1px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
     .step-circle { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--muted); flex-shrink: 0; }
     .step.done .step-circle { background: var(--gold); border-color: var(--gold); color: #fff; }
     .step.active .step-circle { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
@@ -428,6 +428,13 @@ async function init() {
   const { data:{ session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
   const { data:d } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
+
+  if (!d?.is_active) {
+    await _supabase.auth.signOut();
+    window.location.href = 'login.html';
+    return;
+  }
+
   dealer = d;
   const [s,sk,p] = await Promise.all([
     _supabase.from('door_styles').select('*').eq('is_active',true),
@@ -440,7 +447,25 @@ async function init() {
     const key = `${s.brand}__${s.subcategory||'Other'}`;
     openSubcats.add(key);
   });
+
+  // Restore cart if coming back from Edit
+  const savedCart = sessionStorage.getItem('quoteStep2');
+  if (savedCart) {
+    try { cartItems = JSON.parse(savedCart); } catch(e) {}
+  }
+
   renderStyleList();
+  updateCartBadge();
+
+  // Poll is_active every 60s
+  setInterval(async () => {
+    const { data: check } = await _supabase
+      .from('dealers').select('is_active').eq('id', session.user.id).single();
+    if (!check?.is_active) {
+      await _supabase.auth.signOut();
+      window.location.href = 'login.html';
+    }
+  }, 60000);
 }
 
 function filterStyles() { renderStyleList(); }
