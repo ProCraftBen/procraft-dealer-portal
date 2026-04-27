@@ -262,8 +262,13 @@ async function init() {
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
-  // Load dealers
-  const { data: dealers } = await _supabase.from('dealers').select('id, company_name, contact_name, email, city, state').order('company_name');
+  // Load dealers only (exclude admin/super_admin from dropdown)
+  const { data: dealers, error: dealerErr } = await _supabase
+    .from('dealers')
+    .select('id, company_name, contact_name, email, city, state, role')
+    .in('role', ['dealer'])
+    .order('company_name');
+  if (dealerErr) console.error('dealers fetch error:', dealerErr);
   dealers?.forEach(d => allDealers[d.id] = d);
 
   // Populate dealer filter
@@ -294,7 +299,12 @@ async function loadQuotes() {
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
 
-  const { data: quotes } = await query;
+  const { data: quotes, error } = await query;
+  if (error) {
+    console.error('loadQuotes error:', error);
+    showToast('Failed to load quotes: ' + error.message);
+    return;
+  }
   allQuotes = quotes || [];
   renderStats();
   renderTable();
