@@ -823,11 +823,6 @@ async function downloadPDF() {
   doc.text('Order Total', totalsX, y);
   doc.text(`$${grand.toFixed(2)}`, valX, y, { align:'right' }); y += 8;
 
-  if (markupPct > 0) {
-    doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...muted);
-    doc.text(`* Pricing includes ${(markupPct*100).toFixed(1)}% markup. Final ProCraft pricing confirmed upon order processing.`, margin, y);
-  }
-
   // Footer
   doc.setFillColor(...darkGreen);
   doc.rect(0, 287, pageW, 10, 'F');
