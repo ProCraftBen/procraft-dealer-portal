@@ -213,7 +213,7 @@
       <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
         <input type="number" id="markupPct" min="0" step="0.1" placeholder="0"
           style="width:80px;height:36px;border:1px solid var(--border);border-radius:3px;padding:0 10px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:center;"
-          oninput="updateMarkupPreview()"/>
+          oninput="updateMarkupPreview()" onchange="updateMarkupPreview()"/>
         <span style="font-size:13px;color:var(--muted);">%</span>
         <button onclick="downloadPDF()" style="height:36px;padding:0 16px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;">
           Download PDF
@@ -621,7 +621,66 @@ async function submitQuote() {
 }
 
 function updateMarkupPreview() {
-  // Visual cue only — no screen price changes
+  const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
+  if (!step2Data || !step2Data.length) return;
+
+  // Re-render items table with markup applied
+  let lastStyle = null;
+  document.getElementById('itemsTableBody').innerHTML = step2Data.map(item => {
+    const showStyle = item.style_name !== lastStyle;
+    lastStyle = item.style_name;
+    const markedPrice = item.unit_price * (1 + markupPct);
+    const lineTotal   = markedPrice * item.quantity;
+    return `
+      <tr>
+        <td class="td-style">${showStyle ? item.style_name : ''}</td>
+        <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
+        <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
+        <td class="td-right">${item.quantity}</td>
+        <td class="td-right">$${markedPrice.toFixed(2)}</td>
+        <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
+        <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+      </tr>`;
+  }).join('');
+
+  // Re-calculate totals with markup
+  const markedSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
+  const assembleTotal  = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
+  const taxRate        = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+
+  let shipping = 0;
+  const logisticType = step1Data?.logisticType || 'pickup';
+  if (logisticType === 'delivery') shipping = parseFloat(step1Data?.deliveryFee || 0);
+  else if (logisticType === 'shipping') {
+    if (markedSubtotal <= 6000)       shipping = markedSubtotal * 0.15;
+    else if (markedSubtotal <= 9000)  shipping = markedSubtotal * 0.12;
+    else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
+  }
+
+  const tax   = markedSubtotal * taxRate;
+  const grand = markedSubtotal + assembleTotal + shipping + tax;
+
+  document.getElementById('totalSubtotal').textContent  = `$${markedSubtotal.toFixed(2)}`;
+  document.getElementById('totalGrand').textContent     = `$${grand.toFixed(2)}`;
+  document.getElementById('totalShipping').textContent  = shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`;
+  document.getElementById('totalTax').textContent       = dealer?.tax_exempt ? 'Exempt' : `$${tax.toFixed(2)}`;
+
+  if (assembleTotal > 0) {
+    document.getElementById('assembleRow').style.display = 'flex';
+    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
+  }
+
+  // Show markup note if active
+  let noteEl = document.getElementById('markupNote');
+  if (!noteEl) {
+    noteEl = document.createElement('div');
+    noteEl.id = 'markupNote';
+    noteEl.style.cssText = 'font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;padding:0 20px 12px;';
+    document.querySelector('.totals-section').appendChild(noteEl);
+  }
+  noteEl.textContent = markupPct > 0
+    ? `* Preview includes ${(markupPct*100).toFixed(1)}% markup. Portal prices unchanged. Markup only applies to PDF download.`
+    : '';
 }
 
 async function downloadPDF() {
@@ -641,7 +700,7 @@ async function downloadPDF() {
   doc.rect(0, 0, pageW, 28, 'F');
 
   try {
-    const img = await loadImage('https://dc.procraftcabinetry.com/wp-content/uploads/2026/02/ProCraft-DC-Logo.png');
+    const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
     doc.addImage(img, 'PNG', margin, 4, 50, 20);
   } catch(e) {
     doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
@@ -770,7 +829,7 @@ async function downloadPDF() {
   doc.setFillColor(...darkGreen);
   doc.rect(0, 287, pageW, 10, 'F');
   doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('ProCraft Cabinetry DC  ·  procraftcabinetry.com', pageW/2, 293, { align:'center' });
+  doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com', pageW/2, 293, { align:'center' });
 
   doc.save(`ProCraft-Quote-${step1Data?.poNumber || 'Draft'}.pdf`);
 }
