@@ -9,8 +9,8 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --gold:       #C9A84C;
-      --green-dark: #0E1F16;
-      --green-mid:  #1A3626;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
       --cream:      #F5F2EC;
       --text:       #2C3A32;
       --muted:      #7A8C82;
@@ -22,8 +22,6 @@
 
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-brand { display: flex; align-items: center; gap: 10px; }
-    .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
     .nav-badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; background: var(--gold); color: var(--green-dark); padding: 2px 7px; border-radius: 2px; font-weight: 500; }
     .nav-right { display: flex; align-items: center; gap: 12px; }
@@ -31,6 +29,28 @@
     .nav-link:hover, .nav-link.active { color: #fff; }
     .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
     .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* Hamburger */
+    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* Mobile menu */
+    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .mobile-menu.show { display: flex; }
+    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
+    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .mobile-menu a.active { color: #fff; }
+    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
+    .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
+
+    @media (max-width: 768px) {
+      .nav-right { display: none; }
+      .hamburger { display: flex; }
+      .nav-logo-img { height: 36px; max-width: 90px; }
+    }
 
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
     .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
@@ -43,7 +63,6 @@
     .panel-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .panel-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
 
-    /* Tag creation */
     .tag-create { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
     .tag-name-input { flex: 1; height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); }
     .tag-name-input:focus { outline: none; border-color: var(--gold); }
@@ -51,22 +70,19 @@
     .btn-add-tag { height: 36px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 0 14px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
     .btn-add-tag:hover { background: var(--green-mid); }
 
-    /* Tag list */
     .tag-item { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; }
     .tag-item:last-child { border-bottom: none; }
     .tag-item:hover { background: #FAFAF8; }
-    .tag-item.active { background: rgba(14,31,22,0.04); }
+    .tag-item.active { background: rgba(62,90,66,0.04); }
     .tag-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
     .tag-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .tag-count { font-size: 10px; color: var(--muted); }
     .btn-del-tag { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; padding: 2px 6px; border-radius: 3px; transition: color 0.2s; }
     .btn-del-tag:hover { color: var(--error); }
 
-    /* Right panel */
     .right-panel-empty { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 13px; }
     .right-panel-empty svg { width: 36px; height: 36px; fill: var(--border); margin: 0 auto 12px; display: block; }
 
-    /* Dealer checkboxes */
     .dealer-search { padding: 12px 20px; border-bottom: 1px solid var(--border); }
     .dealer-search input { width: 100%; height: 34px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; }
     .dealer-search input:focus { outline: none; border-color: var(--gold); }
@@ -86,7 +102,6 @@
     .btn-bulk-edit { background: rgba(201,168,76,0.15); color: #8B6914; }
     .btn-bulk-edit:hover { background: rgba(201,168,76,0.25); }
 
-    /* Bulk edit section */
     .bulk-edit { padding: 16px 20px; border-top: 1px solid var(--border); background: #FAFAF8; display: none; }
     .bulk-edit.show { display: block; }
     .bulk-edit-title { font-size: 10px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
@@ -115,8 +130,8 @@
 
 <nav class="navbar">
   <div class="nav-brand">
-    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
-    <span class="nav-title">ProCraft</span>
+    <img class="nav-logo-img" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
+    <span class="nav-title">ProCraft DC</span>
     <span class="nav-badge">Admin</span>
   </div>
   <div class="nav-right">
@@ -128,7 +143,21 @@
     <a href="change-password.html" class="nav-link">Change Password</a>
     <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
+  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="admin.html">Dashboard</a>
+  <a href="admin-quotes.html">Quotes</a>
+  <a href="admin-dealers.html">Dealers</a>
+  <a href="admin-accounts.html">Accounts</a>
+  <a href="admin-tags.html" class="active">Tags</a>
+  <a href="change-password.html">Change Password</a>
+  <div class="menu-divider"></div>
+  <button onclick="handleLogout()">Sign Out</button>
+</div>
 
 <div class="page">
   <div class="page-header">
@@ -136,7 +165,6 @@
   </div>
 
   <div class="layout">
-    <!-- Left: Tag list -->
     <div>
       <div class="panel">
         <div class="panel-header">
@@ -153,7 +181,6 @@
       </div>
     </div>
 
-    <!-- Right: Tag detail -->
     <div class="panel" id="rightPanel">
       <div class="right-panel-empty">
         <svg viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
@@ -176,6 +203,22 @@ const _supabase = createClient(
 let allTags    = [];
 let allDealers = [];
 let selectedTag = null;
+
+function toggleMenu() {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  btn.classList.toggle('open');
+  menu.classList.toggle('show');
+}
+
+document.addEventListener('click', function(e) {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+    btn.classList.remove('open');
+    menu.classList.remove('show');
+  }
+});
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -257,7 +300,6 @@ async function selectTag(tagId) {
   selectedTag = allTags.find(t => t.id === tagId);
   renderTagList();
 
-  // Load current dealers for this tag
   const { data: taggedDealers } = await _supabase
     .from('dealer_tags')
     .select('dealer_id')
@@ -336,12 +378,10 @@ function renderDealerChecklist(taggedIds, filter = '') {
 }
 
 function filterDealers(val) {
-  // Re-get current checked state
   const checked = new Set(
     [...document.querySelectorAll('#dealerCheckList input[type="checkbox"]:checked')].map(c => c.value)
   );
   renderDealerChecklist(checked, val);
-  // Re-check previously checked
   document.querySelectorAll('#dealerCheckList input[type="checkbox"]').forEach(cb => {
     if (checked.has(cb.value)) cb.checked = true;
   });
@@ -356,10 +396,8 @@ async function saveDealerTags() {
   if (!selectedTag) return;
   const checked = [...document.querySelectorAll('#dealerCheckList input[type="checkbox"]:checked')].map(c => c.value);
 
-  // Delete all existing dealer_tags for this tag
   await _supabase.from('dealer_tags').delete().eq('tag_id', selectedTag.id);
 
-  // Insert new ones
   if (checked.length) {
     await _supabase.from('dealer_tags').insert(checked.map(dealer_id => ({ dealer_id, tag_id: selectedTag.id })));
   }
