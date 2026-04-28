@@ -44,73 +44,149 @@
     /* ── Page ── */
     .page { max-width: 1100px; margin: 0 auto; padding: 20px 20px 80px; }
 
-    /* ── Top Section: Style List + Preview (50/50) ── */
+    /* ── Brand Tabs ── */
+    .brand-tabs-bar {
+      display: flex;
+      gap: 0;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand-tab {
+      padding: 10px 24px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .brand-tab:hover { color: var(--green-dark); }
+    .brand-tab.active { color: var(--green-dark); border-bottom-color: var(--green-dark); }
+
+    /* ── Top Section: Grid Panel + Preview ── */
     .top-section {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 280px;
       gap: 16px;
       margin-bottom: 16px;
     }
-    @media (max-width: 768px) { .top-section { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .top-section { grid-template-columns: 1fr; } }
 
-    /* ── LEFT: Style List Panel ── */
-    .style-list-panel {
+    /* ── LEFT: Style Grid Panel ── */
+    .style-grid-panel {
       background: var(--white);
       border: 1px solid var(--border);
       border-radius: 4px;
-      display: flex; flex-direction: column;
       overflow: hidden;
-      max-height: 480px;
     }
     .panel-header {
       padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       background: #FAFAF8;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .panel-label { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-    .search-box { position: relative; }
-    .search-box input { width: 100%; background: var(--cream); border: 1px solid var(--border); border-radius: 3px; padding: 8px 10px 8px 28px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; transition: border-color 0.2s; }
+    .panel-label { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .search-box { position: relative; flex: 1; }
+    .search-box input { width: 100%; background: var(--cream); border: 1px solid var(--border); border-radius: 3px; padding: 7px 10px 7px 28px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); outline: none; transition: border-color 0.2s; }
     .search-box input:focus { border-color: var(--green-mid); background: #fff; }
     .search-box input::placeholder { color: #C4C0B8; }
     .search-box .ico { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
 
-    .style-list-body { flex: 1; overflow-y: auto; }
-    .style-list-body::-webkit-scrollbar { width: 4px; }
-    .style-list-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-    /* Brand group */
-    .brand-group { }
-    .brand-group-label { padding: 10px 14px 4px; font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); background: var(--cream); border-bottom: 1px solid var(--border); }
-
-    /* Subcategory group */
-    .subcat-group { }
-    .subcat-toggle {
-      display: flex; align-items: center; gap: 8px;
-      padding: 7px 14px 7px 20px;
-      cursor: pointer;
-      background: #F7F5F0;
+    /* Subcategory tabs inside grid panel */
+    .subcat-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 14px;
       border-bottom: 1px solid var(--border);
-      user-select: none;
-      transition: background 0.15s;
+      background: #FAFAF8;
+      overflow-x: auto;
     }
-    .subcat-toggle:hover { background: #F0EDE6; }
-    .subcat-toggle-label { font-size: 11px; font-weight: 500; color: var(--green-dark); flex: 1; }
-    .subcat-count { font-size: 10px; color: var(--muted); }
-    .subcat-chevron { width: 12px; height: 12px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; transition: transform 0.2s; }
-    .subcat-group.open .subcat-chevron { transform: rotate(90deg); }
-    .subcat-items { display: none; }
-    .subcat-group.open .subcat-items { display: block; }
+    .subcat-tab {
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .subcat-tab:hover { color: var(--green-dark); }
+    .subcat-tab.active { color: var(--green-dark); border-bottom-color: var(--gold); }
 
-    /* Style item */
-    .style-list-item { display: flex; align-items: center; gap: 9px; padding: 8px 14px 8px 28px; cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; border-bottom: 1px solid rgba(221,216,204,0.4); }
-    .style-list-item:hover { background: var(--cream); }
-    .style-list-item.selected { background: rgba(14,31,22,0.05); border-left-color: var(--green-dark); }
-    .style-color-dot { width: 16px; height: 16px; border-radius: 2px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.08); }
-    .style-list-info { flex: 1; min-width: 0; }
-    .style-list-name { font-size: 12px; font-weight: 500; color: var(--green-dark); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .style-list-code { font-size: 10px; color: var(--muted); }
-    .style-list-badge { font-size: 8px; letter-spacing: 0.05em; text-transform: uppercase; background: var(--cream); border: 1px solid var(--border); color: var(--muted); padding: 1px 4px; border-radius: 2px; flex-shrink: 0; }
+    /* Style image grid */
+    .style-grid-body {
+      padding: 14px;
+    }
+    .style-img-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px;
+    }
+    .style-img-card {
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--white);
+    }
+    .style-img-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+    .style-img-card.selected { border-color: var(--green-dark); border-width: 2px; }
+    .style-img-card img {
+      width: 100%;
+      aspect-ratio: 3/4;
+      object-fit: cover;
+      display: block;
+      background: var(--cream);
+    }
+    .style-img-card-info {
+      padding: 6px 8px;
+      border-top: 1px solid var(--border);
+    }
+    .style-img-card-name { font-size: 11px; font-weight: 500; color: var(--green-dark); line-height: 1.3; }
+    .style-img-card-code { font-size: 9px; color: var(--muted); margin-top: 2px; }
+    .style-img-card-group {
+      display: inline-block;
+      font-size: 8px;
+      letter-spacing: 0.08em;
+      background: rgba(201,168,76,0.12);
+      color: #8B6914;
+      border-radius: 2px;
+      padding: 1px 4px;
+      margin-top: 3px;
+    }
+
+    /* Coming soon state */
+    .coming-soon-state {
+      padding: 60px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .coming-soon-icon {
+      width: 48px; height: 48px;
+      border: 2px dashed var(--border);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px;
+    }
+    .coming-soon-icon svg { width: 20px; height: 20px; fill: none; stroke: var(--border); stroke-width: 1.5; }
+    .coming-soon-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; color: var(--green-dark); margin-bottom: 8px; }
+    .coming-soon-sub { font-size: 12px; color: var(--muted); line-height: 1.6; }
 
     /* ── RIGHT: Preview Panel ── */
     .preview-panel {
@@ -127,10 +203,8 @@
     .preview-empty { text-align: center; color: var(--muted); }
     .preview-empty svg { width: 36px; height: 36px; margin-bottom: 10px; opacity: 0.3; }
     .preview-empty p { font-size: 13px; line-height: 1.6; }
-
     .preview-content { text-align: center; width: 100%; display: none; }
     .preview-img-wrap { display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
-    /* 355:601 ratio swatch */
     .preview-swatch { width: 118px; height: 200px; border-radius: 4px; box-shadow: 0 6px 24px rgba(0,0,0,0.14); transition: background 0.3s; }
     .preview-img { max-height: 200px; max-width: 100%; object-fit: contain; border-radius: 3px; box-shadow: 0 6px 24px rgba(0,0,0,0.12); display: none; }
     .preview-name { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; color: var(--green-dark); margin-bottom: 4px; }
@@ -303,11 +377,17 @@
 
 <div class="page">
 
-  <!-- Top: Style List + Preview -->
+  <!-- Brand Tabs: Procraft / Milania -->
+  <div class="brand-tabs-bar">
+    <button class="brand-tab active" id="tabProcraft" onclick="switchBrand('Procraft')">Procraft</button>
+    <button class="brand-tab" id="tabMilania" onclick="switchBrand('Milania')">Milania</button>
+  </div>
+
+  <!-- Top: Style Grid + Preview -->
   <div class="top-section">
 
-    <!-- LEFT: Style List -->
-    <div class="style-list-panel">
+    <!-- LEFT: Style Image Grid -->
+    <div class="style-grid-panel">
       <div class="panel-header">
         <div class="panel-label">Door Styles</div>
         <div class="search-box">
@@ -315,8 +395,11 @@
           <input type="text" id="styleSearch" placeholder="Search styles..." oninput="filterStyles()"/>
         </div>
       </div>
-      <div class="style-list-body" id="styleListBody">
-        <div style="padding:16px;font-size:12px;color:var(--muted);">Loading...</div>
+      <div class="subcat-tabs" id="subcatTabs"></div>
+      <div class="style-grid-body">
+        <div class="style-img-grid" id="styleListBody">
+          <div style="padding:16px;font-size:12px;color:var(--muted);">Loading...</div>
+        </div>
       </div>
     </div>
 
@@ -328,7 +411,7 @@
       <div class="preview-body">
         <div class="preview-empty" id="previewEmpty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
-          <p>Select a door style<br>from the list to preview</p>
+          <p>Select a door style<br>from the grid to preview</p>
         </div>
         <div class="preview-content" id="previewContent">
           <div class="preview-img-wrap">
@@ -406,6 +489,8 @@ const _supabase = createClient(
 
 let dealer = null;
 let allStyles = [], allSkus = [];
+let activeBrand = 'Procraft';
+let activeSubcat = 'All';
 let hoveredStyle = null;
 let activeStyle  = null;
 let currentType  = 'RTA';
@@ -465,64 +550,75 @@ async function init() {
 
 function filterStyles() { renderStyleList(); }
 
+function switchBrand(brand) {
+  activeBrand = brand;
+  activeSubcat = 'All';
+  document.getElementById('tabProcraft').classList.toggle('active', brand === 'Procraft');
+  document.getElementById('tabMilania').classList.toggle('active', brand === 'Milania');
+  renderStyleList();
+}
+
+function switchSubcat(subcat) {
+  activeSubcat = subcat;
+  renderStyleList();
+}
+
 function renderStyleList() {
   const q = (document.getElementById('styleSearch').value||'').toLowerCase();
-  const body = document.getElementById('styleListBody');
-  let html = '';
+  const grid = document.getElementById('styleListBody');
+  const subcatTabsEl = document.getElementById('subcatTabs');
 
-  const brands = [...new Set(allStyles.map(s => s.brand))].sort();
-  brands.forEach(brand => {
-    const brandStyles = allStyles.filter(s =>
-      s.brand === brand &&
-      (!q || s.style_name.toLowerCase().includes(q) || s.style_code.toLowerCase().includes(q))
-    );
-    if (!brandStyles.length) return;
+  // Filter by brand
+  const brandStyles = allStyles.filter(s => s.brand === activeBrand);
 
-    // Group by subcategory
-    const subcats = {};
-    brandStyles.forEach(s => {
-      const sc = s.subcategory || 'Other';
-      if (!subcats[sc]) subcats[sc] = [];
-      subcats[sc].push(s);
-    });
+  // If Milania — show coming soon
+  if (activeBrand === 'Milania') {
+    subcatTabsEl.innerHTML = '';
+    grid.innerHTML = `
+      <div class="coming-soon-state">
+        <div class="coming-soon-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="coming-soon-title">Milania — Coming Soon</div>
+        <div class="coming-soon-sub">Frameless collection is currently being added.<br>Please check back soon.</div>
+      </div>`;
+    return;
+  }
 
-    html += `<div class="brand-group">`;
-    html += `<div class="brand-group-label">${brand}</div>`;
+  // Build subcat tabs
+  const subcats = ['All', ...new Set(brandStyles.map(s => s.subcategory || 'Other'))].sort((a,b) => a==='All'?-1:b==='All'?1:a.localeCompare(b));
+  subcatTabsEl.innerHTML = subcats.map(sc => `
+    <button class="subcat-tab ${sc === activeSubcat ? 'active' : ''}" onclick="switchSubcat('${sc}')">${sc}</button>
+  `).join('');
 
-    Object.entries(subcats).forEach(([subcat, styles]) => {
-      const key = `${brand}__${subcat}`;
-      const isOpen = openSubcats.has(key);
-      html += `
-        <div class="subcat-group ${isOpen?'open':''}" id="subcat-${key.replace(/\s/g,'_')}">
-          <div class="subcat-toggle" onclick="toggleSubcat('${key.replace(/\s/g,'_')}')">
-            <svg class="subcat-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-            <span class="subcat-toggle-label">${subcat}</span>
-            <span class="subcat-count">${styles.length}</span>
-          </div>
-          <div class="subcat-items">`;
+  // Filter by subcat + search
+  let filtered = brandStyles;
+  if (activeSubcat !== 'All') filtered = filtered.filter(s => (s.subcategory||'Other') === activeSubcat);
+  if (q) filtered = filtered.filter(s => s.style_name.toLowerCase().includes(q) || s.style_code.toLowerCase().includes(q));
 
-      styles.forEach(s => {
-        const bg = colorMap[s.color]||'#8A8A8A';
-        const sel = activeStyle && activeStyle.style_code === s.style_code;
-        html += `
-          <div class="style-list-item ${sel?'selected':''}" onclick="previewStyle('${s.style_code}')">
-            <div class="style-color-dot" style="background:${bg};"></div>
-            <div class="style-list-info">
-              <div class="style-list-name">${s.style_name}</div>
-              <div class="style-list-code">${s.style_code}</div>
-            </div>
-            <span class="style-list-badge">${s.construction_type||''}</span>
-          </div>`;
-      });
+  if (!filtered.length) {
+    grid.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--muted);">No styles found.</div>';
+    return;
+  }
 
-      html += `</div></div>`;
-    });
-
-    html += `</div>`;
-  });
-
-  body.innerHTML = html || '<div style="padding:14px;font-size:12px;color:var(--muted);">No styles found.</div>';
+  grid.innerHTML = filtered.map(s => {
+    const sel = activeStyle && activeStyle.style_code === s.style_code;
+    const grpLabel = s.grp ? s.grp.replace('GROUP ','') : '';
+    return `
+      <div class="style-img-card ${sel ? 'selected' : ''}" onclick="previewStyle('${s.style_code}')">
+        ${s.image_url
+          ? `<img src="${s.image_url}" alt="${s.style_name}" loading="lazy"/>`
+          : `<div style="width:100%;aspect-ratio:3/4;background:var(--cream);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg></div>`
+        }
+        <div class="style-img-card-info">
+          <div class="style-img-card-name">${s.style_name}</div>
+          <div class="style-img-card-code">${s.style_code}</div>
+          ${grpLabel ? `<div class="style-img-card-group">Group ${grpLabel}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
 }
+
 
 function toggleSubcat(keyRaw) {
   const key = keyRaw.replace(/_/g,' ').replace(/\s+/g,' ');
