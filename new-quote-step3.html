@@ -695,19 +695,22 @@ async function downloadPDF() {
   const margin = 16;
   let y = 0;
 
-  // Header bar
-  doc.setFillColor(...darkGreen);
+  // Header bar — white background with bottom border
+  doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pageW, 28, 'F');
+  doc.setDrawColor(...border);
+  doc.setLineWidth(0.5);
+  doc.line(0, 28, pageW, 28);
 
   try {
     const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
     doc.addImage(img, 'PNG', margin, 4, 50, 20);
   } catch(e) {
-    doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.setTextColor(...darkGreen); doc.setFontSize(14); doc.setFont('helvetica','bold');
     doc.text('ProCraft Cabinetry DC', margin, 17);
   }
 
-  doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.setTextColor(...darkGreen); doc.setFontSize(8); doc.setFont('helvetica','normal');
   doc.text(new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}), pageW - margin, 18, { align: 'right' });
 
   y = 36;
