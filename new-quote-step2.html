@@ -453,16 +453,19 @@
       <div class="preview-body">
         <div class="preview-empty" id="previewEmpty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
-          <p>Select a door style<br>from the grid to preview</p>
+          <p>Click a door style<br>from the grid to preview</p>
         </div>
         <div class="preview-content" id="previewContent">
-          <div class="preview-img-wrap" onclick="if(document.getElementById('previewImg').style.display!=='none'){openLightbox(document.getElementById('previewImg').src)}">
+          <div class="preview-img-wrap" onclick="if(document.getElementById('previewImg').style.display!=='none'){openLightbox(document.getElementById('previewImg').src)}" style="cursor:zoom-in;position:relative;">
             <img class="preview-img" id="previewImg" src="" alt=""/>
             <div class="preview-swatch" id="previewSwatch"></div>
+            <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(14,31,22,0.65);color:#fff;font-size:10px;letter-spacing:0.08em;padding:4px 10px;border-radius:20px;pointer-events:none;white-space:nowrap;">
+              點擊放大圖
+            </div>
           </div>
           <div class="preview-name" id="previewName"></div>
           <div class="preview-meta" id="previewMeta"></div>
-          <button class="btn-select-style" id="btnSelectStyle" onclick="confirmStyle()">Select This Style</button>
+          <div id="selectedBadge" style="display:none;margin-top:8px;background:rgba(14,31,22,0.08);border:1px solid var(--green-dark);border-radius:3px;padding:6px 14px;font-size:11px;font-weight:500;color:var(--green-dark);letter-spacing:0.1em;">✓ SELECTED</div>
         </div>
       </div>
     </div>
@@ -608,6 +611,13 @@ function closeLightbox() {
 
 function filterStyles() { renderStyleList(); }
 
+function selectAndConfirm(code) {
+  // Preview
+  previewStyle(code);
+  // Immediately confirm
+  confirmStyle();
+}
+
 function switchBrand(brand) {
   activeBrand = brand;
   activeSubcat = 'All';
@@ -662,7 +672,7 @@ function renderStyleList() {
   grid.innerHTML = filtered.map(s => {
     const sel = activeStyle && activeStyle.style_code === s.style_code;
     return `
-      <div class="style-img-card ${sel ? 'selected' : ''}" onclick="previewStyle('${s.style_code}')">
+      <div class="style-img-card ${sel ? 'selected' : ''}" onclick="selectAndConfirm('${s.style_code}')">
         <div class="style-img-card-img-wrap">
           ${s.image_url
             ? `<img src="${s.image_url}" alt="${s.style_name}" loading="lazy"/>`
@@ -723,8 +733,8 @@ function confirmStyle() {
   renderStyleList();
   document.getElementById('skuStyleTag').textContent = activeStyle.style_name;
   document.getElementById('skuSearchWrap').style.display = 'block';
-  document.getElementById('btnSelectStyle').textContent = '✓ Selected';
-  document.getElementById('btnSelectStyle').className = 'btn-select-style confirmed';
+  const badge = document.getElementById('selectedBadge');
+  if (badge) badge.style.display = 'block';
   renderCatTabs();
   renderSkuTable();
 }
