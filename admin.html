@@ -9,8 +9,8 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --gold:       #C9A84C;
-      --green-dark: #0E1F16;
-      --green-mid:  #1A3626;
+      --green-dark: #1A3D2B;
+      --green-mid:  #234D38;
       --cream:      #F5F2EC;
       --text:       #2C3A32;
       --muted:      #7A8C82;
@@ -28,7 +28,6 @@
     .nav-brand { display: flex; align-items: center; gap: 10px; }
     .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
     .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
-    .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
     .nav-badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; background: var(--gold); color: var(--green-dark); padding: 2px 7px; border-radius: 2px; font-weight: 500; }
     .nav-right { display: flex; align-items: center; gap: 12px; }
@@ -36,28 +35,6 @@
     .nav-link:hover, .nav-link.active { color: #fff; }
     .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
     .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
-
-    /* Hamburger */
-    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
-    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
-    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-    /* Mobile menu */
-    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: var(--green-dark); border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-    .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
-    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
-    .mobile-menu a.active { color: #fff; }
-    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-
-    @media (max-width: 768px) {
-      .nav-right { display: none; }
-      .hamburger { display: flex; }
-      .nav-logo-img { height: 36px; max-width: 90px; }
-      .nav-title { display: none; }
-    }
 
     /* Page */
     .page { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
@@ -137,7 +114,8 @@
 
 <nav class="navbar">
   <div class="nav-brand">
-    <img class="nav-logo-img" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
+  <img src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC" style="height:48px;object-fit:contain;"/>
+    <span class="nav-title">ProCraft DC</span>
     <span class="nav-badge">Admin</span>
   </div>
   <div class="nav-right">
@@ -149,22 +127,7 @@
     <a href="change-password.html" class="nav-link">Change Password</a>
     <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
-  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </button>
 </nav>
-
-<!-- Mobile Menu -->
-<div class="mobile-menu" id="mobileMenu">
-  <a href="admin.html" class="active">Dashboard</a>
-  <a href="admin-quotes.html">Quotes</a>
-  <a href="admin-dealers.html">Dealers</a>
-  <a href="admin-accounts.html">Accounts</a>
-  <a href="admin-tags.html">Tags</a>
-  <a href="change-password.html">Change Password</a>
-  <div class="menu-divider"></div>
-  <button onclick="handleLogout()">Sign Out</button>
-</div>
 
 <div class="page">
   <div class="page-header">
@@ -346,23 +309,6 @@ async function loadRecentDealers() {
       </div>
     </div>`).join('');
 }
-
-function toggleMenu() {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  btn.classList.toggle('open');
-  menu.classList.toggle('show');
-}
-
-// Close menu when clicking outside
-document.addEventListener('click', function(e) {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  if (!btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open');
-    menu.classList.remove('show');
-  }
-});
 
 async function handleLogout() {
   await _supabase.auth.signOut();
