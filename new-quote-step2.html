@@ -129,13 +129,28 @@
     .subcat-tab.active { color: var(--green-dark); border-bottom-color: var(--gold); }
 
     /* Style image grid */
-    .style-grid-body {
-      padding: 14px;
+    .style-grid-panel {
+      display: flex;
+      flex-direction: column;
     }
+    .style-grid-body {
+      padding: 12px;
+      overflow-y: auto;
+      height: 450px;
+    }
+    .style-grid-body::-webkit-scrollbar { width: 4px; }
+    .style-grid-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .style-img-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      grid-template-columns: repeat(5, 1fr);
       gap: 10px;
+    }
+    @media (max-width: 900px) {
+      .style-img-grid { grid-template-columns: repeat(3, 1fr); }
+      .style-grid-body { height: auto; max-height: 500px; }
+    }
+    @media (max-width: 500px) {
+      .style-img-grid { grid-template-columns: repeat(2, 1fr); }
     }
     .style-img-card {
       border: 1.5px solid var(--border);
@@ -147,29 +162,27 @@
     }
     .style-img-card:hover { border-color: var(--gold); transform: translateY(-1px); }
     .style-img-card.selected { border-color: var(--green-dark); border-width: 2px; }
-    .style-img-card img {
+    .style-img-card-img-wrap {
       width: 100%;
-      aspect-ratio: 3/4;
-      object-fit: cover;
-      display: block;
+      aspect-ratio: 355 / 601;
+      overflow: hidden;
       background: var(--cream);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .style-img-card-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
     .style-img-card-info {
       padding: 6px 8px;
       border-top: 1px solid var(--border);
     }
-    .style-img-card-name { font-size: 11px; font-weight: 500; color: var(--green-dark); line-height: 1.3; }
-    .style-img-card-code { font-size: 9px; color: var(--muted); margin-top: 2px; }
-    .style-img-card-group {
-      display: inline-block;
-      font-size: 8px;
-      letter-spacing: 0.08em;
-      background: rgba(201,168,76,0.12);
-      color: #8B6914;
-      border-radius: 2px;
-      padding: 1px 4px;
-      margin-top: 3px;
-    }
+    .style-img-card-name { font-size: 11px; font-weight: 500; color: var(--green-dark); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .style-img-card-code { font-size: 9px; color: var(--muted); margin-top: 1px; }
 
     /* Coming soon state */
     .coming-soon-state {
@@ -195,7 +208,6 @@
       border-radius: 4px;
       display: flex; flex-direction: column;
       overflow: hidden;
-      max-height: 480px;
     }
     .preview-panel-header { padding: 12px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: #FAFAF8; }
     .preview-panel-title { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
@@ -355,6 +367,36 @@
       white-space: nowrap;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Lightbox ── */
+    .lightbox-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      cursor: zoom-out;
+    }
+    .lightbox-overlay.show { display: flex; }
+    .lightbox-img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .lightbox-close {
+      position: fixed;
+      top: 20px; right: 24px;
+      background: none; border: none;
+      color: #fff; font-size: 28px;
+      cursor: pointer; line-height: 1;
+      opacity: 0.7; transition: opacity 0.2s;
+    }
+    .lightbox-close:hover { opacity: 1; }
+    .preview-img-wrap { cursor: zoom-in; }
   </style>
 </head>
 <body>
@@ -414,7 +456,7 @@
           <p>Select a door style<br>from the grid to preview</p>
         </div>
         <div class="preview-content" id="previewContent">
-          <div class="preview-img-wrap">
+          <div class="preview-img-wrap" onclick="if(document.getElementById('previewImg').style.display!=='none'){openLightbox(document.getElementById('previewImg').src)}">
             <img class="preview-img" id="previewImg" src="" alt=""/>
             <div class="preview-swatch" id="previewSwatch"></div>
           </div>
@@ -443,6 +485,13 @@
     </div>
   </div>
 
+</div>
+
+
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
 </div>
 
 <!-- Floating Cart Button -->
@@ -548,6 +597,15 @@ async function init() {
   }, 60000);
 }
 
+
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxOverlay').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('lightboxOverlay').classList.remove('show');
+}
+
 function filterStyles() { renderStyleList(); }
 
 function switchBrand(brand) {
@@ -603,17 +661,17 @@ function renderStyleList() {
 
   grid.innerHTML = filtered.map(s => {
     const sel = activeStyle && activeStyle.style_code === s.style_code;
-    const grpLabel = s.grp ? s.grp.replace('GROUP ','') : '';
     return `
       <div class="style-img-card ${sel ? 'selected' : ''}" onclick="previewStyle('${s.style_code}')">
-        ${s.image_url
-          ? `<img src="${s.image_url}" alt="${s.style_name}" loading="lazy"/>`
-          : `<div style="width:100%;aspect-ratio:3/4;background:var(--cream);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg></div>`
-        }
+        <div class="style-img-card-img-wrap">
+          ${s.image_url
+            ? `<img src="${s.image_url}" alt="${s.style_name}" loading="lazy"/>`
+            : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg>`
+          }
+        </div>
         <div class="style-img-card-info">
           <div class="style-img-card-name">${s.style_name}</div>
           <div class="style-img-card-code">${s.style_code}</div>
-          ${grpLabel ? `<div class="style-img-card-group">Group ${grpLabel}</div>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -701,7 +759,6 @@ function renderSkuTable() {
         <tr>
           <th>SKU</th>
           <th>Description</th>
-          <th>MSRP</th>
           <th>Unit Price</th>
           <th class="th-right">Qty &amp; Add</th>
         </tr>
@@ -722,7 +779,6 @@ function renderSkuTable() {
             <tr>
               <td class="td-code">${sku.sku_code} ${stockTag}</td>
               <td class="td-desc">${sku.description}</td>
-              <td class="td-price" style="color:var(--muted);">$${base.toFixed(2)}</td>
               <td class="td-price">$${unitPrice}</td>
               <td>
                 <div class="td-actions">
