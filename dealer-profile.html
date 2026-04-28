@@ -9,7 +9,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold: #C9A84C; --green-dark: #0E1F16; --green-mid: #1A3626;
+      --gold: #C9A84C; --green-dark: #3e5a42; --green-mid: #4a6b4f;
       --cream: #F5F2EC; --text: #2C3A32; --muted: #7A8C82;
       --border: #DDD8CC; --white: #FFFFFF; --error: #C0392B; --success: #16A34A;
     }
@@ -100,6 +100,24 @@
     .confirmed-icon { width: 16px; height: 16px; fill: var(--success); flex-shrink: 0; }
     .confirmed-text { font-size: 12px; color: var(--muted); }
     .confirmed-value { font-size: 13px; color: var(--text); font-weight: 500; }
+
+    /* Hamburger */
+    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    /* Mobile menu */
+    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .mobile-menu.show { display: flex; }
+    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
+    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .mobile-menu a.active { color: #fff; }
+    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
+    @media (max-width: 768px) {
+      .nav-right { display: none; }
+      .hamburger { display: flex; }
+    }
   </style>
 </head>
 <body>
@@ -111,14 +129,27 @@
 
 <nav class="navbar">
   <div class="nav-brand">
-    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
-    <span class="nav-title">ProCraft</span>
+    <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
+    <span class="nav-title">ProCraft DC</span>
   </div>
   <div class="nav-right">
     <a href="dashboard.html" class="nav-back" id="backBtn">← Dashboard</a>
     <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
+  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="dashboard.html">Dashboard</a>
+  <a href="quotes.html">My Quotes</a>
+  <a href="new-quote.html">New Quote</a>
+  <a href="dealer-profile.html" class="active">Edit Profile</a>
+  <a href="change-password.html">Change Password</a>
+  <div class="menu-divider"></div>
+  <button onclick="handleLogout()">Sign Out</button>
+</div>
 
 <div class="page">
   <div class="page-title">Store Profile</div>
@@ -629,10 +660,23 @@ function initMaps() {
   });
 }
 
+function toggleMenu() {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  btn.classList.toggle('open');
+  menu.classList.toggle('show');
+}
+
+document.addEventListener('click', function(e) {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+    btn.classList.remove('open');
+    menu.classList.remove('show');
+  }
+});
+
 init();
 </script>
-</body>
-</html>
-
 </body>
 </html>
