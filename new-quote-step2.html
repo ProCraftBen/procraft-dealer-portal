@@ -456,13 +456,11 @@
           <p>Click a door style<br>from the grid to preview</p>
         </div>
         <div class="preview-content" id="previewContent">
-          <div class="preview-img-wrap" onclick="if(document.getElementById('previewImg').style.display!=='none'){openLightbox(document.getElementById('previewImg').src)}" style="cursor:zoom-in;position:relative;">
+          <div class="preview-img-wrap" onclick="if(document.getElementById('previewImg').style.display!=='none'){openLightbox(document.getElementById('previewImg').src)}" style="cursor:zoom-in;">
             <img class="preview-img" id="previewImg" src="" alt=""/>
             <div class="preview-swatch" id="previewSwatch"></div>
-            <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(14,31,22,0.65);color:#fff;font-size:10px;letter-spacing:0.08em;padding:4px 10px;border-radius:20px;pointer-events:none;white-space:nowrap;">
-              Click to Enlarge
-            </div>
           </div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:0.06em;margin-top:6px;margin-bottom:2px;">Click image to enlarge</div>
           <div class="preview-name" id="previewName"></div>
           <div class="preview-meta" id="previewMeta"></div>
           <div id="selectedBadge" style="display:none;margin-top:8px;background:rgba(14,31,22,0.08);border:1px solid var(--green-dark);border-radius:3px;padding:6px 14px;font-size:11px;font-weight:500;color:var(--green-dark);letter-spacing:0.1em;">✓ SELECTED</div>
@@ -612,10 +610,34 @@ function closeLightbox() {
 function filterStyles() { renderStyleList(); }
 
 function selectAndConfirm(code) {
-  // Preview
-  previewStyle(code);
-  // Immediately confirm
-  confirmStyle();
+  hoveredStyle = allStyles.find(s => s.style_code === code);
+  if (!hoveredStyle) return;
+
+  // Update preview panel
+  const img    = document.getElementById('previewImg');
+  const swatch = document.getElementById('previewSwatch');
+  document.getElementById('previewEmpty').style.display   = 'none';
+  document.getElementById('previewContent').style.display = 'block';
+
+  if (hoveredStyle.image_url) {
+    img.src = hoveredStyle.image_url; img.style.display = 'block'; swatch.style.display = 'none';
+  } else {
+    img.style.display = 'none'; swatch.style.display = 'block';
+  }
+  document.getElementById('previewName').textContent = hoveredStyle.style_name;
+  document.getElementById('previewMeta').textContent =
+    `${hoveredStyle.style_code} · ${hoveredStyle.subcategory||''} · ${hoveredStyle.construction_type||''} · ${hoveredStyle.brand}`;
+
+  // Confirm selection
+  activeStyle = hoveredStyle;
+  currentCat  = 'All';
+  renderStyleList();
+  document.getElementById('skuStyleTag').textContent      = activeStyle.style_name;
+  document.getElementById('skuSearchWrap').style.display  = 'block';
+  const badge = document.getElementById('selectedBadge');
+  if (badge) badge.style.display = 'block';
+  renderCatTabs();
+  renderSkuTable();
 }
 
 function switchBrand(brand) {
