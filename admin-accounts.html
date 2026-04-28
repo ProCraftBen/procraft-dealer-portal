@@ -178,6 +178,69 @@
     </div>
   </div>
 
+  <!-- Email Settings -->
+  <div class="table-wrap" id="emailSettingsSection" style="display:none;">
+    <div class="table-header">
+      <span class="table-title">Email Settings</span>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:20px;">
+
+      <!-- Admin Email -->
+      <div>
+        <div style="font-size:9px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Admin Email</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="email" id="settingAdminEmail" placeholder="ben@procraftdc.com"
+            style="flex:1;min-width:220px;height:38px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;"/>
+          <span style="font-size:11px;color:var(--muted);">System emails sent from this address</span>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--border);"></div>
+
+      <!-- New Dealer Notifications -->
+      <div>
+        <div style="font-size:9px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">New Dealer Added</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="settingNotifyAdminNewDealer" style="width:16px;height:16px;accent-color:var(--green-dark);"/>
+            <span style="font-size:13px;color:var(--text);">Notify admin when a new dealer is added</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="settingNotifyDealerWelcome" style="width:16px;height:16px;accent-color:var(--green-dark);"/>
+            <span style="font-size:13px;color:var(--text);">Send welcome email (with password) to new dealer</span>
+          </label>
+        </div>
+      </div>
+
+      <div style="height:1px;background:var(--border);"></div>
+
+      <!-- Quote Submission Notifications -->
+      <div>
+        <div style="font-size:9px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Quote Submission</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="settingNotifyAdminNewQuote" style="width:16px;height:16px;accent-color:var(--green-dark);"/>
+            <span style="font-size:13px;color:var(--text);">Notify admin when a quote is submitted</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" id="settingNotifyDealerQuoteConfirm" style="width:16px;height:16px;accent-color:var(--green-dark);"/>
+            <span style="font-size:13px;color:var(--text);">Send confirmation email to dealer after quote submission</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Save Button -->
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button onclick="saveEmailSettings()"
+          style="height:38px;padding:0 20px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;">
+          Save Settings
+        </button>
+        <span id="emailSettingsSaved" style="display:none;font-size:12px;color:var(--success);">✓ Saved</span>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Audit Log -->
   <div class="table-wrap">
     <div class="table-header">
@@ -279,7 +342,11 @@ async function init() {
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
   isSuperAdmin = me.role === 'super_admin';
-  if (isSuperAdmin) document.getElementById('btnAddAdmin').style.display = 'inline-flex';
+  if (isSuperAdmin) {
+    document.getElementById('btnAddAdmin').style.display = 'inline-flex';
+    document.getElementById('emailSettingsSection').style.display = 'block';
+    await loadEmailSettings();
+  }
 
   await Promise.all([loadAccounts(), loadAuditLog()]);
 }
@@ -507,6 +574,39 @@ async function executeDelete() {
   }
 }
   
+async function loadEmailSettings() {
+  const { data, error } = await _supabase.from('settings').select('key, value');
+  if (error) { console.error('loadEmailSettings error:', error); return; }
+
+  const map = {};
+  (data || []).forEach(r => { map[r.key] = r.value; });
+
+  const el = (id) => document.getElementById(id);
+  if (map['admin_email'])                el('settingAdminEmail').value                    = map['admin_email'];
+  if (map['notify_admin_new_dealer'])    el('settingNotifyAdminNewDealer').checked        = map['notify_admin_new_dealer'] === 'true';
+  if (map['notify_dealer_welcome'])      el('settingNotifyDealerWelcome').checked         = map['notify_dealer_welcome'] === 'true';
+  if (map['notify_admin_new_quote'])     el('settingNotifyAdminNewQuote').checked         = map['notify_admin_new_quote'] === 'true';
+  if (map['notify_dealer_quote_confirm'])el('settingNotifyDealerQuoteConfirm').checked    = map['notify_dealer_quote_confirm'] === 'true';
+}
+
+async function saveEmailSettings() {
+  const el = (id) => document.getElementById(id);
+  const settings = [
+    { key: 'admin_email',                  value: el('settingAdminEmail').value.trim() },
+    { key: 'notify_admin_new_dealer',      value: String(el('settingNotifyAdminNewDealer').checked) },
+    { key: 'notify_dealer_welcome',        value: String(el('settingNotifyDealerWelcome').checked) },
+    { key: 'notify_admin_new_quote',       value: String(el('settingNotifyAdminNewQuote').checked) },
+    { key: 'notify_dealer_quote_confirm',  value: String(el('settingNotifyDealerQuoteConfirm').checked) },
+  ];
+
+  const { error } = await _supabase.from('settings').upsert(settings, { onConflict: 'key' });
+  if (error) { alert('Error saving settings: ' + error.message); return; }
+
+  const saved = document.getElementById('emailSettingsSaved');
+  saved.style.display = 'inline';
+  setTimeout(() => { saved.style.display = 'none'; }, 3000);
+}
+
 init();
 </script>
 </body>
