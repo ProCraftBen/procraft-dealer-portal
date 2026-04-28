@@ -10,8 +10,8 @@
     :root {
       --gold:       #C9A84C;
       --gold-light: #E2C97E;
-      --green-dark: #0E1F16;
-      --green-mid:  #1A3626;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
       --cream:      #F5F2EC;
       --text:       #2C3A32;
       --muted:      #7A8C82;
@@ -25,11 +25,8 @@
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
-    /* ── Navbar ── */
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-brand { display: flex; align-items: center; gap: 10px; }
-    .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
     .nav-right { display: flex; align-items: center; gap: 12px; }
     .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
@@ -37,10 +34,29 @@
     .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
     .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
 
-    /* ── Page ── */
-    .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
+    /* Hamburger */
+    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-    /* ── Header ── */
+    /* Mobile menu */
+    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .mobile-menu.show { display: flex; }
+    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
+    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .mobile-menu a.active { color: #fff; }
+    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
+    .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
+
+    @media (max-width: 768px) {
+      .nav-right { display: none; }
+      .hamburger { display: flex; }
+      .nav-logo-img { height: 36px; max-width: 90px; }
+    }
+
+    .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
     .page-header { margin-bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
     .page-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
@@ -48,14 +64,12 @@
     .btn-new-quote:hover { background: var(--green-mid); }
     .btn-new-quote svg { width: 13px; height: 13px; fill: currentColor; }
 
-    /* ── Stats ── */
     .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
     @media (max-width: 600px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
     .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
     .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 500; color: var(--green-dark); line-height: 1; }
     .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
 
-    /* ── Filters ── */
     .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .filter-group { display: flex; flex-direction: column; gap: 5px; }
     .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
@@ -68,7 +82,6 @@
     .btn-reset { height: 36px; padding: 0 14px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
     .btn-reset:hover { border-color: var(--text); color: var(--text); }
 
-    /* ── Table ── */
     .table-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -94,12 +107,10 @@
     .arrow-cell { color: var(--border); font-size: 14px; text-align: right; }
     tbody tr:hover .arrow-cell { color: var(--gold); }
 
-    /* ── Empty ── */
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
     .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin: 0 auto 12px; display: block; }
     .empty-state p { font-size: 13px; margin-bottom: 16px; }
 
-    /* ── Loading ── */
     .loading-row { height: 52px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   </style>
@@ -108,17 +119,29 @@
 
 <nav class="navbar">
   <div class="nav-brand">
-    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
-    <span class="nav-title">ProCraft</span>
+    <img class="nav-logo-img" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
+    <span class="nav-title">ProCraft DC</span>
   </div>
   <div class="nav-right">
     <a href="dashboard.html" class="nav-back">← Dashboard</a>
     <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
+  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 
-<div class="page">
+<div class="mobile-menu" id="mobileMenu">
+  <a href="dashboard.html">Dashboard</a>
+  <a href="quotes.html" class="active">My Quotes</a>
+  <a href="new-quote.html">New Quote</a>
+  <a href="dealer-profile.html">Edit Profile</a>
+  <a href="change-password.html">Change Password</a>
+  <div class="menu-divider"></div>
+  <button onclick="handleLogout()">Sign Out</button>
+</div>
 
+<div class="page">
   <div class="page-header">
     <div>
       <div class="page-title">My Quotes</div>
@@ -130,27 +153,13 @@
     </a>
   </div>
 
-  <!-- Stats -->
   <div class="stats-bar">
-    <div class="stat-card">
-      <div class="stat-num" id="statTotal">—</div>
-      <div class="stat-label">Total</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-num" id="statPending">—</div>
-      <div class="stat-label">Pending</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-num" id="statProcessing">—</div>
-      <div class="stat-label">Processing</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-num" id="statComplete">—</div>
-      <div class="stat-label">Complete</div>
-    </div>
+    <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card"><div class="stat-num" id="statProcessing">—</div><div class="stat-label">Processing</div></div>
+    <div class="stat-card"><div class="stat-num" id="statComplete">—</div><div class="stat-label">Complete</div></div>
   </div>
 
-  <!-- Filters -->
   <div class="filters">
     <div class="filter-group">
       <span class="filter-label">Status</span>
@@ -180,7 +189,6 @@
     </div>
   </div>
 
-  <!-- Table -->
   <div class="table-card">
     <div class="table-header">
       <span class="table-title">Quotes</span>
@@ -206,7 +214,6 @@
       </table>
     </div>
   </div>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -221,6 +228,22 @@ let allQuotes = [];
 let userId    = null;
 
 const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+
+function toggleMenu() {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  btn.classList.toggle('open');
+  menu.classList.toggle('show');
+}
+
+document.addEventListener('click', function(e) {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+    btn.classList.remove('open');
+    menu.classList.remove('show');
+  }
+});
 
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) {
@@ -241,7 +264,6 @@ async function init() {
 
   await loadQuotes();
 
-  // Poll is_active every 60s
   setInterval(async () => {
     const { data: check } = await _supabase.from('dealers').select('is_active').eq('id', userId).single();
     if (!check?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
