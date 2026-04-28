@@ -245,9 +245,10 @@
       <div class="upload-area" id="uploadArea" onclick="document.getElementById('uploadInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
         <svg class="upload-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
         <div class="upload-text">Click to upload or drag & drop photos</div>
-        <div class="upload-sub">JPG, PNG — Max 2MB per photo — Up to 10 photos</div>
+        <div class="upload-sub">JPG, PNG — Max 5MB per photo — Up to 5 photos</div>
       </div>
       <input class="upload-input" type="file" id="uploadInput" accept="image/jpeg,image/png" multiple onchange="handleFileSelect(event)"/>
+      <div class="upload-error" id="uploadError" style="display:none;margin-top:10px;background:rgba(192,57,43,0.07);border:1px solid rgba(192,57,43,0.25);border-radius:3px;padding:10px 14px;font-size:12px;color:var(--error);"></div>
       <div class="upload-progress" id="uploadProgress"></div>
       <div class="image-grid" id="imageGrid"></div>
       <div class="image-count-label" id="imageCountLabel"></div>
@@ -325,7 +326,7 @@ function getHours() {
 function renderImages() {
   const grid  = document.getElementById('imageGrid');
   const label = document.getElementById('imageCountLabel');
-  label.textContent = images.length ? `${images.length}/10 photos${images[0] ? ' — First photo is the featured image' : ''}` : '';
+  label.textContent = images.length ? `${images.length}/5 photos${images[0] ? ' — First photo is the featured image' : ''}` : '';
 
   if (!images.length) { grid.innerHTML = ''; return; }
 
@@ -365,22 +366,35 @@ function handleDrop(e) {
 function handleFileSelect(e) { handleFiles([...e.target.files]); e.target.value = ''; }
 
 async function handleFiles(files) {
-  const remaining = 10 - images.length;
-  if (remaining <= 0) { showError('Maximum 10 photos allowed.'); return; }
+  const remaining = 5 - images.length;
+  if (remaining <= 0) { showUploadError('Maximum 5 photos allowed.'); return; }
 
   const toAdd = files.slice(0, remaining).filter(f => {
-    if (!['image/jpeg','image/png'].includes(f.type)) { showError(`${f.name} is not a JPG or PNG.`); return false; }
-    if (f.size > 2 * 1024 * 1024) { showError(`${f.name} exceeds 2MB limit.`); return false; }
+    if (!['image/jpeg','image/png'].includes(f.type)) { showUploadError(`${f.name} is not a JPG or PNG.`); return false; }
+    if (f.size > 5 * 1024 * 1024) { showUploadError(`${f.name} exceeds 5MB limit.`); return false; }
     return true;
   });
 
   if (!toAdd.length) return;
 
+  clearUploadError();
   for (const file of toAdd) {
     const localUrl = URL.createObjectURL(file);
     images.push({ url: localUrl, path: null, file });
   }
   renderImages();
+}
+
+function showUploadError(msg) {
+  const el = document.getElementById('uploadError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function clearUploadError() {
+  const el = document.getElementById('uploadError');
+  el.style.display = 'none';
+  el.textContent = '';
 }
 
 // ── Init ───────────────────────────────────────────
@@ -390,24 +404,7 @@ async function init() {
 
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
   if (!dealer) { window.location.href = 'login.html'; return; }
-
-  if (!dealer.is_active) {
-    await _supabase.auth.signOut();
-    window.location.href = 'login.html';
-    return;
-  }
-
   currentUser = dealer;
-
-  // Poll is_active every 60s
-  setInterval(async () => {
-    const { data: check } = await _supabase
-      .from('dealers').select('is_active').eq('id', session.user.id).single();
-    if (!check?.is_active) {
-      await _supabase.auth.signOut();
-      window.location.href = 'login.html';
-    }
-  }, 60000);
 
   isFirstTime = !dealer.profile_completed;
   if (isFirstTime) {
