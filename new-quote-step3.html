@@ -9,8 +9,8 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --gold:       #C9A84C;
-      --green-dark: #0E1F16;
-      --green-mid:  #1A3626;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
       --cream:      #F5F2EC;
       --text:       #2C3A32;
       --muted:      #7A8C82;
@@ -70,7 +70,7 @@
     .td-sku { color: var(--muted); font-size: 12px; }
     .td-type { }
     .td-type .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; letter-spacing: 0.05em; }
-    .td-type .type-badge.rta { background: rgba(14,31,22,0.07); color: var(--green-dark); }
+    .td-type .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
     .td-type .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
     .td-right { text-align: right; }
     .td-total { font-weight: 500; }
@@ -133,17 +133,45 @@
     .success-msg { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 400px; margin-bottom: 32px; }
     .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
     .btn-dashboard:hover { background: var(--green-mid); }
+
+    /* Hamburger */
+    .hamburger { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    /* Mobile menu */
+    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .mobile-menu.show { display: flex; }
+    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
+    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .mobile-menu a.active { color: #fff; }
+    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
+    @media (max-width: 768px) { .nav-back { display: none !important; } }
   </style>
 </head>
 <body>
 
 <nav class="navbar">
   <div class="nav-brand">
-    <div class="nav-logo"><svg viewBox="0 0 24 24"><path d="M12 2L3 7v10l9 5 9-5V7L12 2zm0 2.18L19 8v8l-7 3.88L5 16V8l7-3.82z"/></svg></div>
-    <span class="nav-title">ProCraft</span>
+    <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
+    <span class="nav-title">ProCraft DC</span>
   </div>
-  <a href="new-quote-step2.html" class="nav-back">← Edit Items</a>
+  <a href="new-quote-step2.html" class="nav-back" id="navBackDesktop">← Edit Items</a>
+  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="dashboard.html">Dashboard</a>
+  <a href="quotes.html">My Quotes</a>
+  <a href="new-quote.html" class="active">New Quote</a>
+  <a href="dealer-profile.html">Edit Profile</a>
+  <a href="change-password.html">Change Password</a>
+  <div class="menu-divider"></div>
+  <button onclick="handleLogout()">Sign Out</button>
+</div>
 
 <div class="progress-bar">
   <div class="progress-steps">
@@ -845,6 +873,27 @@ function loadImage(url) {
     img.onerror = reject;
     img.src = url;
   });
+}
+
+function toggleMenu() {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  btn.classList.toggle('open');
+  menu.classList.toggle('show');
+}
+
+document.addEventListener('click', function(e) {
+  const btn  = document.getElementById('hamburger');
+  const menu = document.getElementById('mobileMenu');
+  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+    btn.classList.remove('open');
+    menu.classList.remove('show');
+  }
+});
+
+async function handleLogout() {
+  await _supabase.auth.signOut();
+  window.location.href = 'login.html';
 }
 
 init();
