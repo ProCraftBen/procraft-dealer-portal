@@ -114,6 +114,8 @@
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
     .mobile-menu a.active { color: #fff; }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
+    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: #fff; }
     @media (max-width: 768px) {
       .nav-right { display: none; }
       .hamburger { display: flex; }
@@ -133,7 +135,11 @@
     <span class="nav-title">ProCraft DC</span>
   </div>
   <div class="nav-right">
-    <a href="dashboard.html" class="nav-back" id="backBtn">← Dashboard</a>
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <a href="quotes.html" class="nav-link">My Quotes</a>
+    <a href="new-quote.html" class="nav-link">New Quote</a>
+    <a href="dealer-profile.html" class="nav-link active">Edit Profile</a>
+    <a href="change-password.html" class="nav-link">Change Password</a>
     <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
   <button class="hamburger" id="hamburger" onclick="toggleMenu()">
@@ -177,6 +183,13 @@
           <div class="confirmed-value" id="display_email">—</div>
         </div>
       </div>
+      <div class="confirmed-row">
+        <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        <div>
+          <div class="confirmed-text">Dealer UID</div>
+          <div class="confirmed-value" id="display_uid">—</div>
+        </div>
+      </div>
       <div class="form-group">
         <label class="form-label">Contact Name <span class="required">*</span></label>
         <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
@@ -184,6 +197,17 @@
       <div class="form-group">
         <label class="form-label">Phone <span class="required">*</span></label>
         <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Secondary Email <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_secondary_email" type="email" placeholder="backup@yourcompany.com"/>
+        <span class="form-hint" style="margin-top:4px;display:block;">Additional email address for receiving notifications.</span>
+      </div>
+      <div class="form-group">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+          <input type="checkbox" id="f_secondary_email_notify" style="width:16px;height:16px;accent-color:var(--green-dark);cursor:pointer;"/>
+          <label for="f_secondary_email_notify" style="font-size:13px;color:var(--text);cursor:pointer;">Send notifications to Secondary Email</label>
+        </div>
       </div>
       <div class="form-group">
         <label class="form-label">Google My Business <span class="badge-optional">Optional</span></label>
@@ -468,16 +492,16 @@ async function init() {
   isFirstTime = !dealer.profile_completed;
   if (isFirstTime) {
     document.getElementById('firstTimeBanner').classList.add('show');
-    document.getElementById('backBtn').style.display = 'none';
-  } else {
-    document.getElementById('backBtn').style.display = 'inline-block';
   }
 
   // Populate contact info
   document.getElementById('display_company_name').textContent = dealer.company_name || '—';
   document.getElementById('display_email').textContent        = dealer.email || '—';
+  document.getElementById('display_uid').textContent          = dealer.uid || '—';
   document.getElementById('f_contact_name').value = dealer.contact_name || '';
   document.getElementById('f_phone').value         = dealer.phone || '';
+  document.getElementById('f_secondary_email').value = dealer.secondary_email || '';
+  document.getElementById('f_secondary_email_notify').checked = dealer.secondary_email_notify || false;
   document.getElementById('f_gmb_url').value       = dealer.google_my_business_url || '';
   document.getElementById('f_address_line1').value = dealer.address_line1 || '';
   document.getElementById('f_address_line2').value = dealer.address_line2 || '';
@@ -513,6 +537,8 @@ async function saveProfile() {
   const heading     = document.getElementById('f_heading').value.trim();
   const description = document.getElementById('f_description').value.trim();
   const website     = document.getElementById('f_website').value.trim();
+  const secondary_email        = document.getElementById('f_secondary_email').value.trim();
+  const secondary_email_notify = document.getElementById('f_secondary_email_notify').checked;
   const contact_name    = document.getElementById('f_contact_name').value.trim();
   const phone           = document.getElementById('f_phone').value.trim();
   const gmb_url         = document.getElementById('f_gmb_url').value.trim();
@@ -576,6 +602,8 @@ async function saveProfile() {
     const { error } = await _supabase.from('dealers').update({
       contact_name,
       phone,
+      secondary_email:        secondary_email || null,
+      secondary_email_notify: secondary_email_notify,
       google_my_business_url: gmb_url || null,
       address_line1,
       address_line2:     address_line2 || null,
