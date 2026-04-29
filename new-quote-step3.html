@@ -28,6 +28,10 @@
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
     .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 5px 10px; background: transparent; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
     .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    @media (max-width: 768px) { .nav-right { display: none; } .hamburger { display: flex; } }
 
     /* ── Progress ── */
     .progress-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; }
@@ -95,7 +99,9 @@
     /* ── Notes ── */
     .notes-display { font-size: 13px; color: var(--text); line-height: 1.6; font-style: italic; }
 
-    /* ── Submit Section ── */
+    .btn-back { background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; min-height: 40px; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn-back:hover { color: var(--text); border-color: var(--text); }
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; z-index: 150; height: 56px; }
     .submit-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 24px 20px; margin-bottom: 16px; text-align: center; }
     .submit-note { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
     .btn-submit {
@@ -147,7 +153,6 @@
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
     .mobile-menu a.active { color: #fff; }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    @media (max-width: 768px) { .nav-back { display: none !important; } }
   </style>
 </head>
 <body>
@@ -157,7 +162,13 @@
     <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
     <span class="nav-title">ProCraft DC</span>
   </div>
-  <a href="new-quote-step2.html" class="nav-back" id="navBackDesktop">← Edit Items</a>
+  <div class="nav-right">
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <a href="quotes.html" class="nav-link">My Quotes</a>
+    <a href="new-quote.html" class="nav-link active">New Quote</a>
+    <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
+    <button onclick="handleLogout()" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer;border:1px solid rgba(255,255,255,0.15);border-radius:3px;padding:5px 10px;background:transparent;">Sign Out</button>
+  </div>
   <button class="hamburger" id="hamburger" onclick="toggleMenu()">
     <span></span><span></span><span></span>
   </button>
@@ -253,9 +264,12 @@
       <table class="items-table">
         <thead>
           <tr>
+            <th>#</th>
             <th>Door Style</th>
             <th>SKU</th>
+            <th>Category</th>
             <th>Type</th>
+            <th>Assemble Status</th>
             <th class="th-right">Qty</th>
             <th class="th-right">Unit Price</th>
             <th class="th-right">Assemble Fee</th>
@@ -320,6 +334,11 @@
     </button>
   </div>
 
+</div>
+
+<!-- Bottom Bar -->
+<div class="bottom-bar">
+  <a href="new-quote-step2.html" class="btn-back">← Edit Items</a>
 </div>
 
 <!-- Success Overlay -->
@@ -424,25 +443,51 @@ function renderReview() {
     document.getElementById('reviewNotes').textContent = step1Data.notes;
   }
 
-  // Items table — group by door style
+  // Items table — group by door style, sort by category, add item numbers
   const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
   const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
 
+  const catOrder = ['Base','Wall','Tall','Accessories','Modifications'];
+  function catRank(cat) {
+    const idx = catOrder.findIndex(c => (cat||'').toLowerCase().includes(c.toLowerCase()));
+    return idx === -1 ? 99 : idx;
+  }
+
+  // Group by door style
+  const grouped = {};
+  step2Data.forEach(item => {
+    if (!grouped[item.style_name]) grouped[item.style_name] = [];
+    grouped[item.style_name].push(item);
+  });
+  // Sort items within each group by category
+  Object.keys(grouped).forEach(style => {
+    grouped[style].sort((a,b) => catRank(a.category||a.sku_desc) - catRank(b.category||b.sku_desc));
+  });
+
+  let itemNum = 0;
   let lastStyle = null;
-  document.getElementById('itemsTableBody').innerHTML = step2Data.map(item => {
-    const showStyle = item.style_name !== lastStyle;
-    lastStyle = item.style_name;
-    return `
-      <tr>
-        <td class="td-style">${showStyle ? item.style_name : ''}</td>
-        <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
-        <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
-        <td class="td-right">${item.quantity}</td>
-        <td class="td-right">$${item.unit_price.toFixed(2)}</td>
-        <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
-        <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
-      </tr>`;
-  }).join('');
+  const rows = [];
+  Object.entries(grouped).forEach(([styleName, items]) => {
+    items.forEach(item => {
+      itemNum++;
+      const showStyle = styleName !== lastStyle;
+      lastStyle = styleName;
+      rows.push(`
+        <tr>
+          <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
+          <td class="td-style">${showStyle ? styleName : ''}</td>
+          <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
+          <td style="font-size:11px;color:var(--muted);">${item.category || '—'}</td>
+          <td style="font-size:11px;">${item.skuType ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${item.skuType.toUpperCase()}</span>` : '—'}</td>
+          <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
+          <td class="td-right">${item.quantity}</td>
+          <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+          <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
+          <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
+        </tr>`);
+    });
+  });
+  document.getElementById('itemsTableBody').innerHTML = rows.join('');
 
   // Totals
   const taxRate    = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
@@ -592,7 +637,11 @@ async function submitQuote() {
     const { error: itemsError } = await _supabase.from('quote_items').insert(items);
     if (itemsError) throw itemsError;
 
-        // 呼叫 Edge Function 寄信
+    // 產生兩份 PDF (base64)
+    const pdfA = await generatePdfBase64(false); // Document A — no price
+    const pdfB = await generatePdfBase64(true);  // Document B — with price
+
+    // 呼叫 Edge Function 寄信
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
       'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
@@ -604,13 +653,13 @@ async function submitQuote() {
         },
         body: JSON.stringify({
           quote: {
-            quote_number: quoteNum,
-            po_number:    step1Data.poNumber,
-            job_name:     step1Data.jobName,
-            subtotal:     subtotal.toFixed(2),
+            quote_number:  quoteNum,
+            po_number:     step1Data.poNumber,
+            job_name:      step1Data.jobName,
+            subtotal:      subtotal.toFixed(2),
             shipping_cost: shipping.toFixed(2),
-            tax_amount:   tax.toFixed(2),
-            grand_total:  grand.toFixed(2),
+            tax_amount:    tax.toFixed(2),
+            grand_total:   grand.toFixed(2),
           },
           dealer: {
             company_name: dealer.company_name,
@@ -624,6 +673,10 @@ async function submitQuote() {
             quantity:   i.quantity,
             unit_price: i.unit_price,
           })),
+          attachments: [
+            { filename: `${step1Data.poNumber}_A.pdf`, content: pdfA, type: 'application/pdf' },
+            { filename: `${step1Data.poNumber}_B.pdf`, content: pdfB, type: 'application/pdf' },
+          ],
         }),
       }
     );
@@ -711,25 +764,22 @@ function updateMarkupPreview() {
     : '';
 }
 
-async function downloadPDF() {
+// ── Shared PDF builder ──────────────────────────────────────────────
+// showPrices: false = Document A (no price), true = Document B (with price)
+async function buildPdf(showPrices, markupPct = 0) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
-
   const darkGreen = [14, 31, 22];
+  const gold      = [201, 168, 76];
   const muted     = [122, 140, 130];
   const border    = [221, 216, 204];
-  const pageW = 210;
-  const margin = 16;
+  const pageW = 210; const margin = 16;
   let y = 0;
 
-  // Header bar — white background with bottom border
-  doc.setFillColor(255, 255, 255);
+  // ── Header ──
+  doc.setFillColor(255,255,255);
   doc.rect(0, 0, pageW, 28, 'F');
-  doc.setDrawColor(...border);
-  doc.setLineWidth(0.5);
-  doc.line(0, 28, pageW, 28);
-
+  doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0, 28, pageW, 28);
   try {
     const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
     doc.addImage(img, 'PNG', margin, 4, 50, 20);
@@ -738,86 +788,134 @@ async function downloadPDF() {
     doc.text('ProCraft Cabinetry DC', margin, 17);
   }
 
-  doc.setTextColor(...darkGreen); doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text(new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}), pageW - margin, 18, { align: 'right' });
+  // PO # + Date top right
+  const dateStr = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  doc.setTextColor(...muted); doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text(`PO# ${step1Data?.poNumber || '—'}`, pageW - margin, 12, { align:'right' });
+  doc.text(dateStr, pageW - margin, 18, { align:'right' });
 
-  y = 36;
+  y = 34;
 
-  // Quote + Dealer info
-  doc.setFontSize(9); doc.setTextColor(...muted);
-  doc.text('QUOTE INFORMATION', margin, y);
-  doc.text('DEALER INFORMATION', pageW/2, y);
-  y += 5;
-
-  const leftInfo = [
-    ['PO #', step1Data?.poNumber || '—'],
-    ['Job', step1Data?.jobName || '—'],
-    ['Logistic', (step1Data?.logisticType || '—').toUpperCase()],
-  ];
-
-  let ry = y;
-  leftInfo.forEach(([label, val]) => {
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(30,30,30);
-    doc.text(label + ':', margin, y);
-    doc.setFont('helvetica','normal');
-    doc.text(val, margin + 22, y);
-    y += 5;
+  // ── Company info + Bill To / Ship To ──
+  // Left: ProCraft info
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...darkGreen);
+  doc.text('ProCraft Cabinetry DC LLC', margin, y);
+  doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+  ['6750 Santa Barbara Court Suite B','Elkridge, MD 21075','Phone: 410-863-9800','Email: sales@procraftdc.com'].forEach(line => {
+    y += 4.5; doc.setFontSize(7.5); doc.text(line, margin, y);
   });
 
-  [dealer?.company_name, dealer?.contact_name, dealer?.address_line1,
-   `${dealer?.city||''}, ${dealer?.state||''} ${dealer?.zip_code||''}`, dealer?.email
-  ].filter(Boolean).forEach((val, i) => {
-    doc.setFont('helvetica', i===0 ? 'bold' : 'normal'); doc.setFontSize(9); doc.setTextColor(30,30,30);
-    doc.text(val.trim(), pageW/2, ry); ry += 5;
-  });
+  // Job name centered top
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...darkGreen);
+  doc.text(step1Data?.jobName || '—', pageW/2, 38, { align:'center' });
 
-  y = Math.max(y, ry) + 4;
-  doc.setDrawColor(...border); doc.setLineWidth(0.3);
-  doc.line(margin, y, pageW - margin, y); y += 8;
+  y = 34;
+  const col2 = pageW/2 + 4;
 
-  // Items table grouped by style
+  // Bill To
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...muted);
+  doc.text('BILL TO', col2, y);
+  y += 4.5;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(30,30,30);
+  doc.text(dealer?.company_name || '—', col2, y);
+  doc.setFont('helvetica','normal');
+  [dealer?.address_line1, `${dealer?.city||''}, ${dealer?.state||''} ${dealer?.zip_code||''}`]
+    .filter(Boolean).forEach(line => { y += 4.5; doc.setFontSize(7.5); doc.text(line.trim(), col2, y); });
+
+  // Ship To
+  const col3 = pageW/2 + 55;
+  let shipY = 34;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...muted);
+  doc.text('SHIP TO', col3, shipY);
+  shipY += 4.5;
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(30,30,30);
+  const shipName = shippingAddress ? shippingAddress.recipient_name : dealer?.company_name;
+  const shipLine1 = shippingAddress ? shippingAddress.address_line : dealer?.address_line1;
+  const shipCityState = shippingAddress
+    ? `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}`
+    : `${dealer?.city||''}, ${dealer?.state||''} ${dealer?.zip_code||''}`;
+  doc.text(shipName || '—', col3, shipY);
+  doc.setFont('helvetica','normal');
+  [shipLine1, shipCityState].filter(Boolean).forEach(line => { shipY += 4.5; doc.setFontSize(7.5); doc.text(line.trim(), col3, shipY); });
+
+  y = Math.max(y, shipY) + 6;
+  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin, y, pageW-margin, y); y += 6;
+
+  // ── Items Table ──
+  const catOrder = ['Base','Wall','Tall','Accessories','Modifications'];
+  function catRank(cat) {
+    const idx = catOrder.findIndex(c => (cat||'').toLowerCase().includes(c.toLowerCase()));
+    return idx === -1 ? 99 : idx;
+  }
   const grouped = {};
   step2Data.forEach(item => {
     if (!grouped[item.style_name]) grouped[item.style_name] = [];
     grouped[item.style_name].push(item);
   });
+  Object.keys(grouped).forEach(s => {
+    grouped[s].sort((a,b) => catRank(a.category||a.sku_desc) - catRank(b.category||b.sku_desc));
+  });
 
   const tableRows = [];
+  let itemNum = 0;
   Object.entries(grouped).forEach(([styleName, items]) => {
     items.forEach((item, idx) => {
+      itemNum++;
       const markedPrice = item.unit_price * (1 + markupPct);
-      tableRows.push([
-        idx === 0 ? styleName : '',
-        item.sku_code,
-        item.type,
-        item.quantity,
-        `$${markedPrice.toFixed(2)}`,
-        item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—',
-        `$${(markedPrice * item.quantity).toFixed(2)}`,
-      ]);
+      const asmFee = item.assemble_fee > 0 ? `$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—';
+      if (showPrices) {
+        tableRows.push([
+          `#${itemNum}`,
+          idx === 0 ? styleName : '',
+          item.skuType || '—',
+          item.sku_code,
+          item.sku_desc,
+          item.type,
+          item.quantity,
+          `$${markedPrice.toFixed(2)}`,
+          asmFee,
+          `$${(markedPrice * item.quantity).toFixed(2)}`,
+        ]);
+      } else {
+        tableRows.push([
+          `#${itemNum}`,
+          idx === 0 ? styleName : '',
+          item.skuType || '—',
+          item.sku_code,
+          item.sku_desc,
+          item.type,
+          item.quantity,
+        ]);
+      }
     });
   });
 
+  const headA = [['Item#','Door Style','Type','SKU','Description','Assemble Status','Qty']];
+  const headB = [['Item#','Door Style','Type','SKU','Description','Assemble Status','Qty','Unit Price','Assemble Fee','Total']];
+
   doc.autoTable({
     startY: y,
-    head: [['Door Style','SKU','Type','Qty','Unit Price','Assemble Fee','Total']],
+    head: showPrices ? headB : headA,
     body: tableRows,
     margin: { left: margin, right: margin },
-    styles: { fontSize: 8, cellPadding: 3, textColor: [30,30,30] },
-    headStyles: { fillColor: darkGreen, textColor: [255,255,255], fontStyle: 'bold', fontSize: 8 },
-    columnStyles: {
-      0: { cellWidth: 35 },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
-      5: { halign: 'right' },
-      6: { halign: 'right', fontStyle: 'bold' },
+    styles: { fontSize: 7.5, cellPadding: 2.5, textColor: [30,30,30] },
+    headStyles: { fillColor: darkGreen, textColor: [255,255,255], fontStyle: 'bold', fontSize: 7.5 },
+    columnStyles: showPrices ? {
+      0: { cellWidth: 10 }, 1: { cellWidth: 28 }, 2: { cellWidth: 14 },
+      3: { cellWidth: 18 }, 4: { cellWidth: 40 }, 5: { cellWidth: 20 },
+      6: { halign:'right', cellWidth: 10 }, 7: { halign:'right', cellWidth: 18 },
+      8: { halign:'right', cellWidth: 18 }, 9: { halign:'right', fontStyle:'bold', cellWidth: 18 },
+    } : {
+      0: { cellWidth: 12 }, 1: { cellWidth: 35 }, 2: { cellWidth: 18 },
+      3: { cellWidth: 22 }, 4: { cellWidth: 60 }, 5: { cellWidth: 26 },
+      6: { halign:'right', cellWidth: 14 },
     },
     alternateRowStyles: { fillColor: [250,248,244] },
   });
 
   y = doc.lastAutoTable.finalY + 8;
 
-  // Totals
+  // ── Totals ──
   const markedSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
   const assembleTotal  = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
   const taxRate        = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
@@ -831,9 +929,7 @@ async function downloadPDF() {
   const tax   = markedSubtotal * taxRate;
   const grand = markedSubtotal + assembleTotal + shipping + tax;
 
-  const totalsX = pageW - margin - 65;
-  const valX    = pageW - margin;
-
+  const totalsX = pageW - margin - 65; const valX = pageW - margin;
   [
     ['Subtotal', `$${markedSubtotal.toFixed(2)}`],
     ...(assembleTotal > 0 ? [['Assemble Fee', `+$${assembleTotal.toFixed(2)}`]] : []),
@@ -842,37 +938,35 @@ async function downloadPDF() {
   ].forEach(([label, val]) => {
     doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.setTextColor(...muted); doc.text(label, totalsX, y);
-    doc.setTextColor(30,30,30); doc.text(val, valX, y, { align:'right' });
-    y += 6;
+    doc.setTextColor(30,30,30); doc.text(val, valX, y, { align:'right' }); y += 6;
   });
-
   doc.setDrawColor(...border); doc.line(totalsX, y, valX, y); y += 5;
   doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...darkGreen);
   doc.text('Order Total', totalsX, y);
-  doc.text(`$${grand.toFixed(2)}`, valX, y, { align:'right' }); y += 8;
+  doc.text(`$${grand.toFixed(2)}`, valX, y, { align:'right' });
 
-  // Footer
+  // ── Footer ──
   doc.setFillColor(...darkGreen);
   doc.rect(0, 287, pageW, 10, 'F');
   doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
   doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com', pageW/2, 293, { align:'center' });
 
-  doc.save(`ProCraft-Quote-${step1Data?.poNumber || 'Draft'}.pdf`);
+  return doc;
 }
 
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
+async function downloadPDF() {
+  const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
+  const poNum = step1Data?.poNumber || 'Draft';
+  // Download Document B (with prices) for dealer preview
+  const doc = await buildPdf(true, markupPct);
+  doc.save(`${poNum}_B.pdf`);
+}
+
+async function generatePdfBase64(showPrices) {
+  const doc = await buildPdf(showPrices, 0);
+  return doc.output('datauristring').split(',')[1];
+}
+
 }
 
 function toggleMenu() {
