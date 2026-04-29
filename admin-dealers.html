@@ -179,6 +179,7 @@
         <thead>
           <tr>
             <th>Company</th>
+            <th>UID</th>
             <th>Location</th>
             <th>Email</th>
             <th>Slug</th>
@@ -224,6 +225,16 @@
           <div class="form-group">
             <label class="form-label">Phone <span class="required">*</span></label>
             <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+          </div>
+          <div class="form-group" id="uid_group" style="display:none;">
+            <label class="form-label">Dealer UID</label>
+            <input class="form-input" id="f_uid" type="text" disabled/>
+            <span class="form-hint">Auto-assigned. Cannot be changed.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Secondary Email</label>
+            <input class="form-input" id="f_secondary_email" type="email" placeholder="backup@abccabinetry.com"/>
+            <span class="form-hint">Optional. Used for additional notifications.</span>
           </div>
         </div>
       </div>
@@ -388,6 +399,7 @@ async function loadDealers() {
   tbody.innerHTML = dealers.map(d => `
     <tr>
       <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div></td>
+      <td><span style="font-size:12px;font-weight:500;letter-spacing:0.1em;color:var(--green-dark);">${d.uid || '—'}</span></td>
       <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
       <td>${d.email || '—'}</td>
       <td><span style="font-size:11px;color:var(--muted);">${d.slug || '—'}</span></td>
@@ -424,6 +436,9 @@ async function openEditDealer(dealerId) {
   document.getElementById('f_email').value                 = d.email || '';
   document.getElementById('f_email').disabled              = true;
   document.getElementById('f_phone').value                 = d.phone || '';
+  document.getElementById('f_uid').value                   = d.uid || '—';
+  document.getElementById('uid_group').style.display       = 'flex';
+  document.getElementById('f_secondary_email').value       = d.secondary_email || '';
   document.getElementById('f_slug').value                  = d.slug || '';
   document.getElementById('f_address_line1').value         = d.address_line1 || '';
   document.getElementById('f_address_line2').value         = d.address_line2 || '';
@@ -452,12 +467,13 @@ function clearForm() {
   ['f_company_name','f_contact_name','f_email','f_phone','f_slug',
    'f_address_line1','f_address_line2','f_city','f_state','f_zip_code',
    'f_stock_multiplier','f_non_stock_multiplier','f_tax_rate',
-   'f_lat','f_lng','f_address_formatted'
+   'f_lat','f_lng','f_address_formatted','f_secondary_email'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.value = ''; el.disabled = false; }
   });
   document.getElementById('f_tax_exempt').checked = false;
+  document.getElementById('uid_group').style.display = 'none';
   document.getElementById('formError').classList.remove('show');
 }
 
@@ -484,9 +500,10 @@ async function saveDealer() {
     non_stock_multiplier:    document.getElementById('f_non_stock_multiplier').value,
     tax_rate:                document.getElementById('f_tax_rate').value,
     tax_exempt:              document.getElementById('f_tax_exempt').checked,
+    secondary_email:         document.getElementById('f_secondary_email').value.trim() || null,
   };
 
-  const optionalFields = ['address_line2', 'slug', 'lat', 'lng', 'address_formatted'];
+  const optionalFields = ['address_line2', 'slug', 'lat', 'lng', 'address_formatted', 'secondary_email'];
   for (const [key, val] of Object.entries(fields)) {
     if (optionalFields.includes(key)) continue;
     if (key === 'tax_rate' && fields.tax_exempt) continue;
@@ -519,6 +536,7 @@ async function saveDealer() {
         non_stock_multiplier:    parseFloat(fields.non_stock_multiplier),
         tax_rate:                fields.tax_exempt ? 0 : parseFloat(fields.tax_rate) / 100,
         tax_exempt:              fields.tax_exempt,
+        secondary_email:         fields.secondary_email,
       }).eq('id', editingDealerId);
       if (error) throw error;
       showToast('Dealer updated successfully.');
