@@ -232,7 +232,6 @@
     const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', userId).single();
     if (dealer) {
       document.getElementById('companyName').textContent = dealer.company_name;
-      document.getElementById('dealerName').textContent  = dealer.contact_name;
     }
 
     const { data: quotes } = await _supabase
