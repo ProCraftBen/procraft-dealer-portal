@@ -44,6 +44,7 @@
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+    .status-badge.draft      { background: rgba(107,114,128,0.08); color: #9CA3AF; border: 1px dashed #9CA3AF; }
     .btn-action { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
     .btn-action:hover { background: var(--green-mid); }
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
@@ -122,7 +123,7 @@ const _supabase = createClient(
 );
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
-const statusClass = { Pending:'pending', Processing:'processing', Complete:'complete', Closed:'closed' };
+const statusClass = { Draft:'draft', Pending:'pending', Processing:'processing', Complete:'complete', Closed:'closed' };
 
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null;
@@ -264,10 +265,16 @@ function renderQuote(quote, dealer, addr) {
       </div>
       <div class="header-right">
         <span class="status-badge ${sc}">${quote.status}</span>
-        <button class="btn-action" onclick="downloadPDF()">
-          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
-          Download PDF
-        </button>
+        ${quote.status === 'Draft'
+          ? `<button class="btn-action" onclick="continueDraft()">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+               Continue Editing
+             </button>`
+          : `<button class="btn-action" onclick="downloadPDF()">
+               <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+               Download PDF
+             </button>`
+        }
       </div>
     </div>
 
@@ -319,6 +326,44 @@ function renderQuote(quote, dealer, addr) {
         </div>
       </div>
     </div>`;
+}
+
+// ── Continue Draft ──────────────────────────────────────────────────
+async function continueDraft() {
+  if (!_quote) return;
+  const items = _quote.quote_items || [];
+
+  // 載入 Step1 資料到 sessionStorage
+  const step1 = {
+    draftQuoteId:      _quote.id,
+    poNumber:          _quote.po_number,
+    jobName:           _quote.job_name,
+    logisticType:      _quote.logistic_type || 'pickup',
+    deliveryFee:       _quote.delivery_fee || 0,
+    notes:             _quote.notes || '',
+    shippingMode:      _quote.shipping_address_id ? 'different' : 'same',
+    shippingAddressId: _quote.shipping_address_id || null,
+  };
+  sessionStorage.setItem('quoteStep1', JSON.stringify(step1));
+
+  // 載入 Step2 cart 資料到 sessionStorage
+  const step2 = items.map(i => ({
+    key:          `${i.style_code}-${i.sku_code}-${i.assemble_status}`,
+    style_code:   i.style_code,
+    style_name:   i.style_code, // 只有 code，顯示用
+    sku_code:     i.sku_code,
+    sku_desc:     i.sku_code,
+    skuType:      i.sku_type || '',
+    type:         i.assemble_status || 'RTA',
+    quantity:     i.quantity,
+    unit_price:   parseFloat(i.unit_price),
+    msrp:         parseFloat(i.msrp || 0),
+    assemble_fee: parseFloat(i.assemble_fee || 0),
+  }));
+  sessionStorage.setItem('quoteStep2', JSON.stringify(step2));
+  sessionStorage.setItem('draftQuoteId', _quote.id);
+
+  window.location.href = 'new-quote.html';
 }
 
 // ── PDF Generation ──────────────────────────────────────────────────
