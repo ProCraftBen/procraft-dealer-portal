@@ -8,23 +8,11 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold:       #C9A84C;
-      --green-dark: #3e5a42;
-      --green-mid:  #4a6b4f;
-      --cream:      #F5F2EC;
-      --text:       #2C3A32;
-      --muted:      #7A8C82;
-      --border:     #DDD8CC;
-      --white:      #FFFFFF;
-      --error:      #C0392B;
-      --status-pending:    #C9A84C;
-      --status-processing: #3B82F6;
-      --status-complete:   #16A34A;
-      --status-closed:     #6B7280;
+      --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
+      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF; --error:#C0392B;
+      --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
-
-    /* Navbar */
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-brand { display: flex; align-items: center; gap: 10px; }
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
@@ -32,60 +20,42 @@
     .nav-right { display: flex; align-items: center; gap: 12px; }
     .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
     .nav-link:hover, .nav-link.active { color: #fff; }
-    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
-    .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
-
-    /* Hamburger */
+    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; }
+    .nav-logout:hover { color: #fff; }
     .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
     .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
     .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
     .hamburger.open span:nth-child(2) { opacity: 0; }
     .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-    /* Mobile menu */
     .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
     .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
+    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; }
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
     .mobile-menu a.active { color: #fff; }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
     .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
-
-    @media (max-width: 768px) {
-      .nav-right { display: none; }
-      .hamburger { display: flex; }
-      .nav-logo-img { height: 36px; max-width: 90px; }
-    }
-
-    /* Page */
+    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } .nav-logo-img { height: 36px; max-width: 90px; } }
     .page { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
     .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
-
-    /* Stats */
     .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
     @media (max-width: 600px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
     .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px; text-align: center; }
     .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 500; color: var(--green-dark); line-height: 1; }
     .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
-
-    /* Filters */
-    .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+    .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
     .filter-group { display: flex; flex-direction: column; gap: 5px; }
     .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-    .filter-select, .filter-input { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--cream); appearance: none; }
+    .filter-select, .filter-input { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--cream); }
     .filter-select:focus, .filter-input:focus { outline: none; border-color: var(--gold); }
-    .btn-filter { height: 36px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
+    .btn-filter { height: 36px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; }
     .btn-filter:hover { background: var(--green-mid); }
-    .btn-reset { height: 36px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; cursor: pointer; transition: color 0.2s; white-space: nowrap; }
+    .btn-reset { height: 36px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; cursor: pointer; }
     .btn-reset:hover { color: var(--text); }
-
-    /* Table */
     .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); }
-
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
     tbody tr { border-bottom: 1px solid var(--border); }
@@ -93,21 +63,16 @@
     tbody tr.expandable { cursor: pointer; transition: background 0.15s; }
     tbody tr.expandable:hover { background: #FAFAF8; }
     tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
-
-    .td-quote-num { font-weight: 500; color: var(--green-dark); font-size: 13px; }
+    .td-po { font-weight: 500; color: var(--green-dark); font-size: 13px; }
     .td-dealer { font-weight: 500; }
     .td-dealer-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
     .td-amount { font-weight: 500; text-align: right; }
     .td-date { color: var(--muted); white-space: nowrap; }
-
-    /* Status select */
-    .status-select { border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 4px 6px; border-radius: 3px; appearance: none; -webkit-appearance: none; }
+    .status-select { border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 4px 6px; border-radius: 3px; }
     .status-select.pending    { color: var(--status-pending);    background: rgba(201,168,76,0.1); }
     .status-select.processing { color: var(--status-processing); background: rgba(59,130,246,0.1); }
     .status-select.complete   { color: var(--status-complete);   background: rgba(22,163,74,0.1); }
     .status-select.closed     { color: var(--status-closed);     background: rgba(107,114,128,0.1); }
-
-    /* Expand row */
     .detail-row { display: none; }
     .detail-row.open { display: table-row; }
     .detail-cell { padding: 0 !important; border-bottom: 2px solid var(--gold) !important; }
@@ -117,38 +82,29 @@
     .detail-section-title { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
     .detail-value { font-size: 12px; color: var(--text); line-height: 1.6; }
     .detail-value strong { color: var(--green-dark); }
-
     .items-mini { width: 100%; border-collapse: collapse; margin-top: 4px; }
     .items-mini th { padding: 6px 10px; background: #EEECEA; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); text-align: left; }
     .items-mini th.r { text-align: right; }
     .items-mini td { padding: 7px 10px; font-size: 12px; border-top: 1px solid var(--border); }
     .items-mini td.r { text-align: right; }
-    .items-mini .type-badge { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 10px; }
-    .items-mini .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
-    .items-mini .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
-
+    .type-badge { display: inline-block; padding: 1px 6px; border-radius: 2px; font-size: 10px; }
+    .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
+    .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
+    .sku-type-tag { font-size: 9px; background: rgba(201,168,76,0.12); color: #8B6914; border-radius: 2px; padding: 1px 5px; }
     .totals-mini { margin-top: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .total-mini-row { display: flex; gap: 24px; font-size: 12px; }
     .total-mini-row.grand { font-weight: 500; color: var(--green-dark); font-size: 13px; padding-top: 6px; border-top: 1px solid var(--border); }
     .total-mini-label { color: var(--muted); min-width: 80px; text-align: right; }
     .total-mini-value { min-width: 80px; text-align: right; }
-
-    /* Empty */
+    .asm-breakdown-mini { font-size: 11px; color: var(--muted); text-align: right; }
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 13px; }
     .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin-bottom: 12px; }
-
-    /* Loading */
     .loading-rows { padding: 20px; }
     .loading-row { height: 16px; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 3px; margin-bottom: 14px; }
-    .loading-row:nth-child(2) { width: 80%; }
-    .loading-row:nth-child(3) { width: 90%; }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
     .expand-icon { font-size: 10px; color: var(--muted); margin-left: 4px; transition: transform 0.2s; display: inline-block; }
     .expand-icon.open { transform: rotate(180deg); }
-
     .overflow-x { overflow-x: auto; }
-
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; }
     .toast.show { display: block; }
   </style>
@@ -191,7 +147,6 @@
     <div class="page-title">All Quotes</div>
   </div>
 
-  <!-- Stats -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label">Pending</div></div>
@@ -199,7 +154,6 @@
     <div class="stat-card"><div class="stat-num" id="statComplete" style="color:var(--status-complete)">—</div><div class="stat-label">Complete</div></div>
   </div>
 
-  <!-- Filters -->
   <div class="filters">
     <div class="filter-group">
       <label class="filter-label">Status</label>
@@ -231,7 +185,6 @@
     </div>
   </div>
 
-  <!-- Table -->
   <div class="table-wrap">
     <div class="table-header">
       <span class="table-title">Quotes</span>
@@ -241,9 +194,8 @@
       <table>
         <thead>
           <tr>
-            <th>Quote #</th>
-            <th>Dealer</th>
             <th>PO # / Job Name</th>
+            <th>Dealer</th>
             <th>Date</th>
             <th style="text-align:right">Total</th>
             <th>Status</th>
@@ -251,7 +203,7 @@
           </tr>
         </thead>
         <tbody id="quotesBody">
-          <tr><td colspan="7"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="6"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -268,79 +220,58 @@ const _supabase = createClient(
   'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
 );
 
+const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
 const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
-
-let allQuotes  = [];
-let allDealers = {};
+let allQuotes = [], allDealers = {};
 
 function toggleMenu() {
-  const btn  = document.getElementById('hamburger');
+  const btn = document.getElementById('hamburger');
   const menu = document.getElementById('mobileMenu');
   btn.classList.toggle('open');
   menu.classList.toggle('show');
 }
-
 document.addEventListener('click', function(e) {
-  const btn  = document.getElementById('hamburger');
+  const btn = document.getElementById('hamburger');
   const menu = document.getElementById('mobileMenu');
   if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open');
-    menu.classList.remove('show');
+    btn.classList.remove('open'); menu.classList.remove('show');
   }
 });
 
-function formatDate(str) {
-  return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function fmt(n) {
-  return '$' + parseFloat(n || 0).toFixed(2);
-}
-
+function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
-
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
   const { data: dealers } = await _supabase.from('dealers').select('id, company_name, contact_name, email, city, state').order('company_name');
   dealers?.forEach(d => allDealers[d.id] = d);
-
   const sel = document.getElementById('filterDealer');
   dealers?.forEach(d => {
     const opt = document.createElement('option');
-    opt.value = d.id;
-    opt.textContent = d.company_name;
-    sel.appendChild(opt);
+    opt.value = d.id; opt.textContent = d.company_name; sel.appendChild(opt);
   });
-
   await loadQuotes();
 }
 
 async function loadQuotes() {
-  let query = _supabase
-    .from('quotes')
-    .select('*, quote_items(*)')
-    .order('created_at', { ascending: false });
-
+  let query = _supabase.from('quotes').select('*, quote_items(*)').order('created_at', { ascending: false });
   const status = document.getElementById('filterStatus').value;
   const dealer = document.getElementById('filterDealer').value;
   const from   = document.getElementById('filterFrom').value;
   const to     = document.getElementById('filterTo').value;
-
   if (status) query = query.eq('status', status);
   if (dealer) query = query.eq('dealer_id', dealer);
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
-
   const { data: quotes } = await query;
   allQuotes = quotes || [];
   renderStats();
@@ -358,43 +289,88 @@ function renderStats() {
 function renderTable() {
   const tbody = document.getElementById('quotesBody');
   if (!allQuotes.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes found.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes found.</div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = allQuotes.map((q, idx) => {
-    const dealer  = allDealers[q.dealer_id] || {};
-    const items   = q.quote_items || [];
-    const sc      = statusClass[q.status] || 'pending';
+    const dealer = allDealers[q.dealer_id] || {};
+    const items  = q.quote_items || [];
+    const sc     = statusClass[q.status] || 'pending';
+
+    // Group items by style, sort by type
+    const grouped = {};
+    items.forEach(i => {
+      const k = i.style_code || '—';
+      if (!grouped[k]) grouped[k] = [];
+      grouped[k].push(i);
+    });
+    Object.keys(grouped).forEach(k => {
+      grouped[k].sort((a,b) => {
+        const ra = TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
+        const rb = TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
+        return (ra===-1?99:ra) - (rb===-1?99:rb);
+      });
+    });
+
+    let itemNum = 0;
+    let lastStyle = null;
+    const itemRows = Object.entries(grouped).map(([styleName, styleItems]) =>
+      styleItems.map(i => {
+        itemNum++;
+        const showStyle = styleName !== lastStyle;
+        lastStyle = styleName;
+        return `<tr>
+          <td style="font-size:11px;color:var(--muted);font-weight:500;">#${itemNum}</td>
+          <td>${showStyle ? `<span style="font-weight:500;color:var(--green-dark);">${styleName}</span>` : ''}</td>
+          <td>${i.sku_code || '—'}</td>
+          <td>${i.sku_type ? `<span class="sku-type-tag">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
+          <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
+          <td class="r">${i.quantity}</td>
+          <td class="r">${fmt(i.unit_price)}</td>
+          <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0)>0 ? `+${fmt(i.assemble_fee*i.quantity)}` : '—'}</td>
+          <td class="r">${fmt(i.unit_price * i.quantity)}</td>
+        </tr>`;
+      }).join('')
+    ).join('');
+
+    // Assemble fee breakdown
+    const byType = {};
+    items.forEach(i => {
+      if ((i.type||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
+      const t = (i.sku_type||'OTHER').toUpperCase();
+      if (!byType[t]) byType[t] = { qty:0, total:0 };
+      byType[t].qty   += i.quantity;
+      byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+    });
+    const assembleTotal = items.reduce((s,i) => s + parseFloat(i.assemble_fee||0)*i.quantity, 0);
+    const asmBreakdownHtml = assembleTotal > 0
+      ? `<div class="total-mini-row" style="flex-direction:column;align-items:flex-end;gap:2px;">
+          <div style="display:flex;gap:24px;"><span class="total-mini-label">Assemble Fee</span><span class="total-mini-value">+${fmt(assembleTotal)}</span></div>
+          <div class="asm-breakdown-mini">${TYPE_ORDER.filter(t=>byType[t]).map(t=>`${t} ×${byType[t].qty} +${fmt(byType[t].total)}`).join(' &nbsp;·&nbsp; ')}</div>
+        </div>`
+      : '';
 
     const itemsHtml = items.length ? `
       <table class="items-mini">
-        <thead><tr><th>Style</th><th>SKU</th><th>Type</th><th class="r">Qty</th><th class="r">MSRP</th><th class="r">Unit Price</th><th class="r">Total</th></tr></thead>
-        <tbody>
-          ${items.map(i => `<tr>
-            <td>${i.style_code || '—'}</td>
-            <td>${i.sku_code || '—'}</td>
-            <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
-            <td class="r">${i.quantity}</td>
-            <td class="r" style="color:var(--muted);font-size:11px;">${i.msrp ? fmt(i.msrp) : '—'}</td>
-            <td class="r">${fmt(i.unit_price)}</td>
-            <td class="r">${fmt(i.unit_price * i.quantity)}</td>
-          </tr>`).join('')}
-        </tbody>
+        <thead><tr><th>#</th><th>Door Style</th><th>SKU</th><th>Type</th><th>Assemble Status</th><th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Asm Fee</th><th class="r">Total</th></tr></thead>
+        <tbody>${itemRows}</tbody>
       </table>
       <div class="totals-mini">
-        <div class="total-mini-row"><span class="total-mini-label">Logistic</span><span class="total-mini-value" style="text-transform:capitalize;">${q.logistic_type || '—'}${q.logistic_type === 'delivery' ? ` <span style="color:var(--muted);font-size:11px;">(${fmt(q.delivery_fee)})</span>` : ''}</span></div>
         <div class="total-mini-row"><span class="total-mini-label">Subtotal</span><span class="total-mini-value">${fmt(q.subtotal)}</span></div>
-        <div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">${parseFloat(q.shipping_cost) === 0 ? '<span style="color:#16A34A;">FREE</span>' : fmt(q.shipping_cost)}</span></div>
-        <div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">${parseFloat(q.tax_amount) === 0 ? '<span style="color:#16A34A;">Exempt</span>' : fmt(q.tax_amount)}</span></div>
+        ${asmBreakdownHtml}
+        <div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">${parseFloat(q.shipping_cost)===0 ? '<span style="color:#16A34A;">FREE</span>' : fmt(q.shipping_cost)}</span></div>
+        <div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">${parseFloat(q.tax_amount)===0 ? '<span style="color:#16A34A;">Exempt</span>' : fmt(q.tax_amount)}</span></div>
         <div class="total-mini-row grand"><span class="total-mini-label">Total</span><span class="total-mini-value">${fmt(q.grand_total)}</span></div>
       </div>` : '<p style="font-size:12px;color:var(--muted);">No items.</p>';
 
     return `
       <tr class="expandable" onclick="toggleDetail(${idx})">
-        <td class="td-quote-num">${q.quote_number || '—'} <span class="expand-icon" id="icon-${idx}">▼</span></td>
+        <td>
+          <div class="td-po">${q.po_number || '—'} <span class="expand-icon" id="icon-${idx}">▼</span></div>
+          <div style="font-size:11px;color:var(--muted);">${q.job_name || '—'}</div>
+        </td>
         <td><div class="td-dealer">${dealer.company_name || '—'}</div><div class="td-dealer-sub">${dealer.contact_name || ''}</div></td>
-        <td><div>${q.po_number || '—'}</div><div style="font-size:11px;color:var(--muted)">${q.job_name || '—'}</div></td>
         <td class="td-date">${formatDate(q.created_at)}</td>
         <td class="td-amount">${fmt(q.grand_total)}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
@@ -406,17 +382,12 @@ function renderTable() {
           </select>
           <button id="save-${q.id}" onclick="saveStatus('${q.id}')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>
         </td>
-        <td onclick="event.stopPropagation()" style="white-space:nowrap">
-          <a href="quote-detail.html?id=${q.id}"
-             style="display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:all 0.2s;"
-             onmouseover="this.style.borderColor='var(--green-dark)';this.style.color='var(--green-dark)'"
-             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-            View →
-          </a>
+        <td onclick="event.stopPropagation()">
+          <a href="quote-detail.html?id=${q.id}" style="display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;">View →</a>
         </td>
       </tr>
       <tr class="detail-row" id="detail-${idx}">
-        <td colspan="7" class="detail-cell">
+        <td colspan="6" class="detail-cell">
           <div class="detail-inner">
             <div class="detail-grid">
               <div>
@@ -455,10 +426,7 @@ function toggleDetail(idx) {
   const isOpen = row.classList.contains('open');
   document.querySelectorAll('.detail-row.open').forEach(r => r.classList.remove('open'));
   document.querySelectorAll('.expand-icon.open').forEach(i => i.classList.remove('open'));
-  if (!isOpen) {
-    row.classList.add('open');
-    icon.classList.add('open');
-  }
+  if (!isOpen) { row.classList.add('open'); icon.classList.add('open'); }
 }
 
 function updateStatus(quoteId, selectEl) {
@@ -467,13 +435,11 @@ function updateStatus(quoteId, selectEl) {
 }
 
 async function saveStatus(quoteId) {
-  const selectEl = document.getElementById(`status-${quoteId}`);
-  const saveBtn  = document.getElementById(`save-${quoteId}`);
+  const selectEl  = document.getElementById(`status-${quoteId}`);
+  const saveBtn   = document.getElementById(`save-${quoteId}`);
   const newStatus = selectEl.value;
-
   const { error } = await _supabase.from('quotes').update({ status: newStatus }).eq('id', quoteId);
   if (error) { showToast('Failed to update status.'); return; }
-
   selectEl.className = `status-select ${statusClass[newStatus] || 'pending'}`;
   saveBtn.style.display = 'none';
   const q = allQuotes.find(q => q.id === quoteId);
@@ -483,7 +449,6 @@ async function saveStatus(quoteId) {
 }
 
 function applyFilters() { loadQuotes(); }
-
 function resetFilters() {
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterDealer').value = '';
