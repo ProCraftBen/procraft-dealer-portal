@@ -297,7 +297,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>#</th><th>Door Style</th><th>SKU</th><th>Type</th><th>Assemble Status</th>
+            <th>#</th><th>Door Code</th><th>SKU</th><th>Type</th><th>Assemble Status</th>
             <th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Asm Fee</th><th class="r">Total</th>
           </tr></thead>
           <tbody>${itemsHtml}</tbody>
@@ -413,7 +413,7 @@ async function downloadPDF() {
 
   doc.autoTable({
     startY:y,
-    head:[['Item#','Door Style','Type','SKU','Assemble Status','Qty','Unit Price','Asm Fee','Total']],
+    head:[['Item#','Door Code','Type','SKU','Assemble Status','Qty','Unit Price','Asm Fee','Total']],
     body:tableRows,
     margin:{left:margin,right:margin,top:HEADER_H+4},
     styles:{fontSize:7,cellPadding:2,textColor:[30,30,30],overflow:'linebreak'},
