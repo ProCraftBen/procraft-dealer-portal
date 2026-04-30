@@ -796,38 +796,42 @@ async function buildPdf(showPrices, markupPct = 0) {
   const pageW = 210; const margin = 14;
   let y = 0;
 
-  // ── Header: Logo left, PO# + Date right ──
+  // ── Header bar ──
   doc.setFillColor(255,255,255);
-  doc.rect(0, 0, pageW, 30, 'F');
-  doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0, 30, pageW, 30);
+  doc.rect(0, 0, pageW, 45, 'F');
+  doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0, 45, pageW, 45);
 
+  // Logo — left
   try {
     const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
-    doc.addImage(img, 'PNG', margin, 4, 52, 22);
+    doc.addImage(img, 'PNG', margin, 5, 44, 18);
   } catch(e) {
-    doc.setTextColor(...darkGreen); doc.setFontSize(13); doc.setFont('helvetica','bold');
-    doc.text('ProCraft Cabinetry DC', margin, 19);
+    doc.setTextColor(...darkGreen); doc.setFontSize(12); doc.setFont('helvetica','bold');
+    doc.text('ProCraft DC', margin, 18);
   }
 
-  const dateStr = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  doc.setTextColor(...muted); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-  doc.text(`PO# ${step1Data?.poNumber || '—'}`, pageW - margin, 14, { align:'right' });
-  doc.text(dateStr, pageW - margin, 20, { align:'right' });
-
-  // ── Job Name under PO# on right side ──
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
-  doc.text('Job Name:', pageW - margin, 26, { align:'right' });
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(40,40,40);
-  doc.text(step1Data?.jobName || '—', pageW - margin - 22, 26);
-
-  y = 36;
-  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...darkGreen);
-  doc.text('ProCraft Cabinetry DC LLC', margin, y); y += 4.5;
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(40,40,40);
+  // Company info — right of logo
+  const infoX = margin + 48;
+  let infoY = 9;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...darkGreen);
+  doc.text('ProCraft Cabinetry DC LLC', infoX, infoY); infoY += 4;
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(40,40,40);
   ['6750 Santa Barbara Court Suite B', 'Elkridge, MD 21075',
    'Phone: 410-863-9800', 'Email: sales@procraftdc.com'].forEach(line => {
-    doc.text(line, margin, y); y += 4.2;
+    doc.text(line, infoX, infoY); infoY += 3.8;
   });
+
+  // PO# / Date / Job Name — top right
+  const dateStr = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  doc.setTextColor(...muted); doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+  doc.text(`PO# ${step1Data?.poNumber || '—'}`, pageW - margin, 10, { align:'right' });
+  doc.text(dateStr, pageW - margin, 16, { align:'right' });
+  doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...muted);
+  doc.text('Job Name:', pageW - margin, 23, { align:'right' });
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(40,40,40);
+  doc.text(step1Data?.jobName || '—', pageW - margin, 29, { align:'right' });
+
+  y = 52;
 
   // ── Bill To (left col) / Ship To (right col) ──
   const billX = margin;
