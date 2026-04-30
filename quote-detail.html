@@ -5,25 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ProCraft — Quote Detail</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold:       #C9A84C;
-      --green-dark: #3e5a42;
-      --green-mid:  #4a6b4f;
-      --cream:      #F5F2EC;
-      --text:       #2C3A32;
-      --muted:      #7A8C82;
-      --border:     #DDD8CC;
-      --white:      #FFFFFF;
-      --status-pending:    #C9A84C;
-      --status-processing: #3B82F6;
-      --status-complete:   #16A34A;
-      --status-closed:     #6B7280;
+      --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
+      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF;
+      --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
-
-    /* Navbar */
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-brand { display: flex; align-items: center; gap: 10px; }
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
@@ -43,7 +34,6 @@
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
     @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
-
     .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
     .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
     .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
@@ -54,9 +44,11 @@
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
-    .btn-print { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
-    .btn-print:hover { background: var(--green-mid); }
-    .btn-print svg { width: 14px; height: 14px; fill: currentColor; }
+    .btn-action { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
+    .btn-action:hover { background: var(--green-mid); }
+    .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
+    .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--border); }
+    .btn-action.secondary:hover { background: var(--cream); }
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -79,7 +71,6 @@
     .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; }
     .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
     .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
-    .sku-type-tag { font-size: 9px; background: rgba(201,168,76,0.12); color: #8B6914; border-radius: 2px; padding: 1px 5px; }
     .totals { padding: 4px 20px 20px; }
     .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
     .total-row:last-child { border-bottom: none; }
@@ -96,12 +87,7 @@
     .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-    @media print {
-      .navbar, .btn-print, .hamburger, .mobile-menu { display: none !important; }
-      .page { padding: 0; max-width: 100%; }
-      body { background: #fff; }
-      .card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
-    }
+    @media print { .navbar, .btn-action, .hamburger, .mobile-menu { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
   </style>
 </head>
 <body>
@@ -111,9 +97,7 @@
     <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
     <span class="nav-title">ProCraft DC</span>
   </div>
-  <div class="nav-right" id="navRight">
-    <!-- populated by JS based on role -->
-  </div>
+  <div class="nav-right" id="navRight"></div>
   <button class="hamburger" id="hamburger" onclick="toggleMenu()">
     <span></span><span></span><span></span>
   </button>
@@ -126,10 +110,7 @@
 </div>
 
 <div class="page" id="pageContent">
-  <div class="loading-wrap">
-    <div class="spinner-large"></div>
-    Loading quote...
-  </div>
+  <div class="loading-wrap"><div class="spinner-large"></div>Loading quote...</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -141,33 +122,28 @@ const _supabase = createClient(
 );
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
-const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+const statusClass = { Pending:'pending', Processing:'processing', Complete:'complete', Closed:'closed' };
+
+// Store for PDF generation
+let _quote = null, _dealer = null, _addr = null;
 
 function toggleMenu() {
-  const btn  = document.getElementById('hamburger');
+  const btn = document.getElementById('hamburger');
   const menu = document.getElementById('mobileMenu');
   btn.classList.toggle('open');
   menu.classList.toggle('show');
 }
-
 document.addEventListener('click', function(e) {
-  const btn  = document.getElementById('hamburger');
+  const btn = document.getElementById('hamburger');
   const menu = document.getElementById('mobileMenu');
   if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open');
-    menu.classList.remove('show');
+    btn.classList.remove('open'); menu.classList.remove('show');
   }
 });
 
-async function handleLogout() {
-  await _supabase.auth.signOut();
-  window.location.href = 'login.html';
-}
-
+async function handleLogout() { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
-function formatDate(str) {
-  return new Date(str).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-}
+function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
 
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
@@ -178,22 +154,13 @@ async function init() {
   if (!quoteId) { showError('No quote ID provided.'); return; }
 
   const { data: quote, error: qErr } = await _supabase
-    .from('quotes')
-    .select('*, quote_items(*)')
-    .eq('id', quoteId)
-    .single();
-
+    .from('quotes').select('*, quote_items(*)').eq('id', quoteId).single();
   if (qErr || !quote) { showError('Quote not found.'); return; }
 
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   const isAdmin = ['admin','super_admin'].includes(me?.role);
+  if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
 
-  if (!isAdmin && quote.dealer_id !== session.user.id) {
-    showError('You do not have permission to view this quote.');
-    return;
-  }
-
-  // Render navbar based on role
   if (isAdmin) {
     document.getElementById('navRight').innerHTML = `
       <a href="admin.html" class="nav-link">Dashboard</a>
@@ -201,9 +168,7 @@ async function init() {
       <a href="admin-dealers.html" class="nav-link">Dealers</a>
       <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
     document.getElementById('mobileMenuLinks').innerHTML = `
-      <a href="admin.html">Dashboard</a>
-      <a href="admin-quotes.html" class="active">Quotes</a>
-      <a href="admin-dealers.html">Dealers</a>`;
+      <a href="admin.html">Dashboard</a><a href="admin-quotes.html" class="active">Quotes</a><a href="admin-dealers.html">Dealers</a>`;
   } else {
     document.getElementById('navRight').innerHTML = `
       <a href="dashboard.html" class="nav-link">Dashboard</a>
@@ -212,20 +177,19 @@ async function init() {
       <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
       <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
     document.getElementById('mobileMenuLinks').innerHTML = `
-      <a href="dashboard.html">Dashboard</a>
-      <a href="quotes.html" class="active">My Quotes</a>
-      <a href="new-quote.html">New Quote</a>
-      <a href="dealer-profile.html">Edit Profile</a>`;
+      <a href="dashboard.html">Dashboard</a><a href="quotes.html" class="active">My Quotes</a>
+      <a href="new-quote.html">New Quote</a><a href="dealer-profile.html">Edit Profile</a>`;
   }
 
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
-
   let shippingAddr = null;
   if (quote.shipping_address_id) {
     const { data: addr } = await _supabase.from('addresses').select('*').eq('id', quote.shipping_address_id).single();
     shippingAddr = addr;
   }
 
+  // Store for PDF
+  _quote = quote; _dealer = dealer; _addr = shippingAddr;
   renderQuote(quote, dealer, shippingAddr);
 }
 
@@ -234,92 +198,75 @@ function renderQuote(quote, dealer, addr) {
   const sc    = statusClass[quote.status] || 'pending';
 
   const shippingHtml = addr
-    ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>
-       ${addr.address_line}<br>
-       ${addr.address_line2 ? addr.address_line2 + '<br>' : ''}
-       ${addr.city}, ${addr.state} ${addr.zip_code}`
-    : `<strong>${dealer?.company_name || '—'}</strong><br>
-       ${dealer?.address_line1 || ''}<br>
-       ${dealer?.address_line2 ? dealer.address_line2 + '<br>' : ''}
-       ${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`;
+    ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>${addr.address_line}<br>${addr.address_line2 ? addr.address_line2+'<br>' : ''}${addr.city}, ${addr.state} ${addr.zip_code}`
+    : `<strong>${dealer?.company_name || '—'}</strong><br>${dealer?.address_line1 || ''}<br>${dealer?.address_line2 ? dealer.address_line2+'<br>' : ''}${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`;
 
-  // Group items by style, sort by sku_type
+  // Group & sort
   const grouped = {};
-  items.forEach(i => {
-    const key = i.style_code || '—';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(i);
-  });
+  items.forEach(i => { const k=i.style_code||'—'; if(!grouped[k]) grouped[k]=[]; grouped[k].push(i); });
   Object.keys(grouped).forEach(k => {
     grouped[k].sort((a,b) => {
-      const ra = TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
-      const rb = TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
-      return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+      const ra=TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
+      const rb=TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
+      return (ra===-1?99:ra)-(rb===-1?99:rb);
     });
   });
 
-  let itemNum = 0;
-  let lastStyle = null;
+  let itemNum=0, lastStyle=null;
   const itemsHtml = items.length
     ? Object.entries(grouped).map(([styleName, styleItems]) =>
         styleItems.map(i => {
           itemNum++;
-          const showStyle = styleName !== lastStyle;
-          lastStyle = styleName;
-          return `
-            <tr>
-              <td class="td-num">#${itemNum}</td>
-              <td class="td-style">${showStyle ? styleName : ''}</td>
-              <td class="td-sku">${i.sku_code || '—'}</td>
-              <td style="font-size:11px;">${i.sku_type ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
-              <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${i.assemble_status || '—'}</span></td>
-              <td class="r">${i.quantity}</td>
-              <td class="r">${fmt(i.unit_price)}</td>
-              <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0) > 0 ? `+${fmt(i.assemble_fee * i.quantity)}` : '—'}</td>
-              <td class="r">${fmt(i.unit_price * i.quantity)}</td>
-            </tr>`;
-        }).join('')
-      ).join('')
+          const showStyle = styleName !== lastStyle; lastStyle = styleName;
+          return `<tr>
+            <td class="td-num">#${itemNum}</td>
+            <td class="td-style">${showStyle ? styleName : ''}</td>
+            <td class="td-sku">${i.sku_code||'—'}</td>
+            <td>${i.sku_type ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
+            <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${i.assemble_status||'—'}</span></td>
+            <td class="r">${i.quantity}</td>
+            <td class="r">${fmt(i.unit_price)}</td>
+            <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0)>0 ? `+${fmt(i.assemble_fee*i.quantity)}` : '—'}</td>
+            <td class="r">${fmt(i.unit_price*i.quantity)}</td>
+          </tr>`;
+        }).join('')).join('')
     : `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
 
-  // Assemble fee breakdown by type
-  const byType = {};
+  // Assemble breakdown
+  const byType={};
   items.forEach(i => {
-    if ((i.assemble_status||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
-    const t = (i.sku_type || 'OTHER').toUpperCase();
-    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
-    byType[t].qty   += i.quantity;
-    byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+    if((i.assemble_status||'').toLowerCase()!=='assembled'||!i.assemble_fee) return;
+    const t=(i.sku_type||'OTHER').toUpperCase();
+    if(!byType[t]) byType[t]={qty:0,total:0};
+    byType[t].qty+=i.quantity; byType[t].total+=parseFloat(i.assemble_fee)*i.quantity;
   });
-  const assembleTotal = items.reduce((s,i) => s + parseFloat(i.assemble_fee||0) * i.quantity, 0);
-  const asmBreakdown  = assembleTotal > 0
+  const assembleTotal=items.reduce((s,i)=>s+parseFloat(i.assemble_fee||0)*i.quantity,0);
+  const asmBreakdown=assembleTotal>0
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
-          <span class="total-label">Assemble Fee</span>
-          <span class="total-val">${fmt(assembleTotal)}</span>
+          <span class="total-label">Assemble Fee</span><span class="total-val">${fmt(assembleTotal)}</span>
         </div>
         <div class="asm-breakdown">
-          ${TYPE_ORDER.filter(t => byType[t]).map(t =>
+          ${TYPE_ORDER.filter(t=>byType[t]).map(t=>
             `<div class="asm-breakdown-row"><span>${t} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
           ).join('')}
         </div>
-      </div>`
-    : '';
+      </div>` : '';
 
-  const freeShip  = parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
-  const taxExempt = parseFloat(quote.tax_amount) === 0;
+  const freeShip  = parseFloat(quote.shipping_cost)===0 && parseFloat(quote.subtotal)>0;
+  const taxExempt = parseFloat(quote.tax_amount)===0;
 
   document.getElementById('pageContent').innerHTML = `
     <div class="quote-header">
       <div>
-        <div class="quote-number">${quote.po_number || '—'}</div>
+        <div class="quote-number">${quote.po_number||'—'}</div>
         <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
       </div>
       <div class="header-right">
         <span class="status-badge ${sc}">${quote.status}</span>
-        <button class="btn-print" onclick="window.print()">
-          <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-          Print
+        <button class="btn-action" onclick="downloadPDF()">
+          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+          Download PDF
         </button>
       </div>
     </div>
@@ -328,11 +275,11 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-header"><span class="card-title">Order Information</span></div>
       <div class="card-body">
         <div class="info-grid">
-          <div><div class="info-label">PO Number</div><div class="info-value">${quote.po_number || '—'}</div></div>
-          <div><div class="info-label">Job Name</div><div class="info-value">${quote.job_name || '—'}</div></div>
-          <div><div class="info-label">Dealer</div><div class="info-value">${dealer?.company_name || '—'}</div></div>
-          <div><div class="info-label">Contact</div><div class="info-value">${dealer?.contact_name || '—'}</div></div>
-          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${quote.logistic_type || '—'}</div></div>
+          <div><div class="info-label">PO Number</div><div class="info-value">${quote.po_number||'—'}</div></div>
+          <div><div class="info-label">Job Name</div><div class="info-value">${quote.job_name||'—'}</div></div>
+          <div><div class="info-label">Dealer</div><div class="info-value">${dealer?.company_name||'—'}</div></div>
+          <div><div class="info-label">Contact</div><div class="info-value">${dealer?.contact_name||'—'}</div></div>
+          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${quote.logistic_type||'—'}</div></div>
           <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${quote.status}</span></div></div>
         </div>
       </div>
@@ -343,61 +290,219 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-body"><div class="info-value">${shippingHtml}</div></div>
     </div>
 
-    ${quote.notes ? `
-    <div class="card">
-      <div class="card-header"><span class="card-title">Notes</span></div>
-      <div class="card-body"><div class="info-value" style="font-style:italic;">${quote.notes}</div></div>
-    </div>` : ''}
+    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">Notes</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${quote.notes}</div></div></div>` : ''}
 
     <div class="card">
       <div class="card-header"><span class="card-title">Items</span></div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Door Style</th>
-              <th>SKU</th>
-              <th>Type</th>
-              <th>Assemble Status</th>
-              <th class="r">Qty</th>
-              <th class="r">Unit Price</th>
-              <th class="r">Asm Fee</th>
-              <th class="r">Total</th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th>#</th><th>Door Style</th><th>SKU</th><th>Type</th><th>Assemble Status</th>
+            <th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Asm Fee</th><th class="r">Total</th>
+          </tr></thead>
           <tbody>${itemsHtml}</tbody>
         </table>
       </div>
       <div class="totals">
-        <div class="total-row">
-          <span class="total-label">Subtotal</span>
-          <span class="total-val">${fmt(quote.subtotal)}</span>
-        </div>
+        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(quote.subtotal)}</span></div>
         ${asmBreakdown}
         <div class="total-row">
-          <span class="total-label">Shipping${freeShip ? ' <span class="free-tag">✓ Free</span>' : ''}</span>
-          <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
+          <span class="total-label">Shipping${freeShip?' <span class="free-tag">✓ Free</span>':''}</span>
+          <span class="total-val">${freeShip?'FREE':fmt(quote.shipping_cost)}</span>
         </div>
         <div class="total-row">
-          <span class="total-label">Tax${taxExempt ? ' <span class="exempt-tag">✓ Exempt</span>' : ''}</span>
+          <span class="total-label">Tax${taxExempt?' <span class="exempt-tag">✓ Exempt</span>':''}</span>
           <span class="total-val">${fmt(quote.tax_amount)}</span>
         </div>
         <div class="total-row grand">
-          <span class="total-label">Order Total</span>
-          <span class="total-val">${fmt(quote.grand_total)}</span>
+          <span class="total-label">Order Total</span><span class="total-val">${fmt(quote.grand_total)}</span>
         </div>
       </div>
-    </div>
-  `;
+    </div>`;
+}
+
+// ── PDF Generation ──────────────────────────────────────────────────
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width=img.width; canvas.height=img.height;
+      canvas.getContext('2d').drawImage(img,0,0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject; img.src = url;
+  });
+}
+
+async function downloadPDF() {
+  if (!_quote || !_dealer) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const darkGreen=[14,31,22], muted=[122,140,130], border=[221,216,204];
+  const pageW=210, margin=14, HEADER_H=32;
+  const items = _quote.quote_items || [];
+
+  // Header
+  doc.setFillColor(255,255,255);
+  doc.rect(0,0,pageW,HEADER_H,'F');
+  doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0,HEADER_H,pageW,HEADER_H);
+  try {
+    const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
+    doc.addImage(img,'PNG',margin,3,44,26);
+  } catch(e) {
+    doc.setTextColor(...darkGreen); doc.setFontSize(11); doc.setFont('helvetica','bold');
+    doc.text('ProCraft DC', margin, 15);
+  }
+  const infoX=margin+48; let infoY=7;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...darkGreen);
+  doc.text('ProCraft Cabinetry DC LLC', infoX, infoY); infoY+=3.8;
+  doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(40,40,40);
+  ['6750 Santa Barbara Court Suite B','Elkridge, MD 21075','Phone: 410-863-9800','Email: sales@procraftdc.com']
+    .forEach(line => { doc.text(line, infoX, infoY); infoY+=3.5; });
+
+  const dateStr = new Date(_quote.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text(`PO# ${_quote.po_number||'—'}`, pageW-margin, 9, {align:'right'});
+  doc.text(dateStr, pageW-margin, 15, {align:'right'});
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(40,40,40);
+  doc.text(_quote.job_name||'—', pageW-margin, 21, {align:'right'});
+
+  // Page number helper (added after table)
+  let y = HEADER_H+8;
+
+  // Bill To / Ship To
+  const billX=margin, shipX=pageW-margin;
+  let addrY=y+2;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+  doc.text('BILL TO', billX, addrY); doc.text('SHIP TO', shipX, addrY, {align:'right'});
+  addrY+=5;
+  const billLines=[_dealer?.company_name||'—',_dealer?.address_line1||'',_dealer?.address_line2||'',`${_dealer?.city||''}, ${_dealer?.state||''} ${_dealer?.zip_code||''}`].filter(l=>l.trim());
+  const shipName=_addr?_addr.recipient_name:_dealer?.company_name;
+  const shipLines=[shipName||'—',_addr?_addr.address_line:(_dealer?.address_line1||''),_addr?(_addr.address_line2||''):(_dealer?.address_line2||''),_addr?`${_addr.city}, ${_addr.state} ${_addr.zip_code}`:`${_dealer?.city||''}, ${_dealer?.state||''} ${_dealer?.zip_code||''}`].filter(l=>l.trim());
+  const maxL=Math.max(billLines.length,shipLines.length);
+  for(let i=0;i<maxL;i++){
+    doc.setFont('helvetica',i===0?'bold':'normal'); doc.setFontSize(7.5); doc.setTextColor(40,40,40);
+    if(billLines[i]) doc.text(billLines[i],billX,addrY);
+    if(shipLines[i]) doc.text(shipLines[i],shipX,addrY,{align:'right'});
+    addrY+=4.5;
+  }
+  y=addrY+3;
+  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin,y,pageW-margin,y); y+=4;
+
+  // Items table
+  const grouped={};
+  items.forEach(i=>{const k=i.style_code||'—';if(!grouped[k])grouped[k]=[];grouped[k].push(i);});
+  Object.keys(grouped).forEach(k=>{
+    grouped[k].sort((a,b)=>{
+      const ra=TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
+      const rb=TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
+      return (ra===-1?99:ra)-(rb===-1?99:rb);
+    });
+  });
+
+  const tableRows=[];
+  let itemNum=0;
+  Object.entries(grouped).forEach(([styleName,styleItems])=>{
+    styleItems.forEach(i=>{
+      itemNum++;
+      const asmFee=parseFloat(i.assemble_fee||0)>0?`$${(i.assemble_fee*i.quantity).toFixed(2)}`:'—';
+      tableRows.push([`#${itemNum}`,styleName,i.sku_type||'—',i.sku_code||'—',i.assemble_status||'—',i.quantity,`$${parseFloat(i.unit_price).toFixed(2)}`,asmFee,`$${(i.unit_price*i.quantity).toFixed(2)}`]);
+    });
+  });
+
+  doc.autoTable({
+    startY:y,
+    head:[['Item#','Door Style','Type','SKU','Assemble Status','Qty','Unit Price','Asm Fee','Total']],
+    body:tableRows,
+    margin:{left:margin,right:margin,top:HEADER_H+4},
+    styles:{fontSize:7,cellPadding:2,textColor:[30,30,30],overflow:'linebreak'},
+    headStyles:{fillColor:darkGreen,textColor:[255,255,255],fontStyle:'bold',fontSize:7},
+    columnStyles:{
+      0:{cellWidth:9},1:{cellWidth:24},2:{cellWidth:11},3:{cellWidth:14},
+      4:{cellWidth:22},5:{halign:'right',cellWidth:8},6:{halign:'right',cellWidth:17},
+      7:{halign:'right',cellWidth:15},8:{halign:'right',fontStyle:'bold',cellWidth:18},
+    },
+    alternateRowStyles:{fillColor:[250,248,244]},
+    didDrawPage:(data)=>{
+      if(data.pageNumber>1){
+        doc.setFillColor(255,255,255); doc.rect(0,0,pageW,HEADER_H,'F');
+        doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0,HEADER_H,pageW,HEADER_H);
+        doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal');
+        doc.text(`PO# ${_quote.po_number||'—'}`, pageW-margin, 9, {align:'right'});
+        doc.text(dateStr, pageW-margin, 15, {align:'right'});
+      }
+    },
+  });
+
+  // Page numbers
+  const totalPages=doc.getNumberOfPages();
+  for(let p=1;p<=totalPages;p++){
+    doc.setPage(p);
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text(`Page ${p} / ${totalPages}`, pageW-margin, 27, {align:'right'});
+  }
+  doc.setPage(totalPages);
+  y=doc.lastAutoTable.finalY+8;
+
+  // Totals
+  const assembleTotal=items.reduce((s,i)=>s+parseFloat(i.assemble_fee||0)*i.quantity,0);
+  const byType={};
+  items.forEach(i=>{
+    if((i.assemble_status||'').toLowerCase()!=='assembled'||!i.assemble_fee) return;
+    const t=(i.sku_type||'OTHER').toUpperCase();
+    if(!byType[t]) byType[t]={qty:0,total:0};
+    byType[t].qty+=i.quantity; byType[t].total+=parseFloat(i.assemble_fee)*i.quantity;
+  });
+
+  // Check space
+  const NEEDED=80;
+  if(y+NEEDED>275){ doc.addPage(); y=HEADER_H+8; }
+
+  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin,y,pageW-margin,y); y+=6;
+  const totalsX=pageW-margin-70, valX=pageW-margin;
+
+  // Subtotal
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.setTextColor(...muted); doc.text('Subtotal',totalsX,y);
+  doc.setTextColor(40,40,40); doc.text(fmt(_quote.subtotal),valX,y,{align:'right'}); y+=6;
+
+  // Assemble fee + breakdown
+  if(assembleTotal>0){
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.setTextColor(...muted); doc.text('Assemble Fee',totalsX,y);
+    doc.setTextColor(40,40,40); doc.text(`+${fmt(assembleTotal)}`,valX,y,{align:'right'}); y+=5;
+    TYPE_ORDER.filter(t=>byType[t]).forEach(t=>{
+      doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+      doc.text(`  ${t} ×${byType[t].qty}`,totalsX,y);
+      doc.setTextColor(140,100,20); doc.text(`+${fmt(byType[t].total)}`,valX,y,{align:'right'}); y+=4;
+    });
+    y+=2;
+  }
+
+  // Shipping & Tax
+  const freeShip=parseFloat(_quote.shipping_cost)===0&&parseFloat(_quote.subtotal)>0;
+  const taxExempt=parseFloat(_quote.tax_amount)===0;
+  [['Shipping',freeShip?'FREE':fmt(_quote.shipping_cost)],['Tax',taxExempt?'Exempt':fmt(_quote.tax_amount)]].forEach(([label,val])=>{
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.setTextColor(...muted); doc.text(label,totalsX,y);
+    doc.setTextColor(40,40,40); doc.text(val,valX,y,{align:'right'}); y+=6;
+  });
+
+  doc.setDrawColor(...border); doc.line(totalsX,y,valX,y); y+=5;
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...darkGreen);
+  doc.text('Order Total',totalsX,y); doc.text(fmt(_quote.grand_total),valX,y,{align:'right'});
+
+  // Footer
+  doc.setFillColor(...darkGreen); doc.rect(0,287,pageW,10,'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com',pageW/2,293,{align:'center'});
+
+  doc.save(`${_quote.po_number||'Quote'}_Details.pdf`);
 }
 
 function showError(msg) {
-  document.getElementById('pageContent').innerHTML = `
-    <div class="error-wrap">
-      <svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--border);margin:0 auto 16px;display:block;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-      ${msg}
-    </div>`;
+  document.getElementById('pageContent').innerHTML=`<div class="error-wrap"><svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--border);margin:0 auto 16px;display:block;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>${msg}</div>`;
 }
 
 init();
