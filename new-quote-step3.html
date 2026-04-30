@@ -630,14 +630,15 @@ async function submitQuote() {
 
     // 寫入 quote_items
     const items = step2Data.map(item => ({
-      quote_id:     quote.id,
-      style_code:   item.style_code,
-      sku_code:     item.sku_code,
-      type:         item.type,
-      quantity:     item.quantity,
-      unit_price:   item.unit_price,
-      msrp:         item.msrp || null,
-      assemble_fee: item.assemble_fee || 0,
+      quote_id:       quote.id,
+      style_code:     item.style_code,
+      sku_code:       item.sku_code,
+      sku_type:       item.skuType || null,
+      assemble_status: item.type,
+      quantity:       item.quantity,
+      unit_price:     item.unit_price,
+      msrp:           item.msrp || null,
+      assemble_fee:   item.assemble_fee || 0,
     }));
 
     const { error: itemsError } = await _supabase.from('quote_items').insert(items);
