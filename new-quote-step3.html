@@ -857,11 +857,11 @@ async function buildPdf(showPrices, markupPct = 0) {
 
   // Draw first page header
   await drawHeader(logoImg);
-  let y = HEADER_H + 4;
+  let y = HEADER_H + 10;
 
   // ── Bill To / Ship To (first page only) ──
   const billX = margin; const shipX = pageW - margin;
-  let addrY = y + 2;
+  let addrY = y + 4;
   doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
   doc.text('BILL TO', billX, addrY);
   doc.text('SHIP TO', shipX, addrY, { align:'right' });
