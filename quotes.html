@@ -78,6 +78,7 @@
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+    .status-badge.draft      { background: rgba(107,114,128,0.08); color: #9CA3AF; border: 1px dashed #9CA3AF; }
     .arrow-cell { color: var(--border); font-size: 14px; text-align: right; }
     tbody tr:hover .arrow-cell { color: var(--gold); }
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
@@ -129,8 +130,9 @@
     </a>
   </div>
 
-  <div class="stats-bar">
+  <div class="stats-bar" style="grid-template-columns: repeat(5, 1fr);">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num" id="statDraft" style="color:#9CA3AF;">—</div><div class="stat-label">Draft</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
     <div class="stat-card"><div class="stat-num" id="statProcessing">—</div><div class="stat-label">Processing</div></div>
     <div class="stat-card"><div class="stat-num" id="statComplete">—</div><div class="stat-label">Complete</div></div>
@@ -141,6 +143,7 @@
       <span class="filter-label">Status</span>
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
+        <option value="Draft">Draft</option>
         <option value="Pending">Pending</option>
         <option value="Processing">Processing</option>
         <option value="Complete">Complete</option>
@@ -201,7 +204,7 @@ const _supabase = createClient(
 
 let allQuotes = [];
 let userId    = null;
-const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+const statusClass = { Draft: 'draft', Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
 
 function toggleMenu() {
   const btn  = document.getElementById('hamburger');
@@ -257,6 +260,7 @@ async function loadQuotes() {
 
 function updateStats() {
   document.getElementById('statTotal').textContent      = allQuotes.length;
+  document.getElementById('statDraft').textContent      = allQuotes.filter(q => q.status === 'Draft').length;
   document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
   document.getElementById('statProcessing').textContent = allQuotes.filter(q => q.status === 'Processing').length;
   document.getElementById('statComplete').textContent   = allQuotes.filter(q => q.status === 'Complete').length;
@@ -280,16 +284,17 @@ function renderTable(quotes) {
 
   tbody.innerHTML = quotes.map(q => {
     const sc = statusClass[q.status] || 'pending';
+    const isDraft = q.status === 'Draft';
     return `
-      <tr onclick="window.location.href='quote-detail.html?id=${q.id}'">
+      <tr onclick="window.location.href='quote-detail.html?id=${q.id}'" ${isDraft ? 'style="background:rgba(156,163,175,0.04);"' : ''}>
         <td>
-          <div class="td-po">${q.po_number || '—'}</div>
+          <div class="td-po">${q.po_number || '—'}${isDraft ? ' <span style="font-size:10px;color:#9CA3AF;font-weight:400;">— Draft</span>' : ''}</div>
           <div class="td-job">${q.job_name || '—'}</div>
         </td>
         <td class="td-date">${formatDate(q.created_at)}</td>
-        <td class="td-amount r">${fmt(q.grand_total)}</td>
+        <td class="td-amount r" style="${isDraft ? 'color:var(--muted);' : ''}">${isDraft ? '—' : fmt(q.grand_total)}</td>
         <td><span class="status-badge ${sc}">${q.status}</span></td>
-        <td class="arrow-cell">→</td>
+        <td class="arrow-cell">${isDraft ? '✎' : '→'}</td>
       </tr>`;
   }).join('');
 }
