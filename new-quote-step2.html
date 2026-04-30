@@ -454,10 +454,8 @@
 
 <div class="page">
 
-  <!-- Brand Tabs: Procraft / Milania -->
-  <div class="brand-tabs-bar">
-    <button class="brand-tab active" id="tabProcraft" onclick="switchBrand('Procraft')">Procraft</button>
-    <button class="brand-tab" id="tabMilania" onclick="switchBrand('Milania')">Milania</button>
+  <!-- Brand Tabs: dynamic -->
+  <div class="brand-tabs-bar" id="brandTabsBar">
   </div>
 
   <!-- Top: Style Grid + Preview -->
@@ -613,6 +611,13 @@ async function init() {
   allStyles        = s.data            || [];
   allSkusFramed    = framedRes.data    || [];
   allSkusFrameless = framelessRes.data || [];
+
+  // Render brand tabs dynamically
+  const brands = [...new Set(allStyles.map(s => s.brand).filter(Boolean))].sort();
+  activeBrand = brands[0] || 'Procraft';
+  document.getElementById('brandTabsBar').innerHTML = brands.map((b, i) =>
+    `<button class="brand-tab ${i === 0 ? 'active' : ''}" onclick="switchBrand('${b}')">${b}</button>`
+  ).join('');
   // open all subcats by default
   allStyles.forEach(s => {
     const key = `${s.brand}__${s.subcategory||'Other'}`;
@@ -684,8 +689,9 @@ function selectAndConfirm(code) {
 function switchBrand(brand) {
   activeBrand = brand;
   activeSubcat = 'All';
-  document.getElementById('tabProcraft').classList.toggle('active', brand === 'Procraft');
-  document.getElementById('tabMilania').classList.toggle('active', brand === 'Milania');
+  document.querySelectorAll('.brand-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent === brand);
+  });
   renderStyleList();
 }
 
@@ -790,7 +796,7 @@ function confirmStyle() {
 
 function getActiveSkus() {
   if (!activeStyle) return [];
-  return activeStyle.construction_type === 'Frameless' ? allSkusFrameless : allSkusFramed;
+  return activeStyle.construction_type?.toLowerCase() === 'frameless' ? allSkusFrameless : allSkusFramed;
 }
 
 function getAsmFee(type) {
