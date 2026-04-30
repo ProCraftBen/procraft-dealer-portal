@@ -893,6 +893,8 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
     cartItems.push({
       key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
       sku_code:skuCode, sku_desc:sku.description, type,
+      category: sku.category || '',
+      skuType:  sku.type || '',
       quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue,
       assemble_fee: parseFloat(assembledFee||0)
     });
