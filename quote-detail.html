@@ -236,11 +236,14 @@ function renderQuote(quote, dealer, addr) {
   const shippingHtml = addr
     ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>
        ${addr.address_line}<br>
+       ${addr.address_line2 ? addr.address_line2 + '<br>' : ''}
        ${addr.city}, ${addr.state} ${addr.zip_code}`
     : `<strong>${dealer?.company_name || '—'}</strong><br>
-       ${dealer?.city || ''}, ${dealer?.state || ''}`;
+       ${dealer?.address_line1 || ''}<br>
+       ${dealer?.address_line2 ? dealer.address_line2 + '<br>' : ''}
+       ${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`;
 
-  // Group items by style, sort by type
+  // Group items by style, sort by sku_type
   const grouped = {};
   items.forEach(i => {
     const key = i.style_code || '—';
@@ -268,8 +271,8 @@ function renderQuote(quote, dealer, addr) {
               <td class="td-num">#${itemNum}</td>
               <td class="td-style">${showStyle ? styleName : ''}</td>
               <td class="td-sku">${i.sku_code || '—'}</td>
-              <td>${i.sku_type ? `<span class="sku-type-tag">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
-              <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
+              <td style="font-size:11px;">${i.sku_type ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
+              <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${i.assemble_status || '—'}</span></td>
               <td class="r">${i.quantity}</td>
               <td class="r">${fmt(i.unit_price)}</td>
               <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0) > 0 ? `+${fmt(i.assemble_fee * i.quantity)}` : '—'}</td>
@@ -282,7 +285,7 @@ function renderQuote(quote, dealer, addr) {
   // Assemble fee breakdown by type
   const byType = {};
   items.forEach(i => {
-    if ((i.type||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
+    if ((i.assemble_status||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
     const t = (i.sku_type || 'OTHER').toUpperCase();
     if (!byType[t]) byType[t] = { qty: 0, total: 0 };
     byType[t].qty   += i.quantity;
