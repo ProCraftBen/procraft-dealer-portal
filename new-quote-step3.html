@@ -142,11 +142,12 @@
     .btn-dashboard:hover { background: var(--green-mid); }
 
     /* Hamburger */
-    .hamburger { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
     .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
     .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
     .hamburger.open span:nth-child(2) { opacity: 0; }
     .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
     /* Mobile menu */
     .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
     .mobile-menu.show { display: flex; }
@@ -667,9 +668,13 @@ async function submitQuote() {
             grand_total:   grand.toFixed(2),
           },
           dealer: {
-            company_name: dealer.company_name,
-            contact_name: dealer.contact_name,
-            email:        dealer.email,
+            company_name:           dealer.company_name,
+            contact_name:           dealer.contact_name,
+            email:                  dealer.email,
+            secondary_email:        dealer.secondary_email || null,
+            secondary_email_notify: dealer.secondary_email_notify || false,
+            optional_email_2:       dealer.optional_email_2 || null,
+            optional_email_2_notify: dealer.optional_email_2_notify || false,
           },
           items: step2Data.map(i => ({
             style_code: i.style_code,
@@ -679,8 +684,8 @@ async function submitQuote() {
             unit_price: i.unit_price,
           })),
           attachments: [
-            { filename: `${step1Data.poNumber}_A.pdf`, content: pdfA, type: 'application/pdf' },
-            { filename: `${step1Data.poNumber}_B.pdf`, content: pdfB, type: 'application/pdf' },
+            { filename: `${step1Data.poNumber}_List.pdf`, content: pdfA, type: 'application/pdf' },
+            { filename: `${step1Data.poNumber}_Details.pdf`, content: pdfB, type: 'application/pdf' },
           ],
         }),
       }
@@ -955,14 +960,26 @@ async function buildPdf(showPrices, markupPct = 0) {
   });
 
   // Add page numbers after table is complete (total pages now known)
-  const totalPages = doc.getNumberOfPages();
-  for (let p = 1; p <= totalPages; p++) {
-    doc.setPage(p);
-    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
-    doc.text(`Page ${p} / ${totalPages}`, pageW - margin, 27, { align:'right' });
-  }
-  doc.setPage(totalPages);
+  const totalPagesAfterTable = doc.getNumberOfPages();
 
+  // ── For Doc A: stop here (table only, no disclaimer/totals) ──
+  if (!showPrices) {
+    for (let p = 1; p <= totalPagesAfterTable; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+      doc.text(`Page ${p} / ${totalPagesAfterTable}`, pageW - margin, 27, { align:'right' });
+      // Footer bar on last page
+      if (p === totalPagesAfterTable) {
+        doc.setFillColor(...darkGreen);
+        doc.rect(0, 287, pageW, 10, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
+        doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com', pageW/2, 293, { align:'center' });
+      }
+    }
+    return doc;
+  }
+
+  // ── For Doc B: continue with disclaimer + totals ──
   y = doc.lastAutoTable.finalY + 8;
 
   // ── Calculations ──
@@ -1072,6 +1089,15 @@ async function buildPdf(showPrices, markupPct = 0) {
   doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
   doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com', pageW/2, 293, { align:'center' });
 
+  // Add page numbers to ALL pages (including disclaimer page)
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text(`Page ${p} / ${totalPages}`, pageW - margin, 27, { align:'right' });
+  }
+  doc.setPage(totalPages);
+
   return doc;
 }
 async function downloadPDF() {
@@ -1079,7 +1105,7 @@ async function downloadPDF() {
   const poNum = step1Data?.poNumber || 'Draft';
   // Download Document B (with prices) for dealer preview
   const doc = await buildPdf(true, markupPct);
-  doc.save(`${poNum}_B.pdf`);
+  doc.save(`${poNum}_Details.pdf`);
 }
 
 async function generatePdfBase64(showPrices) {
