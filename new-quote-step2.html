@@ -28,7 +28,7 @@
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
     .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
     .nav-link:hover, .nav-link.active { color: #fff; }
-    @media (max-width: 768px) { .nav-right { display: none; } .hamburger { display: flex; } }
+    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
 
     /* ── Progress ── */
     .progress-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; }
@@ -401,7 +401,7 @@
     .preview-img-wrap { cursor: zoom-in; }
 
     /* Hamburger */
-    .hamburger { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
     .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
     .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
     .hamburger.open span:nth-child(2) { opacity: 0; }
@@ -576,7 +576,7 @@ const _supabase = createClient(
 );
 
 let dealer = null;
-let allStyles = [], allSkus = [];
+let allStyles = [], allSkusFramed = [], allSkusFrameless = [];
 let activeBrand = 'Procraft';
 let activeSubcat = 'All';
 let hoveredStyle = null;
@@ -605,11 +605,14 @@ async function init() {
   }
 
   dealer = d;
-  const [s,sk] = await Promise.all([
-    _supabase.from('door_styles').select('*').eq('is_active',true).order('subcategory'),
-    _supabase.from('skus').select('*').eq('is_active',true),
+  const [s, framedRes, framelessRes] = await Promise.all([
+    _supabase.from('door_styles').select('*').eq('is_active', true).order('subcategory'),
+    _supabase.from('skus_framed').select('*'),
+    _supabase.from('skus_frameless').select('*'),
   ]);
-  allStyles=s.data||[]; allSkus=sk.data||[];
+  allStyles        = s.data            || [];
+  allSkusFramed    = framedRes.data    || [];
+  allSkusFrameless = framelessRes.data || [];
   // open all subcats by default
   allStyles.forEach(s => {
     const key = `${s.brand}__${s.subcategory||'Other'}`;
@@ -799,10 +802,29 @@ function confirmStyle() {
   renderSkuTable();
 }
 
+function getActiveSkus() {
+  if (!activeStyle) return [];
+  return activeStyle.construction_type === 'Frameless' ? allSkusFrameless : allSkusFramed;
+}
+
+function getAsmFee(type) {
+  if (!dealer) return 0;
+  const map = {
+    'BASE': dealer.asm_fee_base,
+    'WALL': dealer.asm_fee_wall,
+    'TALL': dealer.asm_fee_tall,
+    'ACCESSORIES': dealer.asm_fee_accessories,
+    'MODIFICATION': dealer.asm_fee_modification,
+  };
+  return parseFloat(map[type?.toUpperCase()] || 0);
+}
+
 function renderCatTabs() {
-  const cats = ['All',...new Set(allSkus.map(s=>s.category))];
-  document.getElementById('catTabs').innerHTML = cats.map(c=>`
-    <button class="cat-tab ${c===currentCat?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
+  const skus = getActiveSkus();
+  const types = ['All', ...new Set(skus.map(s => s.type).filter(Boolean))];
+  document.getElementById('catTabs').innerHTML = types.map(c =>
+    `<button class="cat-tab ${c===currentCat?'active':''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
 }
 
 function setCat(c) {
@@ -811,17 +833,25 @@ function setCat(c) {
   renderSkuTable();
 }
 
+
 function renderSkuTable() {
   if (!activeStyle) return;
   const stockM    = dealer ? parseFloat(dealer.stock_multiplier    || 1) : 1;
   const nonStockM = dealer ? parseFloat(dealer.non_stock_multiplier || 1) : 1;
+  const isStock   = activeStyle.is_stock;
+  const m         = isStock ? stockM : nonStockM;
   const q = (document.getElementById('skuSearch')?.value||'').toLowerCase();
-  let skus = allSkus;
-  if (currentCat!=='All') skus=skus.filter(s=>s.category===currentCat);
-  if (q) skus=skus.filter(s=>s.sku_code.toLowerCase().includes(q)||s.description.toLowerCase().includes(q));
+
+  let skus = getActiveSkus();
+  if (currentCat !== 'All') skus = skus.filter(s => s.type === currentCat);
+  if (q) skus = skus.filter(s => s.sku_code.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
 
   const wrap = document.getElementById('skuTableWrap');
-  if (!skus.length) { wrap.innerHTML='<div class="sku-placeholder">No items found.</div>'; return; }
+  if (!skus.length) { wrap.innerHTML = '<div class="sku-placeholder">No items found.</div>'; return; }
+
+  const stockTag = isStock
+    ? '<span style="font-size:9px;background:rgba(22,163,74,0.1);color:#16A34A;border-radius:2px;padding:1px 5px;">STOCK</span>'
+    : '<span style="font-size:9px;background:rgba(59,130,246,0.1);color:#3B82F6;border-radius:2px;padding:1px 5px;">NON-STOCK</span>';
 
   wrap.innerHTML = `
     <table class="sku-table">
@@ -829,41 +859,38 @@ function renderSkuTable() {
         <tr>
           <th>SKU</th>
           <th>Description</th>
-          <th>Category</th>
           <th>Type</th>
           <th>Unit Price</th>
+          <th>Asm Fee</th>
           <th class="th-right">Assemble Status &amp; Add</th>
         </tr>
       </thead>
       <tbody>
-        ${skus.map(sku=>{
+        ${skus.map(sku => {
           const grp       = (activeStyle.grp || 'GROUP A').toUpperCase();
-          const base      = grp === 'GROUP C' ? parseFloat(sku.msrp_group_c || 0)
+          const base      = grp === 'GROUP D' ? parseFloat(sku.msrp_group_d || 0)
+                          : grp === 'GROUP C' ? parseFloat(sku.msrp_group_c || 0)
                           : grp === 'GROUP B' ? parseFloat(sku.msrp_group_b || 0)
                           : parseFloat(sku.msrp_group_a || 0);
-          const fee       = parseFloat(sku.assemble_fee || 0);
-          const m         = sku.is_stock ? stockM : nonStockM;
           const unitPrice = (base * m).toFixed(2);
-          const stockTag  = sku.is_stock
-            ? '<span style="font-size:9px;background:rgba(22,163,74,0.1);color:#16A34A;border-radius:2px;padding:1px 5px;">STOCK</span>'
-            : '<span style="font-size:9px;background:rgba(59,130,246,0.1);color:#3B82F6;border-radius:2px;padding:1px 5px;">NON-STOCK</span>';
-          const typeTag = sku.type
-            ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${sku.type.toUpperCase()}</span>`
+          const asmFee    = getAsmFee(sku.type);
+          const typeTag   = sku.type
+            ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${sku.type}</span>`
             : '—';
           return `
             <tr>
               <td class="td-code">${sku.sku_code} ${stockTag}</td>
               <td class="td-desc">${sku.description}</td>
-              <td style="font-size:11px;color:var(--muted);">${sku.category || '—'}</td>
               <td>${typeTag}</td>
               <td class="td-price">$${unitPrice}</td>
+              <td style="font-size:12px;color:var(--muted);">${asmFee > 0 ? `$${asmFee.toFixed(2)}` : '—'}</td>
               <td>
                 <div class="td-actions">
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)">−</button>
                   <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"/>
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)">+</button>
                   <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;">RTA</button>
-                  ${fee > 0 ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${fee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);">ASM +$${fee.toFixed(2)}</button>` : ''}
+                  ${asmFee > 0 ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${asmFee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);">ASM</button>` : ''}
                 </div>
               </td>
             </tr>`;
@@ -881,7 +908,7 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
   const el  = document.getElementById('qty-'+skuCode);
   const qty = parseInt(el?.value||0);
   if (qty<=0) { showToast('Please enter a quantity first'); return; }
-  const sku = allSkus.find(s=>s.sku_code===skuCode);
+  const sku = getActiveSkus().find(s => s.sku_code === skuCode);
   const key = `${activeStyle.style_code}-${skuCode}-${type}`;
   const idx = cartItems.findIndex(i=>i.key===key);
   if (idx>=0) { cartItems[idx].quantity+=qty; }
