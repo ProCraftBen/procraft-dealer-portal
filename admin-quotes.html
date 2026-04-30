@@ -325,7 +325,7 @@ function renderTable() {
           <td>${showStyle ? `<span style="font-weight:500;color:var(--green-dark);">${styleName}</span>` : ''}</td>
           <td>${i.sku_code || '—'}</td>
           <td>${i.sku_type ? `<span class="sku-type-tag">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
-          <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
+          <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${i.assemble_status || '—'}</span></td>
           <td class="r">${i.quantity}</td>
           <td class="r">${fmt(i.unit_price)}</td>
           <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0)>0 ? `+${fmt(i.assemble_fee*i.quantity)}` : '—'}</td>
@@ -337,7 +337,7 @@ function renderTable() {
     // Assemble fee breakdown
     const byType = {};
     items.forEach(i => {
-      if ((i.type||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
+      if ((i.assemble_status||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
       const t = (i.sku_type||'OTHER').toUpperCase();
       if (!byType[t]) byType[t] = { qty:0, total:0 };
       byType[t].qty   += i.quantity;
