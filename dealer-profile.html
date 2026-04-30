@@ -114,8 +114,6 @@
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
     .mobile-menu a.active { color: #fff; }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
-    .nav-link:hover, .nav-link.active { color: #fff; }
     @media (max-width: 768px) {
       .nav-right { display: none; }
       .hamburger { display: flex; }
@@ -135,11 +133,7 @@
     <span class="nav-title">ProCraft DC</span>
   </div>
   <div class="nav-right">
-    <a href="dashboard.html" class="nav-link">Dashboard</a>
-    <a href="quotes.html" class="nav-link">My Quotes</a>
-    <a href="new-quote.html" class="nav-link">New Quote</a>
-    <a href="dealer-profile.html" class="nav-link active">Edit Profile</a>
-    <a href="change-password.html" class="nav-link">Change Password</a>
+    <a href="dashboard.html" class="nav-back" id="backBtn">← Dashboard</a>
     <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
   <button class="hamburger" id="hamburger" onclick="toggleMenu()">
@@ -183,13 +177,6 @@
           <div class="confirmed-value" id="display_email">—</div>
         </div>
       </div>
-      <div class="confirmed-row">
-        <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-        <div>
-          <div class="confirmed-text">Dealer UID</div>
-          <div class="confirmed-value" id="display_uid">—</div>
-        </div>
-      </div>
       <div class="form-group">
         <label class="form-label">Contact Name <span class="required">*</span></label>
         <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
@@ -199,20 +186,31 @@
         <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
       </div>
       <div class="form-group">
+        <label class="form-label">Google My Business <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_gmb_url" type="url" placeholder="https://g.page/your-business"/>
+        <span class="form-hint" style="margin-top:4px;display:block;">Link to your Google Business profile so customers can find reviews and directions.</span>
+      </div>
+      <div class="form-group">
         <label class="form-label">Secondary Email <span class="badge-optional">Optional</span></label>
         <input class="form-input" id="f_secondary_email" type="email" placeholder="backup@yourcompany.com"/>
         <span class="form-hint" style="margin-top:4px;display:block;">Additional email address for receiving notifications.</span>
       </div>
       <div class="form-group">
-        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+        <div style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="f_secondary_email_notify" style="width:16px;height:16px;accent-color:var(--green-dark);cursor:pointer;"/>
           <label for="f_secondary_email_notify" style="font-size:13px;color:var(--text);cursor:pointer;">Send notifications to Secondary Email</label>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Google My Business <span class="badge-optional">Optional</span></label>
-        <input class="form-input" id="f_gmb_url" type="url" placeholder="https://g.page/your-business"/>
-        <span class="form-hint" style="margin-top:4px;display:block;">Link to your Google Business profile so customers can find reviews and directions.</span>
+        <label class="form-label">Optional Email 2 <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_optional_email_2" type="email" placeholder="contact2@yourcompany.com"/>
+        <span class="form-hint" style="margin-top:4px;display:block;">Second additional email address for receiving notifications.</span>
+      </div>
+      <div class="form-group">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="f_optional_email_2_notify" style="width:16px;height:16px;accent-color:var(--green-dark);cursor:pointer;"/>
+          <label for="f_optional_email_2_notify" style="font-size:13px;color:var(--text);cursor:pointer;">Send notifications to Optional Email 2</label>
+        </div>
       </div>
     </div>
   </div>
@@ -307,6 +305,51 @@
       <div class="upload-progress" id="uploadProgress"></div>
       <div class="image-grid" id="imageGrid"></div>
       <div class="image-count-label" id="imageCountLabel"></div>
+    </div>
+  </div>
+
+  <!-- Pricing Info (read-only) -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Pricing Information</span></div>
+    <div class="card-body">
+      <p class="section-desc">Your pricing is set by ProCraft. Contact us if you have any questions.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
+        <div>
+          <div class="form-label">Stock Multiplier</div>
+          <div class="confirmed-row"><div><div class="confirmed-value" id="display_stock_multiplier">—</div></div></div>
+        </div>
+        <div>
+          <div class="form-label">Non-Stock Multiplier</div>
+          <div class="confirmed-row"><div><div class="confirmed-value" id="display_non_stock_multiplier">—</div></div></div>
+        </div>
+        <div>
+          <div class="form-label">Frameless Multiplier</div>
+          <div class="confirmed-row"><div><div class="confirmed-value" id="display_frameless_multiplier">—</div></div></div>
+        </div>
+      </div>
+      <div class="form-label" style="margin-bottom:10px;">Assemble Fee (per item type)</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Base</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_base">—</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Wall</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_wall">—</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Tall</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_tall">—</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Accessories</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_accessories">—</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Modification</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_modification">—</div></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -492,17 +535,31 @@ async function init() {
   isFirstTime = !dealer.profile_completed;
   if (isFirstTime) {
     document.getElementById('firstTimeBanner').classList.add('show');
+    document.getElementById('backBtn').style.display = 'none';
+  } else {
+    document.getElementById('backBtn').style.display = 'inline-block';
   }
 
   // Populate contact info
   document.getElementById('display_company_name').textContent = dealer.company_name || '—';
   document.getElementById('display_email').textContent        = dealer.email || '—';
-  document.getElementById('display_uid').textContent          = dealer.uid || '—';
   document.getElementById('f_contact_name').value = dealer.contact_name || '';
   document.getElementById('f_phone').value         = dealer.phone || '';
-  document.getElementById('f_secondary_email').value = dealer.secondary_email || '';
-  document.getElementById('f_secondary_email_notify').checked = dealer.secondary_email_notify || false;
   document.getElementById('f_gmb_url').value       = dealer.google_my_business_url || '';
+  document.getElementById('f_secondary_email').value          = dealer.secondary_email || '';
+  document.getElementById('f_secondary_email_notify').checked = dealer.secondary_email_notify || false;
+  document.getElementById('f_optional_email_2').value          = dealer.optional_email_2 || '';
+  document.getElementById('f_optional_email_2_notify').checked = dealer.optional_email_2_notify || false;
+
+  // Pricing info (read-only)
+  document.getElementById('display_stock_multiplier').textContent     = dealer.stock_multiplier ? `${dealer.stock_multiplier}x` : '—';
+  document.getElementById('display_non_stock_multiplier').textContent = dealer.non_stock_multiplier ? `${dealer.non_stock_multiplier}x` : '—';
+  document.getElementById('display_frameless_multiplier').textContent = dealer.frameless_multiplier ? `${dealer.frameless_multiplier}x` : '—';
+  document.getElementById('display_asm_base').textContent         = dealer.asm_fee_base > 0 ? `$${parseFloat(dealer.asm_fee_base).toFixed(2)}` : '—';
+  document.getElementById('display_asm_wall').textContent         = dealer.asm_fee_wall > 0 ? `$${parseFloat(dealer.asm_fee_wall).toFixed(2)}` : '—';
+  document.getElementById('display_asm_tall').textContent         = dealer.asm_fee_tall > 0 ? `$${parseFloat(dealer.asm_fee_tall).toFixed(2)}` : '—';
+  document.getElementById('display_asm_accessories').textContent  = dealer.asm_fee_accessories > 0 ? `$${parseFloat(dealer.asm_fee_accessories).toFixed(2)}` : '—';
+  document.getElementById('display_asm_modification').textContent = dealer.asm_fee_modification > 0 ? `$${parseFloat(dealer.asm_fee_modification).toFixed(2)}` : '—';
   document.getElementById('f_address_line1').value = dealer.address_line1 || '';
   document.getElementById('f_address_line2').value = dealer.address_line2 || '';
   document.getElementById('f_city').value          = dealer.city || '';
@@ -539,6 +596,8 @@ async function saveProfile() {
   const website     = document.getElementById('f_website').value.trim();
   const secondary_email        = document.getElementById('f_secondary_email').value.trim();
   const secondary_email_notify = document.getElementById('f_secondary_email_notify').checked;
+  const optional_email_2       = document.getElementById('f_optional_email_2').value.trim();
+  const optional_email_2_notify = document.getElementById('f_optional_email_2_notify').checked;
   const contact_name    = document.getElementById('f_contact_name').value.trim();
   const phone           = document.getElementById('f_phone').value.trim();
   const gmb_url         = document.getElementById('f_gmb_url').value.trim();
@@ -602,8 +661,10 @@ async function saveProfile() {
     const { error } = await _supabase.from('dealers').update({
       contact_name,
       phone,
-      secondary_email:        secondary_email || null,
-      secondary_email_notify: secondary_email_notify,
+      secondary_email:          secondary_email || null,
+      secondary_email_notify:   secondary_email_notify,
+      optional_email_2:         optional_email_2 || null,
+      optional_email_2_notify:  optional_email_2_notify,
       google_my_business_url: gmb_url || null,
       address_line1,
       address_line2:     address_line2 || null,
