@@ -3,27 +3,16 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ProCraft — Quote Detail</title>
+  <title>ProCraft — My Quotes</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold:       #C9A84C;
-      --green-dark: #3e5a42;
-      --green-mid:  #4a6b4f;
-      --cream:      #F5F2EC;
-      --text:       #2C3A32;
-      --muted:      #7A8C82;
-      --border:     #DDD8CC;
-      --white:      #FFFFFF;
-      --status-pending:    #C9A84C;
-      --status-processing: #3B82F6;
-      --status-complete:   #16A34A;
-      --status-closed:     #6B7280;
+      --gold:#C9A84C; --gold-light:#E2C97E; --green-dark:#3e5a42; --green-mid:#4a6b4f;
+      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --bg:#F5F2EC; --white:#FFFFFF;
+      --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
     }
-    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
-
-    /* Navbar */
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-brand { display: flex; align-items: center; gap: 10px; }
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
@@ -41,78 +30,77 @@
     .mobile-menu.show { display: flex; }
     .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; }
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .mobile-menu a.active { color: #fff; }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
-
-    .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
-    .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
-    .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
-    .quote-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .status-badge { display: inline-block; padding: 5px 14px; border-radius: 3px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
-    .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
-    .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
-    .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
-    .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
-    .btn-print { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
-    .btn-print:hover { background: var(--green-mid); }
-    .btn-print svg { width: 14px; height: 14px; fill: currentColor; }
-    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
-    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
-    .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
-    .card-body { padding: 20px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
-    .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-    .info-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
+    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } .nav-logo-img { height: 36px; max-width: 90px; } }
+    .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
+    .page-header { margin-bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+    .page-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .btn-new-quote { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 11px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; }
+    .btn-new-quote:hover { background: var(--green-mid); }
+    .btn-new-quote svg { width: 13px; height: 13px; fill: currentColor; }
+    .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    @media (max-width: 600px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
+    .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 500; color: var(--green-dark); line-height: 1; }
+    .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+    .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+    .filter-group { display: flex; flex-direction: column; gap: 5px; }
+    .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .filter-select, .filter-input { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); outline: none; }
+    .filter-input { width: 160px; }
+    .filter-actions { display: flex; gap: 8px; margin-left: auto; align-self: flex-end; }
+    .btn-filter { height: 36px; padding: 0 16px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+    .btn-filter:hover { background: var(--green-mid); }
+    .btn-reset { height: 36px; padding: 0 14px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+    .btn-reset:hover { border-color: var(--text); color: var(--text); }
+    .table-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .table-count { font-size: 11px; color: var(--muted); }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
     thead th.r { text-align: right; }
-    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
     tbody tr:last-child { border-bottom: none; }
-    tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
+    tbody tr:hover { background: #FAFAF8; }
+    tbody td { padding: 14px 16px; font-size: 13px; vertical-align: middle; }
     tbody td.r { text-align: right; }
-    .td-num { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; }
-    .td-style { font-weight: 500; color: var(--green-dark); }
-    .td-sku { color: var(--muted); font-size: 11px; }
-    .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; }
-    .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
-    .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
-    .sku-type-tag { font-size: 9px; background: rgba(201,168,76,0.12); color: #8B6914; border-radius: 2px; padding: 1px 5px; }
-    .totals { padding: 4px 20px 20px; }
-    .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .total-row:last-child { border-bottom: none; }
-    .total-row.grand { padding-top: 12px; }
-    .total-row.grand .total-label { font-size: 14px; font-weight: 500; color: var(--green-dark); }
-    .total-row.grand .total-val { font-size: 16px; font-weight: 500; color: var(--green-dark); }
-    .total-label { color: var(--muted); }
-    .total-val { font-weight: 500; }
-    .asm-breakdown { padding: 2px 0 6px 16px; }
-    .asm-breakdown-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 2px 0; }
-    .free-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
-    .exempt-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
-    .loading-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-    .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-    @media print {
-      .navbar, .btn-print, .hamburger, .mobile-menu { display: none !important; }
-      .page { padding: 0; max-width: 100%; }
-      body { background: #fff; }
-      .card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
-    }
+    .td-po { font-weight: 500; color: var(--green-dark); white-space: nowrap; }
+    .td-job { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .td-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .td-amount { font-weight: 500; white-space: nowrap; }
+    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+    .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
+    .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
+    .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
+    .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+    .arrow-cell { color: var(--border); font-size: 14px; text-align: right; }
+    tbody tr:hover .arrow-cell { color: var(--gold); }
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
+    .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin: 0 auto 12px; display: block; }
+    .empty-state p { font-size: 13px; margin-bottom: 16px; }
+    .loading-row { height: 52px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
   </style>
 </head>
 <body>
 
 <nav class="navbar">
   <div class="nav-brand">
-    <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
+    <img class="nav-logo-img" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
     <span class="nav-title">ProCraft DC</span>
   </div>
-  <div class="nav-right" id="navRight">
-    <!-- populated by JS based on role -->
+  <div class="nav-right">
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <a href="quotes.html" class="nav-link active">My Quotes</a>
+    <a href="new-quote.html" class="nav-link">New Quote</a>
+    <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
+    <a href="change-password.html" class="nav-link">Change Password</a>
+    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
   <button class="hamburger" id="hamburger" onclick="toggleMenu()">
     <span></span><span></span><span></span>
@@ -120,15 +108,86 @@
 </nav>
 
 <div class="mobile-menu" id="mobileMenu">
-  <div id="mobileMenuLinks"></div>
+  <a href="dashboard.html">Dashboard</a>
+  <a href="quotes.html" class="active">My Quotes</a>
+  <a href="new-quote.html">New Quote</a>
+  <a href="dealer-profile.html">Edit Profile</a>
+  <a href="change-password.html">Change Password</a>
   <div class="menu-divider"></div>
   <button onclick="handleLogout()">Sign Out</button>
 </div>
 
-<div class="page" id="pageContent">
-  <div class="loading-wrap">
-    <div class="spinner-large"></div>
-    Loading quote...
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">My Quotes</div>
+      <div class="page-sub" id="pageSub">Loading...</div>
+    </div>
+    <a href="new-quote.html" class="btn-new-quote">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      New Quote
+    </a>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card"><div class="stat-num" id="statProcessing">—</div><div class="stat-label">Processing</div></div>
+    <div class="stat-card"><div class="stat-num" id="statComplete">—</div><div class="stat-label">Complete</div></div>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <span class="filter-label">Status</span>
+      <select class="filter-select" id="filterStatus">
+        <option value="">All Statuses</option>
+        <option value="Pending">Pending</option>
+        <option value="Processing">Processing</option>
+        <option value="Complete">Complete</option>
+        <option value="Closed">Closed</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">From</span>
+      <input type="date" class="filter-input" id="filterFrom" style="width:130px;"/>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">To</span>
+      <input type="date" class="filter-input" id="filterTo" style="width:130px;"/>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Search</span>
+      <input type="text" class="filter-input" id="filterSearch" placeholder="PO# or Job Name"/>
+    </div>
+    <div class="filter-actions">
+      <button class="btn-filter" onclick="applyFilters()">Filter</button>
+      <button class="btn-reset" onclick="resetFilters()">Reset</button>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">Quotes</span>
+      <span class="table-count" id="tableCount">—</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>PO # / Job Name</th>
+            <th>Date</th>
+            <th class="r">Total</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="quotesBody">
+          <tr class="loading-row"><td colspan="5"></td></tr>
+          <tr class="loading-row"><td colspan="5"></td></tr>
+          <tr class="loading-row"><td colspan="5"></td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -140,7 +199,8 @@ const _supabase = createClient(
   'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
 );
 
-const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
+let allQuotes = [];
+let userId    = null;
 const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
 
 function toggleMenu() {
@@ -159,242 +219,110 @@ document.addEventListener('click', function(e) {
   }
 });
 
-async function handleLogout() {
-  await _supabase.auth.signOut();
-  window.location.href = 'login.html';
-}
-
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) {
-  return new Date(str).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
+  userId = session.user.id;
 
-  const params  = new URLSearchParams(window.location.search);
-  const quoteId = params.get('id');
-  if (!quoteId) { showError('No quote ID provided.'); return; }
+  const { data: me } = await _supabase.from('dealers').select('role, is_active, company_name').eq('id', userId).single();
+  if (!me?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+  if (['admin','super_admin'].includes(me?.role)) { window.location.href = 'admin.html'; return; }
 
-  const { data: quote, error: qErr } = await _supabase
+  document.getElementById('pageSub').textContent = me?.company_name || '';
+  await loadQuotes();
+
+  setInterval(async () => {
+    const { data: check } = await _supabase.from('dealers').select('is_active').eq('id', userId).single();
+    if (!check?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
+  }, 60000);
+}
+
+async function loadQuotes() {
+  const { data: quotes, error } = await _supabase
     .from('quotes')
-    .select('*, quote_items(*)')
-    .eq('id', quoteId)
-    .single();
+    .select('*')
+    .eq('dealer_id', userId)
+    .order('created_at', { ascending: false });
 
-  if (qErr || !quote) { showError('Quote not found.'); return; }
+  if (error) { console.error('loadQuotes error:', error); return; }
+  allQuotes = quotes || [];
+  updateStats();
+  renderTable(allQuotes);
+}
 
-  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
-  const isAdmin = ['admin','super_admin'].includes(me?.role);
+function updateStats() {
+  document.getElementById('statTotal').textContent      = allQuotes.length;
+  document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
+  document.getElementById('statProcessing').textContent = allQuotes.filter(q => q.status === 'Processing').length;
+  document.getElementById('statComplete').textContent   = allQuotes.filter(q => q.status === 'Complete').length;
+}
 
-  if (!isAdmin && quote.dealer_id !== session.user.id) {
-    showError('You do not have permission to view this quote.');
+function renderTable(quotes) {
+  const tbody = document.getElementById('quotesBody');
+  document.getElementById('tableCount').textContent = `${quotes.length} quote${quotes.length !== 1 ? 's' : ''}`;
+
+  if (!quotes.length) {
+    tbody.innerHTML = `
+      <tr><td colspan="5">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
+          <p>No quotes found.</p>
+          <a href="new-quote.html" class="btn-new-quote" style="display:inline-flex;">+ New Quote</a>
+        </div>
+      </td></tr>`;
     return;
   }
 
-  // Render navbar based on role
-  if (isAdmin) {
-    document.getElementById('navRight').innerHTML = `
-      <a href="admin.html" class="nav-link">Dashboard</a>
-      <a href="admin-quotes.html" class="nav-link active">Quotes</a>
-      <a href="admin-dealers.html" class="nav-link">Dealers</a>
-      <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
-    document.getElementById('mobileMenuLinks').innerHTML = `
-      <a href="admin.html">Dashboard</a>
-      <a href="admin-quotes.html" class="active">Quotes</a>
-      <a href="admin-dealers.html">Dealers</a>`;
-  } else {
-    document.getElementById('navRight').innerHTML = `
-      <a href="dashboard.html" class="nav-link">Dashboard</a>
-      <a href="quotes.html" class="nav-link active">My Quotes</a>
-      <a href="new-quote.html" class="nav-link">New Quote</a>
-      <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
-      <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
-    document.getElementById('mobileMenuLinks').innerHTML = `
-      <a href="dashboard.html">Dashboard</a>
-      <a href="quotes.html" class="active">My Quotes</a>
-      <a href="new-quote.html">New Quote</a>
-      <a href="dealer-profile.html">Edit Profile</a>`;
-  }
-
-  const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
-
-  let shippingAddr = null;
-  if (quote.shipping_address_id) {
-    const { data: addr } = await _supabase.from('addresses').select('*').eq('id', quote.shipping_address_id).single();
-    shippingAddr = addr;
-  }
-
-  renderQuote(quote, dealer, shippingAddr);
+  tbody.innerHTML = quotes.map(q => {
+    const sc = statusClass[q.status] || 'pending';
+    return `
+      <tr onclick="window.location.href='quote-detail.html?id=${q.id}'">
+        <td>
+          <div class="td-po">${q.po_number || '—'}</div>
+          <div class="td-job">${q.job_name || '—'}</div>
+        </td>
+        <td class="td-date">${formatDate(q.created_at)}</td>
+        <td class="td-amount r">${fmt(q.grand_total)}</td>
+        <td><span class="status-badge ${sc}">${q.status}</span></td>
+        <td class="arrow-cell">→</td>
+      </tr>`;
+  }).join('');
 }
 
-function renderQuote(quote, dealer, addr) {
-  const items = quote.quote_items || [];
-  const sc    = statusClass[quote.status] || 'pending';
+function applyFilters() {
+  const status = document.getElementById('filterStatus').value;
+  const from   = document.getElementById('filterFrom').value;
+  const to     = document.getElementById('filterTo').value;
+  const search = document.getElementById('filterSearch').value.trim().toLowerCase();
 
-  const shippingHtml = addr
-    ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>
-       ${addr.address_line}<br>
-       ${addr.city}, ${addr.state} ${addr.zip_code}`
-    : `<strong>${dealer?.company_name || '—'}</strong><br>
-       ${dealer?.city || ''}, ${dealer?.state || ''}`;
+  let filtered = allQuotes;
+  if (status) filtered = filtered.filter(q => q.status === status);
+  if (from)   filtered = filtered.filter(q => q.created_at >= from);
+  if (to)     filtered = filtered.filter(q => q.created_at <= to + 'T23:59:59');
+  if (search) filtered = filtered.filter(q =>
+    (q.po_number || '').toLowerCase().includes(search) ||
+    (q.job_name  || '').toLowerCase().includes(search)
+  );
 
-  // Group items by style, sort by type
-  const grouped = {};
-  items.forEach(i => {
-    const key = i.style_code || '—';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(i);
-  });
-  Object.keys(grouped).forEach(k => {
-    grouped[k].sort((a,b) => {
-      const ra = TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
-      const rb = TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
-      return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
-    });
-  });
-
-  let itemNum = 0;
-  let lastStyle = null;
-  const itemsHtml = items.length
-    ? Object.entries(grouped).map(([styleName, styleItems]) =>
-        styleItems.map(i => {
-          itemNum++;
-          const showStyle = styleName !== lastStyle;
-          lastStyle = styleName;
-          return `
-            <tr>
-              <td class="td-num">#${itemNum}</td>
-              <td class="td-style">${showStyle ? styleName : ''}</td>
-              <td class="td-sku">${i.sku_code || '—'}</td>
-              <td>${i.sku_type ? `<span class="sku-type-tag">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
-              <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
-              <td class="r">${i.quantity}</td>
-              <td class="r">${fmt(i.unit_price)}</td>
-              <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0) > 0 ? `+${fmt(i.assemble_fee * i.quantity)}` : '—'}</td>
-              <td class="r">${fmt(i.unit_price * i.quantity)}</td>
-            </tr>`;
-        }).join('')
-      ).join('')
-    : `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
-
-  // Assemble fee breakdown by type
-  const byType = {};
-  items.forEach(i => {
-    if ((i.type||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
-    const t = (i.sku_type || 'OTHER').toUpperCase();
-    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
-    byType[t].qty   += i.quantity;
-    byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
-  });
-  const assembleTotal = items.reduce((s,i) => s + parseFloat(i.assemble_fee||0) * i.quantity, 0);
-  const asmBreakdown  = assembleTotal > 0
-    ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
-        <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
-          <span class="total-label">Assemble Fee</span>
-          <span class="total-val">${fmt(assembleTotal)}</span>
-        </div>
-        <div class="asm-breakdown">
-          ${TYPE_ORDER.filter(t => byType[t]).map(t =>
-            `<div class="asm-breakdown-row"><span>${t} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
-          ).join('')}
-        </div>
-      </div>`
-    : '';
-
-  const freeShip  = parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
-  const taxExempt = parseFloat(quote.tax_amount) === 0;
-
-  document.getElementById('pageContent').innerHTML = `
-    <div class="quote-header">
-      <div>
-        <div class="quote-number">${quote.po_number || '—'}</div>
-        <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
-      </div>
-      <div class="header-right">
-        <span class="status-badge ${sc}">${quote.status}</span>
-        <button class="btn-print" onclick="window.print()">
-          <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-          Print
-        </button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><span class="card-title">Order Information</span></div>
-      <div class="card-body">
-        <div class="info-grid">
-          <div><div class="info-label">PO Number</div><div class="info-value">${quote.po_number || '—'}</div></div>
-          <div><div class="info-label">Job Name</div><div class="info-value">${quote.job_name || '—'}</div></div>
-          <div><div class="info-label">Dealer</div><div class="info-value">${dealer?.company_name || '—'}</div></div>
-          <div><div class="info-label">Contact</div><div class="info-value">${dealer?.contact_name || '—'}</div></div>
-          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${quote.logistic_type || '—'}</div></div>
-          <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${quote.status}</span></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><span class="card-title">Shipping Address</span></div>
-      <div class="card-body"><div class="info-value">${shippingHtml}</div></div>
-    </div>
-
-    ${quote.notes ? `
-    <div class="card">
-      <div class="card-header"><span class="card-title">Notes</span></div>
-      <div class="card-body"><div class="info-value" style="font-style:italic;">${quote.notes}</div></div>
-    </div>` : ''}
-
-    <div class="card">
-      <div class="card-header"><span class="card-title">Items</span></div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Door Style</th>
-              <th>SKU</th>
-              <th>Type</th>
-              <th>Assemble Status</th>
-              <th class="r">Qty</th>
-              <th class="r">Unit Price</th>
-              <th class="r">Asm Fee</th>
-              <th class="r">Total</th>
-            </tr>
-          </thead>
-          <tbody>${itemsHtml}</tbody>
-        </table>
-      </div>
-      <div class="totals">
-        <div class="total-row">
-          <span class="total-label">Subtotal</span>
-          <span class="total-val">${fmt(quote.subtotal)}</span>
-        </div>
-        ${asmBreakdown}
-        <div class="total-row">
-          <span class="total-label">Shipping${freeShip ? ' <span class="free-tag">✓ Free</span>' : ''}</span>
-          <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
-        </div>
-        <div class="total-row">
-          <span class="total-label">Tax${taxExempt ? ' <span class="exempt-tag">✓ Exempt</span>' : ''}</span>
-          <span class="total-val">${fmt(quote.tax_amount)}</span>
-        </div>
-        <div class="total-row grand">
-          <span class="total-label">Order Total</span>
-          <span class="total-val">${fmt(quote.grand_total)}</span>
-        </div>
-      </div>
-    </div>
-  `;
+  renderTable(filtered);
 }
 
-function showError(msg) {
-  document.getElementById('pageContent').innerHTML = `
-    <div class="error-wrap">
-      <svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--border);margin:0 auto 16px;display:block;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-      ${msg}
-    </div>`;
+function resetFilters() {
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterFrom').value   = '';
+  document.getElementById('filterTo').value     = '';
+  document.getElementById('filterSearch').value = '';
+  renderTable(allQuotes);
+}
+
+async function handleLogout() {
+  await _supabase.auth.signOut();
+  window.location.href = 'login.html';
 }
 
 init();
