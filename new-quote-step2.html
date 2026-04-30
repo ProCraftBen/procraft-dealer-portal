@@ -702,20 +702,6 @@ function renderStyleList() {
   // Filter by brand
   const brandStyles = allStyles.filter(s => s.brand === activeBrand);
 
-  // If Milania — show coming soon
-  if (activeBrand === 'Milania') {
-    subcatTabsEl.innerHTML = '';
-    grid.innerHTML = `
-      <div class="coming-soon-state">
-        <div class="coming-soon-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        </div>
-        <div class="coming-soon-title">Milania — Coming Soon</div>
-        <div class="coming-soon-sub">Frameless collection is currently being added.<br>Please check back soon.</div>
-      </div>`;
-    return;
-  }
-
   // Build subcat tabs
   const subcats = ['All', ...new Set(brandStyles.map(s => s.subcategory || 'Other'))].sort((a,b) => a==='All'?-1:b==='All'?1:a.localeCompare(b));
   subcatTabsEl.innerHTML = subcats.map(sc => `
