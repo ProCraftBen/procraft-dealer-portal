@@ -802,7 +802,7 @@ async function buildPdf(showPrices, markupPct = 0) {
   doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0, 30, pageW, 30);
 
   try {
-    const img = await loadImage('https://dc.procraftcabinetry.com/wp-content/uploads/2026/02/ProCraft-DC-Logo.png');
+    const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
     doc.addImage(img, 'PNG', margin, 4, 52, 22);
   } catch(e) {
     doc.setTextColor(...darkGreen); doc.setFontSize(13); doc.setFont('helvetica','bold');
@@ -814,9 +814,13 @@ async function buildPdf(showPrices, markupPct = 0) {
   doc.text(`PO# ${step1Data?.poNumber || '—'}`, pageW - margin, 14, { align:'right' });
   doc.text(dateStr, pageW - margin, 20, { align:'right' });
 
-  y = 36;
+  // ── Job Name under PO# on right side ──
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+  doc.text('Job Name:', pageW - margin, 26, { align:'right' });
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(40,40,40);
+  doc.text(step1Data?.jobName || '—', pageW - margin - 22, 26);
 
-  // ── ProCraft company info ──
+  y = 36;
   doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...darkGreen);
   doc.text('ProCraft Cabinetry DC LLC', margin, y); y += 4.5;
   doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(40,40,40);
@@ -824,11 +828,6 @@ async function buildPdf(showPrices, markupPct = 0) {
    'Phone: 410-863-9800', 'Email: sales@procraftdc.com'].forEach(line => {
     doc.text(line, margin, y); y += 4.2;
   });
-
-  // ── Job Name centered ──
-  const jobY = 38;
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...darkGreen);
-  doc.text(step1Data?.jobName || '—', pageW/2, jobY, { align:'center' });
 
   // ── Bill To (left col) / Ship To (right col) ──
   const billX = margin;
