@@ -27,32 +27,24 @@
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
     .nav-brand { display: flex; align-items: center; gap: 10px; }
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
-    .nav-right { display: flex; align-items: center; gap: 12px; }
-    .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
-    .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
-
-    /* Hamburger */
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: #fff; }
+    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; }
+    .nav-logout:hover { color: #fff; }
     .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
     .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
     .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
     .hamburger.open span:nth-child(2) { opacity: 0; }
     .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-    /* Mobile menu */
     .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
     .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
+    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; }
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    @media (max-width: 768px) {
-      .nav-right { display: none; }
-      .hamburger { display: flex; }
-    }
+    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
 
-    /* Page */
     .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
-
-    /* Header row */
     .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
     .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
     .quote-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
@@ -62,24 +54,17 @@
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
-
     .btn-print { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
     .btn-print:hover { background: var(--green-mid); }
     .btn-print svg { width: 14px; height: 14px; fill: currentColor; }
-
-    /* Card */
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .card-body { padding: 20px; }
-
-    /* Info grid */
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
     .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .info-value { font-size: 13px; color: var(--text); line-height: 1.6; }
-
-    /* Items table */
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
@@ -88,13 +73,13 @@
     tbody tr:last-child { border-bottom: none; }
     tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
     tbody td.r { text-align: right; }
+    .td-num { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; }
     .td-style { font-weight: 500; color: var(--green-dark); }
     .td-sku { color: var(--muted); font-size: 11px; }
     .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; }
     .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
     .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
-
-    /* Totals */
+    .sku-type-tag { font-size: 9px; background: rgba(201,168,76,0.12); color: #8B6914; border-radius: 2px; padding: 1px 5px; }
     .totals { padding: 4px 20px 20px; }
     .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
     .total-row:last-child { border-bottom: none; }
@@ -103,22 +88,19 @@
     .total-row.grand .total-val { font-size: 16px; font-weight: 500; color: var(--green-dark); }
     .total-label { color: var(--muted); }
     .total-val { font-weight: 500; }
+    .asm-breakdown { padding: 2px 0 6px 16px; }
+    .asm-breakdown-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 2px 0; }
     .free-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
     .exempt-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
-
-    /* Loading / Error */
     .loading-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
     .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-
-    /* Print styles */
     @media print {
-      .navbar, .btn-print, .nav-back, .hamburger, .mobile-menu { display: none !important; }
+      .navbar, .btn-print, .hamburger, .mobile-menu { display: none !important; }
       .page { padding: 0; max-width: 100%; }
       body { background: #fff; }
       .card { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
-      .quote-header { margin-bottom: 16px; }
     }
   </style>
 </head>
@@ -129,8 +111,8 @@
     <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
     <span class="nav-title">ProCraft DC</span>
   </div>
-  <div class="nav-right">
-    <a href="#" class="nav-back" id="navBack">← Back</a>
+  <div class="nav-right" id="navRight">
+    <!-- populated by JS based on role -->
   </div>
   <button class="hamburger" id="hamburger" onclick="toggleMenu()">
     <span></span><span></span><span></span>
@@ -138,7 +120,7 @@
 </nav>
 
 <div class="mobile-menu" id="mobileMenu">
-  <a href="dashboard.html" id="mobileBack">← Dashboard</a>
+  <div id="mobileMenuLinks"></div>
   <div class="menu-divider"></div>
   <button onclick="handleLogout()">Sign Out</button>
 </div>
@@ -158,6 +140,7 @@ const _supabase = createClient(
   'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
 );
 
+const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
 const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
 
 function toggleMenu() {
@@ -190,7 +173,7 @@ async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
 
-  const params = new URLSearchParams(window.location.search);
+  const params  = new URLSearchParams(window.location.search);
   const quoteId = params.get('id');
   if (!quoteId) { showError('No quote ID provided.'); return; }
 
@@ -203,22 +186,39 @@ async function init() {
   if (qErr || !quote) { showError('Quote not found.'); return; }
 
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
-  if (!['admin','super_admin'].includes(me?.role) && quote.dealer_id !== session.user.id) {
+  const isAdmin = ['admin','super_admin'].includes(me?.role);
+
+  if (!isAdmin && quote.dealer_id !== session.user.id) {
     showError('You do not have permission to view this quote.');
     return;
   }
 
-  const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
-
-  const navBack   = document.getElementById('navBack');
-  const mobileBack = document.getElementById('mobileBack');
-  if (['admin','super_admin'].includes(me?.role)) {
-    if (navBack)    { navBack.href = 'admin-quotes.html'; navBack.textContent = '← Back to Quotes'; }
-    if (mobileBack) { mobileBack.href = 'admin-quotes.html'; mobileBack.textContent = '← Back to Quotes'; }
+  // Render navbar based on role
+  if (isAdmin) {
+    document.getElementById('navRight').innerHTML = `
+      <a href="admin.html" class="nav-link">Dashboard</a>
+      <a href="admin-quotes.html" class="nav-link active">Quotes</a>
+      <a href="admin-dealers.html" class="nav-link">Dealers</a>
+      <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
+    document.getElementById('mobileMenuLinks').innerHTML = `
+      <a href="admin.html">Dashboard</a>
+      <a href="admin-quotes.html" class="active">Quotes</a>
+      <a href="admin-dealers.html">Dealers</a>`;
   } else {
-    if (navBack)    { navBack.href = 'dashboard.html'; navBack.textContent = '← Back to Dashboard'; }
-    if (mobileBack) { mobileBack.href = 'dashboard.html'; mobileBack.textContent = '← Dashboard'; }
+    document.getElementById('navRight').innerHTML = `
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+      <a href="quotes.html" class="nav-link active">My Quotes</a>
+      <a href="new-quote.html" class="nav-link">New Quote</a>
+      <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
+      <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
+    document.getElementById('mobileMenuLinks').innerHTML = `
+      <a href="dashboard.html">Dashboard</a>
+      <a href="quotes.html" class="active">My Quotes</a>
+      <a href="new-quote.html">New Quote</a>
+      <a href="dealer-profile.html">Edit Profile</a>`;
   }
+
+  const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
 
   let shippingAddr = null;
   if (quote.shipping_address_id) {
@@ -240,17 +240,68 @@ function renderQuote(quote, dealer, addr) {
     : `<strong>${dealer?.company_name || '—'}</strong><br>
        ${dealer?.city || ''}, ${dealer?.state || ''}`;
 
-  const itemsHtml = items.length ? items.map(i => `
-    <tr>
-      <td class="td-style">${i.style_code || '—'}</td>
-      <td class="td-sku">${i.sku_code || '—'}</td>
-      <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
-      <td class="r">${i.quantity}</td>
-      <td class="r" style="color:var(--muted);font-size:12px;">${i.msrp ? fmt(i.msrp) : '—'}</td>
-      <td class="r">${fmt(i.unit_price)}</td>
-      <td class="r">${fmt(i.unit_price * i.quantity)}</td>
-    </tr>`).join('')
-  : `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+  // Group items by style, sort by type
+  const grouped = {};
+  items.forEach(i => {
+    const key = i.style_code || '—';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(i);
+  });
+  Object.keys(grouped).forEach(k => {
+    grouped[k].sort((a,b) => {
+      const ra = TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
+      const rb = TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
+      return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+    });
+  });
+
+  let itemNum = 0;
+  let lastStyle = null;
+  const itemsHtml = items.length
+    ? Object.entries(grouped).map(([styleName, styleItems]) =>
+        styleItems.map(i => {
+          itemNum++;
+          const showStyle = styleName !== lastStyle;
+          lastStyle = styleName;
+          return `
+            <tr>
+              <td class="td-num">#${itemNum}</td>
+              <td class="td-style">${showStyle ? styleName : ''}</td>
+              <td class="td-sku">${i.sku_code || '—'}</td>
+              <td>${i.sku_type ? `<span class="sku-type-tag">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
+              <td><span class="type-badge ${(i.type||'').toLowerCase()}">${i.type || '—'}</span></td>
+              <td class="r">${i.quantity}</td>
+              <td class="r">${fmt(i.unit_price)}</td>
+              <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0) > 0 ? `+${fmt(i.assemble_fee * i.quantity)}` : '—'}</td>
+              <td class="r">${fmt(i.unit_price * i.quantity)}</td>
+            </tr>`;
+        }).join('')
+      ).join('')
+    : `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+
+  // Assemble fee breakdown by type
+  const byType = {};
+  items.forEach(i => {
+    if ((i.type||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
+    const t = (i.sku_type || 'OTHER').toUpperCase();
+    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
+    byType[t].qty   += i.quantity;
+    byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+  });
+  const assembleTotal = items.reduce((s,i) => s + parseFloat(i.assemble_fee||0) * i.quantity, 0);
+  const asmBreakdown  = assembleTotal > 0
+    ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
+          <span class="total-label">Assemble Fee</span>
+          <span class="total-val">${fmt(assembleTotal)}</span>
+        </div>
+        <div class="asm-breakdown">
+          ${TYPE_ORDER.filter(t => byType[t]).map(t =>
+            `<div class="asm-breakdown-row"><span>${t} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
+          ).join('')}
+        </div>
+      </div>`
+    : '';
 
   const freeShip  = parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
   const taxExempt = parseFloat(quote.tax_amount) === 0;
@@ -258,14 +309,14 @@ function renderQuote(quote, dealer, addr) {
   document.getElementById('pageContent').innerHTML = `
     <div class="quote-header">
       <div>
-        <div class="quote-number">${quote.quote_number || '—'}</div>
+        <div class="quote-number">${quote.po_number || '—'}</div>
         <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
       </div>
       <div class="header-right">
         <span class="status-badge ${sc}">${quote.status}</span>
         <button class="btn-print" onclick="window.print()">
           <svg viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg>
-          Download PDF
+          Print
         </button>
       </div>
     </div>
@@ -279,7 +330,7 @@ function renderQuote(quote, dealer, addr) {
           <div><div class="info-label">Dealer</div><div class="info-value">${dealer?.company_name || '—'}</div></div>
           <div><div class="info-label">Contact</div><div class="info-value">${dealer?.contact_name || '—'}</div></div>
           <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${quote.logistic_type || '—'}</div></div>
-          <div><div class="info-label">Delivery Fee</div><div class="info-value">${quote.logistic_type === 'delivery' ? fmt(quote.delivery_fee) : '—'}</div></div>
+          <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${quote.status}</span></div></div>
         </div>
       </div>
     </div>
@@ -301,9 +352,15 @@ function renderQuote(quote, dealer, addr) {
         <table>
           <thead>
             <tr>
-              <th>Door Style</th><th>SKU</th><th>Type</th>
-              <th class="r">Qty</th><th class="r">MSRP</th>
-              <th class="r">Unit Price</th><th class="r">Total</th>
+              <th>#</th>
+              <th>Door Style</th>
+              <th>SKU</th>
+              <th>Type</th>
+              <th>Assemble Status</th>
+              <th class="r">Qty</th>
+              <th class="r">Unit Price</th>
+              <th class="r">Asm Fee</th>
+              <th class="r">Total</th>
             </tr>
           </thead>
           <tbody>${itemsHtml}</tbody>
@@ -314,12 +371,13 @@ function renderQuote(quote, dealer, addr) {
           <span class="total-label">Subtotal</span>
           <span class="total-val">${fmt(quote.subtotal)}</span>
         </div>
+        ${asmBreakdown}
         <div class="total-row">
-          <span class="total-label">Shipping${freeShip ? ' <span class="free-tag">✓ Free shipping</span>' : ''}</span>
+          <span class="total-label">Shipping${freeShip ? ' <span class="free-tag">✓ Free</span>' : ''}</span>
           <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
         </div>
         <div class="total-row">
-          <span class="total-label">Tax${taxExempt ? ' <span class="exempt-tag">✓ Tax exempt</span>' : ''}</span>
+          <span class="total-label">Tax${taxExempt ? ' <span class="exempt-tag">✓ Exempt</span>' : ''}</span>
           <span class="total-val">${fmt(quote.tax_amount)}</span>
         </div>
         <div class="total-row grand">
