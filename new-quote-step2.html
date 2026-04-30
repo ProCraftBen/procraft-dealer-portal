@@ -828,10 +828,12 @@ function setCat(c) {
 
 function renderSkuTable() {
   if (!activeStyle) return;
-  const stockM    = dealer ? parseFloat(dealer.stock_multiplier    || 1) : 1;
-  const nonStockM = dealer ? parseFloat(dealer.non_stock_multiplier || 1) : 1;
-  const isStock   = activeStyle.is_stock;
-  const m         = isStock ? stockM : nonStockM;
+  const stockM     = dealer ? parseFloat(dealer.stock_multiplier     || 1) : 1;
+  const nonStockM  = dealer ? parseFloat(dealer.non_stock_multiplier || 1) : 1;
+  const framelessM = dealer ? parseFloat(dealer.frameless_multiplier || 1) : 1;
+  const isFrameless = activeStyle.construction_type?.toLowerCase() === 'frameless';
+  const isStock    = activeStyle.is_stock;
+  const m          = isFrameless ? framelessM : (isStock ? stockM : nonStockM);
   const q = (document.getElementById('skuSearch')?.value||'').toLowerCase();
 
   let skus = getActiveSkus();
