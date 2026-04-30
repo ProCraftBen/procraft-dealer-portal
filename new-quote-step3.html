@@ -834,14 +834,14 @@ async function buildPdf(showPrices, markupPct = 0) {
   // Logo — left
   try {
     const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
-    doc.addImage(img, 'PNG', margin, 3, 30, 26);
+    doc.addImage(img, 'PNG', margin, 3, 44, 26);
   } catch(e) {
     doc.setTextColor(...darkGreen); doc.setFontSize(11); doc.setFont('helvetica','bold');
     doc.text('ProCraft DC', margin, 15);
   }
 
   // Company info — right of logo
-  const infoX = margin + 34;
+  const infoX = margin + 48;
   let infoY = 7;
   doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...darkGreen);
   doc.text('ProCraft Cabinetry DC LLC', infoX, infoY); infoY += 3.8;
