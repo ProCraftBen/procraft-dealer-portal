@@ -480,6 +480,15 @@ async function init() {
     document.getElementById('backToStep2').href       = `new-quote-step2.html?draft=${draftId}`;
   }
 
+  // Admin draft mode — hide Submit, only allow Save Draft
+  if (adminDraft || (step1Data && step1Data.adminDraft)) {
+    document.getElementById('btnSubmit').style.display = 'none';
+    document.getElementById('draftBanner').style.display = 'flex';
+    document.getElementById('draftBanner').innerHTML =
+      '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;flex-shrink:0;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>' +
+      '<span>Admin mode — use <strong>Save Draft</strong> only. The dealer will review and submit this quote.</span>';
+  }
+
   renderReview();
 }
 
