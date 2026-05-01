@@ -736,6 +736,17 @@
       `;
     }
 
+    // 自動產生 PO Number: S + UID + 4碼流水號
+    const { count } = await _supabase
+      .from('quotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('dealer_id', dealer.id);
+    const seq = String((count || 0) + 1).padStart(4, '0');
+    const autoPoNumber = `S${dealer.uid || 'XXX'}${seq}`;
+    document.getElementById('poNumber').value = autoPoNumber;
+    document.getElementById('poNumber').disabled = true;
+    document.getElementById('poNumber').style.cssText = 'background:var(--cream);color:var(--muted);cursor:not-allowed;';
+
     // Load saved addresses
     const { data: addrs } = await _supabase
       .from('addresses')
