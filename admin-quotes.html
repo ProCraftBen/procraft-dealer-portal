@@ -36,14 +36,21 @@
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
     .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
     @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } .nav-logo-img { height: 36px; max-width: 90px; } }
+
     .page { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
     .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
-    .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-    @media (max-width: 600px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+
+    /* Stats */
+    .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+    @media (max-width: 700px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 420px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
     .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px; text-align: center; }
     .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 500; color: var(--green-dark); line-height: 1; }
+    .stat-num.draft-num { color: var(--status-draft); }
     .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+    /* Filters */
     .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
     .filter-group { display: flex; flex-direction: column; gap: 5px; }
     .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
@@ -53,6 +60,8 @@
     .btn-filter:hover { background: var(--green-mid); }
     .btn-reset { height: 36px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; cursor: pointer; }
     .btn-reset:hover { color: var(--text); }
+
+    /* Table */
     .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -63,17 +72,25 @@
     tbody tr:last-child { border-bottom: none; }
     tbody tr.expandable { cursor: pointer; transition: background 0.15s; }
     tbody tr.expandable:hover { background: #FAFAF8; }
+    tbody tr.row-draft { background: rgba(155,89,182,0.02); }
+    tbody tr.row-draft:hover { background: rgba(155,89,182,0.05) !important; }
     tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
     .td-po { font-weight: 500; color: var(--green-dark); font-size: 13px; }
     .td-dealer { font-weight: 500; }
     .td-dealer-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
     .td-amount { font-weight: 500; text-align: right; }
+    .td-amount.draft-dash { color: var(--muted); font-style: italic; font-weight: 400; }
     .td-date { color: var(--muted); white-space: nowrap; }
+
+    /* Status */
     .status-select { border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 4px 6px; border-radius: 3px; }
     .status-select.pending    { color: var(--status-pending);    background: rgba(201,168,76,0.1); }
     .status-select.processing { color: var(--status-processing); background: rgba(59,130,246,0.1); }
     .status-select.complete   { color: var(--status-complete);   background: rgba(22,163,74,0.1); }
     .status-select.closed     { color: var(--status-closed);     background: rgba(107,114,128,0.1); }
+    .status-badge-draft { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(155,89,182,0.10); color: var(--status-draft); }
+
+    /* Detail rows */
     .detail-row { display: none; }
     .detail-row.open { display: table-row; }
     .detail-cell { padding: 0 !important; border-bottom: 2px solid var(--gold) !important; }
@@ -83,6 +100,8 @@
     .detail-section-title { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
     .detail-value { font-size: 12px; color: var(--text); line-height: 1.6; }
     .detail-value strong { color: var(--green-dark); }
+
+    /* Items mini table */
     .items-mini { width: 100%; border-collapse: collapse; margin-top: 4px; }
     .items-mini th { padding: 6px 10px; background: #EEECEA; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); text-align: left; }
     .items-mini th.r { text-align: right; }
@@ -92,49 +111,51 @@
     .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
     .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
     .sku-type-tag { font-size: 9px; background: rgba(201,168,76,0.12); color: #8B6914; border-radius: 2px; padding: 1px 5px; }
+
+    /* Totals mini */
     .totals-mini { margin-top: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     .total-mini-row { display: flex; gap: 24px; font-size: 12px; }
     .total-mini-row.grand { font-weight: 500; color: var(--green-dark); font-size: 13px; padding-top: 6px; border-top: 1px solid var(--border); }
     .total-mini-label { color: var(--muted); min-width: 80px; text-align: right; }
     .total-mini-value { min-width: 80px; text-align: right; }
     .asm-breakdown-mini { font-size: 11px; color: var(--muted); text-align: right; }
+
+    /* Empty / loading */
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 13px; }
     .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin-bottom: 12px; }
     .loading-rows { padding: 20px; }
     .loading-row { height: 16px; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 3px; margin-bottom: 14px; }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
     .expand-icon { font-size: 10px; color: var(--muted); margin-left: 4px; transition: transform 0.2s; display: inline-block; }
     .expand-icon.open { transform: rotate(180deg); }
     .overflow-x { overflow-x: auto; }
-    .status-select.draft     { color: var(--status-draft);     background: rgba(155,89,182,0.1); }
-    .status-badge-draft { display:inline-block;padding:3px 10px;border-radius:2px;font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;background:rgba(155,89,182,0.10);color:var(--status-draft); }
-    .stat-num.draft-num { color: var(--status-draft); }
-    .row-draft { background: rgba(155,89,182,0.02); }
-    .row-draft:hover { background: rgba(155,89,182,0.05) !important; }
-
-    /* Create Draft Modal */
-    .modal-overlay { position:fixed;inset:0;background:rgba(44,58,50,0.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px; }
-    .modal-overlay.show { display:flex; }
-    .modal-box { background:var(--white);border-radius:4px;padding:32px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto; }
-    .modal-title { font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--green-dark);margin-bottom:6px; }
-    .modal-sub { font-size:12px;color:var(--muted);margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border); }
-    .modal-field { margin-bottom:16px; }
-    .modal-field label { display:block;font-size:10px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:6px; }
-    .modal-field select, .modal-field input { width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:#FAFAFA;outline:none; }
-    .modal-field select:focus, .modal-field input:focus { border-color:var(--green-mid);background:#fff; }
-    .modal-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border); }
-    .btn-modal-cancel { padding:10px 20px;background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;color:var(--muted); }
-    .btn-modal-cancel:hover { color:var(--text);border-color:var(--text); }
-    .btn-modal-create { padding:10px 24px;background:var(--green-dark);border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;color:#fff; }
-    .btn-modal-create:hover { background:var(--green-mid); }
-    .btn-modal-create:disabled { opacity:0.5;cursor:not-allowed; }
-    .modal-error { font-size:12px;color:var(--error);margin-top:10px;display:none; }
-    .modal-error.show { display:block; }
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; }
+    .toast.show { display: block; }
 
     /* Create Draft button */
-    .btn-create-draft { display:inline-flex;align-items:center;gap:7px;background:transparent;color:var(--status-draft);border:1.5px solid var(--status-draft);border-radius:3px;padding:9px 16px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.2s; }
-    .btn-create-draft:hover { background:rgba(155,89,182,0.08); }
-    .btn-create-draft svg { width:13px;height:13px;fill:currentColor; }
+    .btn-create-draft { display: inline-flex; align-items: center; gap: 7px; background: transparent; color: var(--status-draft); border: 1.5px solid var(--status-draft); border-radius: 3px; padding: 9px 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+    .btn-create-draft:hover { background: rgba(155,89,182,0.08); }
+    .btn-create-draft svg { width: 13px; height: 13px; fill: currentColor; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.5); z-index: 500; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: var(--white); border-radius: 4px; padding: 32px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); margin-bottom: 6px; }
+    .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .modal-field { margin-bottom: 16px; }
+    .modal-field label { display: block; font-size: 10px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .modal-field select, .modal-field input { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: #FAFAFA; outline: none; }
+    .modal-field select:focus, .modal-field input:focus { border-color: var(--green-mid); background: #fff; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .btn-modal-cancel { padding: 10px 20px; background: transparent; border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; color: var(--muted); }
+    .btn-modal-cancel:hover { color: var(--text); border-color: var(--text); }
+    .btn-modal-create { padding: 10px 24px; background: var(--green-dark); border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; color: #fff; }
+    .btn-modal-create:hover { background: var(--green-mid); }
+    .btn-modal-create:disabled { opacity: 0.5; cursor: not-allowed; }
+    .modal-error { font-size: 12px; color: var(--error); margin-top: 10px; display: none; }
+    .modal-error.show { display: block; }
   </style>
 </head>
 <body>
@@ -149,8 +170,6 @@
     <a href="admin.html" class="nav-link">Dashboard</a>
     <a href="admin-quotes.html" class="nav-link active">Quotes</a>
     <a href="admin-dealers.html" class="nav-link">Dealers</a>
-    <a href="admin-accounts.html" class="nav-link">Accounts</a>
-    <a href="admin-tags.html" class="nav-link">Tags</a>
     <a href="change-password.html" class="nav-link">Change Password</a>
     <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
   </div>
@@ -163,8 +182,6 @@
   <a href="admin.html">Dashboard</a>
   <a href="admin-quotes.html" class="active">Quotes</a>
   <a href="admin-dealers.html">Dealers</a>
-  <a href="admin-accounts.html">Accounts</a>
-  <a href="admin-tags.html">Tags</a>
   <a href="change-password.html">Change Password</a>
   <div class="menu-divider"></div>
   <button onclick="handleLogout()">Sign Out</button>
@@ -179,7 +196,7 @@
     </button>
   </div>
 
-  <div class="stats-bar" style="grid-template-columns:repeat(5,1fr);">
+  <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label">Pending</div></div>
@@ -244,7 +261,7 @@
   </div>
 </div>
 
-<!-- Create Draft for Dealer Modal -->
+<!-- Create Draft Modal -->
 <div class="modal-overlay" id="createDraftModal">
   <div class="modal-box">
     <div class="modal-title">Create Draft for Dealer</div>
@@ -282,252 +299,330 @@ const _supabase = createClient(
 );
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
-const statusClass = { Draft: 'draft', Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
-let allQuotes = [], allDealers = {}, allDealersList = [];
+const statusClass = { Draft:'draft', Pending:'pending', Processing:'processing', Complete:'complete', Closed:'closed' };
+let allQuotes = [], allDealers = {};
 
+// ── Nav ────────────────────────────────────────────────────────────
 function toggleMenu() {
-  const btn = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  btn.classList.toggle('open');
-  menu.classList.toggle('show');
+  document.getElementById('hamburger').classList.toggle('open');
+  document.getElementById('mobileMenu').classList.toggle('show');
 }
 document.addEventListener('click', function(e) {
   const btn = document.getElementById('hamburger');
   const menu = document.getElementById('mobileMenu');
   if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open'); menu.classList.remove('show');
+    btn.classList.remove('open');
+    menu.classList.remove('show');
   }
 });
 
-function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+// ── Helpers ────────────────────────────────────────────────────────
+function formatDate(str) {
+  return new Date(str).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
+// ── Init ───────────────────────────────────────────────────────────
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
+
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
-  if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
+  if (!['admin','super_admin'].includes(me && me.role)) { window.location.href = 'dashboard.html'; return; }
 
-  const { data: dealers } = await _supabase.from('dealers').select('id, company_name, contact_name, email, city, state').order('company_name');
-  dealers?.forEach(d => allDealers[d.id] = d);
-  allDealersList = dealers || [];
+  const { data: dealers } = await _supabase
+    .from('dealers')
+    .select('id, uid, company_name, contact_name, email, city, state')
+    .order('company_name');
 
-  // Populate filter dealer dropdown
-  const sel = document.getElementById('filterDealer');
-  dealers?.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d.id; opt.textContent = d.company_name; sel.appendChild(opt);
-  });
+  if (dealers) {
+    dealers.forEach(function(d) { allDealers[d.id] = d; });
 
-  // Populate draft modal dealer dropdown
-  const draftSel = document.getElementById('draftDealerSelect');
-  dealers?.forEach(d => {
-    const opt = document.createElement('option');
-    opt.value = d.id; opt.textContent = d.company_name; draftSel.appendChild(opt);
-  });
+    // Filter dropdown
+    const filterSel = document.getElementById('filterDealer');
+    dealers.forEach(function(d) {
+      const opt = document.createElement('option');
+      opt.value = d.id; opt.textContent = d.company_name;
+      filterSel.appendChild(opt);
+    });
+
+    // Modal dropdown
+    const modalSel = document.getElementById('draftDealerSelect');
+    dealers.forEach(function(d) {
+      const opt2 = document.createElement('option');
+      opt2.value = d.id; opt2.textContent = d.company_name;
+      modalSel.appendChild(opt2);
+    });
+  }
 
   await loadQuotes();
 }
 
+// ── Load Quotes ────────────────────────────────────────────────────
 async function loadQuotes() {
   let query = _supabase.from('quotes').select('*, quote_items(*)').order('created_at', { ascending: false });
+
   const status = document.getElementById('filterStatus').value;
   const dealer = document.getElementById('filterDealer').value;
   const from   = document.getElementById('filterFrom').value;
   const to     = document.getElementById('filterTo').value;
+
   if (status) query = query.eq('status', status);
   if (dealer) query = query.eq('dealer_id', dealer);
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
+
   const { data: quotes } = await query;
   allQuotes = quotes || [];
   renderStats();
   renderTable();
 }
 
+// ── Stats ──────────────────────────────────────────────────────────
 function renderStats() {
   document.getElementById('statTotal').textContent      = allQuotes.length;
-  document.getElementById('statDraft').textContent      = allQuotes.filter(q => q.status === 'Draft').length;
-  document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
-  document.getElementById('statProcessing').textContent = allQuotes.filter(q => q.status === 'Processing').length;
-  document.getElementById('statComplete').textContent   = allQuotes.filter(q => q.status === 'Complete').length;
-  document.getElementById('tableCount').textContent     = `${allQuotes.length} quote${allQuotes.length !== 1 ? 's' : ''}`;
+  document.getElementById('statDraft').textContent      = allQuotes.filter(function(q) { return q.status === 'Draft'; }).length;
+  document.getElementById('statPending').textContent    = allQuotes.filter(function(q) { return q.status === 'Pending'; }).length;
+  document.getElementById('statProcessing').textContent = allQuotes.filter(function(q) { return q.status === 'Processing'; }).length;
+  document.getElementById('statComplete').textContent   = allQuotes.filter(function(q) { return q.status === 'Complete'; }).length;
+  document.getElementById('tableCount').textContent     = allQuotes.length + ' quote' + (allQuotes.length !== 1 ? 's' : '');
 }
 
+// ── Render Table ───────────────────────────────────────────────────
 function renderTable() {
   const tbody = document.getElementById('quotesBody');
+
   if (!allQuotes.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes found.</div></td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes found.</div></td></tr>';
     return;
   }
 
-  tbody.innerHTML = allQuotes.map((q, idx) => {
-    const dealer = allDealers[q.dealer_id] || {};
-    const items  = q.quote_items || [];
-    const sc     = statusClass[q.status] || 'pending';
+  let html = '';
+
+  allQuotes.forEach(function(q, idx) {
+    const dealer  = allDealers[q.dealer_id] || {};
+    const items   = q.quote_items || [];
+    const sc      = statusClass[q.status] || 'pending';
     const isDraft = q.status === 'Draft';
 
-    // Group items by style, sort by type
+    // ── Sort items ──
     const grouped = {};
-    items.forEach(i => {
+    items.forEach(function(i) {
       const k = i.style_code || '—';
       if (!grouped[k]) grouped[k] = [];
       grouped[k].push(i);
     });
-    Object.keys(grouped).forEach(k => {
-      grouped[k].sort((a,b) => {
-        const ra = TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
-        const rb = TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
-        return (ra===-1?99:ra) - (rb===-1?99:rb);
+    Object.keys(grouped).forEach(function(k) {
+      grouped[k].sort(function(a, b) {
+        const ra = TYPE_ORDER.indexOf((a.sku_type || '').toUpperCase());
+        const rb = TYPE_ORDER.indexOf((b.sku_type || '').toUpperCase());
+        return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
       });
     });
 
+    // ── Item rows ──
     let itemNum = 0;
     let lastStyle = null;
-    const itemRows = Object.entries(grouped).map(([styleName, styleItems]) =>
-      styleItems.map(i => {
+    let itemRowsHtml = '';
+    Object.keys(grouped).forEach(function(styleName) {
+      grouped[styleName].forEach(function(i) {
         itemNum++;
         const showStyle = styleName !== lastStyle;
         lastStyle = styleName;
-        return `<tr>
-          <td style="font-size:11px;color:var(--muted);font-weight:500;">#${itemNum}</td>
-          <td>${showStyle ? `<span style="font-weight:500;color:var(--green-dark);">${styleName}</span>` : ''}</td>
-          <td>${i.sku_code || '—'}</td>
-          <td>${i.sku_type ? `<span class="sku-type-tag">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
-          <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${i.assemble_status || '—'}</span></td>
-          <td class="r">${i.quantity}</td>
-          <td class="r">${fmt(i.unit_price)}</td>
-          <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0)>0 ? `+${fmt(i.assemble_fee*i.quantity)}` : '—'}</td>
-          <td class="r">${fmt(i.unit_price * i.quantity)}</td>
-        </tr>`;
-      }).join('')
-    ).join('');
+        const styleCell = showStyle
+          ? '<span style="font-weight:500;color:var(--green-dark);">' + styleName + '</span>'
+          : '';
+        const skuTypeCell = i.sku_type
+          ? '<span class="sku-type-tag">' + i.sku_type.toUpperCase() + '</span>'
+          : '—';
+        const asmFeeCell = parseFloat(i.assemble_fee || 0) > 0
+          ? '+' + fmt(i.assemble_fee * i.quantity)
+          : '—';
+        itemRowsHtml +=
+          '<tr>' +
+            '<td style="font-size:11px;color:var(--muted);font-weight:500;">#' + itemNum + '</td>' +
+            '<td>' + styleCell + '</td>' +
+            '<td>' + (i.sku_code || '—') + '</td>' +
+            '<td>' + skuTypeCell + '</td>' +
+            '<td><span class="type-badge ' + (i.assemble_status || '').toLowerCase() + '">' + (i.assemble_status || '—') + '</span></td>' +
+            '<td class="r">' + i.quantity + '</td>' +
+            '<td class="r">' + fmt(i.unit_price) + '</td>' +
+            '<td class="r" style="color:var(--muted);">' + asmFeeCell + '</td>' +
+            '<td class="r">' + fmt(i.unit_price * i.quantity) + '</td>' +
+          '</tr>';
+      });
+    });
 
-    // Assemble fee breakdown
+    // ── Assemble breakdown ──
     const byType = {};
-    items.forEach(i => {
-      if ((i.assemble_status||'').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
-      const t = (i.sku_type||'OTHER').toUpperCase();
-      if (!byType[t]) byType[t] = { qty:0, total:0 };
+    items.forEach(function(i) {
+      if ((i.assemble_status || '').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
+      const t = (i.sku_type || 'OTHER').toUpperCase();
+      if (!byType[t]) byType[t] = { qty: 0, total: 0 };
       byType[t].qty   += i.quantity;
       byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
     });
-    const assembleTotal = items.reduce((s,i) => s + parseFloat(i.assemble_fee||0)*i.quantity, 0);
-    const asmBreakdownHtml = assembleTotal > 0
-      ? `<div class="total-mini-row" style="flex-direction:column;align-items:flex-end;gap:2px;">
-          <div style="display:flex;gap:24px;"><span class="total-mini-label">Assemble Fee</span><span class="total-mini-value">+${fmt(assembleTotal)}</span></div>
-          <div class="asm-breakdown-mini">${TYPE_ORDER.filter(t=>byType[t]).map(t=>`${t} ×${byType[t].qty} +${fmt(byType[t].total)}`).join(' &nbsp;·&nbsp; ')}</div>
-        </div>`
+    const assembleTotal = items.reduce(function(s, i) { return s + parseFloat(i.assemble_fee || 0) * i.quantity; }, 0);
+
+    let asmBreakdownHtml = '';
+    if (assembleTotal > 0) {
+      const breakdown = TYPE_ORDER.filter(function(t) { return byType[t]; })
+        .map(function(t) { return t + ' \xd7' + byType[t].qty + ' +' + fmt(byType[t].total); })
+        .join(' &nbsp;&middot;&nbsp; ');
+      asmBreakdownHtml =
+        '<div class="total-mini-row" style="flex-direction:column;align-items:flex-end;gap:2px;">' +
+          '<div style="display:flex;gap:24px;">' +
+            '<span class="total-mini-label">Assemble Fee</span>' +
+            '<span class="total-mini-value">+' + fmt(assembleTotal) + '</span>' +
+          '</div>' +
+          '<div class="asm-breakdown-mini">' + breakdown + '</div>' +
+        '</div>';
+    }
+
+    // ── Items HTML ──
+    let itemsHtml = '';
+    if (items.length) {
+      const shippingVal = parseFloat(q.shipping_cost) === 0
+        ? '<span style="color:#16A34A;">FREE</span>'
+        : fmt(q.shipping_cost);
+      const taxVal = parseFloat(q.tax_amount) === 0
+        ? '<span style="color:#16A34A;">Exempt</span>'
+        : fmt(q.tax_amount);
+
+      itemsHtml =
+        '<table class="items-mini">' +
+          '<thead><tr>' +
+            '<th>#</th><th>Door Style</th><th>SKU</th><th>Type</th>' +
+            '<th>Assemble Status</th><th class="r">Qty</th>' +
+            '<th class="r">Unit Price</th><th class="r">Asm Fee</th><th class="r">Total</th>' +
+          '</tr></thead>' +
+          '<tbody>' + itemRowsHtml + '</tbody>' +
+        '</table>' +
+        '<div class="totals-mini">' +
+          '<div class="total-mini-row"><span class="total-mini-label">Subtotal</span><span class="total-mini-value">' + fmt(q.subtotal) + '</span></div>' +
+          asmBreakdownHtml +
+          '<div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">' + shippingVal + '</span></div>' +
+          '<div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">' + taxVal + '</span></div>' +
+          '<div class="total-mini-row grand"><span class="total-mini-label">Total</span><span class="total-mini-value">' + fmt(q.grand_total) + '</span></div>' +
+        '</div>';
+    } else {
+      itemsHtml = '<p style="font-size:12px;color:var(--muted);">No items yet — dealer will fill in when they continue the draft.</p>';
+    }
+
+    // ── Status cell ──
+    let statusCellHtml = '';
+    if (isDraft) {
+      statusCellHtml = '<td><span class="status-badge-draft">Draft</span></td>';
+    } else {
+      statusCellHtml =
+        '<td onclick="event.stopPropagation()" style="white-space:nowrap">' +
+          '<select class="status-select ' + sc + '" id="status-' + q.id + '" onchange="updateStatus(\'' + q.id + '\', this)">' +
+            '<option value="Pending"'    + (q.status === 'Pending'    ? ' selected' : '') + '>Pending</option>' +
+            '<option value="Processing"' + (q.status === 'Processing' ? ' selected' : '') + '>Processing</option>' +
+            '<option value="Complete"'   + (q.status === 'Complete'   ? ' selected' : '') + '>Complete</option>' +
+            '<option value="Closed"'     + (q.status === 'Closed'     ? ' selected' : '') + '>Closed</option>' +
+          '</select>' +
+          '<button id="save-' + q.id + '" onclick="saveStatus(\'' + q.id + '\')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>' +
+        '</td>';
+    }
+
+    // ── Total cell ──
+    const totalCellHtml = isDraft
+      ? '<td class="td-amount draft-dash" style="text-align:right;">—</td>'
+      : '<td class="td-amount">' + fmt(q.grand_total) + '</td>';
+
+    // ── Notes in detail ──
+    const notesHtml = q.notes
+      ? '<strong>Notes:</strong> ' + q.notes
       : '';
 
-    const itemsHtml = items.length ? `
-      <table class="items-mini">
-        <thead><tr><th>#</th><th>Door Style</th><th>SKU</th><th>Type</th><th>Assemble Status</th><th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Asm Fee</th><th class="r">Total</th></tr></thead>
-        <tbody>${itemRows}</tbody>
-      </table>
-      <div class="totals-mini">
-        <div class="total-mini-row"><span class="total-mini-label">Subtotal</span><span class="total-mini-value">${fmt(q.subtotal)}</span></div>
-        ${asmBreakdownHtml}
-        <div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">${parseFloat(q.shipping_cost)===0 ? '<span style="color:#16A34A;">FREE</span>' : fmt(q.shipping_cost)}</span></div>
-        <div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">${parseFloat(q.tax_amount)===0 ? '<span style="color:#16A34A;">Exempt</span>' : fmt(q.tax_amount)}</span></div>
-        <div class="total-mini-row grand"><span class="total-mini-label">Total</span><span class="total-mini-value">${fmt(q.grand_total)}</span></div>
-      </div>` : '<p style="font-size:12px;color:var(--muted);">No items yet — dealer will fill in when they continue the draft.</p>';
+    // ── Assemble main row + detail row ──
+    html +=
+      '<tr class="expandable' + (isDraft ? ' row-draft' : '') + '" onclick="toggleDetail(' + idx + ')">' +
+        '<td>' +
+          '<div class="td-po">' + (q.po_number || '—') + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
+          '<div style="font-size:11px;color:var(--muted);">' + (q.job_name || '—') + '</div>' +
+        '</td>' +
+        '<td><div class="td-dealer">' + (dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + (dealer.contact_name || '') + '</div></td>' +
+        '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
+        totalCellHtml +
+        statusCellHtml +
+        '<td onclick="event.stopPropagation()">' +
+          '<a href="quote-detail.html?id=' + q.id + '" style="display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;">View &rarr;</a>' +
+        '</td>' +
+      '</tr>' +
+      '<tr class="detail-row" id="detail-' + idx + '">' +
+        '<td colspan="6" class="detail-cell">' +
+          '<div class="detail-inner">' +
+            '<div class="detail-grid">' +
+              '<div>' +
+                '<div class="detail-section-title">Order Info</div>' +
+                '<div class="detail-value">' +
+                  '<strong>PO#:</strong> ' + (q.po_number || '—') + '<br>' +
+                  '<strong>Job:</strong> ' + (q.job_name || '—') + '<br>' +
+                  notesHtml +
+                '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="detail-section-title">Dealer</div>' +
+                '<div class="detail-value">' +
+                  '<strong>' + (dealer.company_name || '—') + '</strong><br>' +
+                  (dealer.contact_name || '') + '<br>' +
+                  (dealer.email || '') + '<br>' +
+                  (dealer.city || '') + ', ' + (dealer.state || '') +
+                '</div>' +
+              '</div>' +
+              '<div>' +
+                '<div class="detail-section-title">' + (isDraft ? 'Created' : 'Submitted') + '</div>' +
+                '<div class="detail-value">' + formatDate(q.created_at) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="detail-section-title">Items</div>' +
+            itemsHtml +
+          '</div>' +
+        '</td>' +
+      '</tr>';
+  });
 
-    // Status cell — Draft shows badge only (no editable select)
-    const statusCell = isDraft
-      ? `<td><span class="status-badge-draft">Draft</span></td>`
-      : `<td onclick="event.stopPropagation()" style="white-space:nowrap">
-          <select class="status-select ${sc}" id="status-${q.id}" onchange="updateStatus('${q.id}', this)">
-            <option value="Pending"    ${q.status==='Pending'    ?'selected':''}>Pending</option>
-            <option value="Processing" ${q.status==='Processing' ?'selected':''}>Processing</option>
-            <option value="Complete"   ${q.status==='Complete'   ?'selected':''}>Complete</option>
-            <option value="Closed"     ${q.status==='Closed'     ?'selected':''}>Closed</option>
-          </select>
-          <button id="save-${q.id}" onclick="saveStatus('${q.id}')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>
-        </td>`;
-
-    return `
-      <tr class="expandable ${isDraft ? 'row-draft' : ''}" onclick="toggleDetail(${idx})">
-        <td>
-          <div class="td-po">${q.po_number || '—'} <span class="expand-icon" id="icon-${idx}">▼</span></div>
-          <div style="font-size:11px;color:var(--muted);">${q.job_name || '—'}</div>
-        </td>
-        <td><div class="td-dealer">${dealer.company_name || '—'}</div><div class="td-dealer-sub">${dealer.contact_name || ''}</div></td>
-        <td class="td-date">${formatDate(q.created_at)}</td>
-        <td class="td-amount">${isDraft ? '<span style="color:var(--muted);font-style:italic;font-weight:400;">—</span>' : fmt(q.grand_total)}</td>
-        ${statusCell}
-        <td onclick="event.stopPropagation()">
-          <a href="quote-detail.html?id=${q.id}" style="display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;">View →</a>
-        </td>
-      </tr>
-      <tr class="detail-row" id="detail-${idx}">
-        <td colspan="6" class="detail-cell">
-          <div class="detail-inner">
-            <div class="detail-grid">
-              <div>
-                <div class="detail-section-title">Order Info</div>
-                <div class="detail-value">
-                  <strong>PO#:</strong> ${q.po_number || '—'}<br>
-                  <strong>Job:</strong> ${q.job_name || '—'}<br>
-                  ${q.notes ? `<strong>Notes:</strong> ${q.notes}` : ''}
-                </div>
-              </div>
-              <div>
-                <div class="detail-section-title">Dealer</div>
-                <div class="detail-value">
-                  <strong>${dealer.company_name || '—'}</strong><br>
-                  ${dealer.contact_name || ''}<br>
-                  ${dealer.email || ''}<br>
-                  ${dealer.city || ''}, ${dealer.state || ''}
-                </div>
-              </div>
-              <div>
-                <div class="detail-section-title">${isDraft ? 'Created' : 'Submitted'}</div>
-                <div class="detail-value">${formatDate(q.created_at)}</div>
-              </div>
-            </div>
-            <div class="detail-section-title">Items</div>
-            ${itemsHtml}
-          </div>
-        </td>
-      </tr>`;
-  }).join('');
-  }).join('');
+  tbody.innerHTML = html;
 }
 
+// ── Toggle detail row ──────────────────────────────────────────────
 function toggleDetail(idx) {
-  const row  = document.getElementById(`detail-${idx}`);
-  const icon = document.getElementById(`icon-${idx}`);
+  const row  = document.getElementById('detail-' + idx);
+  const icon = document.getElementById('icon-' + idx);
   const isOpen = row.classList.contains('open');
-  document.querySelectorAll('.detail-row.open').forEach(r => r.classList.remove('open'));
-  document.querySelectorAll('.expand-icon.open').forEach(i => i.classList.remove('open'));
+  document.querySelectorAll('.detail-row.open').forEach(function(r) { r.classList.remove('open'); });
+  document.querySelectorAll('.expand-icon.open').forEach(function(i) { i.classList.remove('open'); });
   if (!isOpen) { row.classList.add('open'); icon.classList.add('open'); }
 }
 
+// ── Status update ──────────────────────────────────────────────────
 function updateStatus(quoteId, selectEl) {
-  const saveBtn = document.getElementById(`save-${quoteId}`);
+  const saveBtn = document.getElementById('save-' + quoteId);
   if (saveBtn) saveBtn.style.display = 'inline-block';
 }
 
 async function saveStatus(quoteId) {
-  const selectEl  = document.getElementById(`status-${quoteId}`);
-  const saveBtn   = document.getElementById(`save-${quoteId}`);
+  const selectEl  = document.getElementById('status-' + quoteId);
+  const saveBtn   = document.getElementById('save-' + quoteId);
   const newStatus = selectEl.value;
   const { error } = await _supabase.from('quotes').update({ status: newStatus }).eq('id', quoteId);
   if (error) { showToast('Failed to update status.'); return; }
-  selectEl.className = `status-select ${statusClass[newStatus] || 'pending'}`;
+  selectEl.className = 'status-select ' + (statusClass[newStatus] || 'pending');
   saveBtn.style.display = 'none';
-  const q = allQuotes.find(q => q.id === quoteId);
+  const q = allQuotes.find(function(q) { return q.id === quoteId; });
   if (q) q.status = newStatus;
   renderStats();
-  showToast(`Status updated to ${newStatus}`);
+  showToast('Status updated to ' + newStatus);
 }
 
+// ── Filters ────────────────────────────────────────────────────────
 function applyFilters() { loadQuotes(); }
 function resetFilters() {
   document.getElementById('filterStatus').value = '';
@@ -537,13 +632,14 @@ function resetFilters() {
   loadQuotes();
 }
 
-// ── Create Draft for Dealer ─────────────────────────────────────────
+// ── Create Draft Modal ─────────────────────────────────────────────
 function openCreateDraftModal() {
   document.getElementById('draftDealerSelect').value = '';
   document.getElementById('draftJobName').value      = '';
   document.getElementById('draftNotes').value        = '';
   document.getElementById('draftModalError').classList.remove('show');
-  document.getElementById('btnCreateDraft').disabled = false;
+  document.getElementById('btnCreateDraft').disabled    = false;
+  document.getElementById('btnCreateDraft').textContent = 'Create Draft';
   document.getElementById('createDraftModal').classList.add('show');
 }
 
@@ -551,7 +647,6 @@ function closeCreateDraftModal() {
   document.getElementById('createDraftModal').classList.remove('show');
 }
 
-// Close modal on backdrop click
 document.getElementById('createDraftModal').addEventListener('click', function(e) {
   if (e.target === this) closeCreateDraftModal();
 });
@@ -564,7 +659,6 @@ async function createDraftForDealer() {
   const btn      = document.getElementById('btnCreateDraft');
 
   errEl.classList.remove('show');
-
   if (!dealerId) { errEl.textContent = 'Please select a dealer.'; errEl.classList.add('show'); return; }
   if (!jobName)  { errEl.textContent = 'Please enter a Job Name.'; errEl.classList.add('show'); return; }
 
@@ -575,29 +669,27 @@ async function createDraftForDealer() {
     const selectedDealer = allDealers[dealerId];
     if (!selectedDealer) throw new Error('Dealer not found.');
 
-    // Generate PO# based on dealer's existing quote count
     const { count } = await _supabase
       .from('quotes')
       .select('*', { count: 'exact', head: true })
       .eq('dealer_id', dealerId);
-    const seq      = String((count || 0) + 1).padStart(4, '0');
-    const poNumber = `S${selectedDealer.uid || 'XXX'}${seq}`;
 
-    // Generate internal quote_number
+    const seq      = String((count || 0) + 1).padStart(4, '0');
+    const poNumber = 'S' + (selectedDealer.uid || 'XXX') + seq;
+
     const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
     if (numError) throw numError;
 
-    // Insert Draft quote (no items — dealer fills in)
     const { error: insertError } = await _supabase.from('quotes').insert({
-      dealer_id:    dealerId,
-      quote_number: numData,
-      po_number:    poNumber,
-      job_name:     jobName,
-      notes:        notes || null,
-      status:       'Draft',
-      logistic_type: 'pickup',
-      delivery_fee:  0,
-      subtotal:      0,
+      dealer_id:      dealerId,
+      quote_number:   numData,
+      po_number:      poNumber,
+      job_name:       jobName,
+      notes:          notes || null,
+      status:         'Draft',
+      logistic_type:  'pickup',
+      delivery_fee:   0,
+      subtotal:       0,
       assemble_total: 0,
       shipping_cost:  0,
       tax_amount:     0,
@@ -606,10 +698,10 @@ async function createDraftForDealer() {
     if (insertError) throw insertError;
 
     closeCreateDraftModal();
-    showToast(`Draft ${poNumber} created for ${selectedDealer.company_name}`);
+    showToast('Draft ' + poNumber + ' created for ' + selectedDealer.company_name);
     await loadQuotes();
 
-  } catch (err) {
+  } catch(err) {
     console.error(err);
     errEl.textContent = err.message || 'Something went wrong. Please try again.';
     errEl.classList.add('show');
@@ -618,6 +710,7 @@ async function createDraftForDealer() {
   }
 }
 
+// ── Logout ─────────────────────────────────────────────────────────
 async function handleLogout() {
   await _supabase.auth.signOut();
   window.location.href = 'login.html';
