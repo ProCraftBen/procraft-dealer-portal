@@ -627,11 +627,9 @@ function resetFilters() {
 // ── Create Draft Modal ─────────────────────────────────────────────
 function openCreateDraftModal() {
   document.getElementById('draftDealerSelect').value = '';
-  document.getElementById('draftJobName').value      = '';
-  document.getElementById('draftNotes').value        = '';
   document.getElementById('draftModalError').classList.remove('show');
   document.getElementById('btnCreateDraft').disabled    = false;
-  document.getElementById('btnCreateDraft').textContent = 'Create Draft';
+  document.getElementById('btnCreateDraft').textContent = 'Start Quote →';
   document.getElementById('createDraftModal').classList.add('show');
 }
 
