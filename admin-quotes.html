@@ -10,6 +10,7 @@
     :root {
       --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF; --error:#C0392B;
+      --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
@@ -105,8 +106,35 @@
     .expand-icon { font-size: 10px; color: var(--muted); margin-left: 4px; transition: transform 0.2s; display: inline-block; }
     .expand-icon.open { transform: rotate(180deg); }
     .overflow-x { overflow-x: auto; }
-    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; }
-    .toast.show { display: block; }
+    .status-select.draft     { color: var(--status-draft);     background: rgba(155,89,182,0.1); }
+    .status-badge-draft { display:inline-block;padding:3px 10px;border-radius:2px;font-size:10px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;background:rgba(155,89,182,0.10);color:var(--status-draft); }
+    .stat-num.draft-num { color: var(--status-draft); }
+    .row-draft { background: rgba(155,89,182,0.02); }
+    .row-draft:hover { background: rgba(155,89,182,0.05) !important; }
+
+    /* Create Draft Modal */
+    .modal-overlay { position:fixed;inset:0;background:rgba(44,58,50,0.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px; }
+    .modal-overlay.show { display:flex; }
+    .modal-box { background:var(--white);border-radius:4px;padding:32px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto; }
+    .modal-title { font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400;color:var(--green-dark);margin-bottom:6px; }
+    .modal-sub { font-size:12px;color:var(--muted);margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border); }
+    .modal-field { margin-bottom:16px; }
+    .modal-field label { display:block;font-size:10px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:6px; }
+    .modal-field select, .modal-field input { width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:#FAFAFA;outline:none; }
+    .modal-field select:focus, .modal-field input:focus { border-color:var(--green-mid);background:#fff; }
+    .modal-actions { display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border); }
+    .btn-modal-cancel { padding:10px 20px;background:transparent;border:1px solid var(--border);border-radius:3px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;color:var(--muted); }
+    .btn-modal-cancel:hover { color:var(--text);border-color:var(--text); }
+    .btn-modal-create { padding:10px 24px;background:var(--green-dark);border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;color:#fff; }
+    .btn-modal-create:hover { background:var(--green-mid); }
+    .btn-modal-create:disabled { opacity:0.5;cursor:not-allowed; }
+    .modal-error { font-size:12px;color:var(--error);margin-top:10px;display:none; }
+    .modal-error.show { display:block; }
+
+    /* Create Draft button */
+    .btn-create-draft { display:inline-flex;align-items:center;gap:7px;background:transparent;color:var(--status-draft);border:1.5px solid var(--status-draft);border-radius:3px;padding:9px 16px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.2s; }
+    .btn-create-draft:hover { background:rgba(155,89,182,0.08); }
+    .btn-create-draft svg { width:13px;height:13px;fill:currentColor; }
   </style>
 </head>
 <body>
@@ -145,10 +173,15 @@
 <div class="page">
   <div class="page-header">
     <div class="page-title">All Quotes</div>
+    <button class="btn-create-draft" onclick="openCreateDraftModal()">
+      <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Create Draft for Dealer
+    </button>
   </div>
 
-  <div class="stats-bar">
+  <div class="stats-bar" style="grid-template-columns:repeat(5,1fr);">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label">Pending</div></div>
     <div class="stat-card"><div class="stat-num" id="statProcessing" style="color:var(--status-processing)">—</div><div class="stat-label">Processing</div></div>
     <div class="stat-card"><div class="stat-num" id="statComplete" style="color:var(--status-complete)">—</div><div class="stat-label">Complete</div></div>
@@ -159,6 +192,7 @@
       <label class="filter-label">Status</label>
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
+        <option value="Draft">Draft</option>
         <option value="Pending">Pending</option>
         <option value="Processing">Processing</option>
         <option value="Complete">Complete</option>
@@ -210,6 +244,33 @@
   </div>
 </div>
 
+<!-- Create Draft for Dealer Modal -->
+<div class="modal-overlay" id="createDraftModal">
+  <div class="modal-box">
+    <div class="modal-title">Create Draft for Dealer</div>
+    <div class="modal-sub">A draft quote will be created and visible to the dealer in their My Quotes page. They can continue filling it in and submit when ready.</div>
+    <div class="modal-field">
+      <label>Dealer <span style="color:var(--gold);">*</span></label>
+      <select id="draftDealerSelect">
+        <option value="">— Select a dealer —</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>Job Name <span style="color:var(--gold);">*</span></label>
+      <input type="text" id="draftJobName" placeholder="e.g. Johnson Kitchen Remodel"/>
+    </div>
+    <div class="modal-field">
+      <label>Notes (Optional)</label>
+      <input type="text" id="draftNotes" placeholder="Any instructions for the dealer..."/>
+    </div>
+    <div class="modal-error" id="draftModalError"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeCreateDraftModal()">Cancel</button>
+      <button class="btn-modal-create" id="btnCreateDraft" onclick="createDraftForDealer()">Create Draft</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -221,8 +282,8 @@ const _supabase = createClient(
 );
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
-const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
-let allQuotes = [], allDealers = {};
+const statusClass = { Draft: 'draft', Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+let allQuotes = [], allDealers = {}, allDealersList = [];
 
 function toggleMenu() {
   const btn = document.getElementById('hamburger');
@@ -254,11 +315,22 @@ async function init() {
 
   const { data: dealers } = await _supabase.from('dealers').select('id, company_name, contact_name, email, city, state').order('company_name');
   dealers?.forEach(d => allDealers[d.id] = d);
+  allDealersList = dealers || [];
+
+  // Populate filter dealer dropdown
   const sel = document.getElementById('filterDealer');
   dealers?.forEach(d => {
     const opt = document.createElement('option');
     opt.value = d.id; opt.textContent = d.company_name; sel.appendChild(opt);
   });
+
+  // Populate draft modal dealer dropdown
+  const draftSel = document.getElementById('draftDealerSelect');
+  dealers?.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id; opt.textContent = d.company_name; draftSel.appendChild(opt);
+  });
+
   await loadQuotes();
 }
 
@@ -280,6 +352,7 @@ async function loadQuotes() {
 
 function renderStats() {
   document.getElementById('statTotal').textContent      = allQuotes.length;
+  document.getElementById('statDraft').textContent      = allQuotes.filter(q => q.status === 'Draft').length;
   document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
   document.getElementById('statProcessing').textContent = allQuotes.filter(q => q.status === 'Processing').length;
   document.getElementById('statComplete').textContent   = allQuotes.filter(q => q.status === 'Complete').length;
@@ -297,6 +370,7 @@ function renderTable() {
     const dealer = allDealers[q.dealer_id] || {};
     const items  = q.quote_items || [];
     const sc     = statusClass[q.status] || 'pending';
+    const isDraft = q.status === 'Draft';
 
     // Group items by style, sort by type
     const grouped = {};
@@ -362,18 +436,12 @@ function renderTable() {
         <div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">${parseFloat(q.shipping_cost)===0 ? '<span style="color:#16A34A;">FREE</span>' : fmt(q.shipping_cost)}</span></div>
         <div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">${parseFloat(q.tax_amount)===0 ? '<span style="color:#16A34A;">Exempt</span>' : fmt(q.tax_amount)}</span></div>
         <div class="total-mini-row grand"><span class="total-mini-label">Total</span><span class="total-mini-value">${fmt(q.grand_total)}</span></div>
-      </div>` : '<p style="font-size:12px;color:var(--muted);">No items.</p>';
+      </div>` : '<p style="font-size:12px;color:var(--muted);">No items yet — dealer will fill in when they continue the draft.</p>';
 
-    return `
-      <tr class="expandable" onclick="toggleDetail(${idx})">
-        <td>
-          <div class="td-po">${q.po_number || '—'} <span class="expand-icon" id="icon-${idx}">▼</span></div>
-          <div style="font-size:11px;color:var(--muted);">${q.job_name || '—'}</div>
-        </td>
-        <td><div class="td-dealer">${dealer.company_name || '—'}</div><div class="td-dealer-sub">${dealer.contact_name || ''}</div></td>
-        <td class="td-date">${formatDate(q.created_at)}</td>
-        <td class="td-amount">${fmt(q.grand_total)}</td>
-        <td onclick="event.stopPropagation()" style="white-space:nowrap">
+    // Status cell — Draft shows badge only (no editable select)
+    const statusCell = isDraft
+      ? `<td><span class="status-badge-draft">Draft</span></td>`
+      : `<td onclick="event.stopPropagation()" style="white-space:nowrap">
           <select class="status-select ${sc}" id="status-${q.id}" onchange="updateStatus('${q.id}', this)">
             <option value="Pending"    ${q.status==='Pending'    ?'selected':''}>Pending</option>
             <option value="Processing" ${q.status==='Processing' ?'selected':''}>Processing</option>
@@ -381,7 +449,18 @@ function renderTable() {
             <option value="Closed"     ${q.status==='Closed'     ?'selected':''}>Closed</option>
           </select>
           <button id="save-${q.id}" onclick="saveStatus('${q.id}')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>
+        </td>`;
+
+    return `
+      <tr class="expandable ${isDraft ? 'row-draft' : ''}" onclick="toggleDetail(${idx})">
+        <td>
+          <div class="td-po">${q.po_number || '—'} <span class="expand-icon" id="icon-${idx}">▼</span></div>
+          <div style="font-size:11px;color:var(--muted);">${q.job_name || '—'}</div>
         </td>
+        <td><div class="td-dealer">${dealer.company_name || '—'}</div><div class="td-dealer-sub">${dealer.contact_name || ''}</div></td>
+        <td class="td-date">${formatDate(q.created_at)}</td>
+        <td class="td-amount">${isDraft ? '<span style="color:var(--muted);font-style:italic;font-weight:400;">—</span>' : fmt(q.grand_total)}</td>
+        ${statusCell}
         <td onclick="event.stopPropagation()">
           <a href="quote-detail.html?id=${q.id}" style="display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;">View →</a>
         </td>
@@ -408,7 +487,7 @@ function renderTable() {
                 </div>
               </div>
               <div>
-                <div class="detail-section-title">Submitted</div>
+                <div class="detail-section-title">${isDraft ? 'Created' : 'Submitted'}</div>
                 <div class="detail-value">${formatDate(q.created_at)}</div>
               </div>
             </div>
@@ -417,6 +496,7 @@ function renderTable() {
           </div>
         </td>
       </tr>`;
+  }).join('');
   }).join('');
 }
 
@@ -455,6 +535,87 @@ function resetFilters() {
   document.getElementById('filterFrom').value   = '';
   document.getElementById('filterTo').value     = '';
   loadQuotes();
+}
+
+// ── Create Draft for Dealer ─────────────────────────────────────────
+function openCreateDraftModal() {
+  document.getElementById('draftDealerSelect').value = '';
+  document.getElementById('draftJobName').value      = '';
+  document.getElementById('draftNotes').value        = '';
+  document.getElementById('draftModalError').classList.remove('show');
+  document.getElementById('btnCreateDraft').disabled = false;
+  document.getElementById('createDraftModal').classList.add('show');
+}
+
+function closeCreateDraftModal() {
+  document.getElementById('createDraftModal').classList.remove('show');
+}
+
+// Close modal on backdrop click
+document.getElementById('createDraftModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCreateDraftModal();
+});
+
+async function createDraftForDealer() {
+  const dealerId = document.getElementById('draftDealerSelect').value.trim();
+  const jobName  = document.getElementById('draftJobName').value.trim();
+  const notes    = document.getElementById('draftNotes').value.trim();
+  const errEl    = document.getElementById('draftModalError');
+  const btn      = document.getElementById('btnCreateDraft');
+
+  errEl.classList.remove('show');
+
+  if (!dealerId) { errEl.textContent = 'Please select a dealer.'; errEl.classList.add('show'); return; }
+  if (!jobName)  { errEl.textContent = 'Please enter a Job Name.'; errEl.classList.add('show'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  try {
+    const selectedDealer = allDealers[dealerId];
+    if (!selectedDealer) throw new Error('Dealer not found.');
+
+    // Generate PO# based on dealer's existing quote count
+    const { count } = await _supabase
+      .from('quotes')
+      .select('*', { count: 'exact', head: true })
+      .eq('dealer_id', dealerId);
+    const seq      = String((count || 0) + 1).padStart(4, '0');
+    const poNumber = `S${selectedDealer.uid || 'XXX'}${seq}`;
+
+    // Generate internal quote_number
+    const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
+    if (numError) throw numError;
+
+    // Insert Draft quote (no items — dealer fills in)
+    const { error: insertError } = await _supabase.from('quotes').insert({
+      dealer_id:    dealerId,
+      quote_number: numData,
+      po_number:    poNumber,
+      job_name:     jobName,
+      notes:        notes || null,
+      status:       'Draft',
+      logistic_type: 'pickup',
+      delivery_fee:  0,
+      subtotal:      0,
+      assemble_total: 0,
+      shipping_cost:  0,
+      tax_amount:     0,
+      grand_total:    0,
+    });
+    if (insertError) throw insertError;
+
+    closeCreateDraftModal();
+    showToast(`Draft ${poNumber} created for ${selectedDealer.company_name}`);
+    await loadQuotes();
+
+  } catch (err) {
+    console.error(err);
+    errEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errEl.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Create Draft';
+  }
 }
 
 async function handleLogout() {
