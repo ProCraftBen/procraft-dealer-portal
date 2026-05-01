@@ -265,25 +265,17 @@
 <div class="modal-overlay" id="createDraftModal">
   <div class="modal-box">
     <div class="modal-title">Create Draft for Dealer</div>
-    <div class="modal-sub">A draft quote will be created and visible to the dealer in their My Quotes page. They can continue filling it in and submit when ready.</div>
+    <div class="modal-sub">Select a dealer to create a quote on their behalf. You will be taken through the full quote flow and can save as draft when done.</div>
     <div class="modal-field">
       <label>Dealer <span style="color:var(--gold);">*</span></label>
       <select id="draftDealerSelect">
         <option value="">— Select a dealer —</option>
       </select>
     </div>
-    <div class="modal-field">
-      <label>Job Name <span style="color:var(--gold);">*</span></label>
-      <input type="text" id="draftJobName" placeholder="e.g. Johnson Kitchen Remodel"/>
-    </div>
-    <div class="modal-field">
-      <label>Notes (Optional)</label>
-      <input type="text" id="draftNotes" placeholder="Any instructions for the dealer..."/>
-    </div>
     <div class="modal-error" id="draftModalError"></div>
     <div class="modal-actions">
       <button class="btn-modal-cancel" onclick="closeCreateDraftModal()">Cancel</button>
-      <button class="btn-modal-create" id="btnCreateDraft" onclick="createDraftForDealer()">Create Draft</button>
+      <button class="btn-modal-create" id="btnCreateDraft" onclick="createDraftForDealer()">Start Quote →</button>
     </div>
   </div>
 </div>
@@ -653,61 +645,21 @@ document.getElementById('createDraftModal').addEventListener('click', function(e
 
 async function createDraftForDealer() {
   const dealerId = document.getElementById('draftDealerSelect').value.trim();
-  const jobName  = document.getElementById('draftJobName').value.trim();
-  const notes    = document.getElementById('draftNotes').value.trim();
   const errEl    = document.getElementById('draftModalError');
   const btn      = document.getElementById('btnCreateDraft');
 
   errEl.classList.remove('show');
   if (!dealerId) { errEl.textContent = 'Please select a dealer.'; errEl.classList.add('show'); return; }
-  if (!jobName)  { errEl.textContent = 'Please enter a Job Name.'; errEl.classList.add('show'); return; }
 
-  btn.disabled = true;
-  btn.textContent = 'Creating...';
+  // Store the target dealer id in sessionStorage so new-quote.html can pick it up
+  sessionStorage.setItem('adminDraftDealerId', dealerId);
 
-  try {
-    const selectedDealer = allDealers[dealerId];
-    if (!selectedDealer) throw new Error('Dealer not found.');
+  // Clear any leftover quote data
+  sessionStorage.removeItem('quoteStep1');
+  sessionStorage.removeItem('quoteStep2');
 
-    const { count } = await _supabase
-      .from('quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('dealer_id', dealerId);
-
-    const seq      = String((count || 0) + 1).padStart(4, '0');
-    const poNumber = 'S' + (selectedDealer.uid || 'XXX') + seq;
-
-    const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
-    if (numError) throw numError;
-
-    const { error: insertError } = await _supabase.from('quotes').insert({
-      dealer_id:      dealerId,
-      quote_number:   numData,
-      po_number:      poNumber,
-      job_name:       jobName,
-      notes:          notes || null,
-      status:         'Draft',
-      logistic_type:  'pickup',
-      delivery_fee:   0,
-      subtotal:       0,
-      assemble_total: 0,
-      shipping_cost:  0,
-      tax_amount:     0,
-      grand_total:    0,
-    });
-    if (insertError) throw insertError;
-
-    closeCreateDraftModal();
-    showToast('Draft ' + poNumber + ' created for ' + selectedDealer.company_name);
-    await loadQuotes();
-
-  } catch(err) {
-    console.error(err);
-    errEl.textContent = err.message || 'Something went wrong. Please try again.';
-    errEl.classList.add('show');
-    btn.disabled = false;
-    btn.textContent = 'Create Draft';
-  }
+  closeCreateDraftModal();
+  window.location.href = 'new-quote.html?adminDraft=1';
 }
 
 // ── Logout ─────────────────────────────────────────────────────────
