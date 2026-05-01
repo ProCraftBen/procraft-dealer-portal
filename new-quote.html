@@ -700,12 +700,17 @@
   let savedAddresses = [];
   let selectedAddressId = null;
   let shippingMode = 'same';
+  let draftId = null; // set if resuming a draft
 
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
 
     const userId = session.user.id;
+
+    // Check for draft resume mode
+    const params = new URLSearchParams(window.location.search);
+    draftId = params.get('draft') || null;
 
     // Load dealer + is_active check
     const { data: d } = await _supabase
@@ -722,24 +727,15 @@
 
     dealer = d;
 
-    // 自動產生 PO Number: S + UID + 4碼流水號
-    const { count } = await _supabase
-      .from('quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('dealer_id', dealer.id);
-    const seq = String((count || 0) + 1).padStart(4, '0');
-    const autoPoNumber = `S${dealer.uid || 'XXX'}${seq}`;
-    document.getElementById('poNumber').value = autoPoNumber;
-    if (dealer) {
-      const line2 = dealer.address_line2 ? `<br>${dealer.address_line2}` : '';
-      document.getElementById('billingDisplay').innerHTML = `
-        <strong>${dealer.company_name}</strong><br>
-        ${dealer.contact_name}<br>
-        ${dealer.address_line1 || dealer.address_formatted || '—'}${line2}<br>
-        ${dealer.city || ''}, ${dealer.state || ''} ${dealer.zip_code || ''}<br>
-        ${dealer.phone || ''}
-      `;
-    }
+    // Fill billing display
+    const line2 = dealer.address_line2 ? `<br>${dealer.address_line2}` : '';
+    document.getElementById('billingDisplay').innerHTML = `
+      <strong>${dealer.company_name}</strong><br>
+      ${dealer.contact_name}<br>
+      ${dealer.address_line1 || '—'}${line2}<br>
+      ${dealer.city || ''}, ${dealer.state || ''} ${dealer.zip_code || ''}<br>
+      ${dealer.phone || ''}
+    `;
 
     // Load saved addresses
     const { data: addrs } = await _supabase
@@ -751,29 +747,44 @@
     savedAddresses = addrs || [];
     renderAddresses();
 
-    // Restore Step 1 data if coming back from Edit
-    const saved = sessionStorage.getItem('quoteStep1');
-    if (saved) {
-      try {
-        const s1 = JSON.parse(saved);
-        document.getElementById('poNumber').value = s1.poNumber || '';
-        document.getElementById('jobName').value  = s1.jobName  || '';
-        document.getElementById('notes').value    = s1.notes    || '';
-        if (s1.logisticType) {
-          document.getElementById('logisticType').value = s1.logisticType;
-          handleLogisticChange();
-          if (s1.logisticType === 'delivery' && s1.deliveryFee) {
-            document.getElementById('deliveryDistance').value = s1.deliveryFee;
+    if (draftId) {
+      // ── Resume Draft mode: load from DB ──
+      await loadDraftData(userId);
+    } else {
+      // ── New Quote mode ──
+
+      // Restore Step 1 data if coming back from Step 2 Edit
+      const saved = sessionStorage.getItem('quoteStep1');
+      if (saved) {
+        try {
+          const s1 = JSON.parse(saved);
+          document.getElementById('poNumber').value = s1.poNumber || '';
+          document.getElementById('jobName').value  = s1.jobName  || '';
+          document.getElementById('notes').value    = s1.notes    || '';
+          if (s1.logisticType) {
+            document.getElementById('logisticType').value = s1.logisticType;
+            handleLogisticChange();
+            if (s1.logisticType === 'delivery' && s1.deliveryFee) {
+              document.getElementById('deliveryDistance').value = s1.deliveryFee;
+            }
           }
-        }
-        if (s1.shippingMode === 'different') {
-          setShippingMode('different');
-          if (s1.shippingAddressId) {
-            selectedAddressId = s1.shippingAddressId;
-            renderAddresses();
+          if (s1.shippingMode === 'different') {
+            setShippingMode('different');
+            if (s1.shippingAddressId) {
+              selectedAddressId = s1.shippingAddressId;
+              renderAddresses();
+            }
           }
-        }
-      } catch(e) { /* ignore parse errors */ }
+        } catch(e) { /* ignore parse errors */ }
+      } else {
+        // Fresh new quote — auto-generate PO#
+        const { count } = await _supabase
+          .from('quotes')
+          .select('*', { count: 'exact', head: true })
+          .eq('dealer_id', dealer.id);
+        const seq = String((count || 0) + 1).padStart(4, '0');
+        document.getElementById('poNumber').value = `S${dealer.uid || 'XXX'}${seq}`;
+      }
     }
 
     // Poll is_active every 60s — kick out if deactivated
@@ -785,6 +796,65 @@
         window.location.href = 'login.html';
       }
     }, 60000);
+  }
+
+  // ── Load draft data from DB and populate Step 1 form ──
+  async function loadDraftData(userId) {
+    const { data: draft, error } = await _supabase
+      .from('quotes')
+      .select('*')
+      .eq('id', draftId)
+      .eq('dealer_id', userId)
+      .eq('status', 'Draft')
+      .single();
+
+    if (error || !draft) {
+      // Draft not found or not owned by this dealer — fall back to new quote
+      console.warn('Draft not found, starting fresh.');
+      draftId = null;
+      const { count } = await _supabase
+        .from('quotes')
+        .select('*', { count: 'exact', head: true })
+        .eq('dealer_id', dealer.id);
+      const seq = String((count || 0) + 1).padStart(4, '0');
+      document.getElementById('poNumber').value = `S${dealer.uid || 'XXX'}${seq}`;
+      return;
+    }
+
+    // Populate form fields from draft
+    document.getElementById('poNumber').value = draft.po_number || '';
+    document.getElementById('jobName').value  = draft.job_name  || '';
+    document.getElementById('notes').value    = draft.notes     || '';
+
+    // Logistic
+    if (draft.logistic_type) {
+      document.getElementById('logisticType').value = draft.logistic_type;
+      handleLogisticChange();
+      if (draft.logistic_type === 'delivery' && draft.delivery_fee) {
+        document.getElementById('deliveryDistance').value = draft.delivery_fee;
+      }
+    }
+
+    // Shipping address
+    if (draft.shipping_address_id) {
+      setShippingMode('different');
+      selectedAddressId = draft.shipping_address_id;
+      renderAddresses();
+    }
+
+    // Pre-populate sessionStorage so Step 2 & 3 have the data
+    // (Step 2 will also load items from DB separately via ?draft=id)
+    const s1 = {
+      poNumber:          draft.po_number,
+      jobName:           draft.job_name,
+      notes:             draft.notes || '',
+      shippingMode:      draft.shipping_address_id ? 'different' : 'same',
+      shippingAddressId: draft.shipping_address_id || null,
+      logisticType:      draft.logistic_type || 'pickup',
+      deliveryFee:       draft.delivery_fee  || 0,
+      billingOverride:   null,
+    };
+    sessionStorage.setItem('quoteStep1', JSON.stringify(s1));
   }
 
   function renderAddresses() {
@@ -1026,7 +1096,9 @@
     const deliveryFee  = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
     const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee, billingOverride };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
-    window.location.href = 'new-quote-step2.html';
+    // Pass draft id to step 2 if resuming
+    const nextUrl = draftId ? `new-quote-step2.html?draft=${draftId}` : 'new-quote-step2.html';
+    window.location.href = nextUrl;
   }
 
   async function saveNewAddress() {
