@@ -28,6 +28,11 @@
     .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
     .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 5px 10px; background: transparent; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
     .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
 
     /* ── Progress ── */
     .progress-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; }
@@ -95,7 +100,9 @@
     /* ── Notes ── */
     .notes-display { font-size: 13px; color: var(--text); line-height: 1.6; font-style: italic; }
 
-    /* ── Submit Section ── */
+    .btn-back { background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; min-height: 40px; text-decoration: none; display: inline-flex; align-items: center; }
+    .btn-back:hover { color: var(--text); border-color: var(--text); }
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; z-index: 150; height: 56px; }
     .submit-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 24px 20px; margin-bottom: 16px; text-align: center; }
     .submit-note { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
     .btn-submit {
@@ -135,11 +142,12 @@
     .btn-dashboard:hover { background: var(--green-mid); }
 
     /* Hamburger */
-    .hamburger { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
+    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
     .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
     .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
     .hamburger.open span:nth-child(2) { opacity: 0; }
     .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
     /* Mobile menu */
     .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
     .mobile-menu.show { display: flex; }
@@ -147,7 +155,6 @@
     .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
     .mobile-menu a.active { color: #fff; }
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    @media (max-width: 768px) { .nav-back { display: none !important; } }
   </style>
 </head>
 <body>
@@ -157,7 +164,13 @@
     <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
     <span class="nav-title">ProCraft DC</span>
   </div>
-  <a href="new-quote-step2.html" class="nav-back" id="navBackDesktop">← Edit Items</a>
+  <div class="nav-right">
+    <a href="dashboard.html" class="nav-link">Dashboard</a>
+    <a href="quotes.html" class="nav-link">My Quotes</a>
+    <a href="new-quote.html" class="nav-link active">New Quote</a>
+    <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
+    <button onclick="handleLogout()" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer;border:1px solid rgba(255,255,255,0.15);border-radius:3px;padding:5px 10px;background:transparent;">Sign Out</button>
+  </div>
   <button class="hamburger" id="hamburger" onclick="toggleMenu()">
     <span></span><span></span><span></span>
   </button>
@@ -253,9 +266,11 @@
       <table class="items-table">
         <thead>
           <tr>
+            <th>#</th>
             <th>Door Style</th>
             <th>SKU</th>
             <th>Type</th>
+            <th>Assemble Status</th>
             <th class="th-right">Qty</th>
             <th class="th-right">Unit Price</th>
             <th class="th-right">Assemble Fee</th>
@@ -271,12 +286,12 @@
         <span class="total-label">Subtotal</span>
         <span class="total-value" id="totalSubtotal">$0.00</span>
       </div>
-      <div class="total-row" id="assembleRow" style="display:none;">
-        <div>
+      <div id="assembleRow" style="display:none;">
+        <div class="total-row" style="padding-bottom:2px;">
           <span class="total-label">Assemble Fee</span>
-          <div class="total-note" style="font-size:11px;color:var(--muted);">Assembled items only</div>
+          <span class="total-value" id="totalAssemble" style="color:#8B6914;">$0.00</span>
         </div>
-        <span class="total-value" id="totalAssemble" style="color:#8B6914;">$0.00</span>
+        <div id="assembleBreakdown" style="padding:0 0 8px 16px;"></div>
       </div>
       <div class="total-row" id="shippingRow">
         <div>
@@ -313,20 +328,18 @@
       Please review your quote carefully before submitting.<br>
       Our team will contact you to confirm pricing and availability.
     </div>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-      <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
-        <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        <span class="btn-text">Submit Quote</span>
-        <div class="spinner"></div>
-      </button>
-      <button class="btn-submit" id="btnDraft" onclick="saveDraft()" style="background:transparent;color:var(--green-dark);border:1px solid var(--green-dark);">
-        <svg class="btn-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        <span class="btn-text">Save as Draft</span>
-        <div class="spinner"></div>
-      </button>
-    </div>
+    <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
+      <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      <span class="btn-text">Submit Quote</span>
+      <div class="spinner"></div>
+    </button>
   </div>
 
+</div>
+
+<!-- Bottom Bar -->
+<div class="bottom-bar">
+  <a href="new-quote-step2.html" class="btn-back">← Edit Items</a>
 </div>
 
 <!-- Success Overlay -->
@@ -403,6 +416,51 @@ async function init() {
   renderReview();
 }
 
+// ── Shared helpers ──────────────────────────────────────────────────
+const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
+
+function typeRank(type) {
+  const idx = TYPE_ORDER.indexOf((type||'').toUpperCase());
+  return idx === -1 ? 99 : idx;
+}
+
+function groupAndSort(data) {
+  const grouped = {};
+  data.forEach(item => {
+    if (!grouped[item.style_name]) grouped[item.style_name] = [];
+    grouped[item.style_name].push(item);
+  });
+  Object.keys(grouped).forEach(style => {
+    grouped[style].sort((a,b) => typeRank(a.skuType) - typeRank(b.skuType));
+  });
+  return grouped;
+}
+
+function calcAsmByType(data, markupPct = 0) {
+  const byType = {};
+  data.forEach(item => {
+    if (item.type?.toLowerCase() !== 'assembled' || !item.assemble_fee) return;
+    const t = (item.skuType || 'OTHER').toUpperCase();
+    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
+    byType[t].qty   += item.quantity;
+    byType[t].total += item.assemble_fee * item.quantity;
+  });
+  return byType;
+}
+
+function renderAsmBreakdown(byType, showPrices, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const entries = TYPE_ORDER.filter(t => byType[t]);
+  if (!entries.length) { el.innerHTML = ''; return; }
+  el.innerHTML = entries.map(t => {
+    const row = byType[t];
+    const priceStr = showPrices ? `<span style="color:#8B6914;">+$${row.total.toFixed(2)}</span>` : '';
+    return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
+      <span>${t} &nbsp;×${row.qty}</span>${priceStr}</div>`;
+  }).join('');
+}
+
 function renderReview() {
   // Order info
   document.getElementById('reviewPO').textContent       = step1Data.poNumber || '—';
@@ -431,30 +489,47 @@ function renderReview() {
     document.getElementById('reviewNotes').textContent = step1Data.notes;
   }
 
-  // Items table — group by door style
+  // Items table
   const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
   const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+  const grouped       = groupAndSort(step2Data);
 
+  let itemNum = 0;
   let lastStyle = null;
-  document.getElementById('itemsTableBody').innerHTML = step2Data.map(item => {
-    const showStyle = item.style_name !== lastStyle;
-    lastStyle = item.style_name;
-    return `
-      <tr>
-        <td class="td-style">${showStyle ? item.style_name : ''}</td>
-        <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
-        <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
-        <td class="td-right">${item.quantity}</td>
-        <td class="td-right">$${item.unit_price.toFixed(2)}</td>
-        <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
-        <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
-      </tr>`;
-  }).join('');
+  const rows = [];
+  Object.entries(grouped).forEach(([styleName, items]) => {
+    items.forEach(item => {
+      itemNum++;
+      const showStyle = styleName !== lastStyle;
+      lastStyle = styleName;
+      rows.push(`
+        <tr>
+          <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
+          <td class="td-style">${showStyle ? styleName : ''}</td>
+          <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
+          <td style="font-size:11px;">${item.skuType ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${item.skuType.toUpperCase()}</span>` : '—'}</td>
+          <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
+          <td class="td-right">${item.quantity}</td>
+          <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+          <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
+          <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
+        </tr>`);
+    });
+  });
+  document.getElementById('itemsTableBody').innerHTML = rows.join('');
+
+  // Assemble Fee breakdown
+  if (assembleTotal > 0) {
+    document.getElementById('assembleRow').style.display = 'block';
+    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
+    const byType = calcAsmByType(step2Data);
+    renderAsmBreakdown(byType, true, 'assembleBreakdown');
+  } else {
+    document.getElementById('assembleRow').style.display = 'none';
+  }
 
   // Totals
   const taxRate    = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-
-  // Logistic 運費計算
   const logisticType = step1Data.logisticType || 'pickup';
   const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
@@ -463,53 +538,23 @@ function renderReview() {
   let shippingNote  = '';
 
   if (logisticType === 'pickup') {
-    shipping = 0;
-    shippingLabel = 'FREE';
-    shippingNote  = '✓ Pick Up @ ProCraft DC';
+    shipping = 0; shippingLabel = 'FREE'; shippingNote = '✓ Pick Up @ ProCraft DC';
   } else if (logisticType === 'delivery') {
-    shipping = deliveryFee;
-    shippingLabel = `$${shipping.toFixed(2)}`;
-    shippingNote  = 'Delivery fee based on distance';
+    shipping = deliveryFee; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = 'Delivery fee based on distance';
   } else if (logisticType === 'shipping') {
-    if (subtotal <= 3000) {
-      shipping = 0;
-      shippingLabel = 'TBD';
-      shippingNote  = '⚠ Contact Sales Team to confirm shipping fee';
-    } else if (subtotal <= 6000) {
-      shipping = subtotal * 0.15;
-      shippingLabel = `$${shipping.toFixed(2)}`;
-      shippingNote  = '15% shipping rate';
-    } else if (subtotal <= 9000) {
-      shipping = subtotal * 0.12;
-      shippingLabel = `$${shipping.toFixed(2)}`;
-      shippingNote  = '12% shipping rate';
-    } else if (subtotal <= 12000) {
-      shipping = subtotal * 0.10;
-      shippingLabel = `$${shipping.toFixed(2)}`;
-      shippingNote  = '10% shipping rate';
-    } else {
-      shipping = 0;
-      shippingLabel = 'FREE';
-      shippingNote  = '✓ Free shipping on orders over $12,000';
-    }
+    if (subtotal <= 3000) { shipping = 0; shippingLabel = 'TBD'; shippingNote = '⚠ Contact Sales Team to confirm shipping fee'; }
+    else if (subtotal <= 6000)  { shipping = subtotal * 0.15; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = '15% shipping rate'; }
+    else if (subtotal <= 9000)  { shipping = subtotal * 0.12; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = '12% shipping rate'; }
+    else if (subtotal <= 12000) { shipping = subtotal * 0.10; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = '10% shipping rate'; }
+    else { shipping = 0; shippingLabel = 'FREE'; shippingNote = '✓ Free shipping on orders over $12,000'; }
   }
 
   const tax   = subtotal * taxRate;
   const grand = subtotal + assembleTotal + shipping + tax;
 
   document.getElementById('totalSubtotal').textContent = `$${subtotal.toFixed(2)}`;
-
-  // Assemble fee row
-  if (assembleTotal > 0) {
-    document.getElementById('assembleRow').style.display = 'flex';
-    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
-  } else {
-    document.getElementById('assembleRow').style.display = 'none';
-  }
-
   document.getElementById('totalShipping').textContent = shippingLabel;
   document.getElementById('shippingNote').innerHTML = `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
-
   if (dealer?.tax_exempt) {
     document.getElementById('totalTax').textContent = '$0.00';
     document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
@@ -517,121 +562,7 @@ function renderReview() {
     document.getElementById('totalTax').textContent = `$${tax.toFixed(2)}`;
     document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(0)}% tax rate`;
   }
-
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
-}
-
-async function saveDraft() {
-  const btn    = document.getElementById('btnDraft');
-  const errMsg = document.getElementById('errorMsg');
-  btn.classList.add('loading');
-  btn.disabled = true;
-  document.getElementById('btnSubmit').disabled = true;
-  errMsg.classList.remove('show');
-
-  try {
-    const { data:{ session } } = await _supabase.auth.getSession();
-
-    const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-    const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
-    const taxRate       = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-    const logisticType  = step1Data.logisticType || 'pickup';
-    const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
-
-    let shipping = 0;
-    if (logisticType === 'delivery') shipping = deliveryFee;
-    else if (logisticType === 'shipping') {
-      if (subtotal <= 3000)       shipping = 0;
-      else if (subtotal <= 6000)  shipping = subtotal * 0.15;
-      else if (subtotal <= 9000)  shipping = subtotal * 0.12;
-      else if (subtotal <= 12000) shipping = subtotal * 0.10;
-    }
-
-    const tax   = subtotal * taxRate;
-    const grand = subtotal + assembleTotal + shipping + tax;
-
-    // 產生 quote_number
-    const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
-    if (numError) throw numError;
-
-    // 檢查是否是更新現有 Draft
-    const existingDraftId = step1Data.draftQuoteId || null;
-
-    let quoteId;
-    if (existingDraftId) {
-      // UPDATE 現有 Draft
-      const { error: updateError } = await _supabase.from('quotes').update({
-        job_name:            step1Data.jobName,
-        po_number:           step1Data.poNumber,
-        shipping_address_id: step1Data.shippingAddressId || null,
-        status:              'Draft',
-        notes:               step1Data.notes || null,
-        logistic_type:       logisticType,
-        delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-        subtotal:            parseFloat(subtotal.toFixed(2)),
-        assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-        shipping_cost:       parseFloat(shipping.toFixed(2)),
-        tax_amount:          parseFloat(tax.toFixed(2)),
-        grand_total:         parseFloat(grand.toFixed(2)),
-      }).eq('id', existingDraftId);
-      if (updateError) throw updateError;
-
-      // 刪除舊的 items，重新 insert
-      await _supabase.from('quote_items').delete().eq('quote_id', existingDraftId);
-      quoteId = existingDraftId;
-    } else {
-      // INSERT 新 Draft
-      const { data: quote, error: quoteError } = await _supabase.from('quotes').insert({
-        quote_number:        numData,
-        dealer_id:           session.user.id,
-        job_name:            step1Data.jobName,
-        po_number:           step1Data.poNumber,
-        shipping_address_id: step1Data.shippingAddressId || null,
-        status:              'Draft',
-        notes:               step1Data.notes || null,
-        logistic_type:       logisticType,
-        delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-        subtotal:            parseFloat(subtotal.toFixed(2)),
-        assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-        shipping_cost:       parseFloat(shipping.toFixed(2)),
-        tax_amount:          parseFloat(tax.toFixed(2)),
-        grand_total:         parseFloat(grand.toFixed(2)),
-      }).select().single();
-      if (quoteError) throw quoteError;
-      quoteId = quote.id;
-    }
-
-    // 寫入 quote_items
-    const items = step2Data.map(item => ({
-      quote_id:        quoteId,
-      style_code:      item.style_code,
-      sku_code:        item.sku_code,
-      sku_type:        item.skuType || null,
-      assemble_status: item.type,
-      quantity:        item.quantity,
-      unit_price:      item.unit_price,
-      msrp:            item.msrp || null,
-      assemble_fee:    item.assemble_fee || 0,
-    }));
-    const { error: itemsError } = await _supabase.from('quote_items').insert(items);
-    if (itemsError) throw itemsError;
-
-    // 清除 sessionStorage
-    sessionStorage.removeItem('quoteStep1');
-    sessionStorage.removeItem('quoteStep2');
-
-    // 跳回 quotes 列表
-    window.location.href = 'quotes.html';
-
-  } catch (err) {
-    console.error(err);
-    btn.classList.remove('loading');
-    btn.disabled = false;
-    document.getElementById('btnSubmit').disabled = false;
-    errMsg.textContent = err.message || 'Failed to save draft. Please try again.';
-    errMsg.classList.add('show');
-    window.scrollTo(0,0);
-  }
 }
 
 async function submitQuote() {
@@ -639,7 +570,6 @@ async function submitQuote() {
   const errMsg = document.getElementById('errorMsg');
   btn.classList.add('loading');
   btn.disabled = true;
-  document.getElementById('btnDraft').disabled = true;
   errMsg.classList.remove('show');
 
   try {
@@ -674,34 +604,10 @@ async function submitQuote() {
     if (numError) throw numError;
     const quoteNum = numData;
 
-    // 檢查是否是更新現有 Draft
-    const existingDraftId = step1Data.draftQuoteId || null;
-    let quote;
-
-    if (existingDraftId) {
-      // UPDATE 現有 Draft → Pending
-      const { data: updated, error: updateError } = await _supabase.from('quotes').update({
-        job_name:            step1Data.jobName,
-        po_number:           step1Data.poNumber,
-        shipping_address_id: step1Data.shippingAddressId || null,
-        status:              'Pending',
-        notes:               step1Data.notes || null,
-        logistic_type:       logisticType,
-        delivery_fee:        parseFloat(shipping.toFixed(2)),
-        subtotal:            parseFloat(subtotal.toFixed(2)),
-        assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-        shipping_cost:       parseFloat(shipping.toFixed(2)),
-        tax_amount:          parseFloat(tax.toFixed(2)),
-        grand_total:         parseFloat(grand.toFixed(2)),
-      }).eq('id', existingDraftId).select().single();
-      if (updateError) throw updateError;
-      quote = updated;
-
-      // 刪除舊的 items，重新 insert
-      await _supabase.from('quote_items').delete().eq('quote_id', existingDraftId);
-    } else {
-      // INSERT 新 quote
-      const { data: newQuote, error: quoteError } = await _supabase.from('quotes').insert({
+    // 寫入 quotes
+    const { data: quote, error: quoteError } = await _supabase
+      .from('quotes')
+      .insert({
         quote_number:        quoteNum,
         dealer_id:           session.user.id,
         job_name:            step1Data.jobName,
@@ -716,27 +622,33 @@ async function submitQuote() {
         shipping_cost:       parseFloat(shipping.toFixed(2)),
         tax_amount:          parseFloat(tax.toFixed(2)),
         grand_total:         parseFloat(grand.toFixed(2)),
-      }).select().single();
-      if (quoteError) throw quoteError;
-      quote = newQuote;
-    }
+      })
+      .select()
+      .single();
+
+    if (quoteError) throw quoteError;
 
     // 寫入 quote_items
     const items = step2Data.map(item => ({
-      quote_id:     quote.id,
-      style_code:   item.style_code,
-      sku_code:     item.sku_code,
-      type:         item.type,
-      quantity:     item.quantity,
-      unit_price:   item.unit_price,
-      msrp:         item.msrp || null,
-      assemble_fee: item.assemble_fee || 0,
+      quote_id:       quote.id,
+      style_code:     item.style_code,
+      sku_code:       item.sku_code,
+      sku_type:       item.skuType || null,
+      assemble_status: item.type,
+      quantity:       item.quantity,
+      unit_price:     item.unit_price,
+      msrp:           item.msrp || null,
+      assemble_fee:   item.assemble_fee || 0,
     }));
 
     const { error: itemsError } = await _supabase.from('quote_items').insert(items);
     if (itemsError) throw itemsError;
 
-        // 呼叫 Edge Function 寄信
+    // 產生兩份 PDF (base64)
+    const pdfA = await generatePdfBase64(false); // Document A — no price
+    const pdfB = await generatePdfBase64(true);  // Document B — with price
+
+    // 呼叫 Edge Function 寄信
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
       'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
@@ -748,18 +660,22 @@ async function submitQuote() {
         },
         body: JSON.stringify({
           quote: {
-            quote_number: quoteNum,
-            po_number:    step1Data.poNumber,
-            job_name:     step1Data.jobName,
-            subtotal:     subtotal.toFixed(2),
+            quote_number:  quoteNum,
+            po_number:     step1Data.poNumber,
+            job_name:      step1Data.jobName,
+            subtotal:      subtotal.toFixed(2),
             shipping_cost: shipping.toFixed(2),
-            tax_amount:   tax.toFixed(2),
-            grand_total:  grand.toFixed(2),
+            tax_amount:    tax.toFixed(2),
+            grand_total:   grand.toFixed(2),
           },
           dealer: {
-            company_name: dealer.company_name,
-            contact_name: dealer.contact_name,
-            email:        dealer.email,
+            company_name:           dealer.company_name,
+            contact_name:           dealer.contact_name,
+            email:                  dealer.email,
+            secondary_email:        dealer.secondary_email || null,
+            secondary_email_notify: dealer.secondary_email_notify || false,
+            optional_email_2:       dealer.optional_email_2 || null,
+            optional_email_2_notify: dealer.optional_email_2_notify || false,
           },
           items: step2Data.map(i => ({
             style_code: i.style_code,
@@ -768,6 +684,10 @@ async function submitQuote() {
             quantity:   i.quantity,
             unit_price: i.unit_price,
           })),
+          attachments: [
+            { filename: `${step1Data.poNumber}_List.pdf`, content: pdfA, type: 'application/pdf' },
+            { filename: `${step1Data.poNumber}_Details.pdf`, content: pdfB, type: 'application/pdf' },
+          ],
         }),
       }
     );
@@ -778,15 +698,14 @@ async function submitQuote() {
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
 
-    // 顯示成功
-    document.getElementById('successQuoteNum').textContent = quoteNum;
+    // 顯示成功 — 用 PO#
+    document.getElementById('successQuoteNum').textContent = step1Data.poNumber || quoteNum;
     document.getElementById('successOverlay').classList.add('show');
 
   } catch (err) {
     console.error(err);
     btn.classList.remove('loading');
     btn.disabled = false;
-    document.getElementById('btnDraft').disabled = false;
     errMsg.textContent = err.message || 'Something went wrong. Please try again.';
     errMsg.classList.add('show');
     window.scrollTo(0,0);
@@ -797,26 +716,33 @@ function updateMarkupPreview() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
   if (!step2Data || !step2Data.length) return;
 
-  // Re-render items table with markup applied
+  const grouped = groupAndSort(step2Data);
+  let itemNum = 0;
   let lastStyle = null;
-  document.getElementById('itemsTableBody').innerHTML = step2Data.map(item => {
-    const showStyle = item.style_name !== lastStyle;
-    lastStyle = item.style_name;
-    const markedPrice = item.unit_price * (1 + markupPct);
-    const lineTotal   = markedPrice * item.quantity;
-    return `
-      <tr>
-        <td class="td-style">${showStyle ? item.style_name : ''}</td>
-        <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
-        <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
-        <td class="td-right">${item.quantity}</td>
-        <td class="td-right">$${markedPrice.toFixed(2)}</td>
-        <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
-        <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
-      </tr>`;
-  }).join('');
+  const rows = [];
+  Object.entries(grouped).forEach(([styleName, items]) => {
+    items.forEach(item => {
+      itemNum++;
+      const showStyle = styleName !== lastStyle;
+      lastStyle = styleName;
+      const markedPrice = item.unit_price * (1 + markupPct);
+      const lineTotal   = markedPrice * item.quantity;
+      rows.push(`
+        <tr>
+          <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
+          <td class="td-style">${showStyle ? styleName : ''}</td>
+          <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
+          <td style="font-size:11px;">${item.skuType ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${item.skuType.toUpperCase()}</span>` : '—'}</td>
+          <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
+          <td class="td-right">${item.quantity}</td>
+          <td class="td-right">$${markedPrice.toFixed(2)}</td>
+          <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
+          <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+        </tr>`);
+    });
+  });
+  document.getElementById('itemsTableBody').innerHTML = rows.join('');
 
-  // Re-calculate totals with markup
   const markedSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
   const assembleTotal  = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
   const taxRate        = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
@@ -839,11 +765,14 @@ function updateMarkupPreview() {
   document.getElementById('totalTax').textContent       = dealer?.tax_exempt ? 'Exempt' : `$${tax.toFixed(2)}`;
 
   if (assembleTotal > 0) {
-    document.getElementById('assembleRow').style.display = 'flex';
+    document.getElementById('assembleRow').style.display = 'block';
     document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
+    const byType = calcAsmByType(step2Data);
+    renderAsmBreakdown(byType, true, 'assembleBreakdown');
+  } else {
+    document.getElementById('assembleRow').style.display = 'none';
   }
 
-  // Show markup note if active
   let noteEl = document.getElementById('markupNote');
   if (!noteEl) {
     noteEl = document.createElement('div');
@@ -856,153 +785,21 @@ function updateMarkupPreview() {
     : '';
 }
 
-async function downloadPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
-
-  const darkGreen = [14, 31, 22];
-  const muted     = [122, 140, 130];
-  const border    = [221, 216, 204];
-  const pageW = 210;
-  const margin = 16;
-  let y = 0;
-
-  // Header bar — white background with bottom border
-  doc.setFillColor(255, 255, 255);
-  doc.rect(0, 0, pageW, 28, 'F');
-  doc.setDrawColor(...border);
-  doc.setLineWidth(0.5);
-  doc.line(0, 28, pageW, 28);
-
-  try {
-    const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
-    doc.addImage(img, 'PNG', margin, 4, 50, 20);
-  } catch(e) {
-    doc.setTextColor(...darkGreen); doc.setFontSize(14); doc.setFont('helvetica','bold');
-    doc.text('ProCraft Cabinetry DC', margin, 17);
-  }
-
-  doc.setTextColor(...darkGreen); doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text(new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}), pageW - margin, 18, { align: 'right' });
-
-  y = 36;
-
-  // Quote + Dealer info
-  doc.setFontSize(9); doc.setTextColor(...muted);
-  doc.text('QUOTE INFORMATION', margin, y);
-  doc.text('DEALER INFORMATION', pageW/2, y);
-  y += 5;
-
-  const leftInfo = [
-    ['PO #', step1Data?.poNumber || '—'],
-    ['Job', step1Data?.jobName || '—'],
-    ['Logistic', (step1Data?.logisticType || '—').toUpperCase()],
-  ];
-
-  let ry = y;
-  leftInfo.forEach(([label, val]) => {
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(30,30,30);
-    doc.text(label + ':', margin, y);
-    doc.setFont('helvetica','normal');
-    doc.text(val, margin + 22, y);
-    y += 5;
+// ── Shared PDF builder ──────────────────────────────────────────────
+// showPrices: false = Document A (no price), true = Document B (with price)
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = url;
   });
-
-  [dealer?.company_name, dealer?.contact_name, dealer?.address_line1,
-   `${dealer?.city||''}, ${dealer?.state||''} ${dealer?.zip_code||''}`, dealer?.email
-  ].filter(Boolean).forEach((val, i) => {
-    doc.setFont('helvetica', i===0 ? 'bold' : 'normal'); doc.setFontSize(9); doc.setTextColor(30,30,30);
-    doc.text(val.trim(), pageW/2, ry); ry += 5;
-  });
-
-  y = Math.max(y, ry) + 4;
-  doc.setDrawColor(...border); doc.setLineWidth(0.3);
-  doc.line(margin, y, pageW - margin, y); y += 8;
-
-  // Items table grouped by style
-  const grouped = {};
-  step2Data.forEach(item => {
-    if (!grouped[item.style_name]) grouped[item.style_name] = [];
-    grouped[item.style_name].push(item);
-  });
-
-  const tableRows = [];
-  Object.entries(grouped).forEach(([styleName, items]) => {
-    items.forEach((item, idx) => {
-      const markedPrice = item.unit_price * (1 + markupPct);
-      tableRows.push([
-        idx === 0 ? styleName : '',
-        item.sku_code,
-        item.type,
-        item.quantity,
-        `$${markedPrice.toFixed(2)}`,
-        item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—',
-        `$${(markedPrice * item.quantity).toFixed(2)}`,
-      ]);
-    });
-  });
-
-  doc.autoTable({
-    startY: y,
-    head: [['Door Style','SKU','Type','Qty','Unit Price','Assemble Fee','Total']],
-    body: tableRows,
-    margin: { left: margin, right: margin },
-    styles: { fontSize: 8, cellPadding: 3, textColor: [30,30,30] },
-    headStyles: { fillColor: darkGreen, textColor: [255,255,255], fontStyle: 'bold', fontSize: 8 },
-    columnStyles: {
-      0: { cellWidth: 35 },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
-      5: { halign: 'right' },
-      6: { halign: 'right', fontStyle: 'bold' },
-    },
-    alternateRowStyles: { fillColor: [250,248,244] },
-  });
-
-  y = doc.lastAutoTable.finalY + 8;
-
-  // Totals
-  const markedSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
-  const assembleTotal  = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
-  const taxRate        = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-  let shipping = 0;
-  if (step1Data?.logisticType === 'delivery') shipping = parseFloat(step1Data?.deliveryFee || 0);
-  else if (step1Data?.logisticType === 'shipping') {
-    if (markedSubtotal <= 6000)      shipping = markedSubtotal * 0.15;
-    else if (markedSubtotal <= 9000) shipping = markedSubtotal * 0.12;
-    else if (markedSubtotal <=12000) shipping = markedSubtotal * 0.10;
-  }
-  const tax   = markedSubtotal * taxRate;
-  const grand = markedSubtotal + assembleTotal + shipping + tax;
-
-  const totalsX = pageW - margin - 65;
-  const valX    = pageW - margin;
-
-  [
-    ['Subtotal', `$${markedSubtotal.toFixed(2)}`],
-    ...(assembleTotal > 0 ? [['Assemble Fee', `+$${assembleTotal.toFixed(2)}`]] : []),
-    ['Shipping', shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`],
-    ['Tax', dealer?.tax_exempt ? 'Exempt' : `$${tax.toFixed(2)}`],
-  ].forEach(([label, val]) => {
-    doc.setFontSize(9); doc.setFont('helvetica','normal');
-    doc.setTextColor(...muted); doc.text(label, totalsX, y);
-    doc.setTextColor(30,30,30); doc.text(val, valX, y, { align:'right' });
-    y += 6;
-  });
-
-  doc.setDrawColor(...border); doc.line(totalsX, y, valX, y); y += 5;
-  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...darkGreen);
-  doc.text('Order Total', totalsX, y);
-  doc.text(`$${grand.toFixed(2)}`, valX, y, { align:'right' }); y += 8;
-
-  // Footer
-  doc.setFillColor(...darkGreen);
-  doc.rect(0, 287, pageW, 10, 'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com', pageW/2, 293, { align:'center' });
-
-  doc.save(`ProCraft-Quote-${step1Data?.poNumber || 'Draft'}.pdf`);
 }
 
 function loadImage(url) {
@@ -1018,6 +815,303 @@ function loadImage(url) {
     img.onerror = reject;
     img.src = url;
   });
+}
+
+async function buildPdf(showPrices, markupPct = 0) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const darkGreen = [14, 31, 22];
+  const muted     = [122, 140, 130];
+  const border    = [221, 216, 204];
+  const pageW = 210; const margin = 14;
+  const HEADER_H = 32;
+
+  // ── Draw header (reusable) ──
+  async function drawHeader(logoImg) {
+    doc.setFillColor(255,255,255);
+    doc.rect(0, 0, pageW, HEADER_H, 'F');
+    doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0, HEADER_H, pageW, HEADER_H);
+
+    if (logoImg) {
+      doc.addImage(logoImg, 'PNG', margin, 3, 44, 26);
+    } else {
+      doc.setTextColor(...darkGreen); doc.setFontSize(11); doc.setFont('helvetica','bold');
+      doc.text('ProCraft DC', margin, 15);
+    }
+
+    const infoX = margin + 48;
+    let infoY = 7;
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...darkGreen);
+    doc.text('ProCraft Cabinetry DC LLC', infoX, infoY); infoY += 3.8;
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(40,40,40);
+    ['6750 Santa Barbara Court Suite B', 'Elkridge, MD 21075',
+     'Phone: 410-863-9800', 'Email: sales@procraftdc.com'].forEach(line => {
+      doc.text(line, infoX, infoY); infoY += 3.5;
+    });
+
+    const dateStr = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal');
+    doc.text(`PO# ${step1Data?.poNumber || '—'}`, pageW - margin, 9, { align:'right' });
+    doc.text(dateStr, pageW - margin, 15, { align:'right' });
+    doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(40,40,40);
+    doc.text(step1Data?.jobName || '—', pageW - margin, 21, { align:'right' });
+  }
+
+  // Load logo once
+  let logoImg = null;
+  try { logoImg = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png'); } catch(e) {}
+
+  // Draw first page header
+  await drawHeader(logoImg);
+  let y = HEADER_H + 10;
+
+  // ── Bill To / Ship To (first page only) ──
+  const billX = margin; const shipX = pageW - margin;
+  let addrY = y + 4;
+  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
+  doc.text('BILL TO', billX, addrY);
+  doc.text('SHIP TO', shipX, addrY, { align:'right' });
+  addrY += 5;
+
+  const billLines = [dealer?.company_name || '—', dealer?.address_line1 || '',
+    dealer?.address_line2 || '', `${dealer?.city||''}, ${dealer?.state||''} ${dealer?.zip_code||''}`
+  ].filter(l => l.trim());
+  const shipName2 = shippingAddress ? shippingAddress.recipient_name : dealer?.company_name;
+  const shipLines = [
+    shipName2 || '—',
+    shippingAddress ? shippingAddress.address_line : (dealer?.address_line1 || ''),
+    shippingAddress ? (shippingAddress.address_line2 || '') : (dealer?.address_line2 || ''),
+    shippingAddress ? `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}`
+      : `${dealer?.city||''}, ${dealer?.state||''} ${dealer?.zip_code||''}`,
+  ].filter(l => l.trim());
+
+  const maxLines = Math.max(billLines.length, shipLines.length);
+  for (let i = 0; i < maxLines; i++) {
+    doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
+    doc.setFontSize(7.5); doc.setTextColor(40,40,40);
+    if (billLines[i]) doc.text(billLines[i], billX, addrY);
+    if (shipLines[i]) doc.text(shipLines[i], shipX, addrY, { align:'right' });
+    addrY += 4.5;
+  }
+  y = addrY + 3;
+  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin, y, pageW-margin, y); y += 4;
+
+  // ── Items Table ──
+  const grouped = groupAndSort(step2Data);
+  const tableRows = [];
+  let itemNum = 0;
+  Object.entries(grouped).forEach(([styleName, items]) => {
+    items.forEach(item => {
+      itemNum++;
+      const markedPrice = item.unit_price * (1 + markupPct);
+      const asmFee = item.assemble_fee > 0 ? `$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—';
+      if (showPrices) {
+        tableRows.push([`#${itemNum}`, styleName, item.skuType||'—', item.sku_code, item.sku_desc,
+          item.type, item.quantity, `$${markedPrice.toFixed(2)}`, asmFee,
+          `$${(markedPrice * item.quantity).toFixed(2)}`]);
+      } else {
+        tableRows.push([`#${itemNum}`, styleName, item.skuType||'—', item.sku_code,
+          item.sku_desc, item.type, item.quantity]);
+      }
+    });
+  });
+
+  const headA = [['Item#','Door Style','Type','SKU','Description','Assemble Status','Qty']];
+  const headB = [['Item#','Door Style','Type','SKU','Description','Assemble Status','Qty','Unit Price','Asm Fee','Total']];
+
+  doc.autoTable({
+    startY: y,
+    head: showPrices ? headB : headA,
+    body: tableRows,
+    margin: { left: margin, right: margin, top: HEADER_H + 4 },
+    styles: { fontSize: 7, cellPadding: 2, textColor: [30,30,30], overflow: 'linebreak' },
+    headStyles: { fillColor: darkGreen, textColor: [255,255,255], fontStyle: 'bold', fontSize: 7 },
+    columnStyles: showPrices ? {
+      0: { cellWidth: 9 }, 1: { cellWidth: 24 }, 2: { cellWidth: 11 },
+      3: { cellWidth: 14 }, 4: { cellWidth: 35, overflow: 'linebreak' }, 5: { cellWidth: 18 },
+      6: { halign:'right', cellWidth: 8 }, 7: { halign:'right', cellWidth: 17 },
+      8: { halign:'right', cellWidth: 15 }, 9: { halign:'right', fontStyle:'bold', cellWidth: 18 },
+    } : {
+      0: { cellWidth: 11 }, 1: { cellWidth: 40 }, 2: { cellWidth: 16 },
+      3: { cellWidth: 24 }, 4: { cellWidth: 60, overflow: 'linebreak' }, 5: { cellWidth: 22 },
+      6: { halign:'right', cellWidth: 9 },
+    },
+    alternateRowStyles: { fillColor: [250,248,244] },
+    didDrawPage: (data) => {
+      if (data.pageNumber > 1) {
+        // Sync header redraw on subsequent pages
+        doc.setFillColor(255,255,255);
+        doc.rect(0, 0, pageW, HEADER_H, 'F');
+        doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0, HEADER_H, pageW, HEADER_H);
+        if (logoImg) doc.addImage(logoImg, 'PNG', margin, 3, 44, 26);
+        else { doc.setTextColor(...darkGreen); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.text('ProCraft DC', margin, 15); }
+        const infoX2 = margin + 48; let infoY2 = 7;
+        doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...darkGreen);
+        doc.text('ProCraft Cabinetry DC LLC', infoX2, infoY2); infoY2 += 3.8;
+        doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(40,40,40);
+        ['6750 Santa Barbara Court Suite B','Elkridge, MD 21075','Phone: 410-863-9800','Email: sales@procraftdc.com'].forEach(line => { doc.text(line, infoX2, infoY2); infoY2 += 3.5; });
+        const dateStr2 = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+        doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal');
+        doc.text(`PO# ${step1Data?.poNumber || '—'}`, pageW - margin, 9, { align:'right' });
+        doc.text(dateStr2, pageW - margin, 15, { align:'right' });
+        doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(40,40,40);
+        doc.text(step1Data?.jobName || '—', pageW - margin, 21, { align:'right' });
+      }
+    },
+  });
+
+  // Add page numbers after table is complete (total pages now known)
+  const totalPagesAfterTable = doc.getNumberOfPages();
+
+  // ── For Doc A: stop here (table only, no disclaimer/totals) ──
+  if (!showPrices) {
+    for (let p = 1; p <= totalPagesAfterTable; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+      doc.text(`Page ${p} / ${totalPagesAfterTable}`, pageW - margin, 27, { align:'right' });
+      // Footer bar on last page
+      if (p === totalPagesAfterTable) {
+        doc.setFillColor(...darkGreen);
+        doc.rect(0, 287, pageW, 10, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
+        doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com', pageW/2, 293, { align:'center' });
+      }
+    }
+    return doc;
+  }
+
+  // ── For Doc B: continue with disclaimer + totals ──
+  y = doc.lastAutoTable.finalY + 8;
+
+  // ── Calculations ──
+  const markedSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
+  const assembleTotal  = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
+  const taxRate        = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+  let shipping = 0;
+  if (step1Data?.logisticType === 'delivery') shipping = parseFloat(step1Data?.deliveryFee || 0);
+  else if (step1Data?.logisticType === 'shipping') {
+    if (markedSubtotal <= 6000) shipping = markedSubtotal * 0.15;
+    else if (markedSubtotal <= 9000) shipping = markedSubtotal * 0.12;
+    else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
+  }
+  const tax   = markedSubtotal * taxRate;
+  const grand = markedSubtotal + assembleTotal + shipping + tax;
+
+  // ── Check space for disclaimer + totals, add new page if needed ──
+  const DISCLAIMER_LINES = 7;
+  const DISCLAIMER_H = DISCLAIMER_LINES * 6 + 16;
+  const TOTALS_H = assembleTotal > 0 ? 60 : 45;
+  const NEEDED = Math.max(DISCLAIMER_H, TOTALS_H) + 20;
+  if (y + NEEDED > 275) {
+    doc.addPage();
+    await drawHeader(logoImg);
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text(`Page ${doc.getNumberOfPages()}`, pageW - margin, 290, { align:'right' });
+    y = HEADER_H + 8;
+  }
+
+  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin, y, pageW-margin, y); y += 6;
+
+  // ── Disclaimer (left) + Totals (right) ──
+  const disclaimerX = margin;
+  const disclaimerMaxW = 90;
+  const totalsX = pageW - margin - 68;
+  const valX = pageW - margin;
+
+  // Disclaimer
+  const disclaimerItems = [
+    'Upon signing, customers accept responsibility for checking the quality of the products when picked up or delivered. Item damaged or missing must be reported within 24 hours of receiving listed items.',
+    '25% restocking fee will be applied for returned or exchanged Flat-Pack items.',
+    'There is NO return or exchange for any items assembled, painted, special ordered or final sale items.',
+    'Returns must be made within 30 days of the date of purchase.',
+    'Returns will be credited only upon warehouse inspection.',
+    'After scheduled pickup date, a $30.00 storage fee will be applied per day.',
+    'Change delivery date must 2 days before the initial delivery date.',
+  ];
+
+  let discY = y;
+  doc.setFont('helvetica','bold'); doc.setFontSize(6.5); doc.setTextColor(...darkGreen);
+  doc.text('Terms & Conditions', disclaimerX, discY); discY += 5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor(60,60,60);
+  disclaimerItems.forEach((item, i) => {
+    const lines = doc.splitTextToSize(`${i+1}. ${item}`, disclaimerMaxW);
+    doc.text(lines, disclaimerX, discY);
+    discY += lines.length * 4 + 1.5;
+  });
+
+  // Totals (right side)
+  let totY = y;
+
+  // Assemble Fee with breakdown
+  if (assembleTotal > 0) {
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text('Assemble Fee', totalsX, totY);
+    if (showPrices) {
+      doc.setTextColor(40,40,40);
+      doc.text(`+$${assembleTotal.toFixed(2)}`, valX, totY, { align:'right' });
+    }
+    totY += 5;
+
+    // Breakdown by type
+    const byType = calcAsmByType(step2Data);
+    TYPE_ORDER.filter(t => byType[t]).forEach(t => {
+      const row = byType[t];
+      doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+      doc.text(`  ${t} ×${row.qty}`, totalsX, totY);
+      if (showPrices) {
+        doc.setTextColor(140,100,20);
+        doc.text(`+$${row.total.toFixed(2)}`, valX, totY, { align:'right' });
+      }
+      totY += 4;
+    });
+    totY += 2;
+  }
+
+  // Subtotal / Shipping / Tax
+  [
+    ['Subtotal', showPrices ? `$${markedSubtotal.toFixed(2)}` : '—'],
+    ['Shipping', showPrices ? (shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`) : '—'],
+    ['Tax', showPrices ? (dealer?.tax_exempt ? 'Exempt' : `$${tax.toFixed(2)}`) : '—'],
+  ].forEach(([label, val]) => {
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.setTextColor(...muted); doc.text(label, totalsX, totY);
+    doc.setTextColor(40,40,40); doc.text(val, valX, totY, { align:'right' });
+    totY += 6;
+  });
+
+  doc.setDrawColor(...border); doc.line(totalsX, totY, valX, totY); totY += 5;
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...darkGreen);
+  doc.text('Order Total', totalsX, totY);
+  doc.text(showPrices ? `$${grand.toFixed(2)}` : '—', valX, totY, { align:'right' });
+
+  // ── Footer bar (last page) ──
+  doc.setFillColor(...darkGreen);
+  doc.rect(0, 287, pageW, 10, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com', pageW/2, 293, { align:'center' });
+
+  // Add page numbers to ALL pages (including disclaimer page)
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
+    doc.text(`Page ${p} / ${totalPages}`, pageW - margin, 27, { align:'right' });
+  }
+  doc.setPage(totalPages);
+
+  return doc;
+}
+async function downloadPDF() {
+  const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
+  const poNum = step1Data?.poNumber || 'Draft';
+  // Download Document B (with prices) for dealer preview
+  const doc = await buildPdf(true, markupPct);
+  doc.save(`${poNum}_Details.pdf`);
+}
+
+async function generatePdfBase64(showPrices) {
+  const doc = await buildPdf(showPrices, 0);
+  return doc.output('datauristring').split(',')[1];
 }
 
 function toggleMenu() {
