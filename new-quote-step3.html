@@ -441,9 +441,10 @@ async function init() {
   const { data:{ session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
 
-  // Check if resuming a draft via URL param
+  // Check if resuming a draft or admin draft mode
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
+  const adminDraft = params.get('adminDraft') === '1';
 
   // Load data from sessionStorage
   const s1 = sessionStorage.getItem('quoteStep1');
@@ -631,8 +632,10 @@ function renderItemsTable(items, markupPct) {
 // ── Build quote payload (shared by saveDraft + submitQuote) ──
 function buildQuotePayload(status, session) {
   const { subtotal, assembleTotal, shipping, tax, grand } = calcTotals(step2Data);
+  // Admin creating on behalf of dealer uses dealerIdForQuote, otherwise own session
+  const dealerId = (step1Data.dealerIdForQuote) ? step1Data.dealerIdForQuote : session.user.id;
   return {
-    dealer_id:           session.user.id,
+    dealer_id:           dealerId,
     job_name:            step1Data.jobName,
     po_number:           step1Data.poNumber,
     shipping_address_id: step1Data.shippingAddressId || null,
@@ -677,7 +680,7 @@ async function saveDraft() {
 
     if (draftId) {
       // UPDATE existing draft
-      const { error } = await _supabase.from('quotes').update(payload).eq('id', draftId).eq('status', 'Draft');
+      const { error } = await _supabase.from('quotes').update(payload).eq('id', draftId);
       if (error) throw error;
       // Delete old items and re-insert
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
