@@ -608,7 +608,6 @@ async function init() {
   // Check for draft resume mode
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
-  const adminDraft = params.get('adminDraft') === '1';
 
   const [s, framedRes, framelessRes] = await Promise.all([
     _supabase.from('door_styles').select('*').eq('is_active', true).order('subcategory'),
@@ -631,86 +630,14 @@ async function init() {
     openSubcats.add(key);
   });
 
+  // Restore cart — from DB if draft, from sessionStorage if returning from step 3
   if (draftId) {
-    // ── Resume Draft: load items from DB ──
     await loadDraftItems();
   } else {
-    // ── Restore cart from sessionStorage if coming back from Step 3 Edit ──
     const savedCart = sessionStorage.getItem('quoteStep2');
     if (savedCart) {
       try { cartItems = JSON.parse(savedCart); } catch(e) {}
     }
-  }
-
-  renderStyleList();
-  renderCart();
-
-  // Poll is_active every 60s
-  setInterval(async () => {
-    const { data: check } = await _supabase
-      .from('dealers').select('is_active').eq('id', session.user.id).single();
-    if (!check?.is_active) {
-      await _supabase.auth.signOut();
-      window.location.href = 'login.html';
-    }
-  }, 60000);
-}
-
-// ── Load draft items from DB and rebuild cartItems ──
-async function loadDraftItems() {
-  const { data: items, error } = await _supabase
-    .from('quote_items')
-    .select('*')
-    .eq('quote_id', draftId);
-
-  if (error || !items || !items.length) return;
-
-  // Wait until styles/skus are loaded, then rebuild cartItems
-  cartItems = items.map(item => {
-    // Find style_name from allStyles
-    const style = allStyles.find(s => s.style_code === item.style_code);
-    const styleName = style ? style.style_name : item.style_code;
-
-    // Find sku description
-    const skuList = [...allSkusFramed, ...allSkusFrameless];
-    const sku = skuList.find(s => s.sku_code === item.sku_code);
-    const skuDesc = sku ? sku.description : item.sku_code;
-
-    return {
-      key:          item.sku_code + '_' + item.assemble_status,
-      style_code:   item.style_code,
-      style_name:   styleName,
-      sku_code:     item.sku_code,
-      sku_desc:     skuDesc,
-      skuType:      item.sku_type || '',
-      type:         item.assemble_status, // 'RTA' or 'Assembled'
-      quantity:     item.quantity,
-      unit_price:   parseFloat(item.unit_price),
-      msrp:         parseFloat(item.msrp || 0),
-      assemble_fee: parseFloat(item.assemble_fee || 0),
-    };
-  });
-
-  // Also save to sessionStorage so Step 3 can read it
-  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-}
-
-  // Render brand tabs dynamically
-  const brands = [...new Set(allStyles.map(s => s.brand).filter(Boolean))].sort();
-  activeBrand = brands[0] || 'Procraft';
-  document.getElementById('brandTabsBar').innerHTML = brands.map((b, i) =>
-    `<button class="brand-tab ${i === 0 ? 'active' : ''}" onclick="switchBrand('${b}')">${b}</button>`
-  ).join('');
-  // open all subcats by default
-  allStyles.forEach(s => {
-    const key = `${s.brand}__${s.subcategory||'Other'}`;
-    openSubcats.add(key);
-  });
-
-  // Restore cart if coming back from Edit
-  const savedCart = sessionStorage.getItem('quoteStep2');
-  if (savedCart) {
-    try { cartItems = JSON.parse(savedCart); } catch(e) {}
   }
 
   renderStyleList();
@@ -725,6 +652,32 @@ async function loadDraftItems() {
       window.location.href = 'login.html';
     }
   }, 60000);
+}
+
+// ── Load draft items from DB → rebuild cartItems ──────────────────
+async function loadDraftItems() {
+  const { data: items, error } = await _supabase
+    .from('quote_items').select('*').eq('quote_id', draftId);
+  if (error || !items || !items.length) return;
+  cartItems = items.map(function(item) {
+    const style    = allStyles.find(function(s) { return s.style_code === item.style_code; });
+    const skuAll   = allSkusFramed.concat(allSkusFrameless);
+    const sku      = skuAll.find(function(s) { return s.sku_code === item.sku_code; });
+    return {
+      key:          item.sku_code + '_' + item.assemble_status,
+      style_code:   item.style_code,
+      style_name:   style ? style.style_name : item.style_code,
+      sku_code:     item.sku_code,
+      sku_desc:     sku ? sku.description : item.sku_code,
+      skuType:      item.sku_type || '',
+      type:         item.assemble_status,
+      quantity:     item.quantity,
+      unit_price:   parseFloat(item.unit_price),
+      msrp:         parseFloat(item.msrp || 0),
+      assemble_fee: parseFloat(item.assemble_fee || 0),
+    };
+  });
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 }
 
 
@@ -1084,9 +1037,7 @@ function showToast(msg) {
 function goNext() {
   if (!cartItems.length) return;
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-  let nextUrl = 'new-quote-step3.html';
-  if (draftId)         nextUrl += '?draft=' + draftId;
-  else if (adminDraft) nextUrl += '?adminDraft=1';
+  const nextUrl = draftId ? 'new-quote-step3.html?draft=' + draftId : 'new-quote-step3.html';
   window.location.href = nextUrl;
 }
 
