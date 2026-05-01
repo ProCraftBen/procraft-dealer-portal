@@ -410,6 +410,9 @@
       display: none;
     }
     .error-msg.show { display: block; }
+    .draft-banner { background: rgba(156,163,175,0.1); border: 1px dashed #9CA3AF; border-radius: 3px; padding: 12px 16px; font-size: 12px; color: #6B7280; margin-bottom: 16px; display: none; }
+    .draft-banner.show { display: flex; align-items: center; gap: 10px; }
+    .draft-banner svg { width: 16px; height: 16px; fill: none; stroke: #9CA3AF; stroke-width: 2; flex-shrink: 0; }
 
     /* Hamburger */
     .hamburger { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
@@ -477,14 +480,18 @@
   <div class="page-title">New Quote</div>
 
   <div class="error-msg" id="errorMsg"></div>
+  <div class="draft-banner" id="draftBanner">
+    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    <span>You are editing a saved Draft. Save as Draft or Submit when ready.</span>
+  </div>
 
   <!-- Order Info -->
   <div class="card">
     <div class="card-title">Order Information</div>
     <div class="field-row">
       <div class="field">
-        <label>PO Number</label>
-        <input type="text" id="poNumber" disabled style="background:var(--cream);color:var(--muted);cursor:not-allowed;" placeholder="Auto-generated"/>
+        <label>PO Number <span class="req">*</span></label>
+        <input type="text" id="poNumber" placeholder="e.g. PO-2025-001"/>
       </div>
       <div class="field">
         <label>Job Name <span class="req">*</span></label>
@@ -597,11 +604,11 @@
       <div class="new-address-form" id="newAddressForm">
         <div class="form-title">New Shipping Address</div>
         <div class="field">
-          <label>Recipient Name <span class="req">*</span></label>
+          <label>Recipient Name</label>
           <input type="text" id="newRecipient" placeholder="Full name"/>
         </div>
         <div class="field">
-          <label>Address Line 1 <span class="req">*</span></label>
+          <label>Address Line 1</label>
           <input type="text" id="newAddress" placeholder="Start typing street address…" autocomplete="off"/>
         </div>
         <div class="field">
@@ -610,17 +617,17 @@
         </div>
         <div class="field-row">
           <div class="field">
-            <label>City <span class="req">*</span></label>
+            <label>City</label>
             <input type="text" id="newCity" placeholder="City"/>
           </div>
           <div class="field">
-            <label>State <span class="req">*</span></label>
+            <label>State</label>
             <input type="text" id="newState" placeholder="e.g. MD" maxlength="2"/>
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label>ZIP Code <span class="req">*</span></label>
+            <label>ZIP Code</label>
             <input type="text" id="newZip" placeholder="00000"/>
           </div>
           <div class="field">
@@ -628,9 +635,6 @@
             <input type="tel" id="newPhone" placeholder="2025550100" maxlength="10"
               oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
           </div>
-        </div>
-        <div style="margin-top:14px;display:flex;justify-content:flex-end;">
-          <button onclick="saveNewAddress()" style="background:var(--green-dark);color:#fff;border:none;border-radius:3px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:0.1em;cursor:pointer;">Save Address</button>
         </div>
       </div>
     </div>
@@ -721,15 +725,6 @@
     }
 
     dealer = d;
-
-    // 自動產生 PO Number: S + UID + 4碼流水號
-    const { count } = await _supabase
-      .from('quotes')
-      .select('*', { count: 'exact', head: true })
-      .eq('dealer_id', dealer.id);
-    const seq = String((count || 0) + 1).padStart(4, '0');
-    const autoPoNumber = `S${dealer.uid || 'XXX'}${seq}`;
-    document.getElementById('poNumber').value = autoPoNumber;
     if (dealer) {
       const line2 = dealer.address_line2 ? `<br>${dealer.address_line2}` : '';
       document.getElementById('billingDisplay').innerHTML = `
@@ -751,12 +746,12 @@
     savedAddresses = addrs || [];
     renderAddresses();
 
-    // Restore Step 1 data if coming back from Edit
+    // Restore Step 1 data if coming back from Edit or continuing Draft
     const saved = sessionStorage.getItem('quoteStep1');
     if (saved) {
       try {
         const s1 = JSON.parse(saved);
-        document.getElementById('poNumber').value = s1.poNumber || '';
+        document.getElementById('poNumber').value = s1.poNumber || autoPoNumber;
         document.getElementById('jobName').value  = s1.jobName  || '';
         document.getElementById('notes').value    = s1.notes    || '';
         if (s1.logisticType) {
@@ -772,6 +767,11 @@
             selectedAddressId = s1.shippingAddressId;
             renderAddresses();
           }
+        }
+        // Show Draft banner if editing a draft
+        if (s1.draftQuoteId) {
+          document.getElementById('draftBanner').classList.add('show');
+          document.querySelector('.page-title').textContent = 'Edit Draft';
         }
       } catch(e) { /* ignore parse errors */ }
     }
@@ -982,8 +982,9 @@
     const jobName  = document.getElementById('jobName').value.trim();
     const notes    = document.getElementById('notes').value.trim();
 
-    if (!jobName) {
-      errMsg.textContent = 'Please fill in Job Name.';
+    // Validate
+    if (!poNumber || !jobName) {
+      errMsg.textContent = 'Please fill in PO Number and Job Name.';
       errMsg.classList.add('show');
       window.scrollTo(0, 0);
       return;
@@ -993,20 +994,37 @@
 
     let shippingAddressId = null;
 
+    // Handle new address
     if (shippingMode === 'different') {
       const newAddrForm = document.getElementById('newAddressForm');
       if (newAddrForm.classList.contains('show')) {
-        errMsg.textContent = 'Please save the new address before continuing.';
-        errMsg.classList.add('show');
-        window.scrollTo(0, 0);
-        return;
-      }
-      shippingAddressId = selectedAddressId;
-      if (!shippingAddressId) {
-        errMsg.textContent = 'Please select or add a shipping address.';
-        errMsg.classList.add('show');
-        window.scrollTo(0, 0);
-        return;
+        // Save new address first
+        const { data: newAddr, error } = await _supabase
+          .from('addresses')
+          .insert({
+            dealer_id:      dealer.id,
+            recipient_name: document.getElementById('newRecipient').value.trim(),
+            address_line:   document.getElementById('newAddress').value.trim(),
+            address_line2:  document.getElementById('newAddressLine2').value.trim(),
+            city:           document.getElementById('newCity').value.trim(),
+            state:          document.getElementById('newState').value.trim(),
+            zip_code:       document.getElementById('newZip').value.trim(),
+            phone:          document.getElementById('newPhone').value.trim(),
+          })
+          .select()
+          .single();
+
+        if (error) {
+          errMsg.textContent = 'Error saving address. Please try again.';
+          errMsg.classList.add('show');
+          return;
+        }
+        shippingAddressId = newAddr.id;
+        savedAddresses.push(newAddr);
+        document.getElementById('newAddressForm').classList.remove('show');
+        newAutocompleteInited = false;
+      } else {
+        shippingAddressId = selectedAddressId;
       }
     }
 
@@ -1024,53 +1042,14 @@
     // Save to sessionStorage and go to step 2
     const logisticType = document.getElementById('logisticType').value;
     const deliveryFee  = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
-    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee, billingOverride };
+
+    // Preserve draftQuoteId if editing a draft
+    const existingStep1 = sessionStorage.getItem('quoteStep1');
+    const draftQuoteId = existingStep1 ? (JSON.parse(existingStep1).draftQuoteId || null) : null;
+
+    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee, billingOverride, draftQuoteId };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
     window.location.href = 'new-quote-step2.html';
-  }
-
-  async function saveNewAddress() {
-    const errMsg = document.getElementById('errorMsg');
-    const recipient = document.getElementById('newRecipient').value.trim();
-    const address   = document.getElementById('newAddress').value.trim();
-    const city      = document.getElementById('newCity').value.trim();
-    const state     = document.getElementById('newState').value.trim();
-    const zip       = document.getElementById('newZip').value.trim();
-
-    if (!recipient || !address || !city || !state || !zip) {
-      errMsg.textContent = 'Please fill in all required fields for the new address.';
-      errMsg.classList.add('show');
-      window.scrollTo(0, 0);
-      return;
-    }
-    errMsg.classList.remove('show');
-
-    const { data: newAddr, error } = await _supabase
-      .from('addresses')
-      .insert({
-        dealer_id:      dealer.id,
-        recipient_name: recipient,
-        address_line:   address,
-        address_line2:  document.getElementById('newAddressLine2').value.trim(),
-        city,
-        state,
-        zip_code:       zip,
-        phone:          document.getElementById('newPhone').value.trim(),
-      })
-      .select()
-      .single();
-
-    if (error) {
-      errMsg.textContent = 'Error saving address. Please try again.';
-      errMsg.classList.add('show');
-      return;
-    }
-
-    savedAddresses.push(newAddr);
-    selectedAddressId = newAddr.id;
-    document.getElementById('newAddressForm').classList.remove('show');
-    newAutocompleteInited = false;
-    renderAddresses();
   }
 
   function toggleMenu() {
