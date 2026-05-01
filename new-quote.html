@@ -700,60 +700,61 @@
   let savedAddresses = [];
   let selectedAddressId = null;
   let shippingMode = 'same';
-  let draftId = null; // set if resuming a draft
+  let draftId     = null; // set if resuming a dealer draft
+  let adminDraft  = false; // set if admin is creating on behalf of dealer
+  let adminDealerId = null;
 
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
 
     const userId = session.user.id;
-
-    // Check for draft resume mode
     const params = new URLSearchParams(window.location.search);
-    draftId = params.get('draft') || null;
+    draftId    = params.get('draft') || null;
+    adminDraft = params.get('adminDraft') === '1';
 
-    // Load dealer + is_active check
-    const { data: d } = await _supabase
-      .from('dealers')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (!d?.is_active) {
-      await _supabase.auth.signOut();
-      window.location.href = 'login.html';
-      return;
-    }
-
+    // Load dealer
+    const { data: d } = await _supabase.from('dealers').select('*').eq('id', userId).single();
+    if (!d?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
     dealer = d;
 
+    // ── Admin Draft mode: load target dealer from sessionStorage ──
+    if (adminDraft) {
+      adminDealerId = sessionStorage.getItem('adminDraftDealerId') || null;
+      if (adminDealerId && adminDealerId !== userId) {
+        // Load target dealer's data for billing display
+        const { data: targetDealer } = await _supabase.from('dealers').select('*').eq('id', adminDealerId).single();
+        if (targetDealer) dealer = targetDealer; // use target dealer's info for the quote
+      }
+    }
+
     // Fill billing display
-    const line2 = dealer.address_line2 ? `<br>${dealer.address_line2}` : '';
-    document.getElementById('billingDisplay').innerHTML = `
-      <strong>${dealer.company_name}</strong><br>
-      ${dealer.contact_name}<br>
-      ${dealer.address_line1 || '—'}${line2}<br>
-      ${dealer.city || ''}, ${dealer.state || ''} ${dealer.zip_code || ''}<br>
-      ${dealer.phone || ''}
-    `;
+    const line2 = dealer.address_line2 ? '<br>' + dealer.address_line2 : '';
+    document.getElementById('billingDisplay').innerHTML =
+      '<strong>' + dealer.company_name + '</strong><br>' +
+      dealer.contact_name + '<br>' +
+      (dealer.address_line1 || '—') + line2 + '<br>' +
+      (dealer.city || '') + ', ' + (dealer.state || '') + ' ' + (dealer.zip_code || '') + '<br>' +
+      (dealer.phone || '');
 
-    // Load saved addresses
+    // Load saved addresses for the relevant dealer
+    const targetId = adminDraft && adminDealerId ? adminDealerId : userId;
     const { data: addrs } = await _supabase
-      .from('addresses')
-      .select('*')
-      .eq('dealer_id', userId)
-      .eq('is_deleted', false);
-
+      .from('addresses').select('*').eq('dealer_id', targetId).eq('is_deleted', false);
     savedAddresses = addrs || [];
     renderAddresses();
 
     if (draftId) {
-      // ── Resume Draft mode: load from DB ──
-      await loadDraftData(userId);
+      // ── Resume Draft: load from DB ──
+      await loadDraftData(targetId);
+    } else if (adminDraft) {
+      // ── Admin Draft: generate PO# for target dealer ──
+      const { count } = await _supabase
+        .from('quotes').select('*', { count: 'exact', head: true }).eq('dealer_id', targetId);
+      const seq = String((count || 0) + 1).padStart(4, '0');
+      document.getElementById('poNumber').value = 'S' + (dealer.uid || 'XXX') + seq;
     } else {
-      // ── New Quote mode ──
-
-      // Restore Step 1 data if coming back from Step 2 Edit
+      // ── Normal: restore sessionStorage or generate fresh PO# ──
       const saved = sessionStorage.getItem('quoteStep1');
       if (saved) {
         try {
@@ -770,63 +771,42 @@
           }
           if (s1.shippingMode === 'different') {
             setShippingMode('different');
-            if (s1.shippingAddressId) {
-              selectedAddressId = s1.shippingAddressId;
-              renderAddresses();
-            }
+            if (s1.shippingAddressId) { selectedAddressId = s1.shippingAddressId; renderAddresses(); }
           }
-        } catch(e) { /* ignore parse errors */ }
+        } catch(e) {}
       } else {
-        // Fresh new quote — auto-generate PO#
         const { count } = await _supabase
-          .from('quotes')
-          .select('*', { count: 'exact', head: true })
-          .eq('dealer_id', dealer.id);
+          .from('quotes').select('*', { count: 'exact', head: true }).eq('dealer_id', dealer.id);
         const seq = String((count || 0) + 1).padStart(4, '0');
-        document.getElementById('poNumber').value = `S${dealer.uid || 'XXX'}${seq}`;
+        document.getElementById('poNumber').value = 'S' + (dealer.uid || 'XXX') + seq;
       }
     }
 
-    // Poll is_active every 60s — kick out if deactivated
+    // Poll is_active every 60s
     setInterval(async () => {
-      const { data: check } = await _supabase
-        .from('dealers').select('is_active').eq('id', userId).single();
-      if (!check?.is_active) {
-        await _supabase.auth.signOut();
-        window.location.href = 'login.html';
-      }
+      const { data: check } = await _supabase.from('dealers').select('is_active').eq('id', userId).single();
+      if (!check?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
     }, 60000);
   }
 
-  // ── Load draft data from DB and populate Step 1 form ──
-  async function loadDraftData(userId) {
+  // ── Load draft data from DB → fill Step 1 form ──
+  async function loadDraftData(ownerId) {
     const { data: draft, error } = await _supabase
-      .from('quotes')
-      .select('*')
-      .eq('id', draftId)
-      .eq('dealer_id', userId)
-      .eq('status', 'Draft')
-      .single();
+      .from('quotes').select('*').eq('id', draftId).eq('dealer_id', ownerId).single();
 
     if (error || !draft) {
-      // Draft not found or not owned by this dealer — fall back to new quote
       console.warn('Draft not found, starting fresh.');
       draftId = null;
-      const { count } = await _supabase
-        .from('quotes')
-        .select('*', { count: 'exact', head: true })
-        .eq('dealer_id', dealer.id);
+      const { count } = await _supabase.from('quotes').select('*', { count: 'exact', head: true }).eq('dealer_id', dealer.id);
       const seq = String((count || 0) + 1).padStart(4, '0');
-      document.getElementById('poNumber').value = `S${dealer.uid || 'XXX'}${seq}`;
+      document.getElementById('poNumber').value = 'S' + (dealer.uid || 'XXX') + seq;
       return;
     }
 
-    // Populate form fields from draft
     document.getElementById('poNumber').value = draft.po_number || '';
     document.getElementById('jobName').value  = draft.job_name  || '';
     document.getElementById('notes').value    = draft.notes     || '';
 
-    // Logistic
     if (draft.logistic_type) {
       document.getElementById('logisticType').value = draft.logistic_type;
       handleLogisticChange();
@@ -835,16 +815,14 @@
       }
     }
 
-    // Shipping address
     if (draft.shipping_address_id) {
       setShippingMode('different');
       selectedAddressId = draft.shipping_address_id;
       renderAddresses();
     }
 
-    // Pre-populate sessionStorage so Step 2 & 3 have the data
-    // (Step 2 will also load items from DB separately via ?draft=id)
-    const s1 = {
+    // Pre-populate sessionStorage for Step 2/3
+    sessionStorage.setItem('quoteStep1', JSON.stringify({
       poNumber:          draft.po_number,
       jobName:           draft.job_name,
       notes:             draft.notes || '',
@@ -853,8 +831,7 @@
       logisticType:      draft.logistic_type || 'pickup',
       deliveryFee:       draft.delivery_fee  || 0,
       billingOverride:   null,
-    };
-    sessionStorage.setItem('quoteStep1', JSON.stringify(s1));
+    }));
   }
 
   function renderAddresses() {
@@ -1094,10 +1071,13 @@
     // Save to sessionStorage and go to step 2
     const logisticType = document.getElementById('logisticType').value;
     const deliveryFee  = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
-    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee, billingOverride };
+    const dealerIdForQuote = adminDraft && adminDealerId ? adminDealerId : null;
+    const quoteData = { poNumber, jobName, notes, shippingMode, shippingAddressId, logisticType, deliveryFee, billingOverride, adminDraft, dealerIdForQuote };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
-    // Pass draft id to step 2 if resuming
-    const nextUrl = draftId ? `new-quote-step2.html?draft=${draftId}` : 'new-quote-step2.html';
+
+    let nextUrl = 'new-quote-step2.html';
+    if (draftId)    nextUrl += '?draft=' + draftId;
+    else if (adminDraft) nextUrl += '?adminDraft=1';
     window.location.href = nextUrl;
   }
 
