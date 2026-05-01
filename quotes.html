@@ -10,6 +10,7 @@
     :root {
       --gold:#C9A84C; --gold-light:#E2C97E; --green-dark:#3e5a42; --green-mid:#4a6b4f;
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --bg:#F5F2EC; --white:#FFFFFF;
+      --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
@@ -34,6 +35,7 @@
     .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
     .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
     @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } .nav-logo-img { height: 36px; max-width: 90px; } }
+
     .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
     .page-header { margin-bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
@@ -41,11 +43,16 @@
     .btn-new-quote { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 11px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; }
     .btn-new-quote:hover { background: var(--green-mid); }
     .btn-new-quote svg { width: 13px; height: 13px; fill: currentColor; }
-    .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-    @media (max-width: 600px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+
+    /* Stats bar — 5 cards now */
+    .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+    @media (max-width: 700px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 420px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
     .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
     .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 500; color: var(--green-dark); line-height: 1; }
+    .stat-num.draft-num { color: var(--status-draft); }
     .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
     .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .filter-group { display: flex; flex-direction: column; gap: 5px; }
     .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
@@ -56,6 +63,7 @@
     .btn-filter:hover { background: var(--green-mid); }
     .btn-reset { height: 36px; padding: 0 14px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
     .btn-reset:hover { border-color: var(--text); color: var(--text); }
+
     .table-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -64,22 +72,49 @@
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
     thead th.r { text-align: right; }
-    tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+
+    /* Regular rows — clickable */
+    tbody tr.row-clickable { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+    tbody tr.row-clickable:hover { background: #FAFAF8; }
+
+    /* Draft rows — not clickable on whole row */
+    tbody tr.row-draft { border-bottom: 1px solid var(--border); background: rgba(155,89,182,0.03); transition: background 0.15s; }
+    tbody tr.row-draft:hover { background: rgba(155,89,182,0.06); }
+
     tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: #FAFAF8; }
     tbody td { padding: 14px 16px; font-size: 13px; vertical-align: middle; }
     tbody td.r { text-align: right; }
     .td-po { font-weight: 500; color: var(--green-dark); white-space: nowrap; }
     .td-job { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .td-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
     .td-amount { font-weight: 500; white-space: nowrap; }
+    .td-amount.draft-dash { color: var(--muted); font-style: italic; font-weight: 400; }
+
     .status-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+    .status-badge.draft      { background: rgba(155,89,182,0.10); color: var(--status-draft); }
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+
     .arrow-cell { color: var(--border); font-size: 14px; text-align: right; }
-    tbody tr:hover .arrow-cell { color: var(--gold); }
+    tbody tr.row-clickable:hover .arrow-cell { color: var(--gold); }
+
+    /* Edit draft icon cell */
+    .edit-draft-cell { text-align: right; }
+    .btn-edit-draft {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--status-draft);
+      background: rgba(155,89,182,0.08);
+      border: 1px solid rgba(155,89,182,0.25);
+      border-radius: 3px; padding: 5px 10px;
+      cursor: pointer; transition: all 0.15s;
+      text-decoration: none; white-space: nowrap;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.05em;
+    }
+    .btn-edit-draft:hover { background: rgba(155,89,182,0.15); border-color: rgba(155,89,182,0.5); }
+
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
     .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin: 0 auto 12px; display: block; }
     .empty-state p { font-size: 13px; margin-bottom: 16px; }
@@ -129,8 +164,10 @@
     </a>
   </div>
 
+  <!-- Stats — 5 cards -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
     <div class="stat-card"><div class="stat-num" id="statProcessing">—</div><div class="stat-label">Processing</div></div>
     <div class="stat-card"><div class="stat-num" id="statComplete">—</div><div class="stat-label">Complete</div></div>
@@ -141,6 +178,7 @@
       <span class="filter-label">Status</span>
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
+        <option value="Draft">Draft</option>
         <option value="Pending">Pending</option>
         <option value="Processing">Processing</option>
         <option value="Complete">Complete</option>
@@ -201,7 +239,11 @@ const _supabase = createClient(
 
 let allQuotes = [];
 let userId    = null;
-const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+
+const statusClass = {
+  Draft: 'draft', Pending: 'pending', Processing: 'processing',
+  Complete: 'complete', Closed: 'closed'
+};
 
 function toggleMenu() {
   const btn  = document.getElementById('hamburger');
@@ -257,6 +299,7 @@ async function loadQuotes() {
 
 function updateStats() {
   document.getElementById('statTotal').textContent      = allQuotes.length;
+  document.getElementById('statDraft').textContent      = allQuotes.filter(q => q.status === 'Draft').length;
   document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
   document.getElementById('statProcessing').textContent = allQuotes.filter(q => q.status === 'Processing').length;
   document.getElementById('statComplete').textContent   = allQuotes.filter(q => q.status === 'Complete').length;
@@ -279,9 +322,29 @@ function renderTable(quotes) {
   }
 
   tbody.innerHTML = quotes.map(q => {
-    const sc = statusClass[q.status] || 'pending';
+    const sc      = statusClass[q.status] || 'pending';
+    const isDraft = q.status === 'Draft';
+
+    if (isDraft) {
+      // Draft row — whole row NOT clickable, only the Edit button
+      return `
+        <tr class="row-draft">
+          <td>
+            <div class="td-po">${q.po_number || '—'}</div>
+            <div class="td-job">${q.job_name || '—'}</div>
+          </td>
+          <td class="td-date">${formatDate(q.created_at)}</td>
+          <td class="td-amount draft-dash r">—</td>
+          <td><span class="status-badge ${sc}">${q.status}</span></td>
+          <td class="edit-draft-cell">
+            <a class="btn-edit-draft" href="new-quote.html?draft=${q.id}">✎ Continue</a>
+          </td>
+        </tr>`;
+    }
+
+    // Regular row — whole row clickable
     return `
-      <tr onclick="window.location.href='quote-detail.html?id=${q.id}'">
+      <tr class="row-clickable" onclick="window.location.href='quote-detail.html?id=${q.id}'">
         <td>
           <div class="td-po">${q.po_number || '—'}</div>
           <div class="td-job">${q.job_name || '—'}</div>
