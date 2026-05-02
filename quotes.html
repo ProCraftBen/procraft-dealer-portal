@@ -10,6 +10,7 @@
     :root {
       --gold:#C9A84C; --gold-light:#E2C97E; --green-dark:#3e5a42; --green-mid:#4a6b4f;
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --bg:#F5F2EC; --white:#FFFFFF;
+      --error:#C0392B;
       --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
     }
@@ -100,8 +101,9 @@
     .arrow-cell { color: var(--border); font-size: 14px; text-align: right; }
     tbody tr.row-clickable:hover .arrow-cell { color: var(--gold); }
 
-    /* Edit draft icon cell */
-    .edit-draft-cell { text-align: right; }
+    /* Edit draft + Delete buttons cell */
+    .draft-actions-cell { text-align: right; white-space: nowrap; }
+    .draft-actions-wrap { display: inline-flex; align-items: center; gap: 6px; }
     .btn-edit-draft {
       display: inline-flex; align-items: center; gap: 5px;
       font-size: 11px; color: var(--status-draft);
@@ -115,11 +117,154 @@
     }
     .btn-edit-draft:hover { background: rgba(155,89,182,0.15); border-color: rgba(155,89,182,0.5); }
 
+    /* Delete draft icon button — trash icon only */
+    .btn-delete-draft {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0;
+    }
+    .btn-delete-draft svg { width: 14px; height: 14px; fill: currentColor; }
+    .btn-delete-draft:hover {
+      background: rgba(192,57,43,0.08);
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .btn-delete-draft:disabled { opacity: 0.5; cursor: not-allowed; }
+
     .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
     .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin: 0 auto 12px; display: block; }
     .empty-state p { font-size: 13px; margin-bottom: 16px; }
     .loading-row { height: 52px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* ── Delete Confirm Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(44,58,50,0.5);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: var(--white);
+      border-radius: 4px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-icon-wrap {
+      width: 48px; height: 48px;
+      background: rgba(192,57,43,0.1);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .modal-icon-wrap svg { width: 22px; height: 22px; fill: var(--error); }
+    .modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--green-dark);
+      margin-bottom: 8px;
+    }
+    .modal-msg {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 6px;
+    }
+    .modal-job {
+      font-size: 13px;
+      color: var(--green-dark);
+      font-weight: 500;
+      margin-bottom: 14px;
+    }
+    .modal-warning {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-error {
+      background: rgba(192,57,43,0.07);
+      border: 1px solid rgba(192,57,43,0.25);
+      border-radius: 3px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--error);
+      margin-bottom: 16px;
+      display: none;
+    }
+    .modal-error.show { display: block; }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .btn-modal-cancel {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    .btn-modal-cancel:hover { color: var(--text); border-color: var(--text); }
+    .btn-modal-delete {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 20px;
+      background: var(--error);
+      border: none;
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      color: #fff;
+      transition: background 0.2s;
+    }
+    .btn-modal-delete:hover { background: #A33324; }
+    .btn-modal-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-modal-delete .modal-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .btn-modal-delete.loading .modal-spinner { display: block; }
+    .btn-modal-delete.loading .btn-text { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--green-dark); color: #fff;
+      padding: 12px 22px; border-radius: 4px; font-size: 13px;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 600;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -229,6 +374,30 @@
   </div>
 </div>
 
+<!-- ── Delete Draft Confirm Modal ── -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <div class="modal-icon-wrap">
+      <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    </div>
+    <div class="modal-title">Delete Draft?</div>
+    <div class="modal-msg">Are you sure you want to delete this draft?</div>
+    <div class="modal-job" id="deleteJobName">—</div>
+    <div class="modal-warning">This action cannot be undone.</div>
+    <div class="modal-error" id="deleteError"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" id="btnDeleteCancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-modal-delete" id="btnDeleteConfirm" onclick="confirmDelete()">
+        <span class="btn-text">Delete Draft</span>
+        <div class="modal-spinner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const { createClient } = window.supabase;
@@ -239,6 +408,8 @@ const _supabase = createClient(
 
 let allQuotes = [];
 let userId    = null;
+let pendingDeleteId   = null;   // quote id queued for deletion
+let pendingDeleteName = null;   // job_name shown in modal
 
 const statusClass = {
   Draft: 'draft', Pending: 'pending', Processing: 'processing',
@@ -264,6 +435,16 @@ document.addEventListener('click', function(e) {
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) {
   return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// HTML-escape helper for any user-provided text we inject into the DOM
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 async function init() {
@@ -324,20 +505,30 @@ function renderTable(quotes) {
   tbody.innerHTML = quotes.map(q => {
     const sc      = statusClass[q.status] || 'pending';
     const isDraft = q.status === 'Draft';
+    const safePo  = escapeHtml(q.po_number || '—');
+    const safeJob = escapeHtml(q.job_name || '—');
 
     if (isDraft) {
-      // Draft row — whole row NOT clickable, only the Edit button
+      // Draft row — whole row NOT clickable, only the action buttons
       return `
         <tr class="row-draft">
           <td>
-            <div class="td-po">${q.po_number || '—'}</div>
-            <div class="td-job">${q.job_name || '—'}</div>
+            <div class="td-po">${safePo}</div>
+            <div class="td-job">${safeJob}</div>
           </td>
           <td class="td-date">${formatDate(q.created_at)}</td>
           <td class="td-amount draft-dash r">—</td>
           <td><span class="status-badge ${sc}">${q.status}</span></td>
-          <td class="edit-draft-cell">
-            <a class="btn-edit-draft" href="new-quote.html?draft=${q.id}">✎ Continue</a>
+          <td class="draft-actions-cell">
+            <div class="draft-actions-wrap">
+              <a class="btn-edit-draft" href="new-quote.html?draft=${q.id}">✎ Continue</a>
+              <button class="btn-delete-draft"
+                      onclick="openDeleteModal('${q.id}', ${JSON.stringify(q.job_name || '—')})"
+                      title="Delete draft"
+                      aria-label="Delete draft">
+                <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
+            </div>
           </td>
         </tr>`;
     }
@@ -346,8 +537,8 @@ function renderTable(quotes) {
     return `
       <tr class="row-clickable" onclick="window.location.href='quote-detail.html?id=${q.id}'">
         <td>
-          <div class="td-po">${q.po_number || '—'}</div>
-          <div class="td-job">${q.job_name || '—'}</div>
+          <div class="td-po">${safePo}</div>
+          <div class="td-job">${safeJob}</div>
         </td>
         <td class="td-date">${formatDate(q.created_at)}</td>
         <td class="td-amount r">${fmt(q.grand_total)}</td>
@@ -381,6 +572,90 @@ function resetFilters() {
   document.getElementById('filterTo').value     = '';
   document.getElementById('filterSearch').value = '';
   renderTable(allQuotes);
+}
+
+// ── Delete Draft ───────────────────────────────────────────────────
+function openDeleteModal(quoteId, jobName) {
+  pendingDeleteId   = quoteId;
+  pendingDeleteName = jobName || '—';
+  document.getElementById('deleteJobName').textContent = pendingDeleteName;
+  document.getElementById('deleteError').classList.remove('show');
+  document.getElementById('btnDeleteConfirm').classList.remove('loading');
+  document.getElementById('btnDeleteConfirm').disabled = false;
+  document.getElementById('btnDeleteCancel').disabled  = false;
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  // Don't close if a delete is currently in flight
+  if (document.getElementById('btnDeleteConfirm').classList.contains('loading')) return;
+  document.getElementById('deleteModal').classList.remove('show');
+  pendingDeleteId   = null;
+  pendingDeleteName = null;
+}
+
+// Close modal when clicking outside the box (but not while loading)
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteModal();
+});
+
+async function confirmDelete() {
+  if (!pendingDeleteId) return;
+
+  const btn      = document.getElementById('btnDeleteConfirm');
+  const cancel   = document.getElementById('btnDeleteCancel');
+  const errEl    = document.getElementById('deleteError');
+  const quoteId  = pendingDeleteId;
+
+  btn.classList.add('loading');
+  btn.disabled    = true;
+  cancel.disabled = true;
+  errEl.classList.remove('show');
+
+  try {
+    // ── Step 1: delete child rows first to satisfy FK constraint ──
+    const { error: itemsErr } = await _supabase
+      .from('quote_items').delete().eq('quote_id', quoteId);
+    if (itemsErr) throw itemsErr;
+
+    // ── Step 2: delete the quote itself ──
+    // RLS only allows status='Draft' AND dealer_id=auth.uid(), so this
+    // implicitly guards against deleting non-Draft quotes even if the UI
+    // bypasses the check.
+    const { error: quoteErr, count } = await _supabase
+      .from('quotes')
+      .delete({ count: 'exact' })
+      .eq('id', quoteId);
+    if (quoteErr) throw quoteErr;
+    if (count === 0) {
+      // Nothing was deleted — most likely RLS blocked it (e.g. status changed)
+      throw new Error('Could not delete this draft. It may no longer be a draft, or the page is out of date.');
+    }
+
+    // ── Success ──
+    document.getElementById('deleteModal').classList.remove('show');
+    showToast(`Draft "${pendingDeleteName}" deleted.`);
+
+    // Reset state and reload list
+    pendingDeleteId   = null;
+    pendingDeleteName = null;
+    await loadQuotes();
+
+  } catch (err) {
+    console.error('[deleteDraft]', err);
+    btn.classList.remove('loading');
+    btn.disabled    = false;
+    cancel.disabled = false;
+    errEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errEl.classList.add('show');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 async function handleLogout() {
