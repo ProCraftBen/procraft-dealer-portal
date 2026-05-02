@@ -658,6 +658,27 @@ function buildItemsPayload(quoteId) {
   });
 }
 
+// ── Resolve dealerId — single source of truth ─────────────────────
+// Priority: existing draft's dealer_id (DB) > sessionStorage adminDraft hint > current session
+async function resolveDealerId(session) {
+  if (draftId) {
+    // Resume Draft: trust DB above all else
+    const { data: existingQuote, error: fetchErr } = await _supabase
+      .from('quotes').select('dealer_id').eq('id', draftId).single();
+    if (fetchErr) throw fetchErr;
+    if (!existingQuote || !existingQuote.dealer_id) {
+      throw new Error('Draft not found or missing dealer_id.');
+    }
+    return existingQuote.dealer_id;
+  }
+  if (step1Data.dealerIdForQuote) {
+    // Admin creating a brand new draft for a dealer
+    return step1Data.dealerIdForQuote;
+  }
+  // Default: dealer creating their own quote
+  return session.user.id;
+}
+
 // ── Save Draft ─────────────────────────────────────────────────────
 async function saveDraft() {
   const btn    = document.getElementById('btnDraft');
@@ -667,7 +688,7 @@ async function saveDraft() {
 
   try {
     const { data:{ session } } = await _supabase.auth.getSession();
-    const dealerId = (step1Data.dealerIdForQuote) ? step1Data.dealerIdForQuote : session.user.id;
+    const dealerId = await resolveDealerId(session);
 
     // Calculate totals
     const subtotal      = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
@@ -752,6 +773,24 @@ async function submitQuote() {
   try {
     const { data:{ session } } = await _supabase.auth.getSession();
 
+    // ── Resolve dealerId (DB-first for resumed drafts) ──
+    const dealerId = await resolveDealerId(session);
+
+    // ── Resolve dealer.uid for PO# generation ──
+    let dealerUidForPO;
+    if (dealer && dealer.id === dealerId) {
+      dealerUidForPO = dealer.uid;
+    } else {
+      // Different dealer than the one already loaded — fetch the right one
+      const { data: targetDealer, error: dealerErr } = await _supabase
+        .from('dealers').select('uid').eq('id', dealerId).single();
+      if (dealerErr) throw dealerErr;
+      dealerUidForPO = targetDealer ? targetDealer.uid : null;
+    }
+    if (!dealerUidForPO) {
+      throw new Error('Dealer UID is missing — cannot generate PO#. Please contact support.');
+    }
+
     // 計算金額
     const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
     const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
@@ -775,13 +814,22 @@ async function submitQuote() {
     const tax   = subtotal * taxRate;
     const grand = subtotal + assembleTotal + shipping + tax;
 
-    // 用 DB function 產生安全的 quote number（見下方說明）
+    // ── Generate quote_number ──
     const { data: numData, error: numError } = await _supabase
       .rpc('generate_quote_number');
     if (numError) throw numError;
     const quoteNum = numData;
 
-    // 寫入 quotes (支援 draft 升級 + 全新 submit)
+    // ── Generate PO# (only on Submit) ──
+    const { data: poNumber, error: poError } = await _supabase
+      .rpc('generate_po_number', {
+        p_dealer_uid: dealerUidForPO,
+        p_dealer_id:  dealerId,
+      });
+    if (poError) throw poError;
+    if (!poNumber) throw new Error('Failed to generate PO number.');
+
+    // ── Write quotes (Draft promotion or brand-new submit) ──
     let quoteId;
 
     if (draftId) {
@@ -830,15 +878,18 @@ async function submitQuote() {
       quoteId = newQuote.id;
     }
 
-    // 寫入 quote_items
+    // ── Write quote_items ──
     const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
     if (itemsError) throw itemsError;
 
-    // 產生兩份 PDF (base64)
+    // ── Make poNumber visible to PDF builder (uses step1Data.poNumber for header) ──
+    step1Data.poNumber = poNumber;
+
+    // ── Generate two PDFs (base64) ──
     const pdfA = await generatePdfBase64(false); // Document A — no price
     const pdfB = await generatePdfBase64(true);  // Document B — with price
 
-    // 呼叫 Edge Function 寄信
+    // ── Send email via Edge Function ──
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
       'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
@@ -882,8 +933,6 @@ async function submitQuote() {
       }
     );
 
-
-    
     // 清除 sessionStorage
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
@@ -977,21 +1026,6 @@ function updateMarkupPreview() {
 
 // ── Shared PDF builder ──────────────────────────────────────────────
 // showPrices: false = Document A (no price), true = Document B (with price)
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width; canvas.height = img.height;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
 function loadImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
