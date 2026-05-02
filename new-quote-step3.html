@@ -119,7 +119,40 @@
     .btn-submit.loading .btn-text { display: none; }
     .btn-submit.loading .spinner { display: block; }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* ── Draft banner ── */
+    .draft-banner {
+      background: rgba(201,168,76,0.1);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #8B6914;
+    }
+    .draft-banner svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+
+    /* ── Save Draft Button ── */
+    .btn-draft {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: transparent; color: var(--gold);
+      border: 1.5px solid var(--gold); border-radius: 3px;
+      padding: 14px 24px; font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.2s; min-height: 52px;
+    }
+    .btn-draft:hover { background: rgba(201,168,76,0.08); }
+    .btn-draft:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-draft svg { width: 14px; height: 14px; fill: currentColor; }
+    .btn-draft.loading .draft-btn-text { display: none; }
+    .btn-draft.loading .draft-spinner { display: block; }
+    .draft-spinner { width: 14px; height: 14px; border: 2px solid rgba(201,168,76,0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+
+    /* ── Success overlay gold variant ── */
+    .success-icon.gold { background: rgba(201,168,76,0.15); border: 2px solid var(--gold); }
+    .success-icon.gold svg { stroke: var(--gold); }
 
     /* ── Error ── */
     .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 12px 16px; font-size: 12px; color: var(--error); margin-bottom: 16px; display: none; }
@@ -197,13 +230,19 @@
 <div class="page">
   <div class="page-title">Review Your Quote</div>
 
+  <!-- Draft banner -->
+  <div class="draft-banner" id="draftBanner" style="display:none;">
+    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    <span id="draftBannerText">You are editing a saved draft. You can save again or submit when ready.</span>
+  </div>
+
   <div class="error-msg" id="errorMsg"></div>
 
   <!-- Order Info -->
   <div class="card">
     <div class="card-header">
       <span class="card-title">Order Information</span>
-      <a href="new-quote.html" class="btn-edit">Edit ✎</a>
+      <a id="editStep1Link" href="new-quote.html" class="btn-edit">Edit ✎</a>
     </div>
     <div class="card-body">
       <div class="info-grid">
@@ -231,7 +270,7 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title">Shipping Address</span>
-      <a href="new-quote.html" class="btn-edit">Edit ✎</a>
+      <a id="editStep1LinkShip" href="new-quote.html" class="btn-edit">Edit ✎</a>
     </div>
     <div class="card-body">
       <div class="info-value" id="reviewShipping">—</div>
@@ -242,7 +281,7 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title">Items</span>
-      <a href="new-quote-step2.html" class="btn-edit">Edit ✎</a>
+      <a id="editStep2Link" href="new-quote-step2.html" class="btn-edit">Edit ✎</a>
     </div>
 
     <!-- Markup Feature -->
@@ -326,23 +365,30 @@
   <div class="submit-card">
     <div class="submit-note">
       Please review your quote carefully before submitting.<br>
-      Our team will contact you to confirm pricing and availability.
+      You can also save as a draft to continue later.
     </div>
-    <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
-      <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-      <span class="btn-text">Submit Quote</span>
-      <div class="spinner"></div>
-    </button>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
+      <button class="btn-draft" id="btnDraft" onclick="saveDraft()">
+        <svg viewBox="0 0 24 24" class="draft-btn-text"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <span class="draft-btn-text">Save Draft</span>
+        <div class="draft-spinner"></div>
+      </button>
+      <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
+        <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        <span class="btn-text">Submit Quote</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
   </div>
 
 </div>
 
 <!-- Bottom Bar -->
 <div class="bottom-bar">
-  <a href="new-quote-step2.html" class="btn-back">← Edit Items</a>
+  <a id="backToStep2" href="new-quote-step2.html" class="btn-back">← Edit Items</a>
 </div>
 
-<!-- Success Overlay -->
+<!-- Success Overlay — Submit -->
 <div class="success-overlay" id="successOverlay">
   <div class="success-icon">
     <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
@@ -356,6 +402,22 @@
   </div>
   <button class="btn-dashboard" onclick="window.location.href='dashboard.html'">
     Back to Dashboard
+  </button>
+</div>
+
+<!-- Success Overlay — Save Draft -->
+<div class="success-overlay" id="draftOverlay">
+  <div class="success-icon gold">
+    <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+  </div>
+  <div class="success-title">Draft Saved!</div>
+  <div class="success-quote-num" id="draftQuoteNum"></div>
+  <div class="success-msg">
+    Your quote has been saved as a draft.<br>
+    You can find it in My Quotes and continue editing anytime.
+  </div>
+  <button class="btn-dashboard" onclick="window.location.href='quotes.html'">
+    View My Quotes
   </button>
 </div>
 
@@ -373,10 +435,16 @@ let dealer    = null;
 let step1Data = null;
 let step2Data = null;
 let shippingAddress = null;
+let draftId   = null;  // existing draft ID if resuming
 
 async function init() {
   const { data:{ session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
+
+  // Read URL params
+  const params = new URLSearchParams(window.location.search);
+  draftId = params.get('draft') || null;
+  const adminDraft = params.get('adminDraft') === '1';
 
   // Load data from sessionStorage
   const s1 = sessionStorage.getItem('quoteStep1');
@@ -388,29 +456,37 @@ async function init() {
 
   // Load dealer
   const { data:d } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
-
-  if (!d?.is_active) {
-    await _supabase.auth.signOut();
-    window.location.href = 'login.html';
-    return;
-  }
-
+  if (!d?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
   dealer = d;
 
   // Poll is_active every 60s
   setInterval(async () => {
     const { data: check } = await _supabase
       .from('dealers').select('is_active').eq('id', session.user.id).single();
-    if (!check?.is_active) {
-      await _supabase.auth.signOut();
-      window.location.href = 'login.html';
-    }
+    if (!check?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
   }, 60000);
 
   // Load shipping address if needed
   if (step1Data.shippingMode === 'different' && step1Data.shippingAddressId) {
     const { data:addr } = await _supabase.from('addresses').select('*').eq('id', step1Data.shippingAddressId).single();
     shippingAddress = addr;
+  }
+
+  // ── Draft resume mode: show banner + update Edit links ──
+  if (draftId) {
+    document.getElementById('draftBanner').style.display = 'flex';
+    document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
+    document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
+    document.getElementById('editStep2Link').href     = 'new-quote-step2.html?draft=' + draftId;
+    document.getElementById('backToStep2').href       = 'new-quote-step2.html?draft=' + draftId;
+  }
+
+  // ── Admin draft mode: hide Submit, show warning banner ──
+  if (adminDraft || step1Data.adminDraft) {
+    document.getElementById('btnSubmit').style.display = 'none';
+    document.getElementById('draftBanner').style.display = 'flex';
+    document.getElementById('draftBannerText').innerHTML =
+      '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.';
   }
 
   renderReview();
@@ -463,7 +539,7 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 
 function renderReview() {
   // Order info
-  document.getElementById('reviewPO').textContent       = step1Data.poNumber || '— (generated on submit)';
+  document.getElementById('reviewPO').textContent       = step1Data.poNumber || '—';
   document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
   document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
   document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
@@ -565,6 +641,107 @@ function renderReview() {
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
 }
 
+// ── Build items payload (shared) ──────────────────────────────────
+function buildItemsPayload(quoteId) {
+  return step2Data.map(function(item) {
+    return {
+      quote_id:        quoteId,
+      style_code:      item.style_code,
+      sku_code:        item.sku_code,
+      sku_type:        item.skuType || null,
+      assemble_status: item.type,
+      quantity:        item.quantity,
+      unit_price:      item.unit_price,
+      msrp:            item.msrp || null,
+      assemble_fee:    item.assemble_fee || 0,
+    };
+  });
+}
+
+// ── Save Draft ─────────────────────────────────────────────────────
+async function saveDraft() {
+  const btn    = document.getElementById('btnDraft');
+  const errMsg = document.getElementById('errorMsg');
+  btn.classList.add('loading'); btn.disabled = true;
+  errMsg.classList.remove('show');
+
+  try {
+    const { data:{ session } } = await _supabase.auth.getSession();
+    const dealerId = (step1Data.dealerIdForQuote) ? step1Data.dealerIdForQuote : session.user.id;
+
+    // Calculate totals
+    const subtotal      = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
+    const assembleTotal = step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0);
+    const logisticType  = step1Data.logisticType || 'pickup';
+    const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
+    let shipping = 0;
+    if (logisticType === 'delivery')       shipping = deliveryFee;
+    else if (logisticType === 'shipping') {
+      if (subtotal <= 6000)       shipping = subtotal * 0.15;
+      else if (subtotal <= 9000)  shipping = subtotal * 0.12;
+      else if (subtotal <= 12000) shipping = subtotal * 0.10;
+    }
+    const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+    const tax   = subtotal * taxRate;
+    const grand = subtotal + assembleTotal + shipping + tax;
+
+    const payload = {
+      dealer_id:           dealerId,
+      job_name:            step1Data.jobName,
+      shipping_address_id: step1Data.shippingAddressId || null,
+      status:              'Draft',
+      notes:               step1Data.notes || null,
+      logistic_type:       logisticType,
+      delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
+      subtotal:            parseFloat(subtotal.toFixed(2)),
+      assemble_total:      parseFloat(assembleTotal.toFixed(2)),
+      shipping_cost:       parseFloat(shipping.toFixed(2)),
+      tax_amount:          parseFloat(tax.toFixed(2)),
+      grand_total:         parseFloat(grand.toFixed(2)),
+    };
+
+    let quoteId;
+
+    if (draftId) {
+      // UPDATE existing draft
+      const { error } = await _supabase.from('quotes').update(payload).eq('id', draftId);
+      if (error) throw error;
+      await _supabase.from('quote_items').delete().eq('quote_id', draftId);
+      quoteId = draftId;
+    } else {
+      // INSERT new draft
+      const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
+      if (numError) throw numError;
+      payload.quote_number = numData;
+
+      const { data: quote, error: quoteError } = await _supabase
+        .from('quotes').insert(payload).select().single();
+      if (quoteError) throw quoteError;
+      quoteId = quote.id;
+      draftId = quoteId; // remember for subsequent saves
+    }
+
+    // Insert items
+    const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
+    if (itemsError) throw itemsError;
+
+    // Clear sessionStorage
+    sessionStorage.removeItem('quoteStep1');
+    sessionStorage.removeItem('quoteStep2');
+
+    // Show draft success overlay
+    document.getElementById('draftQuoteNum').textContent = step1Data.jobName || '';
+    document.getElementById('draftOverlay').classList.add('show');
+
+  } catch (err) {
+    console.error(err);
+    btn.classList.remove('loading'); btn.disabled = false;
+    errMsg.textContent = err.message || 'Something went wrong. Please try again.';
+    errMsg.classList.add('show');
+    window.scrollTo(0, 0);
+  }
+}
+
 async function submitQuote() {
   const btn    = document.getElementById('btnSubmit');
   const errMsg = document.getElementById('errorMsg');
@@ -598,27 +775,18 @@ async function submitQuote() {
     const tax   = subtotal * taxRate;
     const grand = subtotal + assembleTotal + shipping + tax;
 
-    // Determine correct dealer_id (admin creating on behalf of dealer)
-    const dealerId = step1Data.dealerIdForQuote || session.user.id;
-
-    // Generate PO# using DB function (ensures uniqueness)
-    const { data: poNumber, error: poError } = await _supabase
-      .rpc('generate_po_number', {
-        p_dealer_uid: dealer.uid || 'XXX',
-        p_dealer_id:  dealerId,
-      });
-    if (poError) throw poError;
-
-    // Generate internal quote number
-    const { data: quoteNum, error: numError } = await _supabase
+    // 用 DB function 產生安全的 quote number（見下方說明）
+    const { data: numData, error: numError } = await _supabase
       .rpc('generate_quote_number');
     if (numError) throw numError;
+    const quoteNum = numData;
 
-    // 寫入 quotes
-    const { data: quote, error: quoteError } = await _supabase
-      .from('quotes')
-      .insert({
-        quote_number:        quoteNum,
+    // 寫入 quotes (支援 draft 升級 + 全新 submit)
+    let quoteId;
+
+    if (draftId) {
+      // Promote draft to Pending
+      const { error: updateError } = await _supabase.from('quotes').update({
         dealer_id:           dealerId,
         job_name:            step1Data.jobName,
         po_number:           poNumber,
@@ -632,26 +800,38 @@ async function submitQuote() {
         shipping_cost:       parseFloat(shipping.toFixed(2)),
         tax_amount:          parseFloat(tax.toFixed(2)),
         grand_total:         parseFloat(grand.toFixed(2)),
-      })
-      .select()
-      .single();
-
-    if (quoteError) throw quoteError;
+        quote_number:        quoteNum,
+      }).eq('id', draftId);
+      if (updateError) throw updateError;
+      await _supabase.from('quote_items').delete().eq('quote_id', draftId);
+      quoteId = draftId;
+    } else {
+      // Brand new submission
+      const { data: newQuote, error: quoteError } = await _supabase
+        .from('quotes')
+        .insert({
+          quote_number:        quoteNum,
+          dealer_id:           dealerId,
+          job_name:            step1Data.jobName,
+          po_number:           poNumber,
+          shipping_address_id: step1Data.shippingAddressId || null,
+          status:              'Pending',
+          notes:               step1Data.notes || null,
+          logistic_type:       logisticType,
+          delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
+          subtotal:            parseFloat(subtotal.toFixed(2)),
+          assemble_total:      parseFloat(assembleTotal.toFixed(2)),
+          shipping_cost:       parseFloat(shipping.toFixed(2)),
+          tax_amount:          parseFloat(tax.toFixed(2)),
+          grand_total:         parseFloat(grand.toFixed(2)),
+        })
+        .select().single();
+      if (quoteError) throw quoteError;
+      quoteId = newQuote.id;
+    }
 
     // 寫入 quote_items
-    const items = step2Data.map(item => ({
-      quote_id:       quote.id,
-      style_code:     item.style_code,
-      sku_code:       item.sku_code,
-      sku_type:       item.skuType || null,
-      assemble_status: item.type,
-      quantity:       item.quantity,
-      unit_price:     item.unit_price,
-      msrp:           item.msrp || null,
-      assemble_fee:   item.assemble_fee || 0,
-    }));
-
-    const { error: itemsError } = await _supabase.from('quote_items').insert(items);
+    const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
     if (itemsError) throw itemsError;
 
     // 產生兩份 PDF (base64)
@@ -1113,7 +1293,7 @@ async function buildPdf(showPrices, markupPct = 0) {
 }
 async function downloadPDF() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
-  const poNum = 'Draft';
+  const poNum = step1Data?.poNumber || 'Draft';
   // Download Document B (with prices) for dealer preview
   const doc = await buildPdf(true, markupPct);
   doc.save(`${poNum}_Details.pdf`);
