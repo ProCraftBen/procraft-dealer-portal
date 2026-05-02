@@ -447,6 +447,23 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// Event delegation for dynamically-rendered delete buttons.
+// Inline onclick is fragile because job_name may contain quotes/HTML —
+// data attributes + delegated listener avoids all escaping issues.
+document.addEventListener('DOMContentLoaded', function() {
+  const tbody = document.getElementById('quotesBody');
+  if (!tbody) return;
+  tbody.addEventListener('click', function(e) {
+    const btn = e.target.closest('.js-delete-draft');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const quoteId = btn.dataset.quoteId;
+    const jobName = btn.dataset.jobName;
+    if (quoteId) openDeleteModal(quoteId, jobName);
+  });
+});
+
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -522,8 +539,9 @@ function renderTable(quotes) {
           <td class="draft-actions-cell">
             <div class="draft-actions-wrap">
               <a class="btn-edit-draft" href="new-quote.html?draft=${q.id}">✎ Continue</a>
-              <button class="btn-delete-draft"
-                      onclick="openDeleteModal('${q.id}', ${JSON.stringify(q.job_name || '—')})"
+              <button class="btn-delete-draft js-delete-draft"
+                      data-quote-id="${q.id}"
+                      data-job-name="${escapeHtml(q.job_name || '—')}"
                       title="Delete draft"
                       aria-label="Delete draft">
                 <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
