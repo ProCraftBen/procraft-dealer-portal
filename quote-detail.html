@@ -12,6 +12,8 @@
     :root {
       --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF;
+      --error:#C0392B;
+      --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
@@ -38,8 +40,9 @@
     .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
     .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
     .quote-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .status-badge { display: inline-block; padding: 5px 14px; border-radius: 3px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+    .status-badge.draft      { background: rgba(155,89,182,0.10); color: var(--status-draft); }
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
@@ -49,6 +52,27 @@
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
     .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--border); }
     .btn-action.secondary:hover { background: var(--cream); }
+
+    /* Delete draft icon button — trash icon only, header position */
+    .btn-delete-detail {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0;
+    }
+    .btn-delete-detail svg { width: 16px; height: 16px; fill: currentColor; }
+    .btn-delete-detail:hover {
+      background: rgba(192,57,43,0.08);
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .btn-delete-detail:disabled { opacity: 0.5; cursor: not-allowed; }
+
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -87,7 +111,130 @@
     .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-    @media print { .navbar, .btn-action, .hamburger, .mobile-menu { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
+
+    /* ── Delete Confirm Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(44,58,50,0.5);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: var(--white);
+      border-radius: 4px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-icon-wrap {
+      width: 48px; height: 48px;
+      background: rgba(192,57,43,0.1);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .modal-icon-wrap svg { width: 22px; height: 22px; fill: var(--error); }
+    .modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--green-dark);
+      margin-bottom: 8px;
+    }
+    .modal-msg {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 6px;
+    }
+    .modal-job {
+      font-size: 13px;
+      color: var(--green-dark);
+      font-weight: 500;
+      margin-bottom: 14px;
+    }
+    .modal-warning {
+      font-size: 12px;
+      color: var(--muted);
+      font-style: italic;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-error {
+      background: rgba(192,57,43,0.07);
+      border: 1px solid rgba(192,57,43,0.25);
+      border-radius: 3px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--error);
+      margin-bottom: 16px;
+      display: none;
+    }
+    .modal-error.show { display: block; }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .btn-modal-cancel {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    .btn-modal-cancel:hover { color: var(--text); border-color: var(--text); }
+    .btn-modal-delete {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 20px;
+      background: var(--error);
+      border: none;
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      color: #fff;
+      transition: background 0.2s;
+    }
+    .btn-modal-delete:hover { background: #A33324; }
+    .btn-modal-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-modal-delete .modal-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .btn-modal-delete.loading .modal-spinner { display: block; }
+    .btn-modal-delete.loading .btn-text { display: none; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--green-dark); color: #fff;
+      padding: 12px 22px; border-radius: 4px; font-size: 13px;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 600;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media print { .navbar, .btn-action, .btn-delete-detail, .hamburger, .mobile-menu, .modal-overlay, .toast { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
   </style>
 </head>
 <body>
@@ -113,6 +260,30 @@
   <div class="loading-wrap"><div class="spinner-large"></div>Loading quote...</div>
 </div>
 
+<!-- ── Delete Draft Confirm Modal ── -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box">
+    <div class="modal-icon-wrap">
+      <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    </div>
+    <div class="modal-title">Delete Draft?</div>
+    <div class="modal-msg">Are you sure you want to delete this draft?</div>
+    <div class="modal-job" id="deleteJobName">—</div>
+    <div class="modal-warning">This action cannot be undone.</div>
+    <div class="modal-error" id="deleteError"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" id="btnDeleteCancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-modal-delete" id="btnDeleteConfirm" onclick="confirmDelete()">
+        <span class="btn-text">Delete Draft</span>
+        <div class="modal-spinner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const { createClient } = window.supabase;
@@ -122,10 +293,14 @@ const _supabase = createClient(
 );
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
-const statusClass = { Pending:'pending', Processing:'processing', Complete:'complete', Closed:'closed' };
+const statusClass = {
+  Draft: 'draft', Pending: 'pending', Processing: 'processing',
+  Complete: 'complete', Closed: 'closed'
+};
 
-// Store for PDF generation
+// Store for PDF generation + delete flow
 let _quote = null, _dealer = null, _addr = null;
+let _isAdmin = false;
 
 function toggleMenu() {
   const btn = document.getElementById('hamburger');
@@ -145,6 +320,15 @@ async function handleLogout() { await _supabase.auth.signOut(); window.location.
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
 
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -159,6 +343,7 @@ async function init() {
 
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   const isAdmin = ['admin','super_admin'].includes(me?.role);
+  _isAdmin = isAdmin;
   if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
 
   if (isAdmin) {
@@ -188,7 +373,7 @@ async function init() {
     shippingAddr = addr;
   }
 
-  // Store for PDF
+  // Store for PDF and delete
   _quote = quote; _dealer = dealer; _addr = shippingAddr;
   renderQuote(quote, dealer, shippingAddr);
 }
@@ -196,6 +381,10 @@ async function init() {
 function renderQuote(quote, dealer, addr) {
   const items = quote.quote_items || [];
   const sc    = statusClass[quote.status] || 'pending';
+  const isDraft = quote.status === 'Draft';
+
+  // Only show delete button for: Draft + dealer-owned (admin not allowed per spec)
+  const canDelete = isDraft && !_isAdmin;
 
   const shippingHtml = addr
     ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>${addr.address_line}<br>${addr.address_line2 ? addr.address_line2+'<br>' : ''}${addr.city}, ${addr.state} ${addr.zip_code}`
@@ -256,30 +445,62 @@ function renderQuote(quote, dealer, addr) {
   const freeShip  = parseFloat(quote.shipping_cost)===0 && parseFloat(quote.subtotal)>0;
   const taxExempt = parseFloat(quote.tax_amount)===0;
 
+  // Build header right side: status badge + (delete if Draft+dealer) + Download PDF
+  // For drafts: skip Download PDF (Drafts don't make sense to download), show only status + delete
+  const headerActionsHtml = isDraft
+    ? `
+      <span class="status-badge ${sc}">${quote.status}</span>
+      ${canDelete ? `
+        <button class="btn-delete-detail" onclick="openDeleteModal()" title="Delete draft" aria-label="Delete draft">
+          <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        </button>
+      ` : ''}
+    `
+    : `
+      <span class="status-badge ${sc}">${quote.status}</span>
+      <button class="btn-action" onclick="downloadPDF()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        Download PDF
+      </button>
+    `;
+
+  // For drafts, also offer a "Continue Editing" link as primary CTA
+  const draftEditCta = isDraft && !_isAdmin
+    ? `<div class="card-body" style="background:rgba(155,89,182,0.04);border-left:3px solid var(--status-draft);">
+         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+           <div>
+             <div style="font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:var(--status-draft);margin-bottom:4px;">Draft Mode</div>
+             <div style="font-size:13px;color:var(--text);">This quote has not been submitted. You can continue editing or delete it.</div>
+           </div>
+           <a href="new-quote.html?draft=${quote.id}" style="display:inline-flex;align-items:center;gap:6px;background:var(--status-draft);color:#fff;border-radius:3px;padding:9px 16px;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;text-decoration:none;">
+             ✎ Continue Editing
+           </a>
+         </div>
+       </div>`
+    : '';
+
   document.getElementById('pageContent').innerHTML = `
     <div class="quote-header">
       <div>
-        <div class="quote-number">${quote.po_number||'—'}</div>
-        <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
+        <div class="quote-number">${escapeHtml(quote.po_number || (isDraft ? 'Draft' : '—'))}</div>
+        <div class="quote-date">${isDraft ? 'Created' : 'Submitted'} ${formatDate(quote.created_at)}</div>
       </div>
       <div class="header-right">
-        <span class="status-badge ${sc}">${quote.status}</span>
-        <button class="btn-action" onclick="downloadPDF()">
-          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
-          Download PDF
-        </button>
+        ${headerActionsHtml}
       </div>
     </div>
+
+    ${draftEditCta ? `<div class="card">${draftEditCta}</div>` : ''}
 
     <div class="card">
       <div class="card-header"><span class="card-title">Order Information</span></div>
       <div class="card-body">
         <div class="info-grid">
-          <div><div class="info-label">PO Number</div><div class="info-value">${quote.po_number||'—'}</div></div>
-          <div><div class="info-label">Job Name</div><div class="info-value">${quote.job_name||'—'}</div></div>
-          <div><div class="info-label">Dealer</div><div class="info-value">${dealer?.company_name||'—'}</div></div>
-          <div><div class="info-label">Contact</div><div class="info-value">${dealer?.contact_name||'—'}</div></div>
-          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${quote.logistic_type||'—'}</div></div>
+          <div><div class="info-label">PO Number</div><div class="info-value">${escapeHtml(quote.po_number || '—')}</div></div>
+          <div><div class="info-label">Job Name</div><div class="info-value">${escapeHtml(quote.job_name || '—')}</div></div>
+          <div><div class="info-label">Dealer</div><div class="info-value">${escapeHtml(dealer?.company_name || '—')}</div></div>
+          <div><div class="info-label">Contact</div><div class="info-value">${escapeHtml(dealer?.contact_name || '—')}</div></div>
+          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type || '—')}</div></div>
           <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${quote.status}</span></div></div>
         </div>
       </div>
@@ -290,7 +511,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-body"><div class="info-value">${shippingHtml}</div></div>
     </div>
 
-    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">Notes</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${quote.notes}</div></div></div>` : ''}
+    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">Notes</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${escapeHtml(quote.notes)}</div></div></div>` : ''}
 
     <div class="card">
       <div class="card-header"><span class="card-title">Items</span></div>
@@ -319,6 +540,79 @@ function renderQuote(quote, dealer, addr) {
         </div>
       </div>
     </div>`;
+}
+
+// ── Delete Draft ───────────────────────────────────────────────────
+function openDeleteModal() {
+  if (!_quote || _quote.status !== 'Draft' || _isAdmin) return;
+  document.getElementById('deleteJobName').textContent = _quote.job_name || '—';
+  document.getElementById('deleteError').classList.remove('show');
+  document.getElementById('btnDeleteConfirm').classList.remove('loading');
+  document.getElementById('btnDeleteConfirm').disabled = false;
+  document.getElementById('btnDeleteCancel').disabled  = false;
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  // Don't close if a delete is currently in flight
+  if (document.getElementById('btnDeleteConfirm').classList.contains('loading')) return;
+  document.getElementById('deleteModal').classList.remove('show');
+}
+
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteModal();
+});
+
+async function confirmDelete() {
+  if (!_quote || !_quote.id) return;
+
+  const btn      = document.getElementById('btnDeleteConfirm');
+  const cancel   = document.getElementById('btnDeleteCancel');
+  const errEl    = document.getElementById('deleteError');
+  const quoteId  = _quote.id;
+  const jobName  = _quote.job_name || '—';
+
+  btn.classList.add('loading');
+  btn.disabled    = true;
+  cancel.disabled = true;
+  errEl.classList.remove('show');
+
+  try {
+    // ── Step 1: delete child rows first to satisfy FK constraint ──
+    const { error: itemsErr } = await _supabase
+      .from('quote_items').delete().eq('quote_id', quoteId);
+    if (itemsErr) throw itemsErr;
+
+    // ── Step 2: delete the quote itself ──
+    // RLS only allows status='Draft' AND dealer_id=auth.uid().
+    const { error: quoteErr, count } = await _supabase
+      .from('quotes')
+      .delete({ count: 'exact' })
+      .eq('id', quoteId);
+    if (quoteErr) throw quoteErr;
+    if (count === 0) {
+      throw new Error('Could not delete this draft. It may no longer be a draft.');
+    }
+
+    // ── Success: redirect to quotes list with a sessionStorage flag for toast ──
+    sessionStorage.setItem('flashMessage', `Draft "${jobName}" deleted.`);
+    window.location.href = 'quotes.html';
+
+  } catch (err) {
+    console.error('[deleteDraft]', err);
+    btn.classList.remove('loading');
+    btn.disabled    = false;
+    cancel.disabled = false;
+    errEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errEl.classList.add('show');
+  }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 // ── PDF Generation ──────────────────────────────────────────────────
@@ -368,7 +662,6 @@ async function downloadPDF() {
   doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(40,40,40);
   doc.text(_quote.job_name||'—', pageW-margin, 21, {align:'right'});
 
-  // Page number helper (added after table)
   let y = HEADER_H+8;
 
   // Bill To / Ship To
