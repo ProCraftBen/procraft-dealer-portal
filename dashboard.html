@@ -18,6 +18,7 @@
       --border:     #DDD8CC;
       --bg:         #F5F2EC;
       --white:      #FFFFFF;
+      --status-draft:      #9B59B6;
       --status-pending:    #C9A84C;
       --status-processing: #3B82F6;
       --status-complete:   #16A34A;
@@ -78,11 +79,17 @@
     .quote-item { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; gap: 12px; }
     .quote-item:last-child { border-bottom: none; }
     .quote-item:hover { background: #FAFAF8; }
+    .quote-item.is-draft { background: rgba(155,89,182,0.03); }
+    .quote-item.is-draft:hover { background: rgba(155,89,182,0.08); }
     .quote-info { flex: 1; min-width: 0; }
-    .quote-number { font-size: 13px; font-weight: 500; color: var(--green-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .quote-po { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Line 1: PO# (or Draft label for drafts) */
+    .quote-po-line { font-size: 13px; font-weight: 500; color: var(--green-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .quote-po-line.draft-label { color: var(--status-draft); font-style: italic; font-weight: 500; }
+    /* Line 2: Job Name */
+    .quote-job-line { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .quote-right { text-align: right; flex-shrink: 0; }
     .quote-status { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+    .quote-status.draft      { color: var(--status-draft); }
     .quote-status.pending    { color: var(--status-pending); }
     .quote-status.processing { color: var(--status-processing); }
     .quote-status.complete   { color: var(--status-complete); }
@@ -192,7 +199,13 @@
   const { createClient } = window.supabase;
   const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const statusClass = { 'Pending': 'pending', 'Processing': 'processing', 'Complete': 'complete', 'Closed': 'closed' };
+  const statusClass = {
+    'Draft': 'draft',
+    'Pending': 'pending',
+    'Processing': 'processing',
+    'Complete': 'complete',
+    'Closed': 'closed'
+  };
 
   function toggleMenu() {
     const btn  = document.getElementById('hamburger');
@@ -213,6 +226,16 @@
   function formatDate(str) {
     const d = new Date(str);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // HTML-escape helper for any user-provided text we inject into the DOM
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   async function init() {
@@ -252,17 +275,36 @@
     if (!all.length) {
       quoteList.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes yet. Create your first quote!</div>`;
     } else {
-      quoteList.innerHTML = all.map(q => `
-        <div class="quote-item" onclick="window.location.href='quote-detail.html?id=${q.id}'">
-          <div class="quote-info">
-            <div class="quote-number">${q.quote_number || 'Draft'}</div>
-            <div class="quote-po">PO#: ${q.po_number || '—'} · ${q.job_name || '—'}</div>
-          </div>
-          <div class="quote-right">
-            <div class="quote-status ${statusClass[q.status] || 'pending'}">${q.status}</div>
-            <div class="quote-date">${formatDate(q.created_at)}</div>
-          </div>
-        </div>`).join('');
+      quoteList.innerHTML = all.map(q => {
+        const isDraft = q.status === 'Draft';
+
+        // Drafts route to new-quote.html?draft=xxx (continue editing — matches quotes.html behavior)
+        // Submitted quotes route to quote-detail.html?id=xxx
+        const href = isDraft
+          ? `new-quote.html?draft=${q.id}`
+          : `quote-detail.html?id=${q.id}`;
+
+        // Line 1: PO# for submitted quotes; Draft label for drafts (no PO# yet)
+        const line1Class = isDraft ? 'quote-po-line draft-label' : 'quote-po-line';
+        const line1Text  = isDraft ? '✎ Draft (continue editing)' : (q.po_number || '—');
+
+        const safeJob   = escapeHtml(q.job_name || '—');
+        const safeLine1 = escapeHtml(line1Text);
+        const sc        = statusClass[q.status] || 'pending';
+        const itemClass = isDraft ? 'quote-item is-draft' : 'quote-item';
+
+        return `
+          <div class="${itemClass}" onclick="window.location.href='${href}'">
+            <div class="quote-info">
+              <div class="${line1Class}">${safeLine1}</div>
+              <div class="quote-job-line">${safeJob}</div>
+            </div>
+            <div class="quote-right">
+              <div class="quote-status ${sc}">${q.status}</div>
+              <div class="quote-date">${formatDate(q.created_at)}</div>
+            </div>
+          </div>`;
+      }).join('');
     }
 
     document.getElementById('orderList').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>No orders yet.</div>`;
