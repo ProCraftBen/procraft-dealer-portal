@@ -16,6 +16,7 @@
       --muted:      #7A8C82;
       --border:     #DDD8CC;
       --white:      #FFFFFF;
+      --status-draft:      #9B59B6;
       --status-pending:    #C9A84C;
       --status-processing: #3B82F6;
       --status-complete:   #16A34A;
@@ -96,12 +97,18 @@
     .quote-item { padding: 13px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; gap: 12px; }
     .quote-item:last-child { border-bottom: none; }
     .quote-item:hover { background: #FAFAF8; }
+    .quote-item.is-draft { background: rgba(155,89,182,0.03); }
+    .quote-item.is-draft:hover { background: rgba(155,89,182,0.08); }
     .quote-num { font-size: 13px; font-weight: 500; color: var(--green-dark); }
+    .quote-num.draft-label { color: var(--status-draft); font-style: italic; }
     .quote-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .quote-sub-dealer { color: var(--text); font-weight: 500; }
     .quote-right { text-align: right; flex-shrink: 0; }
     .quote-amount { font-size: 13px; font-weight: 500; color: var(--text); }
+    .quote-amount.draft-dash { color: var(--muted); font-style: italic; font-weight: 400; }
     .quote-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; }
+    .status-dot.draft      { background: var(--status-draft); }
     .status-dot.pending    { background: var(--status-pending); }
     .status-dot.processing { background: var(--status-processing); }
     .status-dot.complete   { background: var(--status-complete); }
@@ -251,7 +258,13 @@ const _supabase = createClient(
   'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
 );
 
-const statusClass = { Pending: 'pending', Processing: 'processing', Complete: 'complete', Closed: 'closed' };
+const statusClass = {
+  Draft: 'draft',
+  Pending: 'pending',
+  Processing: 'processing',
+  Complete: 'complete',
+  Closed: 'closed'
+};
 
 function formatDate(str) {
   return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -261,14 +274,29 @@ function fmt(n) {
   return '$' + parseFloat(n || 0).toFixed(2);
 }
 
+// HTML-escape helper for any user-provided text we inject into the DOM
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
 
-  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  // Fetch contact_name too so adminName can display the actual name
+  const { data: me } = await _supabase
+    .from('dealers')
+    .select('role, contact_name')
+    .eq('id', session.user.id)
+    .single();
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
 
-  document.getElementById('adminName').textContent = me.contact_name || 'Admin';
+  document.getElementById('adminName').textContent = me?.contact_name || 'Admin';
 
   await Promise.all([loadStats(), loadRecentQuotes(), loadRecentDealers()]);
 }
@@ -303,20 +331,39 @@ async function loadRecentQuotes() {
     return;
   }
 
-  el.innerHTML = quotes.map(q => `
-    <div class="quote-item" onclick="window.location.href='admin-quotes.html'">
-      <div>
-        <div class="quote-num">
-          <span class="status-dot ${statusClass[q.status] || 'pending'}"></span>
-          ${q.quote_number || '—'}
+  el.innerHTML = quotes.map(q => {
+    const isDraft = q.status === 'Draft';
+    const sc = statusClass[q.status] || 'pending';
+
+    // Line 1: PO# for submitted quotes; 'Draft (no PO# yet)' label for drafts
+    const line1Html = isDraft
+      ? `<span class="status-dot ${sc}"></span><span style="color:var(--status-draft);font-style:italic;">Draft (no PO# yet)</span>`
+      : `<span class="status-dot ${sc}"></span>${escapeHtml(q.po_number || '—')}`;
+
+    // Line 2: [Dealer] · Job Name (admin needs to know which dealer it belongs to)
+    const dealerName = escapeHtml(q.dealers?.company_name || '—');
+    const jobName   = escapeHtml(q.job_name || '—');
+    const line2Html = `<span class="quote-sub-dealer">${dealerName}</span> · ${jobName}`;
+
+    // Right side: Drafts have no grand_total to show
+    const amountHtml = isDraft
+      ? `<div class="quote-amount draft-dash">—</div>`
+      : `<div class="quote-amount">${fmt(q.grand_total)}</div>`;
+
+    const itemClass = isDraft ? 'quote-item is-draft' : 'quote-item';
+
+    return `
+      <div class="${itemClass}" onclick="window.location.href='admin-quotes.html'">
+        <div>
+          <div class="quote-num">${line1Html}</div>
+          <div class="quote-sub">${line2Html}</div>
         </div>
-        <div class="quote-sub">${q.dealers?.company_name || '—'} · ${q.job_name || '—'}</div>
-      </div>
-      <div class="quote-right">
-        <div class="quote-amount">${fmt(q.grand_total)}</div>
-        <div class="quote-date">${formatDate(q.created_at)}</div>
-      </div>
-    </div>`).join('');
+        <div class="quote-right">
+          ${amountHtml}
+          <div class="quote-date">${formatDate(q.created_at)}</div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 async function loadRecentDealers() {
@@ -336,8 +383,8 @@ async function loadRecentDealers() {
   el.innerHTML = dealers.map(d => `
     <div class="dealer-item" onclick="window.location.href='admin-dealers.html'">
       <div>
-        <div class="dealer-name">${d.company_name}</div>
-        <div class="dealer-sub">${d.contact_name} · ${d.city}, ${d.state}</div>
+        <div class="dealer-name">${escapeHtml(d.company_name || '—')}</div>
+        <div class="dealer-sub">${escapeHtml(d.contact_name || '—')} · ${escapeHtml(d.city || '')}, ${escapeHtml(d.state || '')}</div>
       </div>
       <div class="dealer-right">
         <span class="badge-active">Active</span>
