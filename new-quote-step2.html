@@ -595,19 +595,45 @@ const openSubcats = new Set();
 async function init() {
   const { data:{ session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
-  const { data:d } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
 
-  if (!d?.is_active) {
+  // Check for draft resume mode + admin draft mode
+  const params = new URLSearchParams(window.location.search);
+  draftId = params.get('draft') || null;
+
+  // ── Step 1: Verify the logged-in user is active (security gate) ──
+  const { data: meRow } = await _supabase
+    .from('dealers').select('is_active').eq('id', session.user.id).single();
+  if (!meRow?.is_active) {
     await _supabase.auth.signOut();
     window.location.href = 'login.html';
     return;
   }
 
-  dealer = d;
+  // ── Step 2: Resolve which dealer's data to load (for pricing/fees/multipliers) ──
+  // Priority: Resume Draft (DB) > Admin Draft (sessionStorage hint) > current session
+  let dealerIdToLoad = session.user.id;
+  if (draftId) {
+    const { data: q } = await _supabase
+      .from('quotes').select('dealer_id').eq('id', draftId).single();
+    if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
+  } else {
+    // Look for admin-draft hint in sessionStorage (set by step1)
+    try {
+      const s1 = sessionStorage.getItem('quoteStep1');
+      if (s1) {
+        const parsed = JSON.parse(s1);
+        if (parsed?.dealerIdForQuote) dealerIdToLoad = parsed.dealerIdForQuote;
+      }
+    } catch (_) { /* ignore parse errors */ }
+  }
 
-  // Check for draft resume mode
-  const params = new URLSearchParams(window.location.search);
-  draftId = params.get('draft') || null;
+  const { data:d } = await _supabase
+    .from('dealers').select('*').eq('id', dealerIdToLoad).single();
+  if (!d) {
+    alert('Could not load dealer data. Please go back and try again.');
+    return;
+  }
+  dealer = d;
 
   const [s, framedRes, framelessRes] = await Promise.all([
     _supabase.from('door_styles').select('*')
