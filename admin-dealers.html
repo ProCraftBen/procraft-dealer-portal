@@ -319,27 +319,49 @@
       </div>
 
       <div class="form-section">
-        <div class="form-section-title">Assemble Fee (per item type)</div>
+        <div class="form-section-title">Assemble Fee — Framed (per item type)</div>
         <div class="form-grid">
           <div class="form-group">
             <label class="form-label">Base ($)</label>
-            <input class="form-input" id="f_asm_fee_base" type="number" step="0.01" min="0" placeholder="0.00"/>
+            <input class="form-input" id="f_asm_fee_framed_base" type="number" step="0.01" min="0" placeholder="0.00"/>
           </div>
           <div class="form-group">
             <label class="form-label">Wall ($)</label>
-            <input class="form-input" id="f_asm_fee_wall" type="number" step="0.01" min="0" placeholder="0.00"/>
+            <input class="form-input" id="f_asm_fee_framed_wall" type="number" step="0.01" min="0" placeholder="0.00"/>
           </div>
           <div class="form-group">
             <label class="form-label">Tall ($)</label>
-            <input class="form-input" id="f_asm_fee_tall" type="number" step="0.01" min="0" placeholder="0.00"/>
+            <input class="form-input" id="f_asm_fee_framed_tall" type="number" step="0.01" min="0" placeholder="0.00"/>
           </div>
           <div class="form-group">
-            <label class="form-label">Accessories ($)</label>
-            <input class="form-input" id="f_asm_fee_accessories" type="number" step="0.01" min="0" placeholder="0.00"/>
+            <label class="form-label">Roll Out Tray ($)</label>
+            <input class="form-input" id="f_asm_fee_framed_roll_out_tray" type="number" step="0.01" min="0" placeholder="0.00"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Assemble Fee — Frameless (per item type)</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Base ($)</label>
+            <input class="form-input" id="f_asm_fee_frameless_base" type="number" step="0.01" min="0" placeholder="0.00"/>
           </div>
           <div class="form-group">
-            <label class="form-label">Modification ($)</label>
-            <input class="form-input" id="f_asm_fee_modification" type="number" step="0.01" min="0" placeholder="0.00"/>
+            <label class="form-label">Wall ($)</label>
+            <input class="form-input" id="f_asm_fee_frameless_wall" type="number" step="0.01" min="0" placeholder="0.00"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tall ($)</label>
+            <input class="form-input" id="f_asm_fee_frameless_tall" type="number" step="0.01" min="0" placeholder="0.00"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vanity ($)</label>
+            <input class="form-input" id="f_asm_fee_frameless_vanity" type="number" step="0.01" min="0" placeholder="0.00"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Roll Out Tray ($)</label>
+            <input class="form-input" id="f_asm_fee_frameless_roll_out_tray" type="number" step="0.01" min="0" placeholder="0.00"/>
           </div>
         </div>
       </div>
@@ -492,11 +514,15 @@ async function openEditDealer(dealerId) {
   document.getElementById('f_tax_exempt').checked          = d.tax_exempt || false;
   document.getElementById('f_tax_rate').value              = d.tax_exempt ? '0' : ((d.tax_rate || 0) * 100).toFixed(1);
   document.getElementById('f_tax_rate').disabled           = d.tax_exempt || false;
-  document.getElementById('f_asm_fee_base').value         = d.asm_fee_base || '0';
-  document.getElementById('f_asm_fee_wall').value         = d.asm_fee_wall || '0';
-  document.getElementById('f_asm_fee_tall').value         = d.asm_fee_tall || '0';
-  document.getElementById('f_asm_fee_accessories').value  = d.asm_fee_accessories || '0';
-  document.getElementById('f_asm_fee_modification').value = d.asm_fee_modification || '0';
+  document.getElementById('f_asm_fee_framed_base').value             = d.asm_fee_framed_base || '0';
+  document.getElementById('f_asm_fee_framed_wall').value             = d.asm_fee_framed_wall || '0';
+  document.getElementById('f_asm_fee_framed_tall').value             = d.asm_fee_framed_tall || '0';
+  document.getElementById('f_asm_fee_framed_roll_out_tray').value    = d.asm_fee_framed_roll_out_tray || '0';
+  document.getElementById('f_asm_fee_frameless_base').value          = d.asm_fee_frameless_base || '0';
+  document.getElementById('f_asm_fee_frameless_wall').value          = d.asm_fee_frameless_wall || '0';
+  document.getElementById('f_asm_fee_frameless_tall').value          = d.asm_fee_frameless_tall || '0';
+  document.getElementById('f_asm_fee_frameless_vanity').value        = d.asm_fee_frameless_vanity || '0';
+  document.getElementById('f_asm_fee_frameless_roll_out_tray').value = d.asm_fee_frameless_roll_out_tray || '0';
   document.getElementById('f_lat').value               = d.lat || '';
   document.getElementById('f_lng').value               = d.lng || '';
   document.getElementById('f_address_formatted').value = d.address_formatted || '';
@@ -515,7 +541,8 @@ function clearForm() {
    'f_address_line1','f_address_line2','f_city','f_state','f_zip_code',
    'f_stock_multiplier','f_non_stock_multiplier','f_frameless_multiplier','f_tax_rate',
    'f_lat','f_lng','f_address_formatted','f_secondary_email','f_optional_email_2',
-   'f_asm_fee_base','f_asm_fee_wall','f_asm_fee_tall','f_asm_fee_accessories','f_asm_fee_modification'
+   'f_asm_fee_framed_base','f_asm_fee_framed_wall','f_asm_fee_framed_tall','f_asm_fee_framed_roll_out_tray',
+   'f_asm_fee_frameless_base','f_asm_fee_frameless_wall','f_asm_fee_frameless_tall','f_asm_fee_frameless_vanity','f_asm_fee_frameless_roll_out_tray'
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.value = ''; el.disabled = false; }
@@ -551,15 +578,20 @@ async function saveDealer() {
     tax_exempt:              document.getElementById('f_tax_exempt').checked,
     secondary_email:         document.getElementById('f_secondary_email').value.trim() || null,
     optional_email_2:        document.getElementById('f_optional_email_2').value.trim() || null,
-    asm_fee_base:            document.getElementById('f_asm_fee_base').value || 0,
-    asm_fee_wall:            document.getElementById('f_asm_fee_wall').value || 0,
-    asm_fee_tall:            document.getElementById('f_asm_fee_tall').value || 0,
-    asm_fee_accessories:     document.getElementById('f_asm_fee_accessories').value || 0,
-    asm_fee_modification:    document.getElementById('f_asm_fee_modification').value || 0,
+    asm_fee_framed_base:             document.getElementById('f_asm_fee_framed_base').value || 0,
+    asm_fee_framed_wall:             document.getElementById('f_asm_fee_framed_wall').value || 0,
+    asm_fee_framed_tall:             document.getElementById('f_asm_fee_framed_tall').value || 0,
+    asm_fee_framed_roll_out_tray:    document.getElementById('f_asm_fee_framed_roll_out_tray').value || 0,
+    asm_fee_frameless_base:          document.getElementById('f_asm_fee_frameless_base').value || 0,
+    asm_fee_frameless_wall:          document.getElementById('f_asm_fee_frameless_wall').value || 0,
+    asm_fee_frameless_tall:          document.getElementById('f_asm_fee_frameless_tall').value || 0,
+    asm_fee_frameless_vanity:        document.getElementById('f_asm_fee_frameless_vanity').value || 0,
+    asm_fee_frameless_roll_out_tray: document.getElementById('f_asm_fee_frameless_roll_out_tray').value || 0,
   };
 
   const optionalFields = ['address_line2', 'slug', 'lat', 'lng', 'address_formatted', 'secondary_email', 'optional_email_2',
-    'asm_fee_base', 'asm_fee_wall', 'asm_fee_tall', 'asm_fee_accessories', 'asm_fee_modification'];
+    'asm_fee_framed_base','asm_fee_framed_wall','asm_fee_framed_tall','asm_fee_framed_roll_out_tray',
+    'asm_fee_frameless_base','asm_fee_frameless_wall','asm_fee_frameless_tall','asm_fee_frameless_vanity','asm_fee_frameless_roll_out_tray'];
   for (const [key, val] of Object.entries(fields)) {
     if (optionalFields.includes(key)) continue;
     if (key === 'tax_rate' && fields.tax_exempt) continue;
@@ -595,11 +627,15 @@ async function saveDealer() {
         tax_exempt:              fields.tax_exempt,
         secondary_email:         fields.secondary_email,
         optional_email_2:        fields.optional_email_2,
-        asm_fee_base:            parseFloat(fields.asm_fee_base) || 0,
-        asm_fee_wall:            parseFloat(fields.asm_fee_wall) || 0,
-        asm_fee_tall:            parseFloat(fields.asm_fee_tall) || 0,
-        asm_fee_accessories:     parseFloat(fields.asm_fee_accessories) || 0,
-        asm_fee_modification:    parseFloat(fields.asm_fee_modification) || 0,
+        asm_fee_framed_base:             parseFloat(fields.asm_fee_framed_base) || 0,
+        asm_fee_framed_wall:             parseFloat(fields.asm_fee_framed_wall) || 0,
+        asm_fee_framed_tall:             parseFloat(fields.asm_fee_framed_tall) || 0,
+        asm_fee_framed_roll_out_tray:    parseFloat(fields.asm_fee_framed_roll_out_tray) || 0,
+        asm_fee_frameless_base:          parseFloat(fields.asm_fee_frameless_base) || 0,
+        asm_fee_frameless_wall:          parseFloat(fields.asm_fee_frameless_wall) || 0,
+        asm_fee_frameless_tall:          parseFloat(fields.asm_fee_frameless_tall) || 0,
+        asm_fee_frameless_vanity:        parseFloat(fields.asm_fee_frameless_vanity) || 0,
+        asm_fee_frameless_roll_out_tray: parseFloat(fields.asm_fee_frameless_roll_out_tray) || 0,
       }).eq('id', editingDealerId);
       if (error) throw error;
       showToast('Dealer updated successfully.');
@@ -614,11 +650,15 @@ async function saveDealer() {
             ...fields,
             frameless_multiplier: parseFloat(fields.frameless_multiplier) || 1.0,
             optional_email_2:     fields.optional_email_2,
-            asm_fee_base:         parseFloat(fields.asm_fee_base) || 0,
-            asm_fee_wall:         parseFloat(fields.asm_fee_wall) || 0,
-            asm_fee_tall:         parseFloat(fields.asm_fee_tall) || 0,
-            asm_fee_accessories:  parseFloat(fields.asm_fee_accessories) || 0,
-            asm_fee_modification: parseFloat(fields.asm_fee_modification) || 0,
+            asm_fee_framed_base:             parseFloat(fields.asm_fee_framed_base) || 0,
+            asm_fee_framed_wall:             parseFloat(fields.asm_fee_framed_wall) || 0,
+            asm_fee_framed_tall:             parseFloat(fields.asm_fee_framed_tall) || 0,
+            asm_fee_framed_roll_out_tray:    parseFloat(fields.asm_fee_framed_roll_out_tray) || 0,
+            asm_fee_frameless_base:          parseFloat(fields.asm_fee_frameless_base) || 0,
+            asm_fee_frameless_wall:          parseFloat(fields.asm_fee_frameless_wall) || 0,
+            asm_fee_frameless_tall:          parseFloat(fields.asm_fee_frameless_tall) || 0,
+            asm_fee_frameless_vanity:        parseFloat(fields.asm_fee_frameless_vanity) || 0,
+            asm_fee_frameless_roll_out_tray: parseFloat(fields.asm_fee_frameless_roll_out_tray) || 0,
           }),
         }
       );
