@@ -847,16 +847,30 @@ function getActiveSkus() {
   return activeStyle.construction_type?.toLowerCase() === 'frameless' ? allSkusFrameless : allSkusFramed;
 }
 
-function getAsmFee(type) {
+// Returns the assemble fee for a given SKU type and construction type.
+// Returns 0 when there is no fee configured (which means: ASM disallowed for this combo).
+function getAsmFee(type, constructionType) {
   if (!dealer) return 0;
+  const t  = (type || '').toUpperCase();
+  const ct = (constructionType || '').toLowerCase();
+  if (ct !== 'framed' && ct !== 'frameless') return 0;
   const map = {
-    'BASE': dealer.asm_fee_base,
-    'WALL': dealer.asm_fee_wall,
-    'TALL': dealer.asm_fee_tall,
-    'ACCESSORIES': dealer.asm_fee_accessories,
-    'MODIFICATION': dealer.asm_fee_modification,
+    framed: {
+      'BASE':          dealer.asm_fee_framed_base,
+      'WALL':          dealer.asm_fee_framed_wall,
+      'TALL':          dealer.asm_fee_framed_tall,
+      'ROLL OUT TRAY': dealer.asm_fee_framed_roll_out_tray,
+    },
+    frameless: {
+      'BASE':          dealer.asm_fee_frameless_base,
+      'WALL':          dealer.asm_fee_frameless_wall,
+      'TALL':          dealer.asm_fee_frameless_tall,
+      'VANITY':        dealer.asm_fee_frameless_vanity,
+      'ROLL OUT TRAY': dealer.asm_fee_frameless_roll_out_tray,
+    }
   };
-  return parseFloat(map[type?.toUpperCase()] || 0);
+  const v = map[ct]?.[t];
+  return v == null ? 0 : (parseFloat(v) || 0);
 }
 
 function renderCatTabs() {
@@ -930,24 +944,28 @@ function renderSkuTable() {
         ${skus.map(sku => {
           const base      = getMsrpForGroup(sku, grp);
           const unitPrice = (base * m).toFixed(2);
-          const asmFee    = getAsmFee(sku.type);
+          const asmFee    = getAsmFee(sku.type, activeStyle.construction_type);
+          const asmAvailable = asmFee > 0;
           const typeTag   = sku.type
             ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${sku.type}</span>`
             : '—';
+          const asmButton = asmAvailable
+            ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${asmFee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);">ASM</button>`
+            : `<button class="btn-add" disabled title="Assembled service not available for this item type" style="background:#E5E5E5;color:#9CA3AF;border:1px solid #D4D4D4;cursor:not-allowed;">ASM</button>`;
           return `
             <tr>
               <td class="td-code">${sku.sku_code} ${stockTag}</td>
               <td class="td-desc">${sku.description}</td>
               <td>${typeTag}</td>
               <td class="td-price">$${unitPrice}</td>
-              <td style="font-size:12px;color:var(--muted);">${asmFee > 0 ? `$${asmFee.toFixed(2)}` : '—'}</td>
+              <td style="font-size:12px;color:var(--muted);">${asmAvailable ? `$${asmFee.toFixed(2)}` : '—'}</td>
               <td>
                 <div class="td-actions">
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)">−</button>
                   <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"/>
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)">+</button>
                   <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;">RTA</button>
-                  ${asmFee > 0 ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${asmFee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);">ASM</button>` : ''}
+                  ${asmButton}
                 </div>
               </td>
             </tr>`;
