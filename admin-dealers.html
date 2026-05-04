@@ -183,14 +183,16 @@
             <th>Location</th>
             <th>Email</th>
             <th>Slug</th>
-            <th>Stock / Non-Stock</th>
+            <th>Stock</th>
+            <th>Non-Stock</th>
+            <th>Frameless</th>
             <th>Tax Rate</th>
             <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="dealersBody">
-          <tr><td colspan="9"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="11"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -428,7 +430,7 @@ async function loadDealers() {
   document.getElementById('tableCount').textContent = `${dealers?.length || 0} dealer${dealers?.length !== 1 ? 's' : ''}`;
 
   if (!dealers?.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
     return;
   }
 
@@ -439,7 +441,9 @@ async function loadDealers() {
       <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
       <td>${d.email || '—'}</td>
       <td><span style="font-size:11px;color:var(--muted);">${d.slug || '—'}</span></td>
-      <td>${d.stock_multiplier ? `${d.stock_multiplier}x` : '—'} / ${d.non_stock_multiplier ? `${d.non_stock_multiplier}x` : '—'}</td>
+      <td>${d.stock_multiplier ? `${d.stock_multiplier}x` : '—'}</td>
+      <td>${d.non_stock_multiplier ? `${d.non_stock_multiplier}x` : '—'}</td>
+      <td>${d.frameless_multiplier ? `${d.frameless_multiplier}x` : '—'}</td>
       <td>${d.tax_exempt ? '<span style="color:#16A34A;font-size:11px;">Exempt</span>' : `${((d.tax_rate || 0) * 100).toFixed(1)}%`}</td>
       <td>${d.is_active ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
       <td style="white-space:nowrap">
