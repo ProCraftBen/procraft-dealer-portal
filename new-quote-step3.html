@@ -174,6 +174,46 @@
     .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
     .btn-dashboard:hover { background: var(--green-mid); }
 
+    /* ── Progress Overlay (during submit) ── */
+    .progress-overlay {
+      position: fixed; inset: 0;
+      background: rgba(253, 251, 247, 0.97);
+      backdrop-filter: blur(2px);
+      z-index: 600;
+      display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 40px 20px; text-align: center;
+    }
+    .progress-overlay.show { display: flex; }
+    .progress-spinner {
+      width: 56px; height: 56px;
+      border: 3px solid rgba(27, 48, 34, 0.12);
+      border-top-color: var(--green-dark);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 28px;
+    }
+    .progress-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px; font-weight: 400;
+      color: var(--green-dark);
+      margin-bottom: 14px;
+    }
+    .progress-step {
+      font-size: 13px;
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      margin-bottom: 24px;
+      min-height: 20px;
+      transition: opacity 0.2s;
+    }
+    .progress-msg {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 360px;
+    }
+
     /* Hamburger */
     .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
     .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
@@ -386,6 +426,17 @@
 <!-- Bottom Bar -->
 <div class="bottom-bar">
   <a id="backToStep2" href="new-quote-step2.html" class="btn-back">← Edit Items</a>
+</div>
+
+<!-- Progress Overlay — During Submit -->
+<div class="progress-overlay" id="progressOverlay">
+  <div class="progress-spinner"></div>
+  <div class="progress-title">Submitting Your Quote</div>
+  <div class="progress-step" id="progressStep">Saving your quote...</div>
+  <div class="progress-msg">
+    Please don't close this window.<br>
+    This may take a few seconds.
+  </div>
 </div>
 
 <!-- Success Overlay — Submit -->
@@ -764,11 +815,17 @@ async function saveDraft() {
 }
 
 async function submitQuote() {
-  const btn    = document.getElementById('btnSubmit');
-  const errMsg = document.getElementById('errorMsg');
+  const btn     = document.getElementById('btnSubmit');
+  const errMsg  = document.getElementById('errorMsg');
+  const overlay = document.getElementById('progressOverlay');
+  const stepEl  = document.getElementById('progressStep');
+  const setStep = (txt) => { if (stepEl) stepEl.textContent = txt; };
+
   btn.classList.add('loading');
   btn.disabled = true;
   errMsg.classList.remove('show');
+  setStep('Saving your quote...');
+  overlay.classList.add('show');
 
   try {
     const { data:{ session } } = await _supabase.auth.getSession();
@@ -886,10 +943,12 @@ async function submitQuote() {
     step1Data.poNumber = poNumber;
 
     // ── Generate two PDFs (base64) ──
+    setStep('Generating PDF documents...');
     const pdfA = await generatePdfBase64(false); // Document A — no price
     const pdfB = await generatePdfBase64(true);  // Document B — with price
 
     // ── Send email via Edge Function ──
+    setStep('Sending confirmation email...');
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
       'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
@@ -938,11 +997,13 @@ async function submitQuote() {
     sessionStorage.removeItem('quoteStep2');
 
     // 顯示成功 — 用 PO#
+    overlay.classList.remove('show');
     document.getElementById('successQuoteNum').textContent = poNumber;
     document.getElementById('successOverlay').classList.add('show');
 
   } catch (err) {
     console.error(err);
+    overlay.classList.remove('show');
     btn.classList.remove('loading');
     btn.disabled = false;
     errMsg.textContent = err.message || 'Something went wrong. Please try again.';
