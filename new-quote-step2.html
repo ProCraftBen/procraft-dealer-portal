@@ -610,9 +610,12 @@ async function init() {
   draftId = params.get('draft') || null;
 
   const [s, framedRes, framelessRes] = await Promise.all([
-    _supabase.from('door_styles').select('*').eq('is_active', true).order('subcategory'),
-    _supabase.from('skus_framed').select('*'),
-    _supabase.from('skus_frameless').select('*'),
+    _supabase.from('door_styles').select('*')
+      .eq('is_active', true)
+      .order('is_coming_soon', { ascending: true })
+      .order('subcategory'),
+    _supabase.from('skus_framed').select('*').eq('active', true),
+    _supabase.from('skus_frameless').select('*').eq('active', true),
   ]);
   allStyles        = s.data            || [];
   allSkusFramed    = framedRes.data    || [];
@@ -694,6 +697,7 @@ function filterStyles() { renderStyleList(); }
 function selectAndConfirm(code) {
   hoveredStyle = allStyles.find(s => s.style_code === code);
   if (!hoveredStyle) return;
+  if (hoveredStyle.is_coming_soon) return;  // Coming Soon styles are not selectable
 
   // Update preview panel
   const img    = document.getElementById('previewImg');
@@ -762,9 +766,17 @@ function renderStyleList() {
 
   grid.innerHTML = filtered.map(s => {
     const sel = activeStyle && activeStyle.style_code === s.style_code;
+    const isComingSoon = !!s.is_coming_soon;
+    const cardClass = `style-img-card${sel ? ' selected' : ''}${isComingSoon ? ' coming-soon' : ''}`;
+    const cardStyle = isComingSoon ? ' style="cursor:not-allowed;"' : '';
+    const onClick = isComingSoon ? '' : `onclick="selectAndConfirm('${s.style_code}')"`;
+    const badge = isComingSoon
+      ? `<div style="position:absolute;top:6px;right:6px;background:var(--green-dark,#1b3022);color:#fff;font-size:8px;letter-spacing:0.1em;padding:3px 6px;border-radius:2px;font-weight:600;text-transform:uppercase;z-index:2;">Coming Soon</div>`
+      : '';
     return `
-      <div class="style-img-card ${sel ? 'selected' : ''}" onclick="selectAndConfirm('${s.style_code}')">
-        <div class="style-img-card-img-wrap">
+      <div class="${cardClass}"${cardStyle} ${onClick}>
+        <div class="style-img-card-img-wrap" style="position:relative;">
+          ${badge}
           ${s.image_url
             ? `<img src="${s.image_url}" alt="${s.style_name}" loading="lazy"/>`
             : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg>`
@@ -862,6 +874,18 @@ function setCat(c) {
 }
 
 
+// Helper: returns the MSRP for the SKU based on the style's group, or null if N/A
+function getMsrpForGroup(sku, grp) {
+  const g = (grp || 'GROUP A').toUpperCase();
+  const v = g === 'GROUP D' ? sku.msrp_group_d
+          : g === 'GROUP C' ? sku.msrp_group_c
+          : g === 'GROUP B' ? sku.msrp_group_b
+          : sku.msrp_group_a;
+  if (v === null || v === undefined || v === '') return null;
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
 function renderSkuTable() {
   if (!activeStyle) return;
   const stockM     = dealer ? parseFloat(dealer.stock_multiplier     || 1) : 1;
@@ -871,17 +895,24 @@ function renderSkuTable() {
   const isStock    = activeStyle.is_stock;
   const m          = isFrameless ? framelessM : (isStock ? stockM : nonStockM);
   const q = (document.getElementById('skuSearch')?.value||'').toLowerCase();
+  const grp        = (activeStyle.grp || 'GROUP A').toUpperCase();
 
   let skus = getActiveSkus();
   if (currentCat !== 'All') skus = skus.filter(s => s.type === currentCat);
   if (q) skus = skus.filter(s => s.sku_code.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
 
+  // Filter out SKUs that have no price for the current style's group (N/A handling)
+  skus = skus.filter(s => getMsrpForGroup(s, grp) !== null);
+
   const wrap = document.getElementById('skuTableWrap');
   if (!skus.length) { wrap.innerHTML = '<div class="sku-placeholder">No items found.</div>'; return; }
 
-  const stockTag = isStock
-    ? '<span style="font-size:9px;background:rgba(22,163,74,0.1);color:#16A34A;border-radius:2px;padding:1px 5px;">STOCK</span>'
-    : '<span style="font-size:9px;background:rgba(59,130,246,0.1);color:#3B82F6;border-radius:2px;padding:1px 5px;">NON-STOCK</span>';
+  // Stock/Non-Stock tag is only meaningful for Framed; hide for Frameless
+  const stockTag = isFrameless
+    ? ''
+    : (isStock
+        ? '<span style="font-size:9px;background:rgba(22,163,74,0.1);color:#16A34A;border-radius:2px;padding:1px 5px;">STOCK</span>'
+        : '<span style="font-size:9px;background:rgba(59,130,246,0.1);color:#3B82F6;border-radius:2px;padding:1px 5px;">NON-STOCK</span>');
 
   wrap.innerHTML = `
     <table class="sku-table">
@@ -897,11 +928,7 @@ function renderSkuTable() {
       </thead>
       <tbody>
         ${skus.map(sku => {
-          const grp       = (activeStyle.grp || 'GROUP A').toUpperCase();
-          const base      = grp === 'GROUP D' ? parseFloat(sku.msrp_group_d || 0)
-                          : grp === 'GROUP C' ? parseFloat(sku.msrp_group_c || 0)
-                          : grp === 'GROUP B' ? parseFloat(sku.msrp_group_b || 0)
-                          : parseFloat(sku.msrp_group_a || 0);
+          const base      = getMsrpForGroup(sku, grp);
           const unitPrice = (base * m).toFixed(2);
           const asmFee    = getAsmFee(sku.type);
           const typeTag   = sku.type
@@ -939,14 +966,17 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
   const qty = parseInt(el?.value||0);
   if (qty<=0) { showToast('Please enter a quantity first'); return; }
   const sku = getActiveSkus().find(s => s.sku_code === skuCode);
+  if (!sku) { showToast('SKU not found'); return; }
+  const grp2      = (activeStyle.grp || 'GROUP A').toUpperCase();
+  const msrpValue = getMsrpForGroup(sku, grp2);
+  if (msrpValue === null) {
+    showToast('This SKU is not available for the selected style group');
+    return;
+  }
   const key = `${activeStyle.style_code}-${skuCode}-${type}`;
   const idx = cartItems.findIndex(i=>i.key===key);
   if (idx>=0) { cartItems[idx].quantity+=qty; }
   else {
-    const grp2      = (activeStyle.grp || 'GROUP A').toUpperCase();
-    const msrpValue = grp2 === 'GROUP C' ? parseFloat(sku.msrp_group_c || 0)
-                    : grp2 === 'GROUP B' ? parseFloat(sku.msrp_group_b || 0)
-                    : parseFloat(sku.msrp_group_a || 0);
     cartItems.push({
       key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
       sku_code:skuCode, sku_desc:sku.description, type,
