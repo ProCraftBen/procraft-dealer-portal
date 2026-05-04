@@ -327,27 +327,46 @@
           <div class="confirmed-row"><div><div class="confirmed-value" id="display_frameless_multiplier">—</div></div></div>
         </div>
       </div>
-      <div class="form-label" style="margin-bottom:10px;">Assemble Fee (per item type)</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
+      <div class="form-label" style="margin-bottom:10px;">Assemble Fee — Framed</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;">
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Base</div>
-          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_base">—</div></div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_framed_base">—</div></div>
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Wall</div>
-          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_wall">—</div></div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_framed_wall">—</div></div>
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Tall</div>
-          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_tall">—</div></div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_framed_tall">—</div></div>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Accessories</div>
-          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_accessories">—</div></div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Roll Out Tray</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_framed_roll_out_tray">—</div></div>
+        </div>
+      </div>
+      <div class="form-label" style="margin-bottom:10px;">Assemble Fee — Frameless</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Base</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_frameless_base">—</div></div>
         </div>
         <div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Modification</div>
-          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_modification">—</div></div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Wall</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_frameless_wall">—</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Tall</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_frameless_tall">—</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Vanity</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_frameless_vanity">—</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Roll Out Tray</div>
+          <div class="confirmed-row" style="justify-content:center;"><div class="confirmed-value" id="display_asm_frameless_roll_out_tray">—</div></div>
         </div>
       </div>
     </div>
@@ -555,11 +574,16 @@ async function init() {
   document.getElementById('display_stock_multiplier').textContent     = dealer.stock_multiplier ? `${dealer.stock_multiplier}x` : '—';
   document.getElementById('display_non_stock_multiplier').textContent = dealer.non_stock_multiplier ? `${dealer.non_stock_multiplier}x` : '—';
   document.getElementById('display_frameless_multiplier').textContent = dealer.frameless_multiplier ? `${dealer.frameless_multiplier}x` : '—';
-  document.getElementById('display_asm_base').textContent         = dealer.asm_fee_base > 0 ? `$${parseFloat(dealer.asm_fee_base).toFixed(2)}` : '—';
-  document.getElementById('display_asm_wall').textContent         = dealer.asm_fee_wall > 0 ? `$${parseFloat(dealer.asm_fee_wall).toFixed(2)}` : '—';
-  document.getElementById('display_asm_tall').textContent         = dealer.asm_fee_tall > 0 ? `$${parseFloat(dealer.asm_fee_tall).toFixed(2)}` : '—';
-  document.getElementById('display_asm_accessories').textContent  = dealer.asm_fee_accessories > 0 ? `$${parseFloat(dealer.asm_fee_accessories).toFixed(2)}` : '—';
-  document.getElementById('display_asm_modification').textContent = dealer.asm_fee_modification > 0 ? `$${parseFloat(dealer.asm_fee_modification).toFixed(2)}` : '—';
+  const fmtFee = v => (v && parseFloat(v) > 0) ? `$${parseFloat(v).toFixed(2)}` : '—';
+  document.getElementById('display_asm_framed_base').textContent             = fmtFee(dealer.asm_fee_framed_base);
+  document.getElementById('display_asm_framed_wall').textContent             = fmtFee(dealer.asm_fee_framed_wall);
+  document.getElementById('display_asm_framed_tall').textContent             = fmtFee(dealer.asm_fee_framed_tall);
+  document.getElementById('display_asm_framed_roll_out_tray').textContent    = fmtFee(dealer.asm_fee_framed_roll_out_tray);
+  document.getElementById('display_asm_frameless_base').textContent          = fmtFee(dealer.asm_fee_frameless_base);
+  document.getElementById('display_asm_frameless_wall').textContent          = fmtFee(dealer.asm_fee_frameless_wall);
+  document.getElementById('display_asm_frameless_tall').textContent          = fmtFee(dealer.asm_fee_frameless_tall);
+  document.getElementById('display_asm_frameless_vanity').textContent        = fmtFee(dealer.asm_fee_frameless_vanity);
+  document.getElementById('display_asm_frameless_roll_out_tray').textContent = fmtFee(dealer.asm_fee_frameless_roll_out_tray);
   document.getElementById('f_address_line1').value = dealer.address_line1 || '';
   document.getElementById('f_address_line2').value = dealer.address_line2 || '';
   document.getElementById('f_city').value          = dealer.city || '';
