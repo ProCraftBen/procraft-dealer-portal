@@ -505,9 +505,28 @@ async function init() {
   step1Data = JSON.parse(s1);
   step2Data = JSON.parse(s2);
 
-  // Load dealer
-  const { data:d } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
-  if (!d?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+  // ── Verify the logged-in user is active (security gate) ──
+  const { data: meRow } = await _supabase
+    .from('dealers').select('is_active').eq('id', session.user.id).single();
+  if (!meRow?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+
+  // ── Resolve which dealer's data to load (for pricing/fees/multipliers) ──
+  // Priority: Resume Draft (DB) > Admin Draft (sessionStorage hint) > current session
+  let dealerIdToLoad = session.user.id;
+  if (draftId) {
+    const { data: q } = await _supabase
+      .from('quotes').select('dealer_id').eq('id', draftId).single();
+    if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
+  } else if (step1Data.dealerIdForQuote) {
+    dealerIdToLoad = step1Data.dealerIdForQuote;
+  }
+
+  const { data:d } = await _supabase
+    .from('dealers').select('*').eq('id', dealerIdToLoad).single();
+  if (!d) {
+    alert('Could not load dealer data. Please go back and try again.');
+    return;
+  }
   dealer = d;
 
   // Poll is_active every 60s
