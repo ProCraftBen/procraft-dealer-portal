@@ -12,6 +12,7 @@
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF; --error:#C0392B;
       --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
+      --status-returned:#E07B39;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -41,13 +42,14 @@
     .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
 
-    /* Stats */
-    .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
-    @media (max-width: 700px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 420px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+    /* Stats — 6 cards */
+    .stats-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; }
+    @media (max-width: 900px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 480px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
     .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px; text-align: center; }
     .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 500; color: var(--green-dark); line-height: 1; }
-    .stat-num.draft-num { color: var(--status-draft); }
+    .stat-num.draft-num    { color: var(--status-draft); }
+    .stat-num.returned-num { color: var(--status-returned); }
     .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
 
     /* Filters */
@@ -74,6 +76,8 @@
     tbody tr.expandable:hover { background: #FAFAF8; }
     tbody tr.row-draft { background: rgba(155,89,182,0.02); }
     tbody tr.row-draft:hover { background: rgba(155,89,182,0.05) !important; }
+    tbody tr.row-returned { background: rgba(224,123,57,0.04); }
+    tbody tr.row-returned:hover { background: rgba(224,123,57,0.08) !important; }
     tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
     .td-po { font-weight: 500; color: var(--green-dark); font-size: 13px; }
     .td-dealer { font-weight: 500; }
@@ -88,7 +92,9 @@
     .status-select.processing { color: var(--status-processing); background: rgba(59,130,246,0.1); }
     .status-select.complete   { color: var(--status-complete);   background: rgba(22,163,74,0.1); }
     .status-select.closed     { color: var(--status-closed);     background: rgba(107,114,128,0.1); }
-    .status-badge-draft { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(155,89,182,0.10); color: var(--status-draft); }
+    .status-select option.return-option { color: var(--status-returned); font-weight: 600; }
+    .status-badge-draft    { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(155,89,182,0.10); color: var(--status-draft); }
+    .status-badge-returned { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(224,123,57,0.14); color: var(--status-returned); }
 
     /* Detail rows */
     .detail-row { display: none; }
@@ -100,6 +106,20 @@
     .detail-section-title { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
     .detail-value { font-size: 12px; color: var(--text); line-height: 1.6; }
     .detail-value strong { color: var(--green-dark); }
+
+    /* Return reason banner inside detail */
+    .return-reason-banner {
+      background: rgba(224,123,57,0.08);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 3px solid var(--status-returned);
+      border-radius: 3px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .return-reason-banner strong { color: var(--status-returned); display: block; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 4px; }
 
     /* Items mini table */
     .items-mini { width: 100%; border-collapse: collapse; margin-top: 4px; }
@@ -147,13 +167,19 @@
     .modal-field { margin-bottom: 16px; }
     .modal-field label { display: block; font-size: 10px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
     .modal-field select, .modal-field input { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: #FAFAFA; outline: none; }
-    .modal-field select:focus, .modal-field input:focus { border-color: var(--green-mid); background: #fff; }
+    .modal-field textarea { width: 100%; min-height: 110px; resize: vertical; border: 1px solid var(--border); border-radius: 3px; padding: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: #FAFAFA; outline: none; line-height: 1.5; }
+    .modal-field select:focus, .modal-field input:focus, .modal-field textarea:focus { border-color: var(--green-mid); background: #fff; }
+    .char-counter { font-size: 10px; color: var(--muted); text-align: right; margin-top: 4px; }
+    .char-counter.warn { color: var(--status-returned); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
     .btn-modal-cancel { padding: 10px 20px; background: transparent; border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; color: var(--muted); }
     .btn-modal-cancel:hover { color: var(--text); border-color: var(--text); }
     .btn-modal-create { padding: 10px 24px; background: var(--green-dark); border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; color: #fff; }
     .btn-modal-create:hover { background: var(--green-mid); }
     .btn-modal-create:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-modal-return { padding: 10px 24px; background: var(--status-returned); border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; color: #fff; }
+    .btn-modal-return:hover { background: #c66a30; }
+    .btn-modal-return:disabled { opacity: 0.5; cursor: not-allowed; }
     .modal-error { font-size: 12px; color: var(--error); margin-top: 10px; display: none; }
     .modal-error.show { display: block; }
   </style>
@@ -196,9 +222,11 @@
     </button>
   </div>
 
+  <!-- 6-card stats: Total / Draft / Returned / Pending / Processing / Complete -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
+    <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label">Returned</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label">Pending</div></div>
     <div class="stat-card"><div class="stat-num" id="statProcessing" style="color:var(--status-processing)">—</div><div class="stat-label">Processing</div></div>
     <div class="stat-card"><div class="stat-num" id="statComplete" style="color:var(--status-complete)">—</div><div class="stat-label">Complete</div></div>
@@ -210,6 +238,7 @@
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
         <option value="Draft">Draft</option>
+        <option value="Returned">Returned</option>
         <option value="Pending">Pending</option>
         <option value="Processing">Processing</option>
         <option value="Complete">Complete</option>
@@ -280,6 +309,27 @@
   </div>
 </div>
 
+<!-- Return to Dealer Modal -->
+<div class="modal-overlay" id="returnQuoteModal">
+  <div class="modal-box">
+    <div class="modal-title">Return Quote to Dealer</div>
+    <div class="modal-sub" id="returnModalSub">Please describe what needs to be revised. The dealer will see this message in their email and on the quote detail page.</div>
+    <input type="hidden" id="returnQuoteId"/>
+    <div class="modal-field">
+      <label>Return Reason <span style="color:var(--gold);">*</span></label>
+      <textarea id="returnReason" maxlength="1000"
+        placeholder="e.g. Please update the quantity for SKU XX. Also confirm the delivery address."
+        oninput="updateReturnCharCounter()"></textarea>
+      <div class="char-counter" id="returnCharCounter">0 / 1000</div>
+    </div>
+    <div class="modal-error" id="returnModalError"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="cancelReturnQuote()">Cancel</button>
+      <button class="btn-modal-return" id="btnConfirmReturn" onclick="confirmReturnQuote()">Confirm Return</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -291,8 +341,18 @@ const _supabase = createClient(
 );
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
-const statusClass = { Draft:'draft', Pending:'pending', Processing:'processing', Complete:'complete', Closed:'closed' };
+const statusClass = {
+  Draft:'draft',
+  Pending:'pending',
+  Processing:'processing',
+  Complete:'complete',
+  Closed:'closed',
+  Returned:'returned',
+};
 let allQuotes = [], allDealers = {};
+
+// 用來記住每個 quote 的「目前 select 顯示值之前是什麼」，方便 Cancel 時還原
+const _previousStatus = {};
 
 // ── Nav ────────────────────────────────────────────────────────────
 function toggleMenu() {
@@ -379,6 +439,7 @@ async function loadQuotes() {
 function renderStats() {
   document.getElementById('statTotal').textContent      = allQuotes.length;
   document.getElementById('statDraft').textContent      = allQuotes.filter(function(q) { return q.status === 'Draft'; }).length;
+  document.getElementById('statReturned').textContent   = allQuotes.filter(function(q) { return q.status === 'Returned'; }).length;
   document.getElementById('statPending').textContent    = allQuotes.filter(function(q) { return q.status === 'Pending'; }).length;
   document.getElementById('statProcessing').textContent = allQuotes.filter(function(q) { return q.status === 'Processing'; }).length;
   document.getElementById('statComplete').textContent   = allQuotes.filter(function(q) { return q.status === 'Complete'; }).length;
@@ -397,15 +458,19 @@ function renderTable() {
   let html = '';
 
   allQuotes.forEach(function(q, idx) {
-    const dealer  = allDealers[q.dealer_id] || {};
-    const items   = q.quote_items || [];
-    const sc      = statusClass[q.status] || 'pending';
-    const isDraft = q.status === 'Draft';
+    const dealer     = allDealers[q.dealer_id] || {};
+    const items      = q.quote_items || [];
+    const sc         = statusClass[q.status] || 'pending';
+    const isDraft    = q.status === 'Draft';
+    const isReturned = q.status === 'Returned';
+
+    // 把當前 status 暫存起來，方便 Return Modal Cancel 時還原
+    _previousStatus[q.id] = q.status;
 
     // ── Sort items ──
     const grouped = {};
     items.forEach(function(i) {
-      const k = i.style_code || '—';
+      const k = i.style_name || i.style_code || '—';
       if (!grouped[k]) grouped[k] = [];
       grouped[k].push(i);
     });
@@ -510,14 +575,19 @@ function renderTable() {
     let statusCellHtml = '';
     if (isDraft) {
       statusCellHtml = '<td><span class="status-badge-draft">Draft</span></td>';
+    } else if (isReturned) {
+      // Returned: 顯示 badge，沒有下拉（admin 不能編輯，只能等 dealer 重新 submit）
+      statusCellHtml = '<td><span class="status-badge-returned">Returned</span></td>';
     } else {
+      // Pending / Processing / Complete / Closed: 下拉 + Return to Dealer 選項
       statusCellHtml =
         '<td onclick="event.stopPropagation()" style="white-space:nowrap">' +
-          '<select class="status-select ' + sc + '" id="status-' + q.id + '" onchange="updateStatus(\'' + q.id + '\', this)">' +
+          '<select class="status-select ' + sc + '" id="status-' + q.id + '" onchange="onStatusChange(\'' + q.id + '\', this)">' +
             '<option value="Pending"'    + (q.status === 'Pending'    ? ' selected' : '') + '>Pending</option>' +
             '<option value="Processing"' + (q.status === 'Processing' ? ' selected' : '') + '>Processing</option>' +
             '<option value="Complete"'   + (q.status === 'Complete'   ? ' selected' : '') + '>Complete</option>' +
             '<option value="Closed"'     + (q.status === 'Closed'     ? ' selected' : '') + '>Closed</option>' +
+            '<option value="Returned" class="return-option">↩ Return to Dealer</option>' +
           '</select>' +
           '<button id="save-' + q.id + '" onclick="saveStatus(\'' + q.id + '\')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>' +
         '</td>';
@@ -533,9 +603,19 @@ function renderTable() {
       ? '<strong>Notes:</strong> ' + q.notes
       : '';
 
+    // ── Return reason banner inside detail (only for Returned) ──
+    const returnReasonBanner = isReturned && q.return_reason
+      ? '<div class="return-reason-banner"><strong>Return Reason</strong>' + escapeHtml(q.return_reason) + '</div>'
+      : '';
+
+    // ── Row class ──
+    let rowClass = 'expandable';
+    if (isDraft)    rowClass += ' row-draft';
+    if (isReturned) rowClass += ' row-returned';
+
     // ── Assemble main row + detail row ──
     html +=
-      '<tr class="expandable' + (isDraft ? ' row-draft' : '') + '" onclick="toggleDetail(' + idx + ')">' +
+      '<tr class="' + rowClass + '" onclick="toggleDetail(' + idx + ')">' +
         '<td>' +
           '<div class="td-po">' + (q.po_number || '—') + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
           '<div style="font-size:11px;color:var(--muted);">' + (q.job_name || '—') + '</div>' +
@@ -551,6 +631,7 @@ function renderTable() {
       '<tr class="detail-row" id="detail-' + idx + '">' +
         '<td colspan="6" class="detail-cell">' +
           '<div class="detail-inner">' +
+            returnReasonBanner +
             '<div class="detail-grid">' +
               '<div>' +
                 '<div class="detail-section-title">Order Info</div>' +
@@ -584,6 +665,16 @@ function renderTable() {
   tbody.innerHTML = html;
 }
 
+// 簡單的 HTML escape，防止 return_reason 裡有 < > & 把版面搞壞
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ── Toggle detail row ──────────────────────────────────────────────
 function toggleDetail(idx) {
   const row  = document.getElementById('detail-' + idx);
@@ -594,24 +685,145 @@ function toggleDetail(idx) {
   if (!isOpen) { row.classList.add('open'); icon.classList.add('open'); }
 }
 
-// ── Status update ──────────────────────────────────────────────────
-function updateStatus(quoteId, selectEl) {
-  const saveBtn = document.getElementById('save-' + quoteId);
-  if (saveBtn) saveBtn.style.display = 'inline-block';
+// ── Status change handler ─────────────────────────────────────────
+// 選到 "Returned" → 開 Return Modal；選到其他 → 顯示 Save 按鈕
+function onStatusChange(quoteId, selectEl) {
+  const newStatus = selectEl.value;
+  if (newStatus === 'Returned') {
+    // 開 Return Modal
+    openReturnQuoteModal(quoteId, selectEl);
+  } else {
+    // 一般 status 變更：顯示 Save 按鈕等使用者按
+    const saveBtn = document.getElementById('save-' + quoteId);
+    if (saveBtn) saveBtn.style.display = 'inline-block';
+  }
 }
 
+// 一般 status 儲存（不含 Returned）
 async function saveStatus(quoteId) {
   const selectEl  = document.getElementById('status-' + quoteId);
   const saveBtn   = document.getElementById('save-' + quoteId);
   const newStatus = selectEl.value;
+
+  if (newStatus === 'Returned') {
+    // 不應該會跑到這（Returned 透過 Modal 處理），但保險起見擋一下
+    return;
+  }
+
   const { error } = await _supabase.from('quotes').update({ status: newStatus }).eq('id', quoteId);
   if (error) { showToast('Failed to update status.'); return; }
   selectEl.className = 'status-select ' + (statusClass[newStatus] || 'pending');
   saveBtn.style.display = 'none';
   const q = allQuotes.find(function(q) { return q.id === quoteId; });
   if (q) q.status = newStatus;
+  _previousStatus[quoteId] = newStatus;
   renderStats();
   showToast('Status updated to ' + newStatus);
+}
+
+// ── Return to Dealer Modal ────────────────────────────────────────
+
+function openReturnQuoteModal(quoteId, selectEl) {
+  // 暫時不變更 select 顯示值（保留 Returned 的選中態），但記住原值，方便 Cancel 時還原
+  document.getElementById('returnQuoteId').value = quoteId;
+  document.getElementById('returnReason').value = '';
+  updateReturnCharCounter();
+  document.getElementById('returnModalError').classList.remove('show');
+
+  // 顯示 dealer 名稱在 sub 文字（更貼心）
+  const q = allQuotes.find(function(q) { return q.id === quoteId; });
+  const dealer = q ? allDealers[q.dealer_id] : null;
+  const dealerName = dealer ? dealer.company_name : 'the dealer';
+  document.getElementById('returnModalSub').textContent =
+    'Please describe what needs to be revised. ' + dealerName + ' will see this message in their email and on the quote detail page.';
+
+  document.getElementById('returnQuoteModal').classList.add('show');
+  setTimeout(function() {
+    document.getElementById('returnReason').focus();
+  }, 100);
+}
+
+function updateReturnCharCounter() {
+  const ta = document.getElementById('returnReason');
+  const counter = document.getElementById('returnCharCounter');
+  const len = ta.value.length;
+  counter.textContent = len + ' / 1000';
+  counter.classList.toggle('warn', len > 900);
+}
+
+function cancelReturnQuote() {
+  const quoteId = document.getElementById('returnQuoteId').value;
+  // 把下拉還原成原本的 status（避免顯示變成 Returned 但實際沒寫 DB）
+  const selectEl = document.getElementById('status-' + quoteId);
+  if (selectEl && _previousStatus[quoteId]) {
+    selectEl.value = _previousStatus[quoteId];
+  }
+  // 隱藏可能出現的 save 按鈕
+  const saveBtn = document.getElementById('save-' + quoteId);
+  if (saveBtn) saveBtn.style.display = 'none';
+
+  document.getElementById('returnQuoteModal').classList.remove('show');
+}
+
+// 點 modal 外面關閉
+document.getElementById('returnQuoteModal').addEventListener('click', function(e) {
+  if (e.target === this) cancelReturnQuote();
+});
+
+async function confirmReturnQuote() {
+  const quoteId = document.getElementById('returnQuoteId').value;
+  const reason  = document.getElementById('returnReason').value.trim();
+  const errEl   = document.getElementById('returnModalError');
+  const btn     = document.getElementById('btnConfirmReturn');
+
+  errEl.classList.remove('show');
+
+  if (!reason) {
+    errEl.textContent = 'Return reason is required. Please describe what needs to be revised.';
+    errEl.classList.add('show');
+    return;
+  }
+  if (reason.length > 1000) {
+    errEl.textContent = 'Return reason cannot exceed 1000 characters.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Returning...';
+
+  const { error } = await _supabase
+    .from('quotes')
+    .update({ status: 'Returned', return_reason: reason })
+    .eq('id', quoteId);
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Confirm Return';
+    errEl.textContent = 'Failed to return quote: ' + (error.message || 'Unknown error');
+    errEl.classList.add('show');
+    return;
+  }
+
+  // TODO 5.2: 之後這裡會呼叫 Edge Function 寄退回通知 email
+
+  // 更新 local state
+  const q = allQuotes.find(function(q) { return q.id === quoteId; });
+  if (q) {
+    q.status = 'Returned';
+    q.return_reason = reason;
+  }
+  _previousStatus[quoteId] = 'Returned';
+
+  document.getElementById('returnQuoteModal').classList.remove('show');
+  btn.disabled = false;
+  btn.textContent = 'Confirm Return';
+
+  // 重新 render（讓那行變成 Returned badge、不再有下拉）
+  renderStats();
+  renderTable();
+
+  showToast('Quote returned to dealer.');
 }
 
 // ── Filters ────────────────────────────────────────────────────────
@@ -644,15 +856,11 @@ document.getElementById('createDraftModal').addEventListener('click', function(e
 async function createDraftForDealer() {
   const dealerId = document.getElementById('draftDealerSelect').value.trim();
   const errEl    = document.getElementById('draftModalError');
-  const btn      = document.getElementById('btnCreateDraft');
 
   errEl.classList.remove('show');
   if (!dealerId) { errEl.textContent = 'Please select a dealer.'; errEl.classList.add('show'); return; }
 
-  // Store the target dealer id in sessionStorage so new-quote.html can pick it up
   sessionStorage.setItem('adminDraftDealerId', dealerId);
-
-  // Clear any leftover quote data
   sessionStorage.removeItem('quoteStep1');
   sessionStorage.removeItem('quoteStep2');
 
