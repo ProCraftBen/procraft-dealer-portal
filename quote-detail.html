@@ -14,6 +14,7 @@
       --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
+      --status-draft:#7A8C82; --status-returned:#E07B39;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -39,17 +40,19 @@
     .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
     .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
     .quote-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
     .status-badge { display: inline-block; padding: 5px 14px; border-radius: 3px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+    .status-badge.draft      { background: rgba(122,140,130,0.12); color: var(--status-draft); }
+    .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
     .btn-action { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
     .btn-action:hover { background: var(--green-mid); }
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
-    .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--border); }
-    .btn-action.secondary:hover { background: var(--cream); }
+    .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--green-dark); }
+    .btn-action.secondary:hover { background: var(--green-dark); color: #fff; }
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -123,7 +126,14 @@ const _supabase = createClient(
 );
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
-const statusClass = { Pending:'pending', Processing:'processing', Complete:'complete', Closed:'closed' };
+const statusClass = {
+  Draft:'draft',
+  Pending:'pending',
+  Processing:'processing',
+  Complete:'complete',
+  Closed:'closed',
+  Returned:'returned',
+};
 
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null;
@@ -202,9 +212,13 @@ function renderQuote(quote, dealer, addr) {
     ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>${addr.address_line}<br>${addr.address_line2 ? addr.address_line2+'<br>' : ''}${addr.city}, ${addr.state} ${addr.zip_code}`
     : `<strong>${dealer?.company_name || '—'}</strong><br>${dealer?.address_line1 || ''}<br>${dealer?.address_line2 ? dealer.address_line2+'<br>' : ''}${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`;
 
-  // Group & sort
+  // Group & sort（用 style_name 當群組 key，fallback 到 style_code）
   const grouped = {};
-  items.forEach(i => { const k=i.style_code||'—'; if(!grouped[k]) grouped[k]=[]; grouped[k].push(i); });
+  items.forEach(i => {
+    const k = i.style_name || i.style_code || '—';
+    if(!grouped[k]) grouped[k] = [];
+    grouped[k].push(i);
+  });
   Object.keys(grouped).forEach(k => {
     grouped[k].sort((a,b) => {
       const ra=TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
@@ -219,10 +233,11 @@ function renderQuote(quote, dealer, addr) {
         styleItems.map(i => {
           itemNum++;
           const showStyle = styleName !== lastStyle; lastStyle = styleName;
+          const skuLine = `${i.sku_code||'—'}${i.sku_desc ? `<br><span style="font-size:10px;color:var(--muted);">${i.sku_desc}</span>` : ''}`;
           return `<tr>
             <td class="td-num">#${itemNum}</td>
             <td class="td-style">${showStyle ? styleName : ''}</td>
-            <td class="td-sku">${i.sku_code||'—'}</td>
+            <td class="td-sku">${skuLine}</td>
             <td>${i.sku_type ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
             <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${i.assemble_status||'—'}</span></td>
             <td class="r">${i.quantity}</td>
@@ -257,6 +272,26 @@ function renderQuote(quote, dealer, addr) {
   const freeShip  = parseFloat(quote.shipping_cost)===0 && parseFloat(quote.subtotal)>0;
   const taxExempt = parseFloat(quote.tax_amount)===0;
 
+  // ── Item 7: 依 status 渲染下載按鈕 ──
+  let downloadButtonsHtml;
+  if (quote.status === 'Draft') {
+    downloadButtonsHtml = `
+      <button class="btn-action" onclick="downloadDraftQuote()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        Download Draft Quote
+      </button>`;
+  } else {
+    downloadButtonsHtml = `
+      <button class="btn-action secondary" onclick="downloadPackingList()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        Download Packing List
+      </button>
+      <button class="btn-action" onclick="downloadInvoice()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        Download Invoice
+      </button>`;
+  }
+
   document.getElementById('pageContent').innerHTML = `
     <div class="quote-header">
       <div>
@@ -265,10 +300,7 @@ function renderQuote(quote, dealer, addr) {
       </div>
       <div class="header-right">
         <span class="status-badge ${sc}">${quote.status}</span>
-        <button class="btn-action" onclick="downloadPDF()">
-          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
-          Download PDF
-        </button>
+        ${downloadButtonsHtml}
       </div>
     </div>
 
@@ -298,7 +330,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>#</th><th>Door Code</th><th>SKU</th><th>Type</th><th>Assemble Status</th>
+            <th>#</th><th>Door Style</th><th>SKU</th><th>Type</th><th>Assemble Status</th>
             <th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Asm Fee</th><th class="r">Total</th>
           </tr></thead>
           <tbody>${itemsHtml}</tbody>
@@ -323,13 +355,14 @@ function renderQuote(quote, dealer, addr) {
 }
 
 // ── Build quoteData object for pdf-builder.js ──
+// 用 quote_items snapshot 的 style_name / sku_desc，fallback 到 code / 空字串
 function buildQuoteDataForPdf() {
   const items = (_quote.quote_items || []).map(function(i) {
     return {
-      style_name:      i.style_code,        // quote-detail uses style_code as group key
+      style_name:      i.style_name || i.style_code || '—',
       style_code:      i.style_code,
       sku_code:        i.sku_code,
-      sku_desc:        i.sku_desc || '',    // (may be null until sku_desc snapshot is added)
+      sku_desc:        i.sku_desc || '',
       sku_type:        i.sku_type || null,
       assemble_status: i.assemble_status,
       quantity:        i.quantity,
@@ -347,9 +380,7 @@ function buildQuoteDataForPdf() {
     logistic_type: _quote.logistic_type || 'pickup',
     delivery_fee:  parseFloat(_quote.delivery_fee || 0),
     items:         items,
-    // Internal hints used by pdf-builder.js totals calculation.
-    // For Quote Detail, the totals are already snapshotted in the quote row;
-    // we recompute using the same logic but markup is always 0 here.
+    // Quote Detail 一律 markup=0；用 DB snapshot 的金額反推 taxRate
     _taxRate:    parseFloat(_quote.subtotal || 0) > 0
                   ? parseFloat(_quote.tax_amount || 0) / parseFloat(_quote.subtotal || 1)
                   : 0,
@@ -357,15 +388,46 @@ function buildQuoteDataForPdf() {
   };
 }
 
-// ── Download PDF (using pdf-builder.js) ──
-async function downloadPDF() {
+// ── 三種下載對應到 pdf-builder.js 的三種 PDF ──
+
+// Item 7: Draft 狀態 → Download Draft Quote
+async function downloadDraftQuote() {
+  if (!_quote || !_dealer) return;
+  const quoteDataForPdf = buildQuoteDataForPdf();
+  const doc = await ProCraftPDF.buildDraftQuotePdf(
+    quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
+  );
+  const filename = ProCraftPDF.getPdfFilename('draft-quote', {
+    poNumber:       _quote.po_number || 'Draft',
+    dealerUid:      _dealer.uid,
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+// Item 7: 其他狀態 → Download Packing List
+async function downloadPackingList() {
+  if (!_quote || !_dealer) return;
+  const quoteDataForPdf = buildQuoteDataForPdf();
+  const doc = await ProCraftPDF.buildPackingListPdf(
+    quoteDataForPdf, _dealer, _addr
+  );
+  const filename = ProCraftPDF.getPdfFilename('packing-list', {
+    poNumber:       _quote.po_number || 'Quote',
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+// Item 7: 其他狀態 → Download Invoice
+async function downloadInvoice() {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildInvoicePdf(
     quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
   );
   const filename = ProCraftPDF.getPdfFilename('invoice', {
-    poNumber: _quote.po_number || 'Quote',
+    poNumber:       _quote.po_number || 'Quote',
     revisionNumber: _quote.revision_number || 1,
   });
   doc.save(filename);
