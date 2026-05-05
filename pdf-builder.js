@@ -295,7 +295,181 @@
     doc.setPage(totalPages);  // 留在最後一頁，方便繼續畫
   }
   
+  // ----------------------------------------
+  // Items 表格繪製
+  // ----------------------------------------
 
+  /**
+   * 畫 items 表格（jsPDF AutoTable）
+   *
+   * @param {Object} doc - jsPDF 實例
+   * @param {Object} context - {
+   *     items, mode, startY, markupPercent, headerContext
+   *   }
+   *   - items: 已 normalize 的 items 陣列（含 style_name, sku_code, sku_desc, sku_type,
+   *            assemble_status, quantity, unit_price, assemble_fee 等欄位）
+   *   - mode: 'packing-list-current' | 'invoice-current' |
+   *           'packing-list' | 'invoice' | 'draft-quote'
+   *   - startY: 表格開始的 Y 座標
+   *   - markupPercent: 0 ~ 1 的小數（不是百分比；例：15% = 0.15），預設 0
+   *   - headerContext: 跨頁時要傳給 _drawHeader 的 context
+   *                    （logoImg, poNumber, jobName, date）
+   */
+  function _drawItemTable(doc, context) {
+    const { margin, headerH } = LAYOUT;
+    const {
+      items,
+      mode,
+      startY,
+      markupPercent = 0,
+      headerContext,
+    } = context;
+
+    // ── Mode 設定表 ──
+    const showPrices = ['invoice-current', 'invoice', 'draft-quote'].includes(mode);
+    const useNewPackingOrder = (mode === 'packing-list');
+    const groupStyleHeader = ['packing-list', 'invoice', 'draft-quote'].includes(mode);
+
+    // ── 群組 + 排序 ──
+    const grouped = _groupAndSort(items);
+
+    // ── 組 table head（依 mode 決定欄位）──
+    let head;
+    if (mode === 'packing-list-current') {
+      // step3 Document A 現狀：7 欄、舊順序
+      head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Assemble Status', 'Qty']];
+    } else if (mode === 'packing-list') {
+      // 第 8 步啟用：7 欄、新順序（Item 4 規格）
+      head = [['Item#', 'Door Style', 'SKU', 'Qty', 'Description', 'Type', 'Assemble Status']];
+    } else {
+      // invoice-current / invoice / draft-quote：10 欄、舊順序
+      head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Assemble Status',
+               'Qty', 'Unit Price', 'Asm Fee', 'Total']];
+    }
+
+    // ── 組 table body ──
+    const body = [];
+    let itemNum = 0;
+    let lastStyle = null;
+
+    Object.entries(grouped).forEach(([styleName, styleItems]) => {
+      styleItems.forEach(item => {
+        itemNum++;
+
+        // 群組標題：群組模式下，同 style 第一行才顯示 style name
+        let styleCell;
+        if (groupStyleHeader) {
+          styleCell = (styleName !== lastStyle) ? styleName : '';
+          lastStyle = styleName;
+        } else {
+          styleCell = styleName;
+        }
+
+        const skuType        = item.sku_type || item.skuType || '—';
+        const skuDesc        = item.sku_desc || '';
+        const assembleStatus = item.assemble_status || item.type || '—';
+        const qty            = item.quantity;
+        const markedPrice    = item.unit_price * (1 + markupPercent);
+        const lineTotal      = markedPrice * qty;
+        const asmFeeStr      = (item.assemble_fee > 0)
+          ? `$${(item.assemble_fee * qty).toFixed(2)}`
+          : '—';
+
+        if (mode === 'packing-list-current') {
+          body.push([
+            `#${itemNum}`, styleCell, skuType, item.sku_code,
+            skuDesc, assembleStatus, qty,
+          ]);
+        } else if (mode === 'packing-list') {
+          body.push([
+            `#${itemNum}`, styleCell, item.sku_code, qty,
+            skuDesc, skuType, assembleStatus,
+          ]);
+        } else {
+          // invoice-current / invoice / draft-quote
+          body.push([
+            `#${itemNum}`, styleCell, skuType, item.sku_code,
+            skuDesc, assembleStatus, qty,
+            `$${markedPrice.toFixed(2)}`, asmFeeStr,
+            `$${lineTotal.toFixed(2)}`,
+          ]);
+        }
+      });
+    });
+
+    // ── 欄寬設定（跟原本 step3.html 一致）──
+    let columnStyles;
+    if (mode === 'packing-list-current') {
+      // step3 Document A 現狀
+      columnStyles = {
+        0: { cellWidth: 11 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 16 },
+        3: { cellWidth: 24 },
+        4: { cellWidth: 60, overflow: 'linebreak' },
+        5: { cellWidth: 22 },
+        6: { halign: 'right', cellWidth: 9 },
+      };
+    } else if (mode === 'packing-list') {
+      // 第 8 步啟用：新順序欄寬（Item# / Style / SKU / Qty / Desc / Type / Asm Status）
+      columnStyles = {
+        0: { cellWidth: 11 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 24 },
+        3: { halign: 'right', cellWidth: 12 },
+        4: { cellWidth: 57, overflow: 'linebreak' },
+        5: { cellWidth: 16 },
+        6: { cellWidth: 22 },
+      };
+    } else {
+      // invoice-current / invoice / draft-quote（10 欄）
+      columnStyles = {
+        0: { cellWidth: 9 },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 11 },
+        3: { cellWidth: 14 },
+        4: { cellWidth: 35, overflow: 'linebreak' },
+        5: { cellWidth: 18 },
+        6: { halign: 'right', cellWidth: 8 },
+        7: { halign: 'right', cellWidth: 17 },
+        8: { halign: 'right', cellWidth: 15 },
+        9: { halign: 'right', fontStyle: 'bold', cellWidth: 18 },
+      };
+    }
+
+    // ── 跨頁時，每頁重畫 header ──
+    const onDrawPage = (data) => {
+      if (data.pageNumber > 1 && headerContext) {
+        _drawHeader(doc, headerContext);
+      }
+    };
+
+    // ── 呼叫 jsPDF AutoTable ──
+    doc.autoTable({
+      startY: startY,
+      head: head,
+      body: body,
+      margin: { left: margin, right: margin, top: headerH + 4 },
+      styles: {
+        fontSize:  7,
+        cellPadding: 2,
+        textColor: [30, 30, 30],
+        overflow:  'linebreak',
+      },
+      headStyles: {
+        fillColor: COLORS.darkGreen,
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize:  7,
+      },
+      columnStyles: columnStyles,
+      alternateRowStyles: { fillColor: [250, 248, 244] },
+      didDrawPage: onDrawPage,
+    });
+
+    // 回傳表格結束的 Y 座標（後面要接 totals 用）
+    return doc.lastAutoTable.finalY;
+  }
 
   
   // ----------------------------------------
@@ -318,6 +492,8 @@
     _drawBillShipBlock: _drawBillShipBlock,
     _drawFooterBar:     _drawFooterBar,
     _addPageNumbers:    _addPageNumbers,
+    _drawItemTable:     _drawItemTable,
+
 
     // 後續步驟會繼續加：
   };
