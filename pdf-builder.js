@@ -470,7 +470,184 @@
     // 回傳表格結束的 Y 座標（後面要接 totals 用）
     return doc.lastAutoTable.finalY;
   }
+  
+  
+  // ----------------------------------------
+  // Totals 區塊
+  // ----------------------------------------
 
+  /**
+   * 畫右下角總計區塊（Subtotal / Assemble Fee / Shipping / Tax / Order Total）
+   *
+   * @param {Object} doc - jsPDF 實例
+   * @param {Object} context - {
+   *     totals, asmByType, taxExempt, freeShipping,
+   *     showPrices, startY, items
+   *   }
+   *   - totals: { subtotal, assembleTotal, shipping, tax, grand } - 已計算好的數字
+   *   - asmByType: _calcAsmByType() 的結果（可能為空 {}）
+   *   - taxExempt: boolean，true 時 Tax 顯示 'Exempt'
+   *   - freeShipping: boolean，true 時 Shipping 顯示 'FREE'
+   *   - showPrices: boolean，false 時所有金額顯示 '—'（Packing List 用）
+   *   - startY: 開始畫的 Y 座標
+   *   - items: 給 _calcAsmByType 用，如果 asmByType 沒提供就自己算
+   * @returns {number} 畫完之後的 Y 座標
+   */
+  function _drawTotals(doc, context) {
+    const { pageW, margin } = LAYOUT;
+    const {
+      totals,
+      asmByType,
+      taxExempt = false,
+      freeShipping = false,
+      showPrices = true,
+      startY,
+      items,
+    } = context;
+
+    // 如果沒給 asmByType 就自己算
+    const byType = asmByType || (items ? _calcAsmByType(items) : {});
+
+    const totalsX = pageW - margin - 70;
+    const valX    = pageW - margin;
+    let y = startY;
+
+    // ── Subtotal ──
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.muted);
+    doc.text('Subtotal', totalsX, y);
+    doc.setTextColor(40, 40, 40);
+    doc.text(
+      showPrices ? `$${totals.subtotal.toFixed(2)}` : '—',
+      valX, y, { align: 'right' }
+    );
+    y += 6;
+
+    // ── Assemble Fee + breakdown ──
+    if (totals.assembleTotal > 0) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Assemble Fee', totalsX, y);
+      if (showPrices) {
+        doc.setTextColor(40, 40, 40);
+        doc.text(`+$${totals.assembleTotal.toFixed(2)}`, valX, y, { align: 'right' });
+      }
+      y += 5;
+
+      // Breakdown by type
+      TYPE_ORDER.filter(t => byType[t]).forEach(t => {
+        const row = byType[t];
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...COLORS.muted);
+        doc.text(`  ${t} ×${row.qty}`, totalsX, y);
+        if (showPrices) {
+          doc.setTextColor(140, 100, 20);  // 金棕色
+          doc.text(`+$${row.total.toFixed(2)}`, valX, y, { align: 'right' });
+        }
+        y += 4;
+      });
+      y += 2;
+    }
+
+    // ── Shipping ──
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.muted);
+    doc.text('Shipping', totalsX, y);
+    doc.setTextColor(40, 40, 40);
+    let shippingStr;
+    if (!showPrices) shippingStr = '—';
+    else if (freeShipping) shippingStr = 'FREE';
+    else shippingStr = `$${totals.shipping.toFixed(2)}`;
+    doc.text(shippingStr, valX, y, { align: 'right' });
+    y += 6;
+
+    // ── Tax ──
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...COLORS.muted);
+    doc.text('Tax', totalsX, y);
+    doc.setTextColor(40, 40, 40);
+    let taxStr;
+    if (!showPrices) taxStr = '—';
+    else if (taxExempt) taxStr = 'Exempt';
+    else taxStr = `$${totals.tax.toFixed(2)}`;
+    doc.text(taxStr, valX, y, { align: 'right' });
+    y += 6;
+
+    // ── Separator line ──
+    doc.setDrawColor(...COLORS.border);
+    doc.line(totalsX, y, valX, y);
+    y += 5;
+
+    // ── Order Total ──
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('Order Total', totalsX, y);
+    doc.text(
+      showPrices ? `$${totals.grand.toFixed(2)}` : '—',
+      valX, y, { align: 'right' }
+    );
+
+    return y;
+  }
+
+
+  // ----------------------------------------
+  // Terms & Conditions
+  // ----------------------------------------
+
+  /**
+   * T&C 條文（共用內容；如未來 PO 想改，改這個常數即可）
+   */
+  const TERMS_AND_CONDITIONS = [
+    'Upon signing, customers accept responsibility for checking the quality of the products when picked up or delivered. Item damaged or missing must be reported within 24 hours of receiving listed items.',
+    '25% restocking fee will be applied for returned or exchanged Flat-Pack items.',
+    'There is NO return or exchange for any items assembled, painted, special ordered or final sale items.',
+    'Returns must be made within 30 days of the date of purchase.',
+    'Returns will be credited only upon warehouse inspection.',
+    'After scheduled pickup date, a $30.00 storage fee will be applied per day.',
+    'Change delivery date must 2 days before the initial delivery date.',
+  ];
+
+  /**
+   * 畫左下角 Terms & Conditions 區塊
+   *
+   * @param {Object} doc - jsPDF 實例
+   * @param {Object} context - { startY, maxWidth }
+   *   - startY: 開始畫的 Y 座標
+   *   - maxWidth: 文字寬度上限（預設 90mm，給左下角用）
+   * @returns {number} 畫完之後的 Y 座標
+   */
+  function _drawTermsAndConditions(doc, context) {
+    const { margin } = LAYOUT;
+    const { startY, maxWidth = 90 } = context;
+    const x = margin;
+    let y = startY;
+
+    // 標題
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('Terms & Conditions', x, y);
+    y += 5;
+
+    // 條文
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(60, 60, 60);
+    TERMS_AND_CONDITIONS.forEach((item, i) => {
+      const lines = doc.splitTextToSize(`${i + 1}. ${item}`, maxWidth);
+      doc.text(lines, x, y);
+      y += lines.length * 4 + 1.5;
+    });
+
+    return y;
+  }
   
   // ----------------------------------------
   // 對外暴露
@@ -488,11 +665,13 @@
     _loadImage:     _loadImage,
 
     // Drawing blocks
-    _drawHeader:        _drawHeader,
-    _drawBillShipBlock: _drawBillShipBlock,
-    _drawFooterBar:     _drawFooterBar,
-    _addPageNumbers:    _addPageNumbers,
-    _drawItemTable:     _drawItemTable,
+    _drawHeader:             _drawHeader,
+    _drawBillShipBlock:      _drawBillShipBlock,
+    _drawFooterBar:          _drawFooterBar,
+    _addPageNumbers:         _addPageNumbers,
+    _drawItemTable:          _drawItemTable,
+    _drawTotals:             _drawTotals,
+    _drawTermsAndConditions: _drawTermsAndConditions,
 
 
     // 後續步驟會繼續加：
