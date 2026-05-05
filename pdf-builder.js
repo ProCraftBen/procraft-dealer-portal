@@ -648,33 +648,326 @@
 
     return y;
   }
+
+  
+  // ============================================================
+  // 對外主函式
+  // ============================================================
+  // 這 4 個函式是 pdf-builder.js 的對外 API，由 HTML 直接呼叫。
+  // 所有函式都接收一個統一格式的 quoteData 物件，呼叫端負責準備。
+  //
+  // quoteData 格式：
+  // {
+  //   po_number, job_name, status, revision_number, created_at,
+  //   logistic_type, delivery_fee,
+  //   subtotal, assemble_total, shipping_cost, tax_amount, grand_total,
+  //   items: [
+  //     { style_name, style_code, sku_code, sku_desc, sku_type,
+  //       assemble_status, quantity, unit_price, msrp, assemble_fee }
+  //   ]
+  // }
+  //
+  // dealer 格式：dealers table row（含 company_name, address_line1...）
+  // shippingAddress 格式：addresses table row 或 null
+  // options:
+  //   - markupPercent: 0~1 小數（只有 buildInvoicePdf / buildDraftQuotePdf 會用）
+  //   - logoUrl: logo 圖片網址（預設用 ProCraft 公司 logo）
+  // ============================================================
+
+  const DEFAULT_LOGO_URL =
+    'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png';
+
+  /**
+   * 內部用：建立 jsPDF 實例 + 載入 logo + 畫 header + Bill/Ship
+   * 三個對外函式的共同前置動作
+   *
+   * @returns {Promise<{ doc, logoImg, y }>}
+   */
+  async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    // 載 logo（失敗時 logoImg 為 null，header 會 fallback 到文字）
+    let logoImg = null;
+    try {
+      logoImg = await _loadImage(options.logoUrl || DEFAULT_LOGO_URL);
+    } catch (e) {
+      // logo 載入失敗，繼續（header 會 fallback）
+    }
+
+    // 決定日期：用 quoteData.created_at（若有），否則用今天
+    const date = quoteData.created_at
+      ? new Date(quoteData.created_at)
+      : new Date();
+
+    // 第 1 頁 header
+    const headerContext = {
+      logoImg,
+      poNumber: quoteData.po_number || '—',
+      jobName:  quoteData.job_name  || '—',
+      date,
+    };
+    _drawHeader(doc, headerContext);
+
+    // Bill / Ship
+    let y = LAYOUT.headerH + 10;
+    y = _drawBillShipBlock(doc, {
+      dealer,
+      shippingAddress,
+      startY: y - 4,  // 補回 _drawBillShipBlock 內部的 +4 偏移
+    });
+
+    return { doc, logoImg, y, headerContext };
+  }
+
+  /**
+   * 內部用：畫完 items table 後，處理 totals + T&C + footer + 頁碼
+   *
+   * @param {Object} args - { doc, quoteData, items, headerContext, tableEndY,
+   *                          showPrices, markupPercent }
+   */
+  function _finalizeWithTotals(args) {
+    const {
+      doc, quoteData, items, headerContext, tableEndY,
+      showPrices, markupPercent = 0,
+    } = args;
+    const { pageW, margin } = LAYOUT;
+
+    // 計算 totals（依 markupPercent 套用）
+    const markedSubtotal = items.reduce(
+      (s, i) => s + i.unit_price * (1 + markupPercent) * i.quantity, 0
+    );
+    const assembleTotal = items.reduce(
+      (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
+    );
+
+    // shipping 邏輯（跟 step3.html 一致）
+    const logisticType = quoteData.logistic_type || 'pickup';
+    const deliveryFee = parseFloat(quoteData.delivery_fee || 0);
+    let shipping = 0;
+    if (logisticType === 'delivery') {
+      shipping = deliveryFee;
+    } else if (logisticType === 'shipping') {
+      if      (markedSubtotal <= 6000)  shipping = markedSubtotal * 0.15;
+      else if (markedSubtotal <= 9000)  shipping = markedSubtotal * 0.12;
+      else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
+    }
+
+    // 注意：tax 用 quoteData 預先算好的（snapshot），或自己重算
+    // 為了 markup 場景下計算一致，這裡用 markedSubtotal × taxRate
+    const taxRate = quoteData._taxRate || 0;  // 由呼叫端塞進來
+    const taxExempt = !!quoteData._taxExempt;
+    const tax = taxExempt ? 0 : markedSubtotal * taxRate;
+    const grand = markedSubtotal + assembleTotal + shipping + tax;
+
+    const totals = {
+      subtotal:      markedSubtotal,
+      assembleTotal: assembleTotal,
+      shipping:      shipping,
+      tax:           tax,
+      grand:         grand,
+    };
+    const asmByType = _calcAsmByType(items);
+
+    // ── 預估空間，不夠就換頁 ──
+    let y = tableEndY + 8;
+    const TC_BLOCK_H = 7 * 6 + 16;
+    const TOTALS_H   = assembleTotal > 0 ? 60 : 45;
+    const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
+    if (y + NEEDED > 275) {
+      doc.addPage();
+      _drawHeader(doc, headerContext);
+      y = LAYOUT.headerH + 8;
+    }
+
+    // 分隔線
+    doc.setDrawColor(...COLORS.border);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+
+    // T&C（左側）
+    _drawTermsAndConditions(doc, { startY: y });
+
+    // Totals（右側，跟 T&C 同 y 起點）
+    const freeShipping = shipping === 0 && markedSubtotal > 0;
+    _drawTotals(doc, {
+      totals, asmByType, taxExempt, freeShipping,
+      showPrices, startY: y, items,
+    });
+
+    // Footer + 頁碼
+    _drawFooterBar(doc);
+    _addPageNumbers(doc);
+  }
+
+  /**
+   * 建立 Packing List PDF（無價，給工廠用）
+   *
+   * @param {Object} quoteData
+   * @param {Object} dealer
+   * @param {Object|null} shippingAddress
+   * @param {Object} options - { markupPercent (ignored), logoUrl }
+   * @returns {Promise<jsPDF>}
+   */
+  async function buildPackingListPdf(quoteData, dealer, shippingAddress, options = {}) {
+    const { doc, y, headerContext } = await _initDocAndDrawTop(
+      quoteData, dealer, shippingAddress, options
+    );
+
+    // 畫 items 表格（current mode：7 欄、舊順序、不群組）
+    const tableEndY = _drawItemTable(doc, {
+      items:         quoteData.items,
+      mode:          'packing-list-current',
+      startY:        y,
+      markupPercent: 0,
+      headerContext: headerContext,
+    });
+
+    // Packing List 不含 totals / T&C（current 行為）
+    // 但是 footer + 頁碼還是要
+    _drawFooterBar(doc);
+    _addPageNumbers(doc);
+
+    return doc;
+  }
+
+  /**
+   * 建立 Invoice PDF（含價，給 dealer / 客戶用）
+   */
+  async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
+    const { markupPercent = 0 } = options;
+    const { doc, y, headerContext } = await _initDocAndDrawTop(
+      quoteData, dealer, shippingAddress, options
+    );
+
+    const tableEndY = _drawItemTable(doc, {
+      items:         quoteData.items,
+      mode:          'invoice-current',
+      startY:        y,
+      markupPercent: markupPercent,
+      headerContext: headerContext,
+    });
+
+    _finalizeWithTotals({
+      doc, quoteData, items: quoteData.items,
+      headerContext, tableEndY,
+      showPrices: true, markupPercent,
+    });
+
+    return doc;
+  }
+
+  /**
+   * 建立 Draft Quote PDF（Step 3 預覽用、Quote Detail Draft 下載用）
+   * 目前跟 Invoice 一樣，第 8 步會加上 DRAFT QUOTE 大標題
+   */
+  async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
+    const { markupPercent = 0 } = options;
+    const { doc, y, headerContext } = await _initDocAndDrawTop(
+      quoteData, dealer, shippingAddress, options
+    );
+
+    const tableEndY = _drawItemTable(doc, {
+      items:         quoteData.items,
+      mode:          'invoice-current',  // 目前用 invoice-current；第 8 步改 draft-quote
+      startY:        y,
+      markupPercent: markupPercent,
+      headerContext: headerContext,
+    });
+
+    _finalizeWithTotals({
+      doc, quoteData, items: quoteData.items,
+      headerContext, tableEndY,
+      showPrices: true, markupPercent,
+    });
+
+    return doc;
+  }
+
+  // ============================================================
+  // Filename 工具
+  // ============================================================
+
+  /**
+   * 取得紐約時間的 YYYYMMDD 字串
+   */
+  function _getNYDateString() {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year:  'numeric',
+      month: '2-digit',
+      day:   '2-digit',
+    });
+    return fmt.format(new Date()).replace(/-/g, '');
+  }
+
+  /**
+   * 統一管理 PDF filename 生成
+   *
+   * @param {string} type - 'packing-list' | 'invoice' | 'draft-quote'
+   * @param {Object} options - { poNumber, dealerUid, revisionNumber }
+   * @returns {string} filename
+   *
+   * 注意：目前回傳「current」行為的檔名（兼容現有寄信流程）。
+   *      第 8 步會切換到新規則。
+   */
+  function getPdfFilename(type, options = {}) {
+    const { poNumber, dealerUid, revisionNumber = 1 } = options;
+
+    // === Current 行為（refactor 階段不改檔名）===
+    if (type === 'packing-list') {
+      return `${poNumber || 'Quote'}_List.pdf`;
+    }
+    if (type === 'invoice') {
+      return `${poNumber || 'Quote'}_Details.pdf`;
+    }
+    if (type === 'draft-quote') {
+      return `${poNumber || 'Draft'}_Details.pdf`;
+    }
+
+    // === 第 8 步啟用後的新規則（先寫好，目前不會走到）===
+    // const versionSuffix = revisionNumber > 1 ? ` - v${revisionNumber}` : '';
+    // if (type === 'packing-list') return `ProCraft DC - Packing List - ${poNumber}${versionSuffix}.pdf`;
+    // if (type === 'invoice')      return `ProCraft DC - Invoice - ${poNumber}${versionSuffix}.pdf`;
+    // if (type === 'draft-quote')  return `ProCraft DC - Draft Quote - ${dealerUid} - ${_getNYDateString()}.pdf`;
+
+    return 'quote.pdf';
+  }
+
+
+
+
   
   // ----------------------------------------
   // 對外暴露
   // ----------------------------------------
   global.ProCraftPDF = {
-    // 常數
-    _TYPE_ORDER: TYPE_ORDER,
-    _COLORS:     COLORS,
-    _LAYOUT:     LAYOUT,
-
-    // Helpers
-    _typeRank:      _typeRank,
-    _groupAndSort:  _groupAndSort,
-    _calcAsmByType: _calcAsmByType,
-    _loadImage:     _loadImage,
-
-    // Drawing blocks
-    _drawHeader:             _drawHeader,
-    _drawBillShipBlock:      _drawBillShipBlock,
-    _drawFooterBar:          _drawFooterBar,
-    _addPageNumbers:         _addPageNumbers,
-    _drawItemTable:          _drawItemTable,
-    _drawTotals:             _drawTotals,
-    _drawTermsAndConditions: _drawTermsAndConditions,
-
-
-    // 後續步驟會繼續加：
-  };
+      // ─── 常數（debug 用）───
+      _TYPE_ORDER: TYPE_ORDER,
+      _COLORS:     COLORS,
+      _LAYOUT:     LAYOUT,
+  
+      // ─── Internal Helpers（debug 用，畫底線開頭代表 internal）───
+      _typeRank:      _typeRank,
+      _groupAndSort:  _groupAndSort,
+      _calcAsmByType: _calcAsmByType,
+      _loadImage:     _loadImage,
+  
+      // ─── Internal Drawing Blocks（debug 用）───
+      _drawHeader:             _drawHeader,
+      _drawBillShipBlock:      _drawBillShipBlock,
+      _drawFooterBar:          _drawFooterBar,
+      _addPageNumbers:         _addPageNumbers,
+      _drawItemTable:          _drawItemTable,
+      _drawTotals:             _drawTotals,
+      _drawTermsAndConditions: _drawTermsAndConditions,
+  
+      // ─── 對外主函式（HTML 用這些）───
+      buildPackingListPdf: buildPackingListPdf,
+      buildInvoicePdf:     buildInvoicePdf,
+      buildDraftQuotePdf:  buildDraftQuotePdf,
+      getPdfFilename:      getPdfFilename,
+    };
 
 })(window);
