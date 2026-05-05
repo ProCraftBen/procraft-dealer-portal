@@ -322,184 +322,53 @@ function renderQuote(quote, dealer, addr) {
     </div>`;
 }
 
-// ── PDF Generation ──────────────────────────────────────────────────
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width=img.width; canvas.height=img.height;
-      canvas.getContext('2d').drawImage(img,0,0);
-      resolve(canvas.toDataURL('image/png'));
+// ── Build quoteData object for pdf-builder.js ──
+function buildQuoteDataForPdf() {
+  const items = (_quote.quote_items || []).map(function(i) {
+    return {
+      style_name:      i.style_code,        // quote-detail uses style_code as group key
+      style_code:      i.style_code,
+      sku_code:        i.sku_code,
+      sku_desc:        i.sku_desc || '',    // (may be null until sku_desc snapshot is added)
+      sku_type:        i.sku_type || null,
+      assemble_status: i.assemble_status,
+      quantity:        i.quantity,
+      unit_price:      parseFloat(i.unit_price || 0),
+      msrp:            i.msrp || null,
+      assemble_fee:    parseFloat(i.assemble_fee || 0),
     };
-    img.onerror = reject; img.src = url;
   });
+
+  return {
+    po_number:     _quote.po_number || null,
+    job_name:      _quote.job_name || null,
+    status:        _quote.status,
+    created_at:    _quote.created_at,
+    logistic_type: _quote.logistic_type || 'pickup',
+    delivery_fee:  parseFloat(_quote.delivery_fee || 0),
+    items:         items,
+    // Internal hints used by pdf-builder.js totals calculation.
+    // For Quote Detail, the totals are already snapshotted in the quote row;
+    // we recompute using the same logic but markup is always 0 here.
+    _taxRate:    parseFloat(_quote.subtotal || 0) > 0
+                  ? parseFloat(_quote.tax_amount || 0) / parseFloat(_quote.subtotal || 1)
+                  : 0,
+    _taxExempt:  parseFloat(_quote.tax_amount || 0) === 0,
+  };
 }
 
+// ── Download PDF (using pdf-builder.js) ──
 async function downloadPDF() {
   if (!_quote || !_dealer) return;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const darkGreen=[14,31,22], muted=[122,140,130], border=[221,216,204];
-  const pageW=210, margin=14, HEADER_H=32;
-  const items = _quote.quote_items || [];
-
-  // Header
-  doc.setFillColor(255,255,255);
-  doc.rect(0,0,pageW,HEADER_H,'F');
-  doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0,HEADER_H,pageW,HEADER_H);
-  try {
-    const img = await loadImage('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png');
-    doc.addImage(img,'PNG',margin,3,44,26);
-  } catch(e) {
-    doc.setTextColor(...darkGreen); doc.setFontSize(11); doc.setFont('helvetica','bold');
-    doc.text('ProCraft DC', margin, 15);
-  }
-  const infoX=margin+48; let infoY=7;
-  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...darkGreen);
-  doc.text('ProCraft Cabinetry DC LLC', infoX, infoY); infoY+=3.8;
-  doc.setFont('helvetica','normal'); doc.setFontSize(6.5); doc.setTextColor(40,40,40);
-  ['6750 Santa Barbara Court Suite B','Elkridge, MD 21075','Phone: 410-863-9800','Email: sales@procraftdc.com']
-    .forEach(line => { doc.text(line, infoX, infoY); infoY+=3.5; });
-
-  const dateStr = new Date(_quote.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
-  doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text(`PO# ${_quote.po_number||'—'}`, pageW-margin, 9, {align:'right'});
-  doc.text(dateStr, pageW-margin, 15, {align:'right'});
-  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(40,40,40);
-  doc.text(_quote.job_name||'—', pageW-margin, 21, {align:'right'});
-
-  // Page number helper (added after table)
-  let y = HEADER_H+8;
-
-  // Bill To / Ship To
-  const billX=margin, shipX=pageW-margin;
-  let addrY=y+2;
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...muted);
-  doc.text('BILL TO', billX, addrY); doc.text('SHIP TO', shipX, addrY, {align:'right'});
-  addrY+=5;
-  const billLines=[_dealer?.company_name||'—',_dealer?.address_line1||'',_dealer?.address_line2||'',`${_dealer?.city||''}, ${_dealer?.state||''} ${_dealer?.zip_code||''}`].filter(l=>l.trim());
-  const shipName=_addr?_addr.recipient_name:_dealer?.company_name;
-  const shipLines=[shipName||'—',_addr?_addr.address_line:(_dealer?.address_line1||''),_addr?(_addr.address_line2||''):(_dealer?.address_line2||''),_addr?`${_addr.city}, ${_addr.state} ${_addr.zip_code}`:`${_dealer?.city||''}, ${_dealer?.state||''} ${_dealer?.zip_code||''}`].filter(l=>l.trim());
-  const maxL=Math.max(billLines.length,shipLines.length);
-  for(let i=0;i<maxL;i++){
-    doc.setFont('helvetica',i===0?'bold':'normal'); doc.setFontSize(7.5); doc.setTextColor(40,40,40);
-    if(billLines[i]) doc.text(billLines[i],billX,addrY);
-    if(shipLines[i]) doc.text(shipLines[i],shipX,addrY,{align:'right'});
-    addrY+=4.5;
-  }
-  y=addrY+3;
-  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin,y,pageW-margin,y); y+=4;
-
-  // Items table
-  const grouped={};
-  items.forEach(i=>{const k=i.style_code||'—';if(!grouped[k])grouped[k]=[];grouped[k].push(i);});
-  Object.keys(grouped).forEach(k=>{
-    grouped[k].sort((a,b)=>{
-      const ra=TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
-      const rb=TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
-      return (ra===-1?99:ra)-(rb===-1?99:rb);
-    });
+  const quoteDataForPdf = buildQuoteDataForPdf();
+  const doc = await ProCraftPDF.buildInvoicePdf(
+    quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
+  );
+  const filename = ProCraftPDF.getPdfFilename('invoice', {
+    poNumber: _quote.po_number || 'Quote',
+    revisionNumber: _quote.revision_number || 1,
   });
-
-  const tableRows=[];
-  let itemNum=0;
-  Object.entries(grouped).forEach(([styleName,styleItems])=>{
-    styleItems.forEach(i=>{
-      itemNum++;
-      const asmFee=parseFloat(i.assemble_fee||0)>0?`$${(i.assemble_fee*i.quantity).toFixed(2)}`:'—';
-      tableRows.push([`#${itemNum}`,styleName,i.sku_type||'—',i.sku_code||'—',i.assemble_status||'—',i.quantity,`$${parseFloat(i.unit_price).toFixed(2)}`,asmFee,`$${(i.unit_price*i.quantity).toFixed(2)}`]);
-    });
-  });
-
-  doc.autoTable({
-    startY:y,
-    head:[['Item#','Door Code','Type','SKU','Assemble Status','Qty','Unit Price','Asm Fee','Total']],
-    body:tableRows,
-    margin:{left:margin,right:margin,top:HEADER_H+4},
-    styles:{fontSize:7,cellPadding:2,textColor:[30,30,30],overflow:'linebreak'},
-    headStyles:{fillColor:darkGreen,textColor:[255,255,255],fontStyle:'bold',fontSize:7},
-    columnStyles:{
-      0:{cellWidth:9},1:{cellWidth:24},2:{cellWidth:11},3:{cellWidth:14},
-      4:{cellWidth:22},5:{halign:'right',cellWidth:8},6:{halign:'right',cellWidth:17},
-      7:{halign:'right',cellWidth:15},8:{halign:'right',fontStyle:'bold',cellWidth:18},
-    },
-    alternateRowStyles:{fillColor:[250,248,244]},
-    didDrawPage:(data)=>{
-      if(data.pageNumber>1){
-        doc.setFillColor(255,255,255); doc.rect(0,0,pageW,HEADER_H,'F');
-        doc.setDrawColor(...border); doc.setLineWidth(0.5); doc.line(0,HEADER_H,pageW,HEADER_H);
-        doc.setTextColor(...muted); doc.setFontSize(7); doc.setFont('helvetica','normal');
-        doc.text(`PO# ${_quote.po_number||'—'}`, pageW-margin, 9, {align:'right'});
-        doc.text(dateStr, pageW-margin, 15, {align:'right'});
-      }
-    },
-  });
-
-  // Page numbers
-  const totalPages=doc.getNumberOfPages();
-  for(let p=1;p<=totalPages;p++){
-    doc.setPage(p);
-    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
-    doc.text(`Page ${p} / ${totalPages}`, pageW-margin, 27, {align:'right'});
-  }
-  doc.setPage(totalPages);
-  y=doc.lastAutoTable.finalY+8;
-
-  // Totals
-  const assembleTotal=items.reduce((s,i)=>s+parseFloat(i.assemble_fee||0)*i.quantity,0);
-  const byType={};
-  items.forEach(i=>{
-    if((i.assemble_status||'').toLowerCase()!=='assembled'||!i.assemble_fee) return;
-    const t=(i.sku_type||'OTHER').toUpperCase();
-    if(!byType[t]) byType[t]={qty:0,total:0};
-    byType[t].qty+=i.quantity; byType[t].total+=parseFloat(i.assemble_fee)*i.quantity;
-  });
-
-  // Check space
-  const NEEDED=80;
-  if(y+NEEDED>275){ doc.addPage(); y=HEADER_H+8; }
-
-  doc.setDrawColor(...border); doc.setLineWidth(0.3); doc.line(margin,y,pageW-margin,y); y+=6;
-  const totalsX=pageW-margin-70, valX=pageW-margin;
-
-  // Subtotal
-  doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.setTextColor(...muted); doc.text('Subtotal',totalsX,y);
-  doc.setTextColor(40,40,40); doc.text(fmt(_quote.subtotal),valX,y,{align:'right'}); y+=6;
-
-  // Assemble fee + breakdown
-  if(assembleTotal>0){
-    doc.setFontSize(8); doc.setFont('helvetica','normal');
-    doc.setTextColor(...muted); doc.text('Assemble Fee',totalsX,y);
-    doc.setTextColor(40,40,40); doc.text(`+${fmt(assembleTotal)}`,valX,y,{align:'right'}); y+=5;
-    TYPE_ORDER.filter(t=>byType[t]).forEach(t=>{
-      doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...muted);
-      doc.text(`  ${t} ×${byType[t].qty}`,totalsX,y);
-      doc.setTextColor(140,100,20); doc.text(`+${fmt(byType[t].total)}`,valX,y,{align:'right'}); y+=4;
-    });
-    y+=2;
-  }
-
-  // Shipping & Tax
-  const freeShip=parseFloat(_quote.shipping_cost)===0&&parseFloat(_quote.subtotal)>0;
-  const taxExempt=parseFloat(_quote.tax_amount)===0;
-  [['Shipping',freeShip?'FREE':fmt(_quote.shipping_cost)],['Tax',taxExempt?'Exempt':fmt(_quote.tax_amount)]].forEach(([label,val])=>{
-    doc.setFontSize(8); doc.setFont('helvetica','normal');
-    doc.setTextColor(...muted); doc.text(label,totalsX,y);
-    doc.setTextColor(40,40,40); doc.text(val,valX,y,{align:'right'}); y+=6;
-  });
-
-  doc.setDrawColor(...border); doc.line(totalsX,y,valX,y); y+=5;
-  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...darkGreen);
-  doc.text('Order Total',totalsX,y); doc.text(fmt(_quote.grand_total),valX,y,{align:'right'});
-
-  // Footer
-  doc.setFillColor(...darkGreen); doc.rect(0,287,pageW,10,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com',pageW/2,293,{align:'center'});
-
-  doc.save(`${_quote.po_number||'Quote'}_Details.pdf`);
+  doc.save(filename);
 }
 
 function showError(msg) {
