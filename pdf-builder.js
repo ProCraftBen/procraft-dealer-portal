@@ -29,7 +29,7 @@
     pageW:    210,   // A4 寬度（mm）
     pageH:    297,   // A4 高度（mm）
     margin:   14,
-    headerH:  32,    // header 區塊高度
+    headerH:  36,    // header 區塊高度（為了大標題加高 4mm）
   };
 
   // ----------------------------------------
@@ -38,7 +38,6 @@
 
   /**
    * 把 type 字串轉成排序用的數字（BASE=0、WALL=1、TALL=2...）
-   * 不認識的 type 排到最後（99）
    */
   function _typeRank(type) {
     const idx = TYPE_ORDER.indexOf((type || '').toUpperCase());
@@ -47,9 +46,6 @@
 
   /**
    * 把 items 依 style 群組、組內依 type 排序
-   *
-   * @param {Array} items - 必須有 style_name (或 style_code) + sku_type 欄位
-   * @returns {Object} - { styleName: [item, item, ...] }
    */
   function _groupAndSort(items) {
     const grouped = {};
@@ -70,14 +66,10 @@
 
   /**
    * 計算 assemble fee 依 type 分類的小計
-   * 只算 assemble_status === 'Assembled' 且有 assemble_fee 的 item
-   *
-   * @returns {Object} - { BASE: { qty, total }, WALL: { qty, total }, ... }
    */
   function _calcAsmByType(items) {
     const byType = {};
     items.forEach(item => {
-      // 處理兩種來源的欄位差異（step3 用 type、quote-detail 用 assemble_status）
       const status = item.assemble_status || item.type;
       if ((status || '').toLowerCase() !== 'assembled' || !item.assemble_fee) return;
 
@@ -90,10 +82,7 @@
   }
 
   /**
-   * 載入圖片並轉成 base64 dataURL（給 jsPDF.addImage 用）
-   *
-   * @param {string} url - 圖片網址（必須允許 CORS）
-   * @returns {Promise<string>} - base64 PNG dataURL
+   * 載入圖片並轉成 base64 dataURL
    */
   function _loadImage(url) {
     return new Promise((resolve, reject) => {
@@ -117,17 +106,15 @@
 
   /**
    * 畫 PDF 頂部 header（每一頁都會用，包含跨頁時）
+   * Item 5: 加上文件類型大標題（PACKING LIST / INVOICE / DRAFT QUOTE）
    *
    * @param {Object} doc - jsPDF 實例
-   * @param {Object} context - { logoImg, poNumber, jobName, date }
-   *   - logoImg: base64 dataURL 或 null（null 時用文字 fallback）
-   *   - poNumber: 字串，PO# 或 'Draft' 或 '—'
-   *   - jobName: 字串
-   *   - date: Date 物件
+   * @param {Object} context - { logoImg, poNumber, jobName, date, documentTitle }
+   *   - documentTitle: 'PACKING LIST' | 'INVOICE' | 'DRAFT QUOTE' | null
    */
   function _drawHeader(doc, context) {
     const { pageW, margin, headerH } = LAYOUT;
-    const { logoImg, poNumber, jobName, date } = context;
+    const { logoImg, poNumber, jobName, date, documentTitle } = context;
 
     // 白底 + 底線
     doc.setFillColor(...COLORS.white);
@@ -168,32 +155,32 @@
       infoY += 3.5;
     });
 
-    // PO# / 日期 / 工作名（右上）
+    // ── Item 5: 文件類型大標題（右上方，PO# 上面）──
+    if (documentTitle) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text(documentTitle, pageW - margin, 9, { align: 'right' });
+    }
+
+    // PO# / 日期 / 工作名（右上，往下挪）
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric',
     });
     doc.setTextColor(...COLORS.muted);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text(`PO# ${poNumber || '—'}`, pageW - margin, 9, { align: 'right' });
-    doc.text(dateStr, pageW - margin, 15, { align: 'right' });
+    doc.text(`PO# ${poNumber || '—'}`, pageW - margin, 16, { align: 'right' });
+    doc.text(dateStr, pageW - margin, 22, { align: 'right' });
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(40, 40, 40);
-    doc.text(jobName || '—', pageW - margin, 21, { align: 'right' });
+    doc.text(jobName || '—', pageW - margin, 28, { align: 'right' });
   }
 
-  
   /**
    * 畫 BILL TO / SHIP TO 兩欄地址區塊
-   *
-   * @param {Object} doc - jsPDF 實例
-   * @param {Object} context - { dealer, shippingAddress, startY }
-   *   - dealer: { company_name, address_line1, address_line2, city, state, zip_code }
-   *   - shippingAddress: 同 dealer 結構，或 null（null 時 ship-to 用 dealer 的地址）
-   *   - startY: 開始畫的 Y 座標
-   * @returns {number} 畫完之後的 Y 座標（含 separator line）
    */
   function _drawBillShipBlock(doc, context) {
     const { pageW, margin } = LAYOUT;
@@ -203,7 +190,6 @@
     const shipX = pageW - margin;
     let addrY = startY + 4;
 
-    // 標題
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(...COLORS.muted);
@@ -211,7 +197,6 @@
     doc.text('SHIP TO', shipX, addrY, { align: 'right' });
     addrY += 5;
 
-    // Bill 內容
     const billLines = [
       dealer?.company_name || '—',
       dealer?.address_line1 || '',
@@ -219,7 +204,6 @@
       `${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`,
     ].filter(l => l.trim());
 
-    // Ship 內容（fallback 到 dealer 地址）
     const shipName = shippingAddress
       ? shippingAddress.recipient_name
       : dealer?.company_name;
@@ -233,7 +217,6 @@
         : `${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`,
     ].filter(l => l.trim());
 
-    // 兩欄並排
     const maxLines = Math.max(billLines.length, shipLines.length);
     for (let i = 0; i < maxLines; i++) {
       doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
@@ -244,7 +227,6 @@
       addrY += 4.5;
     }
 
-    // Separator line
     addrY += 3;
     doc.setDrawColor(...COLORS.border);
     doc.setLineWidth(0.3);
@@ -256,7 +238,6 @@
 
   /**
    * 畫底部深綠色 footer bar
-   * 注意：呼叫前應該先 doc.setPage() 到目標頁
    */
   function _drawFooterBar(doc) {
     const { pageW } = LAYOUT;
@@ -275,7 +256,6 @@
 
   /**
    * 在所有頁面加「Page X / Y」(右上角)
-   * 應該在 PDF 內容全部畫完之後呼叫
    */
   function _addPageNumbers(doc) {
     const { pageW, margin } = LAYOUT;
@@ -288,13 +268,13 @@
       doc.text(
         `Page ${p} / ${totalPages}`,
         pageW - margin,
-        27,
+        32,
         { align: 'right' }
       );
     }
-    doc.setPage(totalPages);  // 留在最後一頁，方便繼續畫
+    doc.setPage(totalPages);
   }
-  
+
   // ----------------------------------------
   // Items 表格繪製
   // ----------------------------------------
@@ -302,18 +282,12 @@
   /**
    * 畫 items 表格（jsPDF AutoTable）
    *
-   * @param {Object} doc - jsPDF 實例
-   * @param {Object} context - {
-   *     items, mode, startY, markupPercent, headerContext
-   *   }
-   *   - items: 已 normalize 的 items 陣列（含 style_name, sku_code, sku_desc, sku_type,
-   *            assemble_status, quantity, unit_price, assemble_fee 等欄位）
-   *   - mode: 'packing-list-current' | 'invoice-current' |
-   *           'packing-list' | 'invoice' | 'draft-quote'
-   *   - startY: 表格開始的 Y 座標
-   *   - markupPercent: 0 ~ 1 的小數（不是百分比；例：15% = 0.15），預設 0
-   *   - headerContext: 跨頁時要傳給 _drawHeader 的 context
-   *                    （logoImg, poNumber, jobName, date）
+   * mode 對應：
+   *   'packing-list' = Item 4 新欄位順序（7 欄、Style → SKU → Qty → Desc → Type → AsmStatus）
+   *   'invoice'      = 10 欄、舊順序（含價）
+   *   'draft-quote'  = 10 欄、舊順序（含價）
+   *
+   * Item 3：所有 mode 都套用「同 style 第一行才顯示 style 名稱」
    */
   function _drawItemTable(doc, context) {
     const { margin, headerH } = LAYOUT;
@@ -325,29 +299,21 @@
       headerContext,
     } = context;
 
-    // ── Mode 設定表 ──
-    const showPrices = ['invoice-current', 'invoice', 'draft-quote'].includes(mode);
-    const useNewPackingOrder = (mode === 'packing-list');
-    const groupStyleHeader = ['packing-list', 'invoice', 'draft-quote'].includes(mode);
-
-    // ── 群組 + 排序 ──
     const grouped = _groupAndSort(items);
 
     // ── 組 table head（依 mode 決定欄位）──
     let head;
-    if (mode === 'packing-list-current') {
-      // step3 Document A 現狀：7 欄、舊順序
-      head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Assemble Status', 'Qty']];
-    } else if (mode === 'packing-list') {
-      // 第 8 步啟用：7 欄、新順序（Item 4 規格）
+    if (mode === 'packing-list') {
+      // Item 4: Packing List 新欄位順序
       head = [['Item#', 'Door Style', 'SKU', 'Qty', 'Description', 'Type', 'Assemble Status']];
     } else {
-      // invoice-current / invoice / draft-quote：10 欄、舊順序
+      // invoice / draft-quote：10 欄、舊順序
       head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Assemble Status',
                'Qty', 'Unit Price', 'Asm Fee', 'Total']];
     }
 
     // ── 組 table body ──
+    // Item 3：同 style 第一行才顯示 style name
     const body = [];
     let itemNum = 0;
     let lastStyle = null;
@@ -356,14 +322,9 @@
       styleItems.forEach(item => {
         itemNum++;
 
-        // 群組標題：群組模式下，同 style 第一行才顯示 style name
-        let styleCell;
-        if (groupStyleHeader) {
-          styleCell = (styleName !== lastStyle) ? styleName : '';
-          lastStyle = styleName;
-        } else {
-          styleCell = styleName;
-        }
+        // Item 3: 群組標題只顯示一次
+        const styleCell = (styleName !== lastStyle) ? styleName : '';
+        lastStyle = styleName;
 
         const skuType        = item.sku_type || item.skuType || '—';
         const skuDesc        = item.sku_desc || '';
@@ -375,18 +336,13 @@
           ? `$${(item.assemble_fee * qty).toFixed(2)}`
           : '—';
 
-        if (mode === 'packing-list-current') {
-          body.push([
-            `#${itemNum}`, styleCell, skuType, item.sku_code,
-            skuDesc, assembleStatus, qty,
-          ]);
-        } else if (mode === 'packing-list') {
+        if (mode === 'packing-list') {
           body.push([
             `#${itemNum}`, styleCell, item.sku_code, qty,
             skuDesc, skuType, assembleStatus,
           ]);
         } else {
-          // invoice-current / invoice / draft-quote
+          // invoice / draft-quote
           body.push([
             `#${itemNum}`, styleCell, skuType, item.sku_code,
             skuDesc, assembleStatus, qty,
@@ -397,21 +353,9 @@
       });
     });
 
-    // ── 欄寬設定（跟原本 step3.html 一致）──
+    // ── 欄寬設定 ──
     let columnStyles;
-    if (mode === 'packing-list-current') {
-      // step3 Document A 現狀
-      columnStyles = {
-        0: { cellWidth: 11 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 16 },
-        3: { cellWidth: 24 },
-        4: { cellWidth: 60, overflow: 'linebreak' },
-        5: { cellWidth: 22 },
-        6: { halign: 'right', cellWidth: 9 },
-      };
-    } else if (mode === 'packing-list') {
-      // 第 8 步啟用：新順序欄寬（Item# / Style / SKU / Qty / Desc / Type / Asm Status）
+    if (mode === 'packing-list') {
       columnStyles = {
         0: { cellWidth: 11 },
         1: { cellWidth: 40 },
@@ -422,7 +366,6 @@
         6: { cellWidth: 22 },
       };
     } else {
-      // invoice-current / invoice / draft-quote（10 欄）
       columnStyles = {
         0: { cellWidth: 9 },
         1: { cellWidth: 24 },
@@ -437,14 +380,12 @@
       };
     }
 
-    // ── 跨頁時，每頁重畫 header ──
     const onDrawPage = (data) => {
       if (data.pageNumber > 1 && headerContext) {
         _drawHeader(doc, headerContext);
       }
     };
 
-    // ── 呼叫 jsPDF AutoTable ──
     doc.autoTable({
       startY: startY,
       head: head,
@@ -467,32 +408,13 @@
       didDrawPage: onDrawPage,
     });
 
-    // 回傳表格結束的 Y 座標（後面要接 totals 用）
     return doc.lastAutoTable.finalY;
   }
-  
-  
+
   // ----------------------------------------
   // Totals 區塊
   // ----------------------------------------
 
-  /**
-   * 畫右下角總計區塊（Subtotal / Assemble Fee / Shipping / Tax / Order Total）
-   *
-   * @param {Object} doc - jsPDF 實例
-   * @param {Object} context - {
-   *     totals, asmByType, taxExempt, freeShipping,
-   *     showPrices, startY, items
-   *   }
-   *   - totals: { subtotal, assembleTotal, shipping, tax, grand } - 已計算好的數字
-   *   - asmByType: _calcAsmByType() 的結果（可能為空 {}）
-   *   - taxExempt: boolean，true 時 Tax 顯示 'Exempt'
-   *   - freeShipping: boolean，true 時 Shipping 顯示 'FREE'
-   *   - showPrices: boolean，false 時所有金額顯示 '—'（Packing List 用）
-   *   - startY: 開始畫的 Y 座標
-   *   - items: 給 _calcAsmByType 用，如果 asmByType 沒提供就自己算
-   * @returns {number} 畫完之後的 Y 座標
-   */
   function _drawTotals(doc, context) {
     const { pageW, margin } = LAYOUT;
     const {
@@ -505,14 +427,12 @@
       items,
     } = context;
 
-    // 如果沒給 asmByType 就自己算
     const byType = asmByType || (items ? _calcAsmByType(items) : {});
 
     const totalsX = pageW - margin - 70;
     const valX    = pageW - margin;
     let y = startY;
 
-    // ── Subtotal ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -524,7 +444,6 @@
     );
     y += 6;
 
-    // ── Assemble Fee + breakdown ──
     if (totals.assembleTotal > 0) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
@@ -536,7 +455,6 @@
       }
       y += 5;
 
-      // Breakdown by type
       TYPE_ORDER.filter(t => byType[t]).forEach(t => {
         const row = byType[t];
         doc.setFontSize(6.5);
@@ -544,7 +462,7 @@
         doc.setTextColor(...COLORS.muted);
         doc.text(`  ${t} ×${row.qty}`, totalsX, y);
         if (showPrices) {
-          doc.setTextColor(140, 100, 20);  // 金棕色
+          doc.setTextColor(140, 100, 20);
           doc.text(`+$${row.total.toFixed(2)}`, valX, y, { align: 'right' });
         }
         y += 4;
@@ -552,7 +470,6 @@
       y += 2;
     }
 
-    // ── Shipping ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -565,7 +482,6 @@
     doc.text(shippingStr, valX, y, { align: 'right' });
     y += 6;
 
-    // ── Tax ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -578,12 +494,10 @@
     doc.text(taxStr, valX, y, { align: 'right' });
     y += 6;
 
-    // ── Separator line ──
     doc.setDrawColor(...COLORS.border);
     doc.line(totalsX, y, valX, y);
     y += 5;
 
-    // ── Order Total ──
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
@@ -596,14 +510,10 @@
     return y;
   }
 
-
   // ----------------------------------------
   // Terms & Conditions
   // ----------------------------------------
 
-  /**
-   * T&C 條文（共用內容；如未來 PO 想改，改這個常數即可）
-   */
   const TERMS_AND_CONDITIONS = [
     'Upon signing, customers accept responsibility for checking the quality of the products when picked up or delivered. Item damaged or missing must be reported within 24 hours of receiving listed items.',
     '25% restocking fee will be applied for returned or exchanged Flat-Pack items.',
@@ -614,29 +524,18 @@
     'Change delivery date must 2 days before the initial delivery date.',
   ];
 
-  /**
-   * 畫左下角 Terms & Conditions 區塊
-   *
-   * @param {Object} doc - jsPDF 實例
-   * @param {Object} context - { startY, maxWidth }
-   *   - startY: 開始畫的 Y 座標
-   *   - maxWidth: 文字寬度上限（預設 90mm，給左下角用）
-   * @returns {number} 畫完之後的 Y 座標
-   */
   function _drawTermsAndConditions(doc, context) {
     const { margin } = LAYOUT;
     const { startY, maxWidth = 90 } = context;
     const x = margin;
     let y = startY;
 
-    // 標題
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.5);
     doc.setTextColor(...COLORS.darkGreen);
     doc.text('Terms & Conditions', x, y);
     y += 5;
 
-    // 條文
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6);
     doc.setTextColor(60, 60, 60);
@@ -649,63 +548,37 @@
     return y;
   }
 
-  
   // ============================================================
   // 對外主函式
-  // ============================================================
-  // 這 4 個函式是 pdf-builder.js 的對外 API，由 HTML 直接呼叫。
-  // 所有函式都接收一個統一格式的 quoteData 物件，呼叫端負責準備。
-  //
-  // quoteData 格式：
-  // {
-  //   po_number, job_name, status, revision_number, created_at,
-  //   logistic_type, delivery_fee,
-  //   subtotal, assemble_total, shipping_cost, tax_amount, grand_total,
-  //   items: [
-  //     { style_name, style_code, sku_code, sku_desc, sku_type,
-  //       assemble_status, quantity, unit_price, msrp, assemble_fee }
-  //   ]
-  // }
-  //
-  // dealer 格式：dealers table row（含 company_name, address_line1...）
-  // shippingAddress 格式：addresses table row 或 null
-  // options:
-  //   - markupPercent: 0~1 小數（只有 buildInvoicePdf / buildDraftQuotePdf 會用）
-  //   - logoUrl: logo 圖片網址（預設用 ProCraft 公司 logo）
   // ============================================================
 
   const DEFAULT_LOGO_URL =
     'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png';
 
   /**
-   * 內部用：建立 jsPDF 實例 + 載入 logo + 畫 header + Bill/Ship
-   * 三個對外函式的共同前置動作
-   *
-   * @returns {Promise<{ doc, logoImg, y }>}
+   * 建立 jsPDF 實例 + 載入 logo + 畫 header + Bill/Ship
    */
-  async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options) {
+  async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options, documentTitle) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-    // 載 logo（失敗時 logoImg 為 null，header 會 fallback 到文字）
     let logoImg = null;
     try {
       logoImg = await _loadImage(options.logoUrl || DEFAULT_LOGO_URL);
     } catch (e) {
-      // logo 載入失敗，繼續（header 會 fallback）
+      // logo 載入失敗，header 會 fallback 到文字
     }
 
-    // 決定日期：用 quoteData.created_at（若有），否則用今天
     const date = quoteData.created_at
       ? new Date(quoteData.created_at)
       : new Date();
 
-    // 第 1 頁 header
     const headerContext = {
       logoImg,
-      poNumber: quoteData.po_number || '—',
-      jobName:  quoteData.job_name  || '—',
+      poNumber:      quoteData.po_number || '—',
+      jobName:       quoteData.job_name  || '—',
       date,
+      documentTitle: documentTitle,    // Item 5
     };
     _drawHeader(doc, headerContext);
 
@@ -714,7 +587,7 @@
     y = _drawBillShipBlock(doc, {
       dealer,
       shippingAddress,
-      startY: y - 4,  // 補回 _drawBillShipBlock 內部的 +4 偏移
+      startY: y - 4,
     });
 
     return { doc, logoImg, y, headerContext };
@@ -722,9 +595,6 @@
 
   /**
    * 內部用：畫完 items table 後，處理 totals + T&C + footer + 頁碼
-   *
-   * @param {Object} args - { doc, quoteData, items, headerContext, tableEndY,
-   *                          showPrices, markupPercent }
    */
   function _finalizeWithTotals(args) {
     const {
@@ -733,7 +603,6 @@
     } = args;
     const { pageW, margin } = LAYOUT;
 
-    // 計算 totals（依 markupPercent 套用）
     const markedSubtotal = items.reduce(
       (s, i) => s + i.unit_price * (1 + markupPercent) * i.quantity, 0
     );
@@ -741,7 +610,6 @@
       (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
     );
 
-    // shipping 邏輯（跟 step3.html 一致）
     const logisticType = quoteData.logistic_type || 'pickup';
     const deliveryFee = parseFloat(quoteData.delivery_fee || 0);
     let shipping = 0;
@@ -753,9 +621,7 @@
       else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
     }
 
-    // 注意：tax 用 quoteData 預先算好的（snapshot），或自己重算
-    // 為了 markup 場景下計算一致，這裡用 markedSubtotal × taxRate
-    const taxRate = quoteData._taxRate || 0;  // 由呼叫端塞進來
+    const taxRate = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
     const tax = taxExempt ? 0 : markedSubtotal * taxRate;
     const grand = markedSubtotal + assembleTotal + shipping + tax;
@@ -769,11 +635,47 @@
     };
     const asmByType = _calcAsmByType(items);
 
-    // ── 預估空間，不夠就換頁 ──
     let y = tableEndY + 8;
     const TC_BLOCK_H = 7 * 6 + 16;
     const TOTALS_H   = assembleTotal > 0 ? 60 : 45;
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
+    if (y + NEEDED > 275) {
+      doc.addPage();
+      _drawHeader(doc, headerContext);
+      y = LAYOUT.headerH + 8;
+    }
+
+    doc.setDrawColor(...COLORS.border);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+
+    // T&C（左側）
+    _drawTermsAndConditions(doc, { startY: y });
+
+    // Totals（右側）
+    const freeShipping = shipping === 0 && markedSubtotal > 0;
+    _drawTotals(doc, {
+      totals, asmByType, taxExempt, freeShipping,
+      showPrices, startY: y, items,
+    });
+
+    _drawFooterBar(doc);
+    _addPageNumbers(doc);
+  }
+
+  /**
+   * Item 6 (選項 C)：Packing List 加 T&C，但不加 Totals
+   * 給 buildPackingListPdf 用
+   */
+  function _finalizePackingListWithTcOnly(args) {
+    const { doc, headerContext, tableEndY } = args;
+    const { pageW, margin } = LAYOUT;
+
+    let y = tableEndY + 8;
+    const TC_BLOCK_H = 7 * 6 + 16;
+    const NEEDED     = TC_BLOCK_H + 20;
+
     if (y + NEEDED > 275) {
       doc.addPage();
       _drawHeader(doc, headerContext);
@@ -786,48 +688,33 @@
     doc.line(margin, y, pageW - margin, y);
     y += 6;
 
-    // T&C（左側）
-    _drawTermsAndConditions(doc, { startY: y });
+    // 只畫 T&C，左半邊（用比較寬的 maxWidth 因為右邊沒東西）
+    _drawTermsAndConditions(doc, { startY: y, maxWidth: 180 });
 
-    // Totals（右側，跟 T&C 同 y 起點）
-    const freeShipping = shipping === 0 && markedSubtotal > 0;
-    _drawTotals(doc, {
-      totals, asmByType, taxExempt, freeShipping,
-      showPrices, startY: y, items,
-    });
-
-    // Footer + 頁碼
     _drawFooterBar(doc);
     _addPageNumbers(doc);
   }
 
   /**
    * 建立 Packing List PDF（無價，給工廠用）
-   *
-   * @param {Object} quoteData
-   * @param {Object} dealer
-   * @param {Object|null} shippingAddress
-   * @param {Object} options - { markupPercent (ignored), logoUrl }
-   * @returns {Promise<jsPDF>}
+   * Items 4, 5, 6 已套用
    */
   async function buildPackingListPdf(quoteData, dealer, shippingAddress, options = {}) {
     const { doc, y, headerContext } = await _initDocAndDrawTop(
-      quoteData, dealer, shippingAddress, options
+      quoteData, dealer, shippingAddress, options,
+      'PACKING LIST'  // Item 5
     );
 
-    // 畫 items 表格（current mode：7 欄、舊順序、不群組）
     const tableEndY = _drawItemTable(doc, {
       items:         quoteData.items,
-      mode:          'packing-list-current',
+      mode:          'packing-list',  // Item 4: 新欄位順序
       startY:        y,
       markupPercent: 0,
       headerContext: headerContext,
     });
 
-    // Packing List 不含 totals / T&C（current 行為）
-    // 但是 footer + 頁碼還是要
-    _drawFooterBar(doc);
-    _addPageNumbers(doc);
+    // Item 6 (選項 C)：加 T&C，不加 Totals
+    _finalizePackingListWithTcOnly({ doc, headerContext, tableEndY });
 
     return doc;
   }
@@ -838,12 +725,13 @@
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
-      quoteData, dealer, shippingAddress, options
+      quoteData, dealer, shippingAddress, options,
+      'INVOICE'  // Item 5
     );
 
     const tableEndY = _drawItemTable(doc, {
       items:         quoteData.items,
-      mode:          'invoice-current',
+      mode:          'invoice',  // 10 欄含價，啟用群組標題
       startY:        y,
       markupPercent: markupPercent,
       headerContext: headerContext,
@@ -859,18 +747,18 @@
   }
 
   /**
-   * 建立 Draft Quote PDF（Step 3 預覽用、Quote Detail Draft 下載用）
-   * 目前跟 Invoice 一樣，第 8 步會加上 DRAFT QUOTE 大標題
+   * 建立 Draft Quote PDF（Step 3 預覽用）
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
-      quoteData, dealer, shippingAddress, options
+      quoteData, dealer, shippingAddress, options,
+      'DRAFT QUOTE'  // Item 5
     );
 
     const tableEndY = _drawItemTable(doc, {
       items:         quoteData.items,
-      mode:          'invoice-current',  // 目前用 invoice-current；第 8 步改 draft-quote
+      mode:          'draft-quote',
       startY:        y,
       markupPercent: markupPercent,
       headerContext: headerContext,
@@ -903,71 +791,66 @@
   }
 
   /**
-   * 統一管理 PDF filename 生成
+   * 統一管理 PDF filename 生成（Items 1, 2 已套用新規則）
    *
    * @param {string} type - 'packing-list' | 'invoice' | 'draft-quote'
    * @param {Object} options - { poNumber, dealerUid, revisionNumber }
-   * @returns {string} filename
    *
-   * 注意：目前回傳「current」行為的檔名（兼容現有寄信流程）。
-   *      第 8 步會切換到新規則。
+   * 規則：
+   *   - Packing List: ProCraft DC - Packing List - {PO#}{ - vN}.pdf
+   *   - Invoice:      ProCraft DC - Invoice - {PO#}{ - vN}.pdf
+   *   - Draft Quote:  ProCraft DC - Draft Quote - {dealerUid} - {YYYYMMDD}.pdf
+   *   - v=1 不加後綴，v≥2 加 ` - v{N}`
    */
   function getPdfFilename(type, options = {}) {
     const { poNumber, dealerUid, revisionNumber = 1 } = options;
+    const versionSuffix = revisionNumber > 1 ? ` - v${revisionNumber}` : '';
 
-    // === Current 行為（refactor 階段不改檔名）===
     if (type === 'packing-list') {
-      return `${poNumber || 'Quote'}_List.pdf`;
+      // Item 2
+      return `ProCraft DC - Packing List - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
     }
     if (type === 'invoice') {
-      return `${poNumber || 'Quote'}_Details.pdf`;
+      // Item 2
+      return `ProCraft DC - Invoice - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
     }
     if (type === 'draft-quote') {
-      return `${poNumber || 'Draft'}_Details.pdf`;
+      // Item 1
+      return `ProCraft DC - Draft Quote - ${dealerUid || 'Dealer'} - ${_getNYDateString()}.pdf`;
     }
-
-    // === 第 8 步啟用後的新規則（先寫好，目前不會走到）===
-    // const versionSuffix = revisionNumber > 1 ? ` - v${revisionNumber}` : '';
-    // if (type === 'packing-list') return `ProCraft DC - Packing List - ${poNumber}${versionSuffix}.pdf`;
-    // if (type === 'invoice')      return `ProCraft DC - Invoice - ${poNumber}${versionSuffix}.pdf`;
-    // if (type === 'draft-quote')  return `ProCraft DC - Draft Quote - ${dealerUid} - ${_getNYDateString()}.pdf`;
 
     return 'quote.pdf';
   }
 
-
-
-
-  
   // ----------------------------------------
   // 對外暴露
   // ----------------------------------------
   global.ProCraftPDF = {
-      // ─── 常數（debug 用）───
-      _TYPE_ORDER: TYPE_ORDER,
-      _COLORS:     COLORS,
-      _LAYOUT:     LAYOUT,
-  
-      // ─── Internal Helpers（debug 用，畫底線開頭代表 internal）───
-      _typeRank:      _typeRank,
-      _groupAndSort:  _groupAndSort,
-      _calcAsmByType: _calcAsmByType,
-      _loadImage:     _loadImage,
-  
-      // ─── Internal Drawing Blocks（debug 用）───
-      _drawHeader:             _drawHeader,
-      _drawBillShipBlock:      _drawBillShipBlock,
-      _drawFooterBar:          _drawFooterBar,
-      _addPageNumbers:         _addPageNumbers,
-      _drawItemTable:          _drawItemTable,
-      _drawTotals:             _drawTotals,
-      _drawTermsAndConditions: _drawTermsAndConditions,
-  
-      // ─── 對外主函式（HTML 用這些）───
-      buildPackingListPdf: buildPackingListPdf,
-      buildInvoicePdf:     buildInvoicePdf,
-      buildDraftQuotePdf:  buildDraftQuotePdf,
-      getPdfFilename:      getPdfFilename,
-    };
+    // ─── 常數（debug 用）───
+    _TYPE_ORDER: TYPE_ORDER,
+    _COLORS:     COLORS,
+    _LAYOUT:     LAYOUT,
+
+    // ─── Internal Helpers ───
+    _typeRank:      _typeRank,
+    _groupAndSort:  _groupAndSort,
+    _calcAsmByType: _calcAsmByType,
+    _loadImage:     _loadImage,
+
+    // ─── Internal Drawing Blocks ───
+    _drawHeader:             _drawHeader,
+    _drawBillShipBlock:      _drawBillShipBlock,
+    _drawFooterBar:          _drawFooterBar,
+    _addPageNumbers:         _addPageNumbers,
+    _drawItemTable:          _drawItemTable,
+    _drawTotals:             _drawTotals,
+    _drawTermsAndConditions: _drawTermsAndConditions,
+
+    // ─── 對外主函式（HTML 用這些）───
+    buildPackingListPdf: buildPackingListPdf,
+    buildInvoicePdf:     buildInvoicePdf,
+    buildDraftQuotePdf:  buildDraftQuotePdf,
+    getPdfFilename:      getPdfFilename,
+  };
 
 })(window);
