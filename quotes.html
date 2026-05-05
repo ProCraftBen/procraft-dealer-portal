@@ -13,6 +13,7 @@
       --error:#C0392B;
       --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
+      --status-returned:#E07B39;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -45,14 +46,33 @@
     .btn-new-quote:hover { background: var(--green-mid); }
     .btn-new-quote svg { width: 13px; height: 13px; fill: currentColor; }
 
-    /* Stats bar — 5 cards now */
-    .stats-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
-    @media (max-width: 700px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 420px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
+    /* Stats bar — 6 cards now (Total / Draft / Returned / Pending / Processing / Complete) */
+    .stats-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
+    @media (max-width: 900px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 480px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
     .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
     .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 500; color: var(--green-dark); line-height: 1; }
-    .stat-num.draft-num { color: var(--status-draft); }
+    .stat-num.draft-num    { color: var(--status-draft); }
+    .stat-num.returned-num { color: var(--status-returned); }
     .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+    /* Returned alert banner — only shows when there are returned quotes */
+    .returned-alert {
+      background: rgba(224,123,57,0.08);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 3px solid var(--status-returned);
+      border-radius: 3px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .returned-alert.show { display: flex; }
+    .returned-alert svg { width: 18px; height: 18px; fill: var(--status-returned); flex-shrink: 0; }
+    .returned-alert strong { color: var(--status-returned); }
 
     .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .filter-group { display: flex; flex-direction: column; gap: 5px; }
@@ -82,6 +102,10 @@
     tbody tr.row-draft { border-bottom: 1px solid var(--border); background: rgba(155,89,182,0.03); transition: background 0.15s; }
     tbody tr.row-draft:hover { background: rgba(155,89,182,0.06); }
 
+    /* Returned rows — clickable, light orange background to draw attention */
+    tbody tr.row-returned { border-bottom: 1px solid var(--border); background: rgba(224,123,57,0.05); cursor: pointer; transition: background 0.15s; }
+    tbody tr.row-returned:hover { background: rgba(224,123,57,0.10); }
+
     tbody tr:last-child { border-bottom: none; }
     tbody td { padding: 14px 16px; font-size: 13px; vertical-align: middle; }
     tbody td.r { text-align: right; }
@@ -91,15 +115,29 @@
     .td-amount { font-weight: 500; white-space: nowrap; }
     .td-amount.draft-dash { color: var(--muted); font-style: italic; font-weight: 400; }
 
+    /* Action required tag for Returned rows */
+    .action-required-tag {
+      display: inline-block;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--status-returned);
+      font-weight: 600;
+      margin-top: 3px;
+    }
+
     .status-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
     .status-badge.draft      { background: rgba(155,89,182,0.10); color: var(--status-draft); }
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+    .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
 
     .arrow-cell { color: var(--border); font-size: 14px; text-align: right; }
     tbody tr.row-clickable:hover .arrow-cell { color: var(--gold); }
+    tbody tr.row-returned .arrow-cell { color: var(--status-returned); }
+    tbody tr.row-returned:hover .arrow-cell { color: #c66a30; }
 
     /* Edit draft + Delete buttons cell */
     .draft-actions-cell { text-align: right; white-space: nowrap; }
@@ -309,13 +347,23 @@
     </a>
   </div>
 
-  <!-- Stats — 5 cards -->
+  <!-- Stats — 6 cards -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
+    <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label">Returned</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
     <div class="stat-card"><div class="stat-num" id="statProcessing">—</div><div class="stat-label">Processing</div></div>
     <div class="stat-card"><div class="stat-num" id="statComplete">—</div><div class="stat-label">Complete</div></div>
+  </div>
+
+  <!-- Returned alert banner -->
+  <div class="returned-alert" id="returnedAlert">
+    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+    <div>
+      <strong id="returnedAlertCount">— quote needs revision.</strong>
+      Please review the return reason and resubmit.
+    </div>
   </div>
 
   <div class="filters">
@@ -324,6 +372,7 @@
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
         <option value="Draft">Draft</option>
+        <option value="Returned">Returned</option>
         <option value="Pending">Pending</option>
         <option value="Processing">Processing</option>
         <option value="Complete">Complete</option>
@@ -413,7 +462,7 @@ let pendingDeleteName = null;   // job_name shown in modal
 
 const statusClass = {
   Draft: 'draft', Pending: 'pending', Processing: 'processing',
-  Complete: 'complete', Closed: 'closed'
+  Complete: 'complete', Closed: 'closed', Returned: 'returned'
 };
 
 function toggleMenu() {
@@ -492,15 +541,41 @@ async function loadQuotes() {
   if (error) { console.error('loadQuotes error:', error); return; }
   allQuotes = quotes || [];
   updateStats();
-  renderTable(allQuotes);
+  updateReturnedAlert();
+  renderTable(sortQuotes(allQuotes));
+}
+
+// Sort: Returned 永遠排到最上面（dealer 看到最重要要處理的），其他依 created_at desc
+function sortQuotes(quotes) {
+  return quotes.slice().sort(function(a, b) {
+    const aReturned = a.status === 'Returned' ? 0 : 1;
+    const bReturned = b.status === 'Returned' ? 0 : 1;
+    if (aReturned !== bReturned) return aReturned - bReturned;
+    // 同樣 returned 狀態時用 created_at desc
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
 }
 
 function updateStats() {
   document.getElementById('statTotal').textContent      = allQuotes.length;
   document.getElementById('statDraft').textContent      = allQuotes.filter(q => q.status === 'Draft').length;
+  document.getElementById('statReturned').textContent   = allQuotes.filter(q => q.status === 'Returned').length;
   document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
   document.getElementById('statProcessing').textContent = allQuotes.filter(q => q.status === 'Processing').length;
   document.getElementById('statComplete').textContent   = allQuotes.filter(q => q.status === 'Complete').length;
+}
+
+function updateReturnedAlert() {
+  const returnedCount = allQuotes.filter(q => q.status === 'Returned').length;
+  const alert = document.getElementById('returnedAlert');
+  const text  = document.getElementById('returnedAlertCount');
+
+  if (returnedCount > 0) {
+    text.textContent = returnedCount + ' quote' + (returnedCount !== 1 ? 's' : '') + ' need' + (returnedCount === 1 ? 's' : '') + ' revision.';
+    alert.classList.add('show');
+  } else {
+    alert.classList.remove('show');
+  }
 }
 
 function renderTable(quotes) {
@@ -520,10 +595,11 @@ function renderTable(quotes) {
   }
 
   tbody.innerHTML = quotes.map(q => {
-    const sc      = statusClass[q.status] || 'pending';
-    const isDraft = q.status === 'Draft';
-    const safePo  = escapeHtml(q.po_number || '—');
-    const safeJob = escapeHtml(q.job_name || '—');
+    const sc         = statusClass[q.status] || 'pending';
+    const isDraft    = q.status === 'Draft';
+    const isReturned = q.status === 'Returned';
+    const safePo     = escapeHtml(q.po_number || '—');
+    const safeJob    = escapeHtml(q.job_name || '—');
 
     if (isDraft) {
       // Draft row — whole row NOT clickable, only the action buttons
@@ -548,6 +624,22 @@ function renderTable(quotes) {
               </button>
             </div>
           </td>
+        </tr>`;
+    }
+
+    // Returned row — clickable，加 "Action Required" 標籤、淡橘色背景
+    if (isReturned) {
+      return `
+        <tr class="row-returned" onclick="window.location.href='quote-detail.html?id=${q.id}'">
+          <td>
+            <div class="td-po">${safePo}</div>
+            <div class="td-job">${safeJob}</div>
+            <div class="action-required-tag">⚠ Action Required</div>
+          </td>
+          <td class="td-date">${formatDate(q.created_at)}</td>
+          <td class="td-amount r">${fmt(q.grand_total)}</td>
+          <td><span class="status-badge ${sc}">${q.status}</span></td>
+          <td class="arrow-cell">→</td>
         </tr>`;
     }
 
@@ -581,7 +673,7 @@ function applyFilters() {
     (q.job_name  || '').toLowerCase().includes(search)
   );
 
-  renderTable(filtered);
+  renderTable(sortQuotes(filtered));
 }
 
 function resetFilters() {
@@ -589,7 +681,7 @@ function resetFilters() {
   document.getElementById('filterFrom').value   = '';
   document.getElementById('filterTo').value     = '';
   document.getElementById('filterSearch').value = '';
-  renderTable(allQuotes);
+  renderTable(sortQuotes(allQuotes));
 }
 
 // ── Delete Draft ───────────────────────────────────────────────────
