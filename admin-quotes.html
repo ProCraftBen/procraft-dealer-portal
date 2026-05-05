@@ -792,23 +792,57 @@ async function confirmReturnQuote() {
   btn.disabled = true;
   btn.textContent = 'Returning...';
 
-  const { error } = await _supabase
+  // 取得目前 quote 的 revision_number（用來寫入 history）
+  const q = allQuotes.find(function(q) { return q.id === quoteId; });
+  const revisionAtReturn = (q && q.revision_number) ? q.revision_number : 1;
+
+  // 取得目前登入的 admin id（returned_by）
+  const { data: { session } } = await _supabase.auth.getSession();
+  const adminId = session && session.user ? session.user.id : null;
+
+  if (!adminId) {
+    btn.disabled = false;
+    btn.textContent = 'Confirm Return';
+    errEl.textContent = 'Could not identify current admin. Please refresh and try again.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  // ── Step 1: Update quotes table ──
+  const { error: updateErr } = await _supabase
     .from('quotes')
     .update({ status: 'Returned', return_reason: reason })
     .eq('id', quoteId);
 
-  if (error) {
+  if (updateErr) {
     btn.disabled = false;
     btn.textContent = 'Confirm Return';
-    errEl.textContent = 'Failed to return quote: ' + (error.message || 'Unknown error');
+    errEl.textContent = 'Failed to return quote: ' + (updateErr.message || 'Unknown error');
     errEl.classList.add('show');
     return;
+  }
+
+  // ── Step 2: INSERT 一筆到 quote_return_history（永久紀錄）──
+  // 即使這個 INSERT 失敗，quote 仍然會被標記為 Returned；只是 history 紀錄會缺一筆。
+  // 為了避免「quote 已退回但 admin 看不到 toast」這種誤會，這裡仍然 await。
+  const { error: historyErr } = await _supabase
+    .from('quote_return_history')
+    .insert({
+      quote_id:           quoteId,
+      revision_at_return: revisionAtReturn,
+      return_reason:      reason,
+      returned_by:        adminId,
+    });
+
+  if (historyErr) {
+    // 不擋下整體流程（quote 已成功標記為 Returned），但 console 警告 + toast 提示
+    console.warn('[confirmReturnQuote] Failed to write quote_return_history:', historyErr);
+    showToast('Quote returned, but history log failed to save.');
   }
 
   // TODO 5.2: 之後這裡會呼叫 Edge Function 寄退回通知 email
 
   // 更新 local state
-  const q = allQuotes.find(function(q) { return q.id === quoteId; });
   if (q) {
     q.status = 'Returned';
     q.return_reason = reason;
@@ -823,7 +857,10 @@ async function confirmReturnQuote() {
   renderStats();
   renderTable();
 
-  showToast('Quote returned to dealer.');
+  // 沒有 historyErr 才顯示成功 toast（避免覆蓋上面的警告）
+  if (!historyErr) {
+    showToast('Quote returned to dealer.');
+  }
 }
 
 // ── Filters ────────────────────────────────────────────────────────
