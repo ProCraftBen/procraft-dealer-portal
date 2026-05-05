@@ -48,11 +48,57 @@
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
     .status-badge.draft      { background: rgba(122,140,130,0.12); color: var(--status-draft); }
     .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
-    .btn-action { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; }
+    .btn-action { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; }
     .btn-action:hover { background: var(--green-mid); }
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
     .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--green-dark); }
     .btn-action.secondary:hover { background: var(--green-dark); color: #fff; }
+    .btn-action.return-edit { background: var(--status-returned); color: #fff; }
+    .btn-action.return-edit:hover { background: #c66a30; }
+
+    /* ── Returned Reason Banner ── */
+    .return-banner {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid var(--status-returned);
+      border-radius: 4px;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .return-banner .return-icon-wrap {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      background: rgba(224,123,57,0.14);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .return-banner .return-icon-wrap svg { width: 18px; height: 18px; fill: var(--status-returned); }
+    .return-banner-body { flex: 1; min-width: 0; }
+    .return-banner-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--status-returned);
+      margin-bottom: 6px;
+    }
+    .return-banner-msg {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.65;
+      margin-bottom: 12px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .return-banner-action { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .return-banner-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -91,7 +137,7 @@
     .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-    @media print { .navbar, .btn-action, .hamburger, .mobile-menu { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
+    @media print { .navbar, .btn-action, .hamburger, .mobile-menu, .return-banner { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
   </style>
 </head>
 <body>
@@ -136,7 +182,7 @@ const statusClass = {
 };
 
 // Store for PDF generation
-let _quote = null, _dealer = null, _addr = null;
+let _quote = null, _dealer = null, _addr = null, _isAdmin = false;
 
 function toggleMenu() {
   const btn = document.getElementById('hamburger');
@@ -156,6 +202,16 @@ async function handleLogout() { await _supabase.auth.signOut(); window.location.
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
 
+// HTML escape (防止 return_reason / notes 等使用者輸入內容把版面搞壞)
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -170,6 +226,7 @@ async function init() {
 
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   const isAdmin = ['admin','super_admin'].includes(me?.role);
+  _isAdmin = isAdmin;
   if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
 
   if (isAdmin) {
@@ -207,10 +264,11 @@ async function init() {
 function renderQuote(quote, dealer, addr) {
   const items = quote.quote_items || [];
   const sc    = statusClass[quote.status] || 'pending';
+  const isReturned = quote.status === 'Returned';
 
   const shippingHtml = addr
-    ? `<strong>${addr.recipient_name || dealer?.company_name}</strong><br>${addr.address_line}<br>${addr.address_line2 ? addr.address_line2+'<br>' : ''}${addr.city}, ${addr.state} ${addr.zip_code}`
-    : `<strong>${dealer?.company_name || '—'}</strong><br>${dealer?.address_line1 || ''}<br>${dealer?.address_line2 ? dealer.address_line2+'<br>' : ''}${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`;
+    ? `<strong>${escapeHtml(addr.recipient_name || dealer?.company_name)}</strong><br>${escapeHtml(addr.address_line)}<br>${addr.address_line2 ? escapeHtml(addr.address_line2)+'<br>' : ''}${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} ${escapeHtml(addr.zip_code)}`
+    : `<strong>${escapeHtml(dealer?.company_name || '—')}</strong><br>${escapeHtml(dealer?.address_line1 || '')}<br>${dealer?.address_line2 ? escapeHtml(dealer.address_line2)+'<br>' : ''}${escapeHtml(dealer?.city || '')}, ${escapeHtml(dealer?.state || '')} ${escapeHtml(dealer?.zip_code || '')}`;
 
   // Group & sort（用 style_name 當群組 key，fallback 到 style_code）
   const grouped = {};
@@ -233,13 +291,13 @@ function renderQuote(quote, dealer, addr) {
         styleItems.map(i => {
           itemNum++;
           const showStyle = styleName !== lastStyle; lastStyle = styleName;
-          const skuLine = `${i.sku_code||'—'}${i.sku_desc ? `<br><span style="font-size:10px;color:var(--muted);">${i.sku_desc}</span>` : ''}`;
+          const skuLine = `${escapeHtml(i.sku_code||'—')}${i.sku_desc ? `<br><span style="font-size:10px;color:var(--muted);">${escapeHtml(i.sku_desc)}</span>` : ''}`;
           return `<tr>
             <td class="td-num">#${itemNum}</td>
-            <td class="td-style">${showStyle ? styleName : ''}</td>
+            <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
             <td class="td-sku">${skuLine}</td>
-            <td>${i.sku_type ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${i.sku_type.toUpperCase()}</span>` : '—'}</td>
-            <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${i.assemble_status||'—'}</span></td>
+            <td>${i.sku_type ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${escapeHtml(i.sku_type.toUpperCase())}</span>` : '—'}</td>
+            <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${escapeHtml(i.assemble_status||'—')}</span></td>
             <td class="r">${i.quantity}</td>
             <td class="r">${fmt(i.unit_price)}</td>
             <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0)>0 ? `+${fmt(i.assemble_fee*i.quantity)}` : '—'}</td>
@@ -292,10 +350,45 @@ function renderQuote(quote, dealer, addr) {
       </button>`;
   }
 
+  // ── Returned banner（最上方）+ Edit & Resubmit 按鈕 ──
+  // Dealer 看到 Edit & Resubmit；Admin 看到一樣的按鈕（5.4 後續處理 admin 不能 Submit 的限制）
+  let returnedBannerHtml = '';
+  if (isReturned) {
+    const reasonText = quote.return_reason
+      ? escapeHtml(quote.return_reason)
+      : '<span style="color:var(--muted);font-style:italic;">No reason provided.</span>';
+
+    const editButtonHtml = `
+      <a href="new-quote.html?draft=${quote.id}" class="btn-action return-edit">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        Edit &amp; Resubmit
+      </a>`;
+
+    const adminViewMsg = _isAdmin
+      ? '<span class="return-banner-meta">As an admin, you can edit on the dealer\'s behalf and save as draft. The dealer will need to submit the quote.</span>'
+      : '';
+
+    returnedBannerHtml = `
+      <div class="return-banner">
+        <div class="return-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        </div>
+        <div class="return-banner-body">
+          <div class="return-banner-title">This Quote Has Been Returned for Revision</div>
+          <div class="return-banner-msg">${reasonText}</div>
+          <div class="return-banner-action">
+            ${editButtonHtml}
+            ${adminViewMsg}
+          </div>
+        </div>
+      </div>`;
+  }
+
   document.getElementById('pageContent').innerHTML = `
+    ${returnedBannerHtml}
     <div class="quote-header">
       <div>
-        <div class="quote-number">${quote.po_number||'—'}</div>
+        <div class="quote-number">${escapeHtml(quote.po_number||'—')}</div>
         <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
       </div>
       <div class="header-right">
@@ -308,11 +401,11 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-header"><span class="card-title">Order Information</span></div>
       <div class="card-body">
         <div class="info-grid">
-          <div><div class="info-label">PO Number</div><div class="info-value">${quote.po_number||'—'}</div></div>
-          <div><div class="info-label">Job Name</div><div class="info-value">${quote.job_name||'—'}</div></div>
-          <div><div class="info-label">Dealer</div><div class="info-value">${dealer?.company_name||'—'}</div></div>
-          <div><div class="info-label">Contact</div><div class="info-value">${dealer?.contact_name||'—'}</div></div>
-          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${quote.logistic_type||'—'}</div></div>
+          <div><div class="info-label">PO Number</div><div class="info-value">${escapeHtml(quote.po_number||'—')}</div></div>
+          <div><div class="info-label">Job Name</div><div class="info-value">${escapeHtml(quote.job_name||'—')}</div></div>
+          <div><div class="info-label">Dealer</div><div class="info-value">${escapeHtml(dealer?.company_name||'—')}</div></div>
+          <div><div class="info-label">Contact</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
+          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
           <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${quote.status}</span></div></div>
         </div>
       </div>
@@ -323,7 +416,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-body"><div class="info-value">${shippingHtml}</div></div>
     </div>
 
-    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">Notes</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${quote.notes}</div></div></div>` : ''}
+    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">Notes</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${escapeHtml(quote.notes)}</div></div></div>` : ''}
 
     <div class="card">
       <div class="card-header"><span class="card-title">Items</span></div>
