@@ -697,12 +697,15 @@ function renderReview() {
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
 }
 
+// ── 寫入 quote_items 的 payload（含 style_name 和 sku_desc snapshot）──
 function buildItemsPayload(quoteId) {
   return step2Data.map(function(item) {
     return {
       quote_id:        quoteId,
       style_code:      item.style_code,
+      style_name:      item.style_name || null,   // snapshot：完整名稱
       sku_code:        item.sku_code,
+      sku_desc:        item.sku_desc || null,     // snapshot：SKU 描述
       sku_type:        item.skuType || null,
       assemble_status: item.type,
       quantity:        item.quantity,
