@@ -130,6 +130,16 @@
     .free-shipping { color: var(--green-mid); font-size: 11px; }
     .tax-exempt { color: var(--green-mid); font-size: 11px; }
 
+    /* C1: pending shipping highlight (TBD on Step 3) */
+    .total-value.tbd { color: #E07B39; font-weight: 600; }
+    .pending-grand-note {
+      font-size: 11px;
+      color: #E07B39;
+      font-style: italic;
+      text-align: right;
+      padding: 6px 0 0;
+    }
+
     /* ── Edit Button ── */
     .btn-edit { font-size: 11px; color: var(--gold); background: none; border: none; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.2s; text-decoration: none; }
     .btn-edit:hover { opacity: 0.7; }
@@ -430,6 +440,10 @@
         <span class="total-label">Order Total</span>
         <span class="total-value" id="totalGrand">$0.00</span>
       </div>
+      <!-- C1: pending shipping note shown only when shipping is TBD -->
+      <div class="pending-grand-note" id="pendingGrandNote" style="display:none;">
+        * Shipping fee pending — final total will be confirmed by Sales
+      </div>
     </div>
   </div>
 
@@ -535,6 +549,13 @@ let _currentRevisionNumber  = 1;
 let _existingPoNumber       = null;     // for resubmit: keep original PO#
 let _isAdminContext         = false;    // adminDraft OR isResumingReturned + admin role
 
+// ── C1: Existing quote shipping snapshot (for resubmit decision tree) ──
+// Captured from DB during init() when draftId is present. Used by submitQuote()
+// to decide whether to preserve admin-set shipping_cost or recompute by formula.
+let _existingLogisticType = null;   // 'pickup' | 'delivery' | 'shipping' | null
+let _existingShippingCost = null;   // number | null  (NULL = pending sales)
+let _existingSubtotal     = null;   // number | null  (used to compute old shipping bracket)
+
 // ── Returned Banner builder (Step 3, with role-specific message) ──
 function buildReturnedBannerStep3(roleMsg) {
   return `
@@ -547,6 +568,96 @@ function buildReturnedBannerStep3(roleMsg) {
         <div class="rrb-msg">${roleMsg}</div>
       </div>
     </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C1 — Shipping decision logic
+//
+// FIRST-TIME submit (no resume):
+//   pickup   → 0
+//   delivery → dealer-entered deliveryFee
+//   shipping → formula:
+//              0–3000   → NULL  (TBD, awaiting Sales)
+//              3000–6000  → subtotal × 15%
+//              6000–9000  → subtotal × 12%
+//              9000–12000 → subtotal × 10%
+//              12000+   → 0 (free)
+//
+// RESUBMIT (resuming a Returned quote that has prior shipping_cost in DB):
+//   Decision tree based on (oldLogistic, newLogistic) and shipping bracket:
+//
+//   newLogistic === 'pickup'      → 0   (always; never preserve)
+//   newLogistic === 'delivery'    → if oldLogistic === 'delivery' → preserve oldShippingCost
+//                                   else                          → use new deliveryFee
+//   newLogistic === 'shipping'    → if oldLogistic === 'shipping' && bracket unchanged
+//                                       → preserve oldShippingCost (admin's number, may be NULL)
+//                                   else
+//                                       → recompute by formula
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getShippingBracket(subtotal) {
+  if (subtotal == null) return null;
+  if (subtotal <= 3000)  return 'tier1';   // NULL (TBD)
+  if (subtotal <= 6000)  return 'tier2';   // 15%
+  if (subtotal <= 9000)  return 'tier3';   // 12%
+  if (subtotal <= 12000) return 'tier4';   // 10%
+  return 'tier5';                          // free
+}
+
+function calcShippingByFormula(subtotal) {
+  if (subtotal <= 3000)  return null;             // pending
+  if (subtotal <= 6000)  return subtotal * 0.15;
+  if (subtotal <= 9000)  return subtotal * 0.12;
+  if (subtotal <= 12000) return subtotal * 0.10;
+  return 0;                                       // 12000+ free
+}
+
+// Returns the shipping_cost value to write to DB (number or null).
+// `mode` is 'submit' or 'draft'.
+function resolveShippingForDb(opts) {
+  const newLogistic   = opts.newLogistic;
+  const newSubtotal   = opts.newSubtotal;
+  const newDeliveryFee= opts.newDeliveryFee;
+  const isResuming    = !!opts.isResuming;
+
+  // First-time submit/draft (no resume) → straight formula
+  if (!isResuming) {
+    if (newLogistic === 'pickup')   return 0;
+    if (newLogistic === 'delivery') return newDeliveryFee;
+    if (newLogistic === 'shipping') return calcShippingByFormula(newSubtotal);
+    return 0;
+  }
+
+  // RESUBMIT path
+  const oldLogistic = _existingLogisticType;
+  const oldShipping = _existingShippingCost;       // may be null
+  const oldSubtotal = _existingSubtotal;
+
+  if (newLogistic === 'pickup') return 0;
+
+  if (newLogistic === 'delivery') {
+    if (oldLogistic === 'delivery') {
+      // Preserve admin's number (could be 0)
+      return (oldShipping == null) ? newDeliveryFee : oldShipping;
+    }
+    return newDeliveryFee;
+  }
+
+  if (newLogistic === 'shipping') {
+    if (oldLogistic === 'shipping') {
+      const oldBracket = getShippingBracket(oldSubtotal);
+      const newBracket = getShippingBracket(newSubtotal);
+      if (oldBracket === newBracket) {
+        // Same bracket → preserve admin's value (may be NULL = still pending,
+        // may be 0 = admin gave free, may be any number)
+        return oldShipping;
+      }
+    }
+    // Bracket changed OR coming from pickup/delivery → recompute
+    return calcShippingByFormula(newSubtotal);
+  }
+
+  return 0;
 }
 
 async function init() {
@@ -575,15 +686,23 @@ async function init() {
 
   let dealerIdToLoad = session.user.id;
   if (draftId) {
-    // 5.4-C: also fetch revision_number + po_number + status for Returned resume
+    // 5.4-C + C1: also fetch logistic_type, shipping_cost, subtotal for resubmit decision tree
     const { data: q } = await _supabase
       .from('quotes')
-      .select('dealer_id, revision_number, po_number, status')
+      .select('dealer_id, revision_number, po_number, status, logistic_type, shipping_cost, subtotal')
       .eq('id', draftId).single();
     if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
     if (q) {
       _currentRevisionNumber = q.revision_number || 1;
       _existingPoNumber      = q.po_number || null;
+      // C1: snapshot existing shipping context for decision tree
+      _existingLogisticType  = q.logistic_type || null;
+      _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
+                                 ? null
+                                 : parseFloat(q.shipping_cost);
+      _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
+                                 ? null
+                                 : parseFloat(q.subtotal);
       // Defensive: if URL has ?draft and DB says Returned, treat as resume even if sessionStorage missed it
       if (q.status === 'Returned') _isResumingReturned = true;
     }
@@ -619,50 +738,38 @@ async function init() {
   }
 
   // ── 5.4-C: Banner / button visibility resolution ──
-  // Three role/mode combinations:
-  //   A) adminDraft (URL flag or sessionStorage)            → admin draft mode (existing) — hide Submit, gold draft banner
-  //   B) Returned resume by ADMIN (acting on dealer's quote) → hide Submit, orange Returned banner with admin msg
-  //   C) Returned resume by DEALER (own quote)              → show Submit, orange Returned banner with dealer msg
-  //   D) plain Draft resume                                 → existing behavior
   const isAdminDraftMode = (adminDraft || step1Data.adminDraft);
   _isAdminContext = isAdminDraftMode || (_isResumingReturned && isAdminRole);
 
   if (_isResumingReturned) {
-    // Hide the gold Draft banner (we use the orange Returned banner instead)
     document.getElementById('draftBanner').style.display = 'none';
-
-    // Show orange Returned banner with role-specific copy
     const roleMsg = isAdminRole
       ? '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.'
       : 'You are revising a returned quote. <strong>Submit</strong> to resubmit, or <strong>Save Draft</strong> to keep working later.';
     document.getElementById('returnedBannerMount').innerHTML = buildReturnedBannerStep3(roleMsg);
 
-    // Hide Submit if admin acting on a Returned quote
     if (isAdminRole) {
       document.getElementById('btnSubmit').style.display = 'none';
       document.getElementById('submitNote').innerHTML =
         'Save changes as a draft. The dealer will review and submit when ready.';
     } else {
-      // Dealer — Submit visible, change label to "Resubmit Quote" for clarity
       document.getElementById('btnSubmitText').textContent = 'Resubmit Quote';
       document.getElementById('submitNote').innerHTML =
         'Please review your changes carefully before resubmitting.<br>You can also save as a draft to continue later.';
     }
   } else if (isAdminDraftMode) {
-    // Existing admin Draft mode behavior (unchanged)
     document.getElementById('btnSubmit').style.display = 'none';
     document.getElementById('draftBanner').style.display = 'flex';
     document.getElementById('draftBannerText').innerHTML =
       '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.';
   } else if (draftId) {
-    // Plain Draft resume — gold draft banner
     document.getElementById('draftBanner').style.display = 'flex';
   }
 
   renderReview();
 }
 
-// ── On-screen render helpers (for review table only; PDF uses pdf-builder.js) ──
+// ── On-screen render helpers ──
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
 
 function typeRank(type) {
@@ -722,7 +829,6 @@ function renderReview() {
       ${dealer?.city || ''}, ${dealer?.state || ''}<br>
       ${dealer?.phone || ''}`;
   } else if (shippingAddress) {
-    // Patch: include address_line2 when present (matches quote-detail / admin behavior)
     const line2Html = shippingAddress.address_line2 ? `${shippingAddress.address_line2}<br>` : '';
     shippingEl.innerHTML = `
       <strong>${shippingAddress.recipient_name}</strong><br>
@@ -777,28 +883,79 @@ function renderReview() {
   const logisticType = step1Data.logisticType || 'pickup';
   const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
-  let shipping = 0;
+  // C1: For on-screen preview, we need to mirror what would actually be written
+  // to DB. Use the same decision tree as submit so dealer sees accurate preview.
+  const previewShippingForDb = resolveShippingForDb({
+    newLogistic:    logisticType,
+    newSubtotal:    subtotal,
+    newDeliveryFee: deliveryFee,
+    isResuming:     _isResumingReturned,
+  });
+
+  // For display purposes, derive label + note from previewShippingForDb + context
+  let shippingForTotal = 0;
   let shippingLabel = '';
   let shippingNote  = '';
+  let isPendingShipping = false;
 
   if (logisticType === 'pickup') {
-    shipping = 0; shippingLabel = 'FREE'; shippingNote = '✓ Pick Up @ ProCraft DC';
+    shippingForTotal = 0;
+    shippingLabel    = 'FREE';
+    shippingNote     = '✓ Pick Up @ ProCraft DC';
   } else if (logisticType === 'delivery') {
-    shipping = deliveryFee; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = 'Delivery fee based on distance';
+    shippingForTotal = previewShippingForDb || 0;
+    shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
+    if (_isResumingReturned && _existingLogisticType === 'delivery' && _existingShippingCost != null
+        && _existingShippingCost === shippingForTotal && _existingShippingCost !== deliveryFee) {
+      shippingNote   = '✓ Sales-confirmed delivery fee';
+    } else {
+      shippingNote   = 'Delivery fee based on distance';
+    }
   } else if (logisticType === 'shipping') {
-    if (subtotal <= 3000) { shipping = 0; shippingLabel = 'TBD'; shippingNote = '⚠ Contact Sales Team to confirm shipping fee'; }
-    else if (subtotal <= 6000)  { shipping = subtotal * 0.15; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = '15% shipping rate'; }
-    else if (subtotal <= 9000)  { shipping = subtotal * 0.12; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = '12% shipping rate'; }
-    else if (subtotal <= 12000) { shipping = subtotal * 0.10; shippingLabel = `$${shipping.toFixed(2)}`; shippingNote = '10% shipping rate'; }
-    else { shipping = 0; shippingLabel = 'FREE'; shippingNote = '✓ Free shipping on orders over $12,000'; }
+    if (previewShippingForDb === null) {
+      // Pending — TBD
+      isPendingShipping = true;
+      shippingForTotal  = 0;
+      shippingLabel     = 'TBD';
+      shippingNote      = '⚠ Contact Sales Team to confirm shipping fee';
+    } else if (previewShippingForDb === 0 && subtotal > 12000) {
+      shippingForTotal = 0;
+      shippingLabel    = 'FREE';
+      shippingNote     = '✓ Free shipping on orders over $12,000';
+    } else if (previewShippingForDb === 0) {
+      // Sales explicitly set to 0 (free) or pickup-bracket admin override
+      shippingForTotal = 0;
+      shippingLabel    = 'FREE';
+      shippingNote     = '✓ Sales-confirmed free shipping';
+    } else {
+      shippingForTotal = previewShippingForDb;
+      shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
+      // Was this preserved from admin or freshly computed?
+      const isPreservedAdminValue = (
+        _isResumingReturned &&
+        _existingLogisticType === 'shipping' &&
+        getShippingBracket(_existingSubtotal) === getShippingBracket(subtotal) &&
+        _existingShippingCost === shippingForTotal
+      );
+      if (isPreservedAdminValue) {
+        shippingNote = '✓ Sales-confirmed shipping fee';
+      } else if (subtotal <= 6000)       shippingNote = '15% shipping rate';
+      else if (subtotal <= 9000)         shippingNote = '12% shipping rate';
+      else if (subtotal <= 12000)        shippingNote = '10% shipping rate';
+    }
   }
 
   const tax   = subtotal * taxRate;
-  const grand = subtotal + assembleTotal + shipping + tax;
+  const grand = subtotal + assembleTotal + shippingForTotal + tax;
 
   document.getElementById('totalSubtotal').textContent = `$${subtotal.toFixed(2)}`;
-  document.getElementById('totalShipping').textContent = shippingLabel;
-  document.getElementById('shippingNote').innerHTML = `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
+  const shipEl = document.getElementById('totalShipping');
+  shipEl.textContent = shippingLabel;
+  shipEl.classList.toggle('tbd', isPendingShipping);
+  document.getElementById('shippingNote').innerHTML = isPendingShipping
+    ? `<span style="color:#E07B39;font-size:11px;">${shippingNote}</span>`
+    : `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
+
   if (dealer?.tax_exempt) {
     document.getElementById('totalTax').textContent = '$0.00';
     document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
@@ -807,6 +964,9 @@ function renderReview() {
     document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(0)}% tax rate`;
   }
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
+
+  // C1: show pending-shipping footnote under grand total when applicable
+  document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
 }
 
 // ── 寫入 quote_items 的 payload（含 style_name 和 sku_desc snapshot）──
@@ -815,9 +975,9 @@ function buildItemsPayload(quoteId) {
     return {
       quote_id:        quoteId,
       style_code:      item.style_code,
-      style_name:      item.style_name || null,   // snapshot：完整名稱
+      style_name:      item.style_name || null,
       sku_code:        item.sku_code,
-      sku_desc:        item.sku_desc || null,     // snapshot：SKU 描述
+      sku_desc:        item.sku_desc || null,
       sku_type:        item.skuType || null,
       assemble_status: item.type,
       quantity:        item.quantity,
@@ -845,7 +1005,8 @@ async function resolveDealerId(session) {
 }
 
 // ── Build quoteData object for pdf-builder.js ──
-function buildQuoteDataForPdf() {
+function buildQuoteDataForPdf(opts) {
+  opts = opts || {};
   const items = step2Data.map(function(i) {
     return {
       style_name:      i.style_name,
@@ -861,7 +1022,7 @@ function buildQuoteDataForPdf() {
     };
   });
 
-  return {
+  const out = {
     po_number:     step1Data?.poNumber || _existingPoNumber || null,
     job_name:      step1Data?.jobName || null,
     logistic_type: step1Data?.logisticType || 'pickup',
@@ -870,6 +1031,24 @@ function buildQuoteDataForPdf() {
     _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
     _taxExempt:  !!dealer?.tax_exempt,
   };
+
+  // C1: Pass shipping_cost (may be null) and pending flag to PDF builder.
+  // Caller can override by supplying opts.shippingCostOverride.
+  if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
+    out.shipping_cost = opts.shippingCostOverride;
+  } else {
+    // Compute the value that would be written to DB right now
+    const subtotalNow = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    out.shipping_cost = resolveShippingForDb({
+      newLogistic:    out.logistic_type,
+      newSubtotal:    subtotalNow,
+      newDeliveryFee: out.delivery_fee,
+      isResuming:     _isResumingReturned,
+    });
+  }
+  out._isPendingShipping = (out.logistic_type === 'shipping' && out.shipping_cost === null);
+
+  return out;
 }
 
 async function saveDraft() {
@@ -886,18 +1065,21 @@ async function saveDraft() {
     const assembleTotal = step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0);
     const logisticType  = step1Data.logisticType || 'pickup';
     const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
-    let shipping = 0;
-    if (logisticType === 'delivery')       shipping = deliveryFee;
-    else if (logisticType === 'shipping') {
-      if (subtotal <= 6000)       shipping = subtotal * 0.15;
-      else if (subtotal <= 9000)  shipping = subtotal * 0.12;
-      else if (subtotal <= 12000) shipping = subtotal * 0.10;
-    }
+
+    // C1: use the same decision tree as submit
+    const shippingForDb = resolveShippingForDb({
+      newLogistic:    logisticType,
+      newSubtotal:    subtotal,
+      newDeliveryFee: deliveryFee,
+      isResuming:     _isResumingReturned,
+    });
+    const shippingForTotal = shippingForDb || 0;
+
     const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const tax   = subtotal * taxRate;
-    const grand = subtotal + assembleTotal + shipping + tax;
+    const grand = subtotal + assembleTotal + shippingForTotal + tax;
 
-    // 5.4-C: when saving a Returned quote → keep status='Returned', do NOT touch return_reason/revision_number
+    // 5.4-C: when saving a Returned quote → keep status='Returned'
     const targetStatus = _isResumingReturned ? 'Returned' : 'Draft';
 
     const payload = {
@@ -910,7 +1092,8 @@ async function saveDraft() {
       delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
       subtotal:            parseFloat(subtotal.toFixed(2)),
       assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-      shipping_cost:       parseFloat(shipping.toFixed(2)),
+      // C1: NULL when pending Sales; otherwise rounded number
+      shipping_cost:       (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2)),
       tax_amount:          parseFloat(tax.toFixed(2)),
       grand_total:         parseFloat(grand.toFixed(2)),
     };
@@ -922,6 +1105,12 @@ async function saveDraft() {
       if (error) throw error;
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
+
+      // C1: refresh in-memory snapshot so subsequent saves/submits in same
+      // session see the just-saved state as "old"
+      _existingLogisticType = logisticType;
+      _existingShippingCost = payload.shipping_cost;
+      _existingSubtotal     = payload.subtotal;
     } else {
       const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
       if (numError) throw numError;
@@ -940,7 +1129,6 @@ async function saveDraft() {
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
 
-    // 5.4-C: Customize success copy when saving a Returned-revision draft
     if (_isResumingReturned) {
       document.getElementById('draftTitle').textContent = 'Changes Saved';
       document.getElementById('draftMsg').innerHTML =
@@ -971,7 +1159,6 @@ async function submitQuote() {
   btn.disabled = true;
   errMsg.classList.remove('show');
 
-  // 5.4-C: progress overlay title differs for resubmit
   if (_isResumingReturned) {
     titleEl.textContent = 'Resubmitting Your Quote';
     setStep('Updating your quote...');
@@ -991,33 +1178,27 @@ async function submitQuote() {
     const logisticType = step1Data.logisticType || 'pickup';
     const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
-    let shipping = 0;
-    if (logisticType === 'pickup') {
-      shipping = 0;
-    } else if (logisticType === 'delivery') {
-      shipping = deliveryFee;
-    } else if (logisticType === 'shipping') {
-      if (subtotal <= 3000)       shipping = 0;
-      else if (subtotal <= 6000)  shipping = subtotal * 0.15;
-      else if (subtotal <= 9000)  shipping = subtotal * 0.12;
-      else if (subtotal <= 12000) shipping = subtotal * 0.10;
-      else                        shipping = 0;
-    }
+    // ── C1: shipping resolution via decision tree ──
+    const shippingForDb = resolveShippingForDb({
+      newLogistic:    logisticType,
+      newSubtotal:    subtotal,
+      newDeliveryFee: deliveryFee,
+      isResuming:     _isResumingReturned,
+    });
+    // null in shippingForDb → exclude from grand_total; otherwise add
+    const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
 
     const tax   = subtotal * taxRate;
-    const grand = subtotal + assembleTotal + shipping + tax;
+    const grand = subtotal + assembleTotal + shippingForTotal + tax;
 
     // 5.4-C: PO# generation only happens for first-time submits.
-    // For Returned resubmits, reuse the existing PO# and existing quote_number.
     let poNumber;
     let quoteNum;
     let nextRevisionNumber = 1;
 
     if (_isResumingReturned && draftId) {
-      // Reuse existing PO# and quote_number
       poNumber = _existingPoNumber;
       if (!poNumber) {
-        // Defensive: refetch in case state was lost
         const { data: q } = await _supabase
           .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
         poNumber = q?.po_number;
@@ -1031,7 +1212,6 @@ async function submitQuote() {
       if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
       nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
     } else {
-      // First-time submit — generate quote_number + po_number
       let dealerUidForPO;
       if (dealer && dealer.id === dealerId) {
         dealerUidForPO = dealer.uid;
@@ -1059,10 +1239,14 @@ async function submitQuote() {
       poNumber = poData;
     }
 
+    // C1: shipping_cost write value (null OR rounded number)
+    const shippingCostWrite = (shippingForDb === null)
+      ? null
+      : parseFloat(shippingForDb.toFixed(2));
+
     let quoteId;
 
     if (draftId) {
-      // 5.4-C: build update payload — for Returned resume, also bump revision_number and clear return_reason
       const updatePayload = {
         dealer_id:           dealerId,
         job_name:            step1Data.jobName,
@@ -1074,7 +1258,7 @@ async function submitQuote() {
         delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
         subtotal:            parseFloat(subtotal.toFixed(2)),
         assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-        shipping_cost:       parseFloat(shipping.toFixed(2)),
+        shipping_cost:       shippingCostWrite,
         tax_amount:          parseFloat(tax.toFixed(2)),
         grand_total:         parseFloat(grand.toFixed(2)),
         quote_number:        quoteNum,
@@ -1105,7 +1289,7 @@ async function submitQuote() {
           delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
           subtotal:            parseFloat(subtotal.toFixed(2)),
           assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-          shipping_cost:       parseFloat(shipping.toFixed(2)),
+          shipping_cost:       shippingCostWrite,
           tax_amount:          parseFloat(tax.toFixed(2)),
           grand_total:         parseFloat(grand.toFixed(2)),
         })
@@ -1119,17 +1303,16 @@ async function submitQuote() {
 
     step1Data.poNumber = poNumber;
 
-    // ── Generate two PDFs (using pdf-builder.js) ──
+    // ── Generate two PDFs ──
     setStep('Generating PDF documents...');
-    const quoteDataForPdf = buildQuoteDataForPdf();
-    quoteDataForPdf.po_number = poNumber; // ensure latest PO# is used in filename/contents
+    const quoteDataForPdf = buildQuoteDataForPdf({ shippingCostOverride: shippingCostWrite });
+    quoteDataForPdf.po_number = poNumber;
     const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress);
     const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0 });
 
     const pdfA = packingDoc.output('datauristring').split(',')[1];
     const pdfB = invoiceDoc.output('datauristring').split(',')[1];
 
-    // 5.4-C: pass revision number into PDF filename helper (v=1 → no suffix; v>=2 → " - v{N}")
     const pdfRevisionNumber = _isResumingReturned ? nextRevisionNumber : 1;
     const packingFilename = ProCraftPDF.getPdfFilename('packing-list', { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
     const invoiceFilename = ProCraftPDF.getPdfFilename('invoice',      { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
@@ -1150,7 +1333,9 @@ async function submitQuote() {
             po_number:       poNumber,
             job_name:        step1Data.jobName,
             subtotal:        subtotal.toFixed(2),
-            shipping_cost:   shipping.toFixed(2),
+            // C1: send NULL marker downstream (Edge Function / template can decide how to render)
+            shipping_cost:   (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
+            shipping_pending: (shippingCostWrite === null),
             tax_amount:      tax.toFixed(2),
             grand_total:     grand.toFixed(2),
             revision_number: pdfRevisionNumber,
@@ -1185,7 +1370,6 @@ async function submitQuote() {
 
     overlay.classList.remove('show');
 
-    // 5.4-C: customize success overlay copy for resubmits
     if (_isResumingReturned) {
       document.getElementById('successTitle').textContent = 'Quote Resubmitted!';
       document.getElementById('successMsg').innerHTML =
@@ -1241,23 +1425,35 @@ function updateMarkupPreview() {
   const markedSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
   const assembleTotal  = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
   const taxRate        = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+  const logisticType   = step1Data?.logisticType || 'pickup';
+  const deliveryFee    = parseFloat(step1Data?.deliveryFee || 0);
 
-  let shipping = 0;
-  const logisticType = step1Data?.logisticType || 'pickup';
-  if (logisticType === 'delivery') shipping = parseFloat(step1Data?.deliveryFee || 0);
-  else if (logisticType === 'shipping') {
-    if (markedSubtotal <= 6000)       shipping = markedSubtotal * 0.15;
-    else if (markedSubtotal <= 9000)  shipping = markedSubtotal * 0.12;
-    else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
-  }
+  // C1: use decision tree on the marked subtotal so preview is consistent
+  const previewShippingForDb = resolveShippingForDb({
+    newLogistic:    logisticType,
+    newSubtotal:    markedSubtotal,
+    newDeliveryFee: deliveryFee,
+    isResuming:     _isResumingReturned,
+  });
+  const isPendingShipping = (logisticType === 'shipping' && previewShippingForDb === null);
+  const shippingForTotal  = previewShippingForDb || 0;
 
   const tax   = markedSubtotal * taxRate;
-  const grand = markedSubtotal + assembleTotal + shipping + tax;
+  const grand = markedSubtotal + assembleTotal + shippingForTotal + tax;
 
   document.getElementById('totalSubtotal').textContent  = `$${markedSubtotal.toFixed(2)}`;
   document.getElementById('totalGrand').textContent     = `$${grand.toFixed(2)}`;
-  document.getElementById('totalShipping').textContent  = shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`;
+
+  const shipEl = document.getElementById('totalShipping');
+  if (isPendingShipping) {
+    shipEl.textContent = 'TBD';
+    shipEl.classList.add('tbd');
+  } else {
+    shipEl.textContent = shippingForTotal === 0 ? 'FREE' : `$${shippingForTotal.toFixed(2)}`;
+    shipEl.classList.remove('tbd');
+  }
   document.getElementById('totalTax').textContent       = dealer?.tax_exempt ? 'Exempt' : `$${tax.toFixed(2)}`;
+  document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
 
   if (assembleTotal > 0) {
     document.getElementById('assembleRow').style.display = 'block';
@@ -1280,14 +1476,13 @@ function updateMarkupPreview() {
     : '';
 }
 
-// ── Download PDF (preview, with markup) — uses pdf-builder.js ──
+// ── Download PDF (preview, with markup) ──
 async function downloadPDF() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildDraftQuotePdf(
     quoteDataForPdf, dealer, shippingAddress, { markupPercent: markupPct }
   );
-  // 5.4-C: For Returned resume preview, reflect the upcoming revision number in filename
   const previewRevisionNumber = _isResumingReturned ? (_currentRevisionNumber || 1) + 1 : 1;
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
     poNumber: step1Data?.poNumber || _existingPoNumber || 'Draft',
