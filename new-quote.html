@@ -125,6 +125,59 @@
       margin-bottom: 24px;
     }
 
+    /* ── Returned Revising Banner ── */
+    .returned-revising-banner {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid #E07B39;
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .returned-revising-banner .rrb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(224,123,57,0.14);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .returned-revising-banner .rrb-icon-wrap svg {
+      width: 16px; height: 16px; fill: #E07B39;
+    }
+    .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
+    .returned-revising-banner .rrb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 4px;
+    }
+    .returned-revising-banner .rrb-msg {
+      font-size: 13px;
+      color: #2C3A32;
+      line-height: 1.55;
+    }
+    .returned-revising-banner .rrb-reason {
+      font-size: 12px;
+      color: #5e6962;
+      line-height: 1.55;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(224,123,57,0.05);
+      border-radius: 3px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .returned-revising-banner .rrb-reason-label {
+      font-size: 9px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 4px;
+    }
+
     /* ── Card ── */
     .card {
       background: var(--white);
@@ -476,6 +529,9 @@
 <div class="page">
   <div class="page-title">New Quote</div>
 
+  <!-- Returned Banner mount point (populated by JS if applicable) -->
+  <div id="returnedBannerMount"></div>
+
   <div class="error-msg" id="errorMsg"></div>
 
   <!-- Order Info -->
@@ -703,6 +759,38 @@
   let draftId      = null;
   let adminDraft   = false;
   let adminDealerId = null;
+  let isResumingReturned = false;
+  let returnReason       = null;
+
+  // ── Utility ──
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ── Returned Banner builder ──
+  function buildReturnedBannerStep1(reason) {
+    return `
+      <div class="returned-revising-banner">
+        <div class="rrb-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </div>
+        <div class="rrb-body">
+          <div class="rrb-title">Revising Returned Quote</div>
+          <div class="rrb-msg">You are editing a returned quote. Make your changes and resubmit when ready.</div>
+          ${reason ? `
+            <div class="rrb-reason">
+              <div class="rrb-reason-label">Return Reason</div>
+              ${escapeHtml(reason)}
+            </div>` : ''}
+        </div>
+      </div>`;
+  }
 
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
@@ -761,7 +849,7 @@
     renderAddresses();
 
     if (draftId) {
-      // ── Resume Draft: load from DB ──
+      // ── Resume Draft OR Returned: load from DB ──
       await loadDraftData(targetId);
     } else {
       // ── Restore Step 1 data if coming back from Step 2 Edit ──
@@ -786,6 +874,13 @@
               renderAddresses();
             }
           }
+          // Restore Returned-revision flag if present
+          if (s1.isResumingReturned) {
+            isResumingReturned = true;
+            returnReason = s1.returnReason || null;
+            document.getElementById('returnedBannerMount').innerHTML =
+              buildReturnedBannerStep1(returnReason);
+          }
         } catch(e) { /* ignore parse errors */ }
       }
       // PO# is always blank until submit — no generation here
@@ -802,15 +897,31 @@
     }, 60000);
   }
 
-  // ── Load draft data from DB → fill Step 1 form ──
+  // ── Load draft / returned data from DB → fill Step 1 form ──
   async function loadDraftData(ownerId) {
+    // Allow status IN ('Draft', 'Returned')
     const { data: draft, error } = await _supabase
-      .from('quotes').select('*').eq('id', draftId).eq('dealer_id', ownerId).single();
+      .from('quotes')
+      .select('*')
+      .eq('id', draftId)
+      .eq('dealer_id', ownerId)
+      .in('status', ['Draft', 'Returned'])
+      .single();
 
     if (error || !draft) {
-      console.warn('Draft not found, starting fresh.');
+      console.warn('Draft/Returned quote not found, starting fresh.');
       draftId = null;
       return;
+    }
+
+    // Detect Returned-revision mode
+    isResumingReturned = (draft.status === 'Returned');
+    returnReason       = isResumingReturned ? (draft.return_reason || null) : null;
+
+    // Show banner only if Returned (not for plain Draft)
+    if (isResumingReturned) {
+      document.getElementById('returnedBannerMount').innerHTML =
+        buildReturnedBannerStep1(returnReason);
     }
 
     // Draft has no PO# — leave blank
@@ -834,16 +945,18 @@
 
     // Pre-populate sessionStorage for Step 2/3
     sessionStorage.setItem('quoteStep1', JSON.stringify({
-      poNumber:          null,
-      jobName:           draft.job_name,
-      notes:             draft.notes || '',
-      shippingMode:      draft.shipping_address_id ? 'different' : 'same',
-      shippingAddressId: draft.shipping_address_id || null,
-      logisticType:      draft.logistic_type || 'pickup',
-      deliveryFee:       draft.delivery_fee  || 0,
-      billingOverride:   null,
-      dealerIdForQuote:  adminDraft && adminDealerId ? adminDealerId : null,
-      adminDraft:        adminDraft,
+      poNumber:           null,
+      jobName:            draft.job_name,
+      notes:              draft.notes || '',
+      shippingMode:       draft.shipping_address_id ? 'different' : 'same',
+      shippingAddressId:  draft.shipping_address_id || null,
+      logisticType:       draft.logistic_type || 'pickup',
+      deliveryFee:        draft.delivery_fee  || 0,
+      billingOverride:    null,
+      dealerIdForQuote:   adminDraft && adminDealerId ? adminDealerId : null,
+      adminDraft:         adminDraft,
+      isResumingReturned: isResumingReturned,
+      returnReason:       returnReason,
     }));
   }
 
@@ -1089,6 +1202,7 @@
       jobName, notes, shippingMode, shippingAddressId,
       logisticType, deliveryFee, billingOverride,
       adminDraft, dealerIdForQuote,
+      isResumingReturned, returnReason,
     };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
 
