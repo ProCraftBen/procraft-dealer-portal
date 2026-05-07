@@ -45,6 +45,42 @@
     /* ── Page ── */
     .page { max-width: 1100px; margin: 0 auto; padding: 20px 20px 80px; }
 
+    /* ── Returned Revising Banner ── */
+    .returned-revising-banner {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid #E07B39;
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .returned-revising-banner .rrb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(224,123,57,0.14);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .returned-revising-banner .rrb-icon-wrap svg {
+      width: 16px; height: 16px; fill: #E07B39;
+    }
+    .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
+    .returned-revising-banner .rrb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 4px;
+    }
+    .returned-revising-banner .rrb-msg {
+      font-size: 13px;
+      color: #2C3A32;
+      line-height: 1.55;
+    }
+
     /* ── Brand Tabs ── */
     .brand-tabs-bar {
       display: flex;
@@ -454,6 +490,9 @@
 
 <div class="page">
 
+  <!-- Returned Banner mount point (populated by JS if applicable) -->
+  <div id="returnedBannerMount"></div>
+
   <!-- Brand Tabs: dynamic -->
   <div class="brand-tabs-bar" id="brandTabsBar">
   </div>
@@ -560,7 +599,7 @@
 <div class="bottom-bar">
   <div class="bottom-left"><strong id="bottomCount">0 items</strong> in quote</div>
   <div style="display:flex;gap:10px;align-items:center;">
-    <a href="new-quote.html" class="btn-back">← Back</a>
+    <a href="new-quote.html" class="btn-back" id="btnBack">← Back</a>
     <button class="btn-next" id="btnNext" onclick="goNext()" disabled>Review Quote →</button>
   </div>
 </div>
@@ -583,6 +622,7 @@ let currentType  = 'RTA';
 let currentCat   = 'All';
 let cartItems    = [];
 let draftId      = null; // set if resuming a draft
+let isResumingReturned = false;
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -591,6 +631,20 @@ const colorMap = {
 
 // open subcats by default
 const openSubcats = new Set();
+
+// ── Returned Banner builder (no reason in Step 2) ──
+function buildReturnedBannerSimple(roleMsg) {
+  return `
+    <div class="returned-revising-banner">
+      <div class="rrb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+      <div class="rrb-body">
+        <div class="rrb-title">Revising Returned Quote</div>
+        <div class="rrb-msg">${roleMsg}</div>
+      </div>
+    </div>`;
+}
 
 async function init() {
   const { data:{ session } } = await _supabase.auth.getSession();
@@ -625,6 +679,28 @@ async function init() {
         if (parsed?.dealerIdForQuote) dealerIdToLoad = parsed.dealerIdForQuote;
       }
     } catch (_) { /* ignore parse errors */ }
+  }
+
+  // ── Detect Returned-revision flag from Step 1 ──
+  try {
+    const s1 = sessionStorage.getItem('quoteStep1');
+    if (s1) {
+      const parsed = JSON.parse(s1);
+      if (parsed?.isResumingReturned) {
+        isResumingReturned = true;
+      }
+    }
+  } catch (_) { /* ignore */ }
+
+  // Render banner if applicable
+  if (isResumingReturned) {
+    document.getElementById('returnedBannerMount').innerHTML =
+      buildReturnedBannerSimple('You are revising a returned quote. Continue editing items as needed.');
+    // Update Back link to preserve draft id
+    if (draftId) {
+      const backBtn = document.getElementById('btnBack');
+      if (backBtn) backBtn.href = 'new-quote.html?draft=' + draftId;
+    }
   }
 
   const { data:d } = await _supabase
