@@ -50,6 +50,43 @@
     .page { max-width: 780px; margin: 0 auto; padding: 28px 20px 100px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); margin-bottom: 24px; }
 
+    /* ── Returned Revising Banner ── */
+    .returned-revising-banner {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid #E07B39;
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .returned-revising-banner .rrb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(224,123,57,0.14);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .returned-revising-banner .rrb-icon-wrap svg {
+      width: 16px; height: 16px; fill: #E07B39;
+    }
+    .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
+    .returned-revising-banner .rrb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 4px;
+    }
+    .returned-revising-banner .rrb-msg {
+      font-size: 13px;
+      color: #2C3A32;
+      line-height: 1.55;
+    }
+    .returned-revising-banner .rrb-msg strong { color: #E07B39; }
+
     /* ── Card ── */
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
@@ -270,6 +307,9 @@
 <div class="page">
   <div class="page-title">Review Your Quote</div>
 
+  <!-- Returned Banner mount point (populated by JS if applicable) -->
+  <div id="returnedBannerMount"></div>
+
   <!-- Draft banner -->
   <div class="draft-banner" id="draftBanner" style="display:none;">
     <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -403,7 +443,7 @@
 
   <!-- Submit -->
   <div class="submit-card">
-    <div class="submit-note">
+    <div class="submit-note" id="submitNote">
       Please review your quote carefully before submitting.<br>
       You can also save as a draft to continue later.
     </div>
@@ -415,7 +455,7 @@
       </button>
       <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
         <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        <span class="btn-text">Submit Quote</span>
+        <span class="btn-text" id="btnSubmitText">Submit Quote</span>
         <div class="spinner"></div>
       </button>
     </div>
@@ -431,7 +471,7 @@
 <!-- Progress Overlay — During Submit -->
 <div class="progress-overlay" id="progressOverlay">
   <div class="progress-spinner"></div>
-  <div class="progress-title">Submitting Your Quote</div>
+  <div class="progress-title" id="progressTitle">Submitting Your Quote</div>
   <div class="progress-step" id="progressStep">Saving your quote...</div>
   <div class="progress-msg">
     Please don't close this window.<br>
@@ -444,9 +484,9 @@
   <div class="success-icon">
     <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
   </div>
-  <div class="success-title">Quote Submitted!</div>
+  <div class="success-title" id="successTitle">Quote Submitted!</div>
   <div class="success-quote-num" id="successQuoteNum"></div>
-  <div class="success-msg">
+  <div class="success-msg" id="successMsg">
     Thank you! Your quote has been received.<br>
     Our team will review it and get back to you shortly.<br>
     A confirmation has been sent to your email.
@@ -461,9 +501,9 @@
   <div class="success-icon gold">
     <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
   </div>
-  <div class="success-title">Draft Saved!</div>
+  <div class="success-title" id="draftTitle">Draft Saved!</div>
   <div class="success-quote-num" id="draftQuoteNum"></div>
-  <div class="success-msg">
+  <div class="success-msg" id="draftMsg">
     Your quote has been saved as a draft.<br>
     You can find it in My Quotes and continue editing anytime.
   </div>
@@ -489,6 +529,26 @@ let step2Data = null;
 let shippingAddress = null;
 let draftId   = null;
 
+// ── 5.4-C: Returned-revision state ──
+let _isResumingReturned     = false;
+let _currentRevisionNumber  = 1;
+let _existingPoNumber       = null;     // for resubmit: keep original PO#
+let _isAdminContext         = false;    // adminDraft OR isResumingReturned + admin role
+
+// ── Returned Banner builder (Step 3, with role-specific message) ──
+function buildReturnedBannerStep3(roleMsg) {
+  return `
+    <div class="returned-revising-banner">
+      <div class="rrb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+      <div class="rrb-body">
+        <div class="rrb-title">Revising Returned Quote</div>
+        <div class="rrb-msg">${roleMsg}</div>
+      </div>
+    </div>`;
+}
+
 async function init() {
   const { data:{ session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -504,15 +564,29 @@ async function init() {
   step1Data = JSON.parse(s1);
   step2Data = JSON.parse(s2);
 
+  // 5.4-C: detect Returned-resume mode from sessionStorage
+  _isResumingReturned = !!step1Data.isResumingReturned;
+
   const { data: meRow } = await _supabase
-    .from('dealers').select('is_active').eq('id', session.user.id).single();
+    .from('dealers').select('is_active, role').eq('id', session.user.id).single();
   if (!meRow?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+
+  const isAdminRole = meRow?.role === 'admin' || meRow?.role === 'super_admin';
 
   let dealerIdToLoad = session.user.id;
   if (draftId) {
+    // 5.4-C: also fetch revision_number + po_number + status for Returned resume
     const { data: q } = await _supabase
-      .from('quotes').select('dealer_id').eq('id', draftId).single();
+      .from('quotes')
+      .select('dealer_id, revision_number, po_number, status')
+      .eq('id', draftId).single();
     if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
+    if (q) {
+      _currentRevisionNumber = q.revision_number || 1;
+      _existingPoNumber      = q.po_number || null;
+      // Defensive: if URL has ?draft and DB says Returned, treat as resume even if sessionStorage missed it
+      if (q.status === 'Returned') _isResumingReturned = true;
+    }
   } else if (step1Data.dealerIdForQuote) {
     dealerIdToLoad = step1Data.dealerIdForQuote;
   }
@@ -537,18 +611,52 @@ async function init() {
   }
 
   if (draftId) {
-    document.getElementById('draftBanner').style.display = 'flex';
+    // Edit links must preserve draft id in all branches
     document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep2Link').href     = 'new-quote-step2.html?draft=' + draftId;
     document.getElementById('backToStep2').href       = 'new-quote-step2.html?draft=' + draftId;
   }
 
-  if (adminDraft || step1Data.adminDraft) {
+  // ── 5.4-C: Banner / button visibility resolution ──
+  // Three role/mode combinations:
+  //   A) adminDraft (URL flag or sessionStorage)            → admin draft mode (existing) — hide Submit, gold draft banner
+  //   B) Returned resume by ADMIN (acting on dealer's quote) → hide Submit, orange Returned banner with admin msg
+  //   C) Returned resume by DEALER (own quote)              → show Submit, orange Returned banner with dealer msg
+  //   D) plain Draft resume                                 → existing behavior
+  const isAdminDraftMode = (adminDraft || step1Data.adminDraft);
+  _isAdminContext = isAdminDraftMode || (_isResumingReturned && isAdminRole);
+
+  if (_isResumingReturned) {
+    // Hide the gold Draft banner (we use the orange Returned banner instead)
+    document.getElementById('draftBanner').style.display = 'none';
+
+    // Show orange Returned banner with role-specific copy
+    const roleMsg = isAdminRole
+      ? '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.'
+      : 'You are revising a returned quote. <strong>Submit</strong> to resubmit, or <strong>Save Draft</strong> to keep working later.';
+    document.getElementById('returnedBannerMount').innerHTML = buildReturnedBannerStep3(roleMsg);
+
+    // Hide Submit if admin acting on a Returned quote
+    if (isAdminRole) {
+      document.getElementById('btnSubmit').style.display = 'none';
+      document.getElementById('submitNote').innerHTML =
+        'Save changes as a draft. The dealer will review and submit when ready.';
+    } else {
+      // Dealer — Submit visible, change label to "Resubmit Quote" for clarity
+      document.getElementById('btnSubmitText').textContent = 'Resubmit Quote';
+      document.getElementById('submitNote').innerHTML =
+        'Please review your changes carefully before resubmitting.<br>You can also save as a draft to continue later.';
+    }
+  } else if (isAdminDraftMode) {
+    // Existing admin Draft mode behavior (unchanged)
     document.getElementById('btnSubmit').style.display = 'none';
     document.getElementById('draftBanner').style.display = 'flex';
     document.getElementById('draftBannerText').innerHTML =
       '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.';
+  } else if (draftId) {
+    // Plain Draft resume — gold draft banner
+    document.getElementById('draftBanner').style.display = 'flex';
   }
 
   renderReview();
@@ -600,7 +708,9 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 }
 
 function renderReview() {
-  document.getElementById('reviewPO').textContent       = step1Data.poNumber || '—';
+  // 5.4-C: when resuming Returned, show the existing PO# instead of "—"
+  const poDisplay = step1Data.poNumber || _existingPoNumber || '—';
+  document.getElementById('reviewPO').textContent       = poDisplay;
   document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
   document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
   document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
@@ -750,7 +860,7 @@ function buildQuoteDataForPdf() {
   });
 
   return {
-    po_number:     step1Data?.poNumber || null,
+    po_number:     step1Data?.poNumber || _existingPoNumber || null,
     job_name:      step1Data?.jobName || null,
     logistic_type: step1Data?.logisticType || 'pickup',
     delivery_fee:  parseFloat(step1Data?.deliveryFee || 0),
@@ -785,11 +895,14 @@ async function saveDraft() {
     const tax   = subtotal * taxRate;
     const grand = subtotal + assembleTotal + shipping + tax;
 
+    // 5.4-C: when saving a Returned quote → keep status='Returned', do NOT touch return_reason/revision_number
+    const targetStatus = _isResumingReturned ? 'Returned' : 'Draft';
+
     const payload = {
       dealer_id:           dealerId,
       job_name:            step1Data.jobName,
       shipping_address_id: step1Data.shippingAddressId || null,
-      status:              'Draft',
+      status:              targetStatus,
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
       delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
@@ -825,6 +938,13 @@ async function saveDraft() {
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
 
+    // 5.4-C: Customize success copy when saving a Returned-revision draft
+    if (_isResumingReturned) {
+      document.getElementById('draftTitle').textContent = 'Changes Saved';
+      document.getElementById('draftMsg').innerHTML =
+        'Your changes have been saved. The quote is still in <strong>Returned</strong> status.<br>' +
+        'You can continue editing later or resubmit when ready.';
+    }
     document.getElementById('draftQuoteNum').textContent = step1Data.jobName || '';
     document.getElementById('draftOverlay').classList.add('show');
 
@@ -842,30 +962,26 @@ async function submitQuote() {
   const errMsg  = document.getElementById('errorMsg');
   const overlay = document.getElementById('progressOverlay');
   const stepEl  = document.getElementById('progressStep');
+  const titleEl = document.getElementById('progressTitle');
   const setStep = (txt) => { if (stepEl) stepEl.textContent = txt; };
 
   btn.classList.add('loading');
   btn.disabled = true;
   errMsg.classList.remove('show');
-  setStep('Saving your quote...');
+
+  // 5.4-C: progress overlay title differs for resubmit
+  if (_isResumingReturned) {
+    titleEl.textContent = 'Resubmitting Your Quote';
+    setStep('Updating your quote...');
+  } else {
+    titleEl.textContent = 'Submitting Your Quote';
+    setStep('Saving your quote...');
+  }
   overlay.classList.add('show');
 
   try {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
-
-    let dealerUidForPO;
-    if (dealer && dealer.id === dealerId) {
-      dealerUidForPO = dealer.uid;
-    } else {
-      const { data: targetDealer, error: dealerErr } = await _supabase
-        .from('dealers').select('uid').eq('id', dealerId).single();
-      if (dealerErr) throw dealerErr;
-      dealerUidForPO = targetDealer ? targetDealer.uid : null;
-    }
-    if (!dealerUidForPO) {
-      throw new Error('Dealer UID is missing — cannot generate PO#. Please contact support.');
-    }
 
     const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
     const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
@@ -889,23 +1005,63 @@ async function submitQuote() {
     const tax   = subtotal * taxRate;
     const grand = subtotal + assembleTotal + shipping + tax;
 
-    const { data: numData, error: numError } = await _supabase
-      .rpc('generate_quote_number');
-    if (numError) throw numError;
-    const quoteNum = numData;
+    // 5.4-C: PO# generation only happens for first-time submits.
+    // For Returned resubmits, reuse the existing PO# and existing quote_number.
+    let poNumber;
+    let quoteNum;
+    let nextRevisionNumber = 1;
 
-    const { data: poNumber, error: poError } = await _supabase
-      .rpc('generate_po_number', {
-        p_dealer_uid: dealerUidForPO,
-        p_dealer_id:  dealerId,
-      });
-    if (poError) throw poError;
-    if (!poNumber) throw new Error('Failed to generate PO number.');
+    if (_isResumingReturned && draftId) {
+      // Reuse existing PO# and quote_number
+      poNumber = _existingPoNumber;
+      if (!poNumber) {
+        // Defensive: refetch in case state was lost
+        const { data: q } = await _supabase
+          .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
+        poNumber = q?.po_number;
+        quoteNum = q?.quote_number;
+        _currentRevisionNumber = q?.revision_number || 1;
+      } else {
+        const { data: q } = await _supabase
+          .from('quotes').select('quote_number').eq('id', draftId).single();
+        quoteNum = q?.quote_number;
+      }
+      if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
+      nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
+    } else {
+      // First-time submit — generate quote_number + po_number
+      let dealerUidForPO;
+      if (dealer && dealer.id === dealerId) {
+        dealerUidForPO = dealer.uid;
+      } else {
+        const { data: targetDealer, error: dealerErr } = await _supabase
+          .from('dealers').select('uid').eq('id', dealerId).single();
+        if (dealerErr) throw dealerErr;
+        dealerUidForPO = targetDealer ? targetDealer.uid : null;
+      }
+      if (!dealerUidForPO) {
+        throw new Error('Dealer UID is missing — cannot generate PO#. Please contact support.');
+      }
+
+      const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
+      if (numError) throw numError;
+      quoteNum = numData;
+
+      const { data: poData, error: poError } = await _supabase
+        .rpc('generate_po_number', {
+          p_dealer_uid: dealerUidForPO,
+          p_dealer_id:  dealerId,
+        });
+      if (poError) throw poError;
+      if (!poData) throw new Error('Failed to generate PO number.');
+      poNumber = poData;
+    }
 
     let quoteId;
 
     if (draftId) {
-      const { error: updateError } = await _supabase.from('quotes').update({
+      // 5.4-C: build update payload — for Returned resume, also bump revision_number and clear return_reason
+      const updatePayload = {
         dealer_id:           dealerId,
         job_name:            step1Data.jobName,
         po_number:           poNumber,
@@ -920,7 +1076,15 @@ async function submitQuote() {
         tax_amount:          parseFloat(tax.toFixed(2)),
         grand_total:         parseFloat(grand.toFixed(2)),
         quote_number:        quoteNum,
-      }).eq('id', draftId);
+      };
+
+      if (_isResumingReturned) {
+        updatePayload.revision_number = nextRevisionNumber;
+        updatePayload.return_reason   = null;
+      }
+
+      const { error: updateError } = await _supabase
+        .from('quotes').update(updatePayload).eq('id', draftId);
       if (updateError) throw updateError;
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
@@ -956,13 +1120,19 @@ async function submitQuote() {
     // ── Generate two PDFs (using pdf-builder.js) ──
     setStep('Generating PDF documents...');
     const quoteDataForPdf = buildQuoteDataForPdf();
+    quoteDataForPdf.po_number = poNumber; // ensure latest PO# is used in filename/contents
     const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress);
     const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0 });
 
     const pdfA = packingDoc.output('datauristring').split(',')[1];
     const pdfB = invoiceDoc.output('datauristring').split(',')[1];
 
-    setStep('Sending confirmation email...');
+    // 5.4-C: pass revision number into PDF filename helper (v=1 → no suffix; v>=2 → " - v{N}")
+    const pdfRevisionNumber = _isResumingReturned ? nextRevisionNumber : 1;
+    const packingFilename = ProCraftPDF.getPdfFilename('packing-list', { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
+    const invoiceFilename = ProCraftPDF.getPdfFilename('invoice',      { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
+
+    setStep(_isResumingReturned ? 'Sending resubmission email...' : 'Sending confirmation email...');
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
       'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
@@ -974,13 +1144,15 @@ async function submitQuote() {
         },
         body: JSON.stringify({
           quote: {
-            quote_number:  quoteNum,
-            po_number:     poNumber,
-            job_name:      step1Data.jobName,
-            subtotal:      subtotal.toFixed(2),
-            shipping_cost: shipping.toFixed(2),
-            tax_amount:    tax.toFixed(2),
-            grand_total:   grand.toFixed(2),
+            quote_number:    quoteNum,
+            po_number:       poNumber,
+            job_name:        step1Data.jobName,
+            subtotal:        subtotal.toFixed(2),
+            shipping_cost:   shipping.toFixed(2),
+            tax_amount:      tax.toFixed(2),
+            grand_total:     grand.toFixed(2),
+            revision_number: pdfRevisionNumber,
+            is_resubmit:     _isResumingReturned,
           },
           dealer: {
             company_name:           dealer.company_name,
@@ -999,8 +1171,8 @@ async function submitQuote() {
             unit_price: i.unit_price,
           })),
           attachments: [
-            { filename: ProCraftPDF.getPdfFilename('packing-list', { poNumber: poNumber }), content: pdfA, type: 'application/pdf' },
-            { filename: ProCraftPDF.getPdfFilename('invoice',      { poNumber: poNumber }), content: pdfB, type: 'application/pdf' },
+            { filename: packingFilename, content: pdfA, type: 'application/pdf' },
+            { filename: invoiceFilename, content: pdfB, type: 'application/pdf' },
           ],
         }),
       }
@@ -1010,6 +1182,15 @@ async function submitQuote() {
     sessionStorage.removeItem('quoteStep2');
 
     overlay.classList.remove('show');
+
+    // 5.4-C: customize success overlay copy for resubmits
+    if (_isResumingReturned) {
+      document.getElementById('successTitle').textContent = 'Quote Resubmitted!';
+      document.getElementById('successMsg').innerHTML =
+        'Thank you! Your revised quote has been resubmitted.<br>' +
+        'Our team will review it and get back to you shortly.<br>' +
+        'A confirmation has been sent to your email.';
+    }
     document.getElementById('successQuoteNum').textContent = poNumber;
     document.getElementById('successOverlay').classList.add('show');
 
@@ -1104,10 +1285,12 @@ async function downloadPDF() {
   const doc = await ProCraftPDF.buildDraftQuotePdf(
     quoteDataForPdf, dealer, shippingAddress, { markupPercent: markupPct }
   );
+  // 5.4-C: For Returned resume preview, reflect the upcoming revision number in filename
+  const previewRevisionNumber = _isResumingReturned ? (_currentRevisionNumber || 1) + 1 : 1;
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
-    poNumber: step1Data?.poNumber || 'Draft',
+    poNumber: step1Data?.poNumber || _existingPoNumber || 'Draft',
     dealerUid: dealer?.uid,
-    revisionNumber: 1,
+    revisionNumber: previewRevisionNumber,
   });
   doc.save(filename);
 }
