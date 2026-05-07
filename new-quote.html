@@ -752,7 +752,9 @@
     'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
   );
 
-  let dealer = null;
+  let dealer = null;                // The dealer that OWNS the quote (may differ from logged-in user when admin edits)
+  let currentUser = null;           // The logged-in dealers row (could be admin)
+  let isAdminViewer = false;        // True when logged-in user is admin/super_admin
   let savedAddresses = [];
   let selectedAddressId = null;
   let shippingMode = 'same';
@@ -792,6 +794,30 @@
       </div>`;
   }
 
+  // ── Render billing display panel for the given dealer ──
+  function renderBillingDisplay(d) {
+    if (!d) return;
+    const line2 = d.address_line2 ? `<br>${d.address_line2}` : '';
+    document.getElementById('billingDisplay').innerHTML = `
+      <strong>${d.company_name}</strong><br>
+      ${d.contact_name}<br>
+      ${d.address_line1 || d.address_formatted || '—'}${line2}<br>
+      ${d.city || ''}, ${d.state || ''} ${d.zip_code || ''}<br>
+      ${d.phone || ''}
+    `;
+  }
+
+  // ── Load saved addresses for a given dealer id ──
+  async function loadSavedAddressesFor(dealerOwnerId) {
+    const { data: addrs } = await _supabase
+      .from('addresses')
+      .select('*')
+      .eq('dealer_id', dealerOwnerId)
+      .eq('is_deleted', false);
+    savedAddresses = addrs || [];
+    renderAddresses();
+  }
+
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
@@ -801,20 +827,24 @@
     draftId    = params.get('draft') || null;
     adminDraft = params.get('adminDraft') === '1';
 
-    // Load dealer + is_active check
-    const { data: d } = await _supabase
+    // Load logged-in user (could be dealer or admin)
+    const { data: me } = await _supabase
       .from('dealers')
       .select('*')
       .eq('id', userId)
       .single();
 
-    if (!d?.is_active) {
+    if (!me?.is_active) {
       await _supabase.auth.signOut();
       window.location.href = 'login.html';
       return;
     }
 
-    dealer = d;
+    currentUser = me;
+    isAdminViewer = me?.role === 'admin' || me?.role === 'super_admin';
+
+    // Default: dealer = logged-in user (overridden below for admin/draft scenarios)
+    dealer = me;
 
     // ── Admin Draft mode: load target dealer ──
     if (adminDraft) {
@@ -825,32 +855,15 @@
       }
     }
 
-    // Fill billing display
-    if (dealer) {
-      const line2 = dealer.address_line2 ? `<br>${dealer.address_line2}` : '';
-      document.getElementById('billingDisplay').innerHTML = `
-        <strong>${dealer.company_name}</strong><br>
-        ${dealer.contact_name}<br>
-        ${dealer.address_line1 || dealer.address_formatted || '—'}${line2}<br>
-        ${dealer.city || ''}, ${dealer.state || ''} ${dealer.zip_code || ''}<br>
-        ${dealer.phone || ''}
-      `;
-    }
-
-    // Load saved addresses for the relevant dealer
-    const targetId = adminDraft && adminDealerId ? adminDealerId : userId;
-    const { data: addrs } = await _supabase
-      .from('addresses')
-      .select('*')
-      .eq('dealer_id', targetId)
-      .eq('is_deleted', false);
-
-    savedAddresses = addrs || [];
-    renderAddresses();
+    // Initial billing display + addresses use the current dealer's data
+    renderBillingDisplay(dealer);
+    await loadSavedAddressesFor(dealer.id);
 
     if (draftId) {
       // ── Resume Draft OR Returned: load from DB ──
-      await loadDraftData(targetId);
+      // 5.4-C fix A: loadDraftData no longer filters by dealer_id (RLS handles permissions);
+      // it will resolve the actual quote owner and reload dealer/addresses if needed.
+      await loadDraftData();
     } else {
       // ── Restore Step 1 data if coming back from Step 2 Edit ──
       const saved = sessionStorage.getItem('quoteStep1');
@@ -898,20 +911,32 @@
   }
 
   // ── Load draft / returned data from DB → fill Step 1 form ──
-  async function loadDraftData(ownerId) {
-    // Allow status IN ('Draft', 'Returned')
+  // 5.4-C fix A: do NOT filter by dealer_id — rely on RLS so admins can also load.
+  // After fetching, switch `dealer` and saved addresses to the actual quote owner if needed.
+  async function loadDraftData() {
     const { data: draft, error } = await _supabase
       .from('quotes')
       .select('*')
       .eq('id', draftId)
-      .eq('dealer_id', ownerId)
       .in('status', ['Draft', 'Returned'])
       .single();
 
     if (error || !draft) {
-      console.warn('Draft/Returned quote not found, starting fresh.');
+      console.warn('Draft/Returned quote not found, starting fresh.', error);
       draftId = null;
       return;
+    }
+
+    // If the quote belongs to a different dealer (e.g., admin viewing dealer's Returned quote),
+    // reload the owner dealer + their saved addresses so billing/shipping context is correct.
+    if (draft.dealer_id && draft.dealer_id !== dealer.id) {
+      const { data: ownerDealer } = await _supabase
+        .from('dealers').select('*').eq('id', draft.dealer_id).single();
+      if (ownerDealer) {
+        dealer = ownerDealer;
+        renderBillingDisplay(dealer);
+        await loadSavedAddressesFor(dealer.id);
+      }
     }
 
     // Detect Returned-revision mode
@@ -943,6 +968,10 @@
       renderAddresses();
     }
 
+    // 5.4-C fix A: when admin edits a dealer's Returned/Draft quote, propagate the OWNER dealer id
+    // so Step 2/3 use the right pricing/PO/dealer context.
+    const isAdminEditingOtherDealer = isAdminViewer && currentUser && draft.dealer_id && draft.dealer_id !== currentUser.id;
+
     // Pre-populate sessionStorage for Step 2/3
     sessionStorage.setItem('quoteStep1', JSON.stringify({
       poNumber:           null,
@@ -953,7 +982,7 @@
       logisticType:       draft.logistic_type || 'pickup',
       deliveryFee:        draft.delivery_fee  || 0,
       billingOverride:    null,
-      dealerIdForQuote:   adminDraft && adminDealerId ? adminDealerId : null,
+      dealerIdForQuote:   isAdminEditingOtherDealer ? draft.dealer_id : (adminDraft && adminDealerId ? adminDealerId : null),
       adminDraft:         adminDraft,
       isResumingReturned: isResumingReturned,
       returnReason:       returnReason,
@@ -1131,12 +1160,10 @@
 
   // ── Set default address ──
   async function setDefaultAddress(id) {
-    const { data: { session } } = await _supabase.auth.getSession();
-    // Clear existing defaults
+    // Clear existing defaults for the OWNER dealer (not the logged-in user — admin may be acting on behalf)
     await _supabase.from('addresses')
       .update({ is_default: false })
-      .eq('dealer_id', session.user.id);
-    // Set new default
+      .eq('dealer_id', dealer.id);
     await _supabase.from('addresses').update({ is_default: true }).eq('id', id);
     savedAddresses = savedAddresses.map(a => ({ ...a, is_default: a.id === id }));
     selectedAddressId = id;
@@ -1196,7 +1223,13 @@
     // Save to sessionStorage and go to step 2
     const logisticType = document.getElementById('logisticType').value;
     const deliveryFee  = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
-    const dealerIdForQuote = adminDraft && adminDealerId ? adminDealerId : null;
+
+    // 5.4-C fix A: when admin edits a dealer's quote (dealer != currentUser), pass owner dealer id
+    const isAdminEditingOtherDealer = isAdminViewer && dealer && currentUser && dealer.id !== currentUser.id;
+    let dealerIdForQuote = null;
+    if (isAdminEditingOtherDealer) dealerIdForQuote = dealer.id;
+    else if (adminDraft && adminDealerId) dealerIdForQuote = adminDealerId;
+
     const quoteData = {
       poNumber: null, // generated on submit
       jobName, notes, shippingMode, shippingAddressId,
