@@ -722,10 +722,12 @@ function renderReview() {
       ${dealer?.city || ''}, ${dealer?.state || ''}<br>
       ${dealer?.phone || ''}`;
   } else if (shippingAddress) {
+    // Patch: include address_line2 when present (matches quote-detail / admin behavior)
+    const line2Html = shippingAddress.address_line2 ? `${shippingAddress.address_line2}<br>` : '';
     shippingEl.innerHTML = `
       <strong>${shippingAddress.recipient_name}</strong><br>
       ${shippingAddress.address_line}<br>
-      ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}<br>
+      ${line2Html}${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}<br>
       ${shippingAddress.phone || ''}`;
   }
 
