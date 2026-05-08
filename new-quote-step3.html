@@ -1329,6 +1329,7 @@ async function submitQuote() {
         },
         body: JSON.stringify({
           quote: {
+            id:              quoteId,
             quote_number:    quoteNum,
             po_number:       poNumber,
             job_name:        step1Data.jobName,
