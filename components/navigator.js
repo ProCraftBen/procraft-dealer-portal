@@ -1,9 +1,15 @@
-
 /* ──────────────────────────────────────────────────────────────────────
- * ProCraft Dealer Portal — Unified Navigator Component (v1.0)
+ * ProCraft Dealer Portal — Unified Navigator Component (v1.1)
  *
  * Self-contained component that renders a consistent navbar + mobile menu
  * across all dealer- and admin-facing pages.
+ *
+ * v1.1 CHANGES:
+ *   - Inject CSS immediately on script load (not after session check)
+ *   - Render skeleton (green bar + logo) immediately so users see the
+ *     nav shape before role lookup finishes — eliminates white-space
+ *     flash (FOUC)
+ *   - If no session, clear skeleton so login redirect feels clean
  *
  * USAGE in any HTML page:
  *   1. Add `<div id="pcd-nav" data-page="quotes"></div>` near the top of <body>
@@ -17,7 +23,8 @@
  *   dealers | accounts | tags | change-password | (omit for none active)
  *
  * BEHAVIOR:
- *   - No session → renders nothing (page's own redirect handles login)
+ *   - On script load: inject CSS + render skeleton (logo only) instantly
+ *   - No session → clear skeleton (page's own redirect handles login)
  *   - Dealer role → renders dealer nav (Dashboard / My Quotes / New Quote /
  *     Edit Profile / Change Password / Sign Out)
  *   - Admin / super_admin role → renders admin nav with [Admin] badge
@@ -124,6 +131,15 @@
   // ── Lifecycle ────────────────────────────────────────────────────
   // Run as soon as the script loads. Script is at end of <body>, so DOM is
   // already parsed and the #pcd-nav container exists.
+  //
+  // v1.1: Render skeleton FIRST (synchronously) before any async work,
+  // so users see the green nav bar + logo immediately.
+  const _initialContainer = document.getElementById('pcd-nav');
+  if (_initialContainer) {
+    injectStyles();
+    renderSkeleton(_initialContainer);
+  }
+
   init().catch(function (err) {
     console.warn('[navigator] init failed:', err);
   });
@@ -138,23 +154,26 @@
     // Wait for window.supabase global to be available (loaded by page)
     if (!window.supabase || !window.supabase.createClient) {
       console.warn('[navigator] Supabase client library not loaded yet');
+      container.innerHTML = '';
       return;
     }
 
     _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-    // Check session — render nothing if not signed in
+    // Check session — clear skeleton if not signed in
     let session = null;
     try {
       const result = await _supabase.auth.getSession();
       session = result.data ? result.data.session : null;
     } catch (e) {
       console.warn('[navigator] getSession failed:', e);
+      container.innerHTML = '';
       return;
     }
 
     if (!session) {
-      // No session — let the page's own init() handle the redirect
+      // No session — clear skeleton; let the page's own init() redirect
+      container.innerHTML = '';
       return;
     }
 
@@ -169,18 +188,19 @@
       role = me ? me.role : null;
     } catch (e) {
       console.warn('[navigator] role lookup failed:', e);
+      container.innerHTML = '';
       return;
     }
 
     if (!role) {
-      // Couldn't determine role — don't render (page will redirect)
+      // Couldn't determine role — clear skeleton (page will redirect)
+      container.innerHTML = '';
       return;
     }
 
     const isAdmin = role === 'admin' || role === 'super_admin';
     const dataPage = (container.dataset.page || '').toLowerCase();
 
-    injectStyles();
     render(container, isAdmin, dataPage);
     attachEventListeners();
   }
@@ -193,6 +213,19 @@
     styleEl.textContent = STYLES;
     document.head.appendChild(styleEl);
     _stylesInjected = true;
+  }
+
+  // v1.1: Skeleton — green bar + logo only. Same height & color as final
+  // nav, so when render() replaces it the only visual change is menu items
+  // fading in on the right. No layout shift on the rest of the page.
+  function renderSkeleton(container) {
+    container.innerHTML =
+      '<nav class="pcd-navbar">' +
+        '<div class="pcd-nav-brand" style="cursor:default;">' +
+          '<img class="pcd-nav-logo" src="' + LOGO_URL + '" alt="ProCraft DC"/>' +
+        '</div>' +
+        '<div></div>' +
+      '</nav>';
   }
 
   function render(container, isAdmin, activePage) {
