@@ -13,6 +13,7 @@
       --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
       --status-returned:#E07B39;
+      --close-grey:#7A8C82;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -93,8 +94,41 @@
     .status-select.complete   { color: var(--status-complete);   background: rgba(22,163,74,0.1); }
     .status-select.closed     { color: var(--status-closed);     background: rgba(107,114,128,0.1); }
     .status-select option.return-option { color: var(--status-returned); font-weight: 600; }
+    .status-select option.close-option  { color: var(--status-closed);   font-weight: 600; }
     .status-badge-draft    { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(155,89,182,0.10); color: var(--status-draft); }
     .status-badge-returned { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(224,123,57,0.14); color: var(--status-returned); }
+    .status-badge-closed   { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(107,114,128,0.12); color: var(--status-closed); }
+
+    /* Action cell — wraps View + Delete */
+    .action-cell-wrap { display: inline-flex; align-items: center; gap: 6px; }
+    .btn-view-quote {
+      display: inline-block; padding: 4px 10px;
+      border: 1px solid var(--border); border-radius: 3px;
+      font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn-view-quote:hover { color: var(--text); border-color: var(--text); }
+
+    /* Delete draft icon button */
+    .btn-delete-draft-admin {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0;
+    }
+    .btn-delete-draft-admin svg { width: 13px; height: 13px; fill: currentColor; }
+    .btn-delete-draft-admin:hover {
+      background: rgba(192,57,43,0.08);
+      border-color: var(--error);
+      color: var(--error);
+    }
+    .btn-delete-draft-admin:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* Detail rows */
     .detail-row { display: none; }
@@ -120,6 +154,20 @@
       line-height: 1.6;
     }
     .return-reason-banner strong { color: var(--status-returned); display: block; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 4px; }
+
+    /* Close reason banner inside detail (grey) */
+    .close-reason-banner {
+      background: rgba(122,140,130,0.08);
+      border: 1px solid rgba(122,140,130,0.3);
+      border-left: 3px solid var(--close-grey);
+      border-radius: 3px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .close-reason-banner strong { color: var(--close-grey); display: block; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 4px; }
 
     /* Items mini table */
     .items-mini { width: 100%; border-collapse: collapse; margin-top: 4px; }
@@ -162,15 +210,61 @@
     .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.5); z-index: 500; display: none; align-items: center; justify-content: center; padding: 20px; }
     .modal-overlay.show { display: flex; }
     .modal-box { background: var(--white); border-radius: 4px; padding: 32px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; }
+    .modal-icon-wrap {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .modal-icon-wrap.icon-error { background: rgba(192,57,43,0.1); }
+    .modal-icon-wrap.icon-error svg { fill: var(--error); }
+    .modal-icon-wrap.icon-close { background: rgba(122,140,130,0.15); }
+    .modal-icon-wrap.icon-close svg { fill: var(--close-grey); }
+    .modal-icon-wrap svg { width: 22px; height: 22px; }
     .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); margin-bottom: 6px; }
-    .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border); line-height: 1.55; }
+    .modal-meta { font-size: 12px; color: var(--text); line-height: 1.7; margin-bottom: 16px; padding: 10px 12px; background: #FAFAF8; border-radius: 3px; }
+    .modal-meta strong { color: var(--green-dark); display: inline-block; min-width: 70px; font-weight: 500; }
     .modal-field { margin-bottom: 16px; }
     .modal-field label { display: block; font-size: 10px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-    .modal-field select, .modal-field input { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: #FAFAFA; outline: none; }
+    .modal-field select, .modal-field input[type="text"] { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: #FAFAFA; outline: none; }
     .modal-field textarea { width: 100%; min-height: 110px; resize: vertical; border: 1px solid var(--border); border-radius: 3px; padding: 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: #FAFAFA; outline: none; line-height: 1.5; }
     .modal-field select:focus, .modal-field input:focus, .modal-field textarea:focus { border-color: var(--green-mid); background: #fff; }
+    .modal-field.disabled textarea { opacity: 0.5; pointer-events: none; background: #f0f0f0; }
+
+    /* Notify checkbox */
+    .modal-checkbox-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 14px;
+      background: #FAFAF8;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      margin-bottom: 14px;
+      cursor: pointer;
+    }
+    .modal-checkbox-row input[type="checkbox"] {
+      margin-top: 2px;
+      width: 16px; height: 16px;
+      accent-color: var(--green-dark);
+      cursor: pointer;
+    }
+    .modal-checkbox-label {
+      font-size: 13px; color: var(--text); line-height: 1.4;
+      cursor: pointer;
+    }
+    .modal-checkbox-label small {
+      display: block;
+      font-size: 11px; color: var(--muted);
+      margin-top: 2px;
+    }
+
     .char-counter { font-size: 10px; color: var(--muted); text-align: right; margin-top: 4px; }
     .char-counter.warn { color: var(--status-returned); }
+    .modal-warning {
+      font-size: 11px; color: var(--muted); font-style: italic;
+      margin-top: 4px;
+    }
+    .modal-warning.danger { color: var(--error); font-style: normal; font-weight: 500; }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
     .btn-modal-cancel { padding: 10px 20px; background: transparent; border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; color: var(--muted); }
     .btn-modal-cancel:hover { color: var(--text); border-color: var(--text); }
@@ -180,7 +274,40 @@
     .btn-modal-return { padding: 10px 24px; background: var(--status-returned); border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; color: #fff; }
     .btn-modal-return:hover { background: #c66a30; }
     .btn-modal-return:disabled { opacity: 0.5; cursor: not-allowed; }
-    .modal-error { font-size: 12px; color: var(--error); margin-top: 10px; display: none; }
+    .btn-modal-delete {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 22px; background: var(--error); border: none; border-radius: 3px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+      cursor: pointer; color: #fff; transition: background 0.2s;
+    }
+    .btn-modal-delete:hover { background: #A33324; }
+    .btn-modal-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-modal-close-quote {
+      padding: 10px 22px; background: var(--close-grey); border: none; border-radius: 3px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+      cursor: pointer; color: #fff; transition: background 0.2s;
+    }
+    .btn-modal-close-quote:hover { background: #5f7068; }
+    .btn-modal-close-quote:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-modal-delete .modal-spinner,
+    .btn-modal-close-quote .modal-spinner,
+    .btn-modal-return .modal-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .btn-modal-delete.loading .modal-spinner,
+    .btn-modal-close-quote.loading .modal-spinner,
+    .btn-modal-return.loading .modal-spinner { display: inline-block; }
+    .btn-modal-delete.loading .btn-text,
+    .btn-modal-close-quote.loading .btn-text,
+    .btn-modal-return.loading .btn-text { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .modal-error { font-size: 12px; color: var(--error); margin-top: 10px; display: none; padding: 10px 12px; background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; }
     .modal-error.show { display: block; }
   </style>
 </head>
@@ -325,7 +452,76 @@
     <div class="modal-error" id="returnModalError"></div>
     <div class="modal-actions">
       <button class="btn-modal-cancel" onclick="cancelReturnQuote()">Cancel</button>
-      <button class="btn-modal-return" id="btnConfirmReturn" onclick="confirmReturnQuote()">Confirm Return</button>
+      <button class="btn-modal-return" id="btnConfirmReturn" onclick="confirmReturnQuote()">
+        <span class="btn-text">Confirm Return</span>
+        <div class="modal-spinner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Close Quote Modal -->
+<div class="modal-overlay" id="closeQuoteModal">
+  <div class="modal-box">
+    <div class="modal-icon-wrap icon-close">
+      <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </div>
+    <div class="modal-title">Close Quote</div>
+    <div class="modal-sub">Once closed, this quote can no longer be edited. The dealer will be notified by email with the reason below.</div>
+    <input type="hidden" id="closeQuoteId"/>
+    <div class="modal-meta" id="closeQuoteMeta">—</div>
+    <div class="modal-field">
+      <label>Reason for Closing <span style="color:var(--gold);">*</span></label>
+      <textarea id="closeReason" maxlength="1000"
+        placeholder="e.g. Order cancelled by client. Project on hold indefinitely."
+        oninput="updateCloseCharCounter()"></textarea>
+      <div class="char-counter" id="closeCharCounter">0 / 1000</div>
+    </div>
+    <div class="modal-error" id="closeModalError"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" id="btnCloseCancel" onclick="cancelCloseQuote()">Cancel</button>
+      <button class="btn-modal-close-quote" id="btnConfirmClose" onclick="confirmCloseQuote()">
+        <span class="btn-text">Close Quote</span>
+        <div class="modal-spinner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Draft Modal (Admin) -->
+<div class="modal-overlay" id="deleteDraftModal">
+  <div class="modal-box">
+    <div class="modal-icon-wrap icon-error">
+      <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    </div>
+    <div class="modal-title">Delete Draft</div>
+    <div class="modal-sub">This will permanently remove the draft and all its items. This action cannot be undone.</div>
+    <input type="hidden" id="deleteDraftId"/>
+    <div class="modal-meta" id="deleteDraftMeta">—</div>
+
+    <label class="modal-checkbox-row" for="deleteNotifyDealer">
+      <input type="checkbox" id="deleteNotifyDealer" onchange="toggleDeleteReasonField()"/>
+      <span class="modal-checkbox-label">
+        Notify dealer by email
+        <small>Send a notification with an optional reason. Leave unchecked to delete silently.</small>
+      </span>
+    </label>
+
+    <div class="modal-field disabled" id="deleteReasonWrap">
+      <label>Reason (optional)</label>
+      <textarea id="deleteReason" maxlength="1000"
+        placeholder="e.g. Created in error. Replaced by new quote."
+        oninput="updateDeleteCharCounter()"></textarea>
+      <div class="char-counter" id="deleteCharCounter">0 / 1000</div>
+    </div>
+
+    <div class="modal-error" id="deleteModalError"></div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" id="btnDeleteCancelAdmin" onclick="cancelDeleteDraft()">Cancel</button>
+      <button class="btn-modal-delete" id="btnConfirmDeleteDraft" onclick="confirmDeleteDraft()">
+        <span class="btn-text">Delete Draft</span>
+        <div class="modal-spinner"></div>
+      </button>
     </div>
   </div>
 </div>
@@ -377,6 +573,29 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+// 簡單的 HTML escape
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// 組 dealer payload (給 Edge Function 用) — 含 email 通知設定
+function buildDealerPayload(dealer) {
+  return {
+    email:                    dealer.email,
+    contact_name:             dealer.contact_name,
+    company_name:             dealer.company_name,
+    secondary_email:          dealer.secondary_email,
+    secondary_email_notify:   dealer.secondary_email_notify,
+    optional_email_2:         dealer.optional_email_2,
+    optional_email_2_notify:  dealer.optional_email_2_notify,
+  };
 }
 
 // ── Init ───────────────────────────────────────────────────────────
@@ -463,8 +682,9 @@ function renderTable() {
     const sc         = statusClass[q.status] || 'pending';
     const isDraft    = q.status === 'Draft';
     const isReturned = q.status === 'Returned';
+    const isClosed   = q.status === 'Closed';
 
-    // 把當前 status 暫存起來，方便 Return Modal Cancel 時還原
+    // 把當前 status 暫存起來，方便 Modal Cancel 時還原
     _previousStatus[q.id] = q.status;
 
     // ── Sort items ──
@@ -576,17 +796,20 @@ function renderTable() {
     if (isDraft) {
       statusCellHtml = '<td><span class="status-badge-draft">Draft</span></td>';
     } else if (isReturned) {
-      // Returned: 顯示 badge，沒有下拉（admin 不能編輯，只能等 dealer 重新 submit）
+      // Returned: 顯示 badge，沒有下拉
       statusCellHtml = '<td><span class="status-badge-returned">Returned</span></td>';
+    } else if (isClosed) {
+      // Closed: 顯示 badge，沒有下拉（最終狀態，不能再改）
+      statusCellHtml = '<td><span class="status-badge-closed">Closed</span></td>';
     } else {
-      // Pending / Processing / Complete / Closed: 下拉 + Return to Dealer 選項
+      // Pending / Processing / Complete: 下拉 + Return + Close 選項
       statusCellHtml =
         '<td onclick="event.stopPropagation()" style="white-space:nowrap">' +
           '<select class="status-select ' + sc + '" id="status-' + q.id + '" onchange="onStatusChange(\'' + q.id + '\', this)">' +
             '<option value="Pending"'    + (q.status === 'Pending'    ? ' selected' : '') + '>Pending</option>' +
             '<option value="Processing"' + (q.status === 'Processing' ? ' selected' : '') + '>Processing</option>' +
             '<option value="Complete"'   + (q.status === 'Complete'   ? ' selected' : '') + '>Complete</option>' +
-            '<option value="Closed"'     + (q.status === 'Closed'     ? ' selected' : '') + '>Closed</option>' +
+            '<option value="Closed" class="close-option">✕ Close Quote</option>' +
             '<option value="Returned" class="return-option">↩ Return to Dealer</option>' +
           '</select>' +
           '<button id="save-' + q.id + '" onclick="saveStatus(\'' + q.id + '\')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>' +
@@ -600,54 +823,75 @@ function renderTable() {
 
     // ── Notes in detail ──
     const notesHtml = q.notes
-      ? '<strong>Notes:</strong> ' + q.notes
+      ? '<strong>Notes:</strong> ' + escapeHtml(q.notes)
       : '';
 
-    // ── Return reason banner inside detail (only for Returned) ──
-    const returnReasonBanner = isReturned && q.return_reason
-      ? '<div class="return-reason-banner"><strong>Return Reason</strong>' + escapeHtml(q.return_reason) + '</div>'
-      : '';
+    // ── Reason banner inside detail ──
+    let reasonBanner = '';
+    if (isReturned && q.return_reason) {
+      reasonBanner = '<div class="return-reason-banner"><strong>Return Reason</strong>' + escapeHtml(q.return_reason) + '</div>';
+    } else if (isClosed && q.close_reason) {
+      reasonBanner = '<div class="close-reason-banner"><strong>Close Reason</strong>' + escapeHtml(q.close_reason) + '</div>';
+    }
 
     // ── Row class ──
     let rowClass = 'expandable';
     if (isDraft)    rowClass += ' row-draft';
     if (isReturned) rowClass += ' row-returned';
 
+    // ── Action cell — View 按鈕 (+ Draft 才有 Delete icon) ──
+    const safeJob = escapeHtml(q.job_name || '');
+    const deleteBtnHtml = isDraft
+      ? '<button class="btn-delete-draft-admin js-admin-delete-draft" ' +
+          'data-quote-id="' + q.id + '" ' +
+          'data-job-name="' + safeJob + '" ' +
+          'data-dealer-id="' + (q.dealer_id || '') + '" ' +
+          'title="Delete draft" aria-label="Delete draft">' +
+          '<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>' +
+        '</button>'
+      : '';
+
+    const actionCellHtml =
+      '<td onclick="event.stopPropagation()">' +
+        '<div class="action-cell-wrap">' +
+          '<a href="quote-detail.html?id=' + q.id + '" class="btn-view-quote">View &rarr;</a>' +
+          deleteBtnHtml +
+        '</div>' +
+      '</td>';
+
     // ── Assemble main row + detail row ──
     html +=
       '<tr class="' + rowClass + '" onclick="toggleDetail(' + idx + ')">' +
         '<td>' +
-          '<div class="td-po">' + (q.po_number || '—') + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
-          '<div style="font-size:11px;color:var(--muted);">' + (q.job_name || '—') + '</div>' +
+          '<div class="td-po">' + escapeHtml(q.po_number || '—') + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
+          '<div style="font-size:11px;color:var(--muted);">' + escapeHtml(q.job_name || '—') + '</div>' +
         '</td>' +
-        '<td><div class="td-dealer">' + (dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + (dealer.contact_name || '') + '</div></td>' +
+        '<td><div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
         statusCellHtml +
-        '<td onclick="event.stopPropagation()">' +
-          '<a href="quote-detail.html?id=' + q.id + '" style="display:inline-block;padding:4px 10px;border:1px solid var(--border);border-radius:3px;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;">View &rarr;</a>' +
-        '</td>' +
+        actionCellHtml +
       '</tr>' +
       '<tr class="detail-row" id="detail-' + idx + '">' +
         '<td colspan="6" class="detail-cell">' +
           '<div class="detail-inner">' +
-            returnReasonBanner +
+            reasonBanner +
             '<div class="detail-grid">' +
               '<div>' +
                 '<div class="detail-section-title">Order Info</div>' +
                 '<div class="detail-value">' +
-                  '<strong>PO#:</strong> ' + (q.po_number || '—') + '<br>' +
-                  '<strong>Job:</strong> ' + (q.job_name || '—') + '<br>' +
+                  '<strong>PO#:</strong> ' + escapeHtml(q.po_number || '—') + '<br>' +
+                  '<strong>Job:</strong> ' + escapeHtml(q.job_name || '—') + '<br>' +
                   notesHtml +
                 '</div>' +
               '</div>' +
               '<div>' +
                 '<div class="detail-section-title">Dealer</div>' +
                 '<div class="detail-value">' +
-                  '<strong>' + (dealer.company_name || '—') + '</strong><br>' +
-                  (dealer.contact_name || '') + '<br>' +
-                  (dealer.email || '') + '<br>' +
-                  (dealer.city || '') + ', ' + (dealer.state || '') +
+                  '<strong>' + escapeHtml(dealer.company_name || '—') + '</strong><br>' +
+                  escapeHtml(dealer.contact_name || '') + '<br>' +
+                  escapeHtml(dealer.email || '') + '<br>' +
+                  escapeHtml(dealer.city || '') + ', ' + escapeHtml(dealer.state || '') +
                 '</div>' +
               '</div>' +
               '<div>' +
@@ -665,15 +909,21 @@ function renderTable() {
   tbody.innerHTML = html;
 }
 
-// 簡單的 HTML escape，防止 return_reason 裡有 < > & 把版面搞壞
-function escapeHtml(s) {
-  return String(s || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+// ── Event delegation for dynamically-rendered Delete Draft buttons ──
+document.addEventListener('DOMContentLoaded', function() {
+  const tbody = document.getElementById('quotesBody');
+  if (!tbody) return;
+  tbody.addEventListener('click', function(e) {
+    const btn = e.target.closest('.js-admin-delete-draft');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const quoteId  = btn.dataset.quoteId;
+    const jobName  = btn.dataset.jobName;
+    const dealerId = btn.dataset.dealerId;
+    if (quoteId) openDeleteDraftModal(quoteId, jobName, dealerId);
+  });
+});
 
 // ── Toggle detail row ──────────────────────────────────────────────
 function toggleDetail(idx) {
@@ -686,27 +936,27 @@ function toggleDetail(idx) {
 }
 
 // ── Status change handler ─────────────────────────────────────────
-// 選到 "Returned" → 開 Return Modal；選到其他 → 顯示 Save 按鈕
+// 選到 "Returned" → 開 Return Modal；選到 "Closed" → 開 Close Modal；其他 → 顯示 Save 按鈕
 function onStatusChange(quoteId, selectEl) {
   const newStatus = selectEl.value;
   if (newStatus === 'Returned') {
-    // 開 Return Modal
     openReturnQuoteModal(quoteId, selectEl);
+  } else if (newStatus === 'Closed') {
+    openCloseQuoteModal(quoteId, selectEl);
   } else {
-    // 一般 status 變更：顯示 Save 按鈕等使用者按
     const saveBtn = document.getElementById('save-' + quoteId);
     if (saveBtn) saveBtn.style.display = 'inline-block';
   }
 }
 
-// 一般 status 儲存（不含 Returned）
+// 一般 status 儲存（不含 Returned / Closed）
 async function saveStatus(quoteId) {
   const selectEl  = document.getElementById('status-' + quoteId);
   const saveBtn   = document.getElementById('save-' + quoteId);
   const newStatus = selectEl.value;
 
-  if (newStatus === 'Returned') {
-    // 不應該會跑到這（Returned 透過 Modal 處理），但保險起見擋一下
+  if (newStatus === 'Returned' || newStatus === 'Closed') {
+    // 不應該會跑到這（兩者透過 Modal 處理），保險起見擋一下
     return;
   }
 
@@ -721,16 +971,20 @@ async function saveStatus(quoteId) {
   showToast('Status updated to ' + newStatus);
 }
 
-// ── Return to Dealer Modal ────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// Return to Dealer Modal
+// ════════════════════════════════════════════════════════════════════
 
 function openReturnQuoteModal(quoteId, selectEl) {
-  // 暫時不變更 select 顯示值（保留 Returned 的選中態），但記住原值，方便 Cancel 時還原
   document.getElementById('returnQuoteId').value = quoteId;
   document.getElementById('returnReason').value = '';
   updateReturnCharCounter();
   document.getElementById('returnModalError').classList.remove('show');
 
-  // 顯示 dealer 名稱在 sub 文字（更貼心）
+  const btn = document.getElementById('btnConfirmReturn');
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
   const q = allQuotes.find(function(q) { return q.id === quoteId; });
   const dealer = q ? allDealers[q.dealer_id] : null;
   const dealerName = dealer ? dealer.company_name : 'the dealer';
@@ -752,20 +1006,21 @@ function updateReturnCharCounter() {
 }
 
 function cancelReturnQuote() {
+  // Don't cancel mid-flight
+  const btn = document.getElementById('btnConfirmReturn');
+  if (btn.classList.contains('loading')) return;
+
   const quoteId = document.getElementById('returnQuoteId').value;
-  // 把下拉還原成原本的 status（避免顯示變成 Returned 但實際沒寫 DB）
   const selectEl = document.getElementById('status-' + quoteId);
   if (selectEl && _previousStatus[quoteId]) {
     selectEl.value = _previousStatus[quoteId];
   }
-  // 隱藏可能出現的 save 按鈕
   const saveBtn = document.getElementById('save-' + quoteId);
   if (saveBtn) saveBtn.style.display = 'none';
 
   document.getElementById('returnQuoteModal').classList.remove('show');
 }
 
-// 點 modal 外面關閉
 document.getElementById('returnQuoteModal').addEventListener('click', function(e) {
   if (e.target === this) cancelReturnQuote();
 });
@@ -789,43 +1044,39 @@ async function confirmReturnQuote() {
     return;
   }
 
+  btn.classList.add('loading');
   btn.disabled = true;
-  btn.textContent = 'Returning...';
 
-  // 取得目前 quote 的 revision_number（用來寫入 history）
   const q = allQuotes.find(function(q) { return q.id === quoteId; });
   const revisionAtReturn = (q && q.revision_number) ? q.revision_number : 1;
 
-  // 取得目前登入的 admin id（returned_by） + access_token（呼叫 Edge Function 用）
   const { data: { session } } = await _supabase.auth.getSession();
   const adminId      = session && session.user ? session.user.id : null;
   const accessToken  = session ? session.access_token : null;
 
   if (!adminId) {
+    btn.classList.remove('loading');
     btn.disabled = false;
-    btn.textContent = 'Confirm Return';
     errEl.textContent = 'Could not identify current admin. Please refresh and try again.';
     errEl.classList.add('show');
     return;
   }
 
-  // ── Step 1: Update quotes table ──
+  // Step 1: Update quotes table
   const { error: updateErr } = await _supabase
     .from('quotes')
     .update({ status: 'Returned', return_reason: reason })
     .eq('id', quoteId);
 
   if (updateErr) {
+    btn.classList.remove('loading');
     btn.disabled = false;
-    btn.textContent = 'Confirm Return';
     errEl.textContent = 'Failed to return quote: ' + (updateErr.message || 'Unknown error');
     errEl.classList.add('show');
     return;
   }
 
-  // ── Step 2: INSERT 一筆到 quote_return_history（永久紀錄）──
-  // 即使這個 INSERT 失敗，quote 仍然會被標記為 Returned；只是 history 紀錄會缺一筆。
-  // 為了避免「quote 已退回但 admin 看不到 toast」這種誤會，這裡仍然 await。
+  // Step 2: INSERT 一筆到 quote_return_history
   const { error: historyErr } = await _supabase
     .from('quote_return_history')
     .insert({
@@ -836,35 +1087,19 @@ async function confirmReturnQuote() {
     });
 
   if (historyErr) {
-    // 不擋下整體流程（quote 已成功標記為 Returned），但 console 警告
     console.warn('[confirmReturnQuote] Failed to write quote_return_history:', historyErr);
   }
 
-  // ── Step 3 (5.2-B): 寄退回通知 email 給 dealer ──
-  // 即使 email 寄送失敗也不擋流程：quote 已經 Returned，dealer 仍可在 portal 看到。
-  // 但會在 console 警告，並改用不同 toast 文案。
+  // Step 3 (5.2-B): 寄退回通知 email 給 dealer
   let emailErr = null;
   try {
     const dealer = allDealers[q.dealer_id] || {};
-
-    // 組 quote payload — 給 Edge Function 用 'return' 模式所需的欄位
     const quotePayload = {
       id:             quoteId,
       po_number:      q.po_number,
       job_name:       q.job_name,
-      shipping_cost:  q.shipping_cost,   // null = pending；數字 = admin 已設過
+      shipping_cost:  q.shipping_cost,
       return_reason:  reason,
-    };
-
-    // 組 dealer payload — 含 email 通知設定
-    const dealerPayload = {
-      email:                    dealer.email,
-      contact_name:             dealer.contact_name,
-      company_name:             dealer.company_name,
-      secondary_email:          dealer.secondary_email,
-      secondary_email_notify:   dealer.secondary_email_notify,
-      optional_email_2:         dealer.optional_email_2,
-      optional_email_2_notify:  dealer.optional_email_2_notify,
     };
 
     const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote-email', {
@@ -877,7 +1112,7 @@ async function confirmReturnQuote() {
       body: JSON.stringify({
         notification_type: 'return',
         quote:             quotePayload,
-        dealer:            dealerPayload,
+        dealer:            buildDealerPayload(dealer),
       }),
     });
 
@@ -893,7 +1128,7 @@ async function confirmReturnQuote() {
     console.warn('[confirmReturnQuote] Failed to send return notification email:', emailErr);
   }
 
-  // ── 更新 local state ──
+  // 更新 local state
   if (q) {
     q.status = 'Returned';
     q.return_reason = reason;
@@ -901,20 +1136,365 @@ async function confirmReturnQuote() {
   _previousStatus[quoteId] = 'Returned';
 
   document.getElementById('returnQuoteModal').classList.remove('show');
+  btn.classList.remove('loading');
   btn.disabled = false;
-  btn.textContent = 'Confirm Return';
 
-  // 重新 render（讓那行變成 Returned badge、不再有下拉）
   renderStats();
   renderTable();
 
-  // 根據 history / email 狀態決定 toast 文案（優先順序：email > history > 成功）
   if (emailErr) {
     showToast('Quote returned, but email notification failed to send.');
   } else if (historyErr) {
     showToast('Quote returned, but history log failed to save.');
   } else {
     showToast('Quote returned and dealer notified.');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Close Quote Modal (NEW v5.3-A)
+// ════════════════════════════════════════════════════════════════════
+
+function openCloseQuoteModal(quoteId, selectEl) {
+  document.getElementById('closeQuoteId').value = quoteId;
+  document.getElementById('closeReason').value = '';
+  updateCloseCharCounter();
+  document.getElementById('closeModalError').classList.remove('show');
+
+  const btn = document.getElementById('btnConfirmClose');
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  const q = allQuotes.find(function(q) { return q.id === quoteId; });
+  const dealer = q ? allDealers[q.dealer_id] : {};
+
+  // Show meta info in modal (dealer / PO# / job)
+  const metaEl = document.getElementById('closeQuoteMeta');
+  metaEl.innerHTML =
+    '<strong>Dealer:</strong> ' + escapeHtml(dealer.company_name || '—') + '<br>' +
+    '<strong>PO #:</strong> ' + escapeHtml((q && q.po_number) || '—') + '<br>' +
+    '<strong>Job:</strong> ' + escapeHtml((q && q.job_name) || '—');
+
+  document.getElementById('closeQuoteModal').classList.add('show');
+  setTimeout(function() {
+    document.getElementById('closeReason').focus();
+  }, 100);
+}
+
+function updateCloseCharCounter() {
+  const ta = document.getElementById('closeReason');
+  const counter = document.getElementById('closeCharCounter');
+  const len = ta.value.length;
+  counter.textContent = len + ' / 1000';
+  counter.classList.toggle('warn', len > 900);
+}
+
+function cancelCloseQuote() {
+  // Don't cancel mid-flight
+  const btn = document.getElementById('btnConfirmClose');
+  if (btn.classList.contains('loading')) return;
+
+  const quoteId = document.getElementById('closeQuoteId').value;
+  // 把下拉還原成原本的 status
+  const selectEl = document.getElementById('status-' + quoteId);
+  if (selectEl && _previousStatus[quoteId]) {
+    selectEl.value = _previousStatus[quoteId];
+  }
+  const saveBtn = document.getElementById('save-' + quoteId);
+  if (saveBtn) saveBtn.style.display = 'none';
+
+  document.getElementById('closeQuoteModal').classList.remove('show');
+}
+
+document.getElementById('closeQuoteModal').addEventListener('click', function(e) {
+  if (e.target === this) cancelCloseQuote();
+});
+
+async function confirmCloseQuote() {
+  const quoteId = document.getElementById('closeQuoteId').value;
+  const reason  = document.getElementById('closeReason').value.trim();
+  const errEl   = document.getElementById('closeModalError');
+  const btn     = document.getElementById('btnConfirmClose');
+
+  errEl.classList.remove('show');
+
+  if (!reason) {
+    errEl.textContent = 'Reason is required when closing a quote.';
+    errEl.classList.add('show');
+    return;
+  }
+  if (reason.length > 1000) {
+    errEl.textContent = 'Reason cannot exceed 1000 characters.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const q = allQuotes.find(function(q) { return q.id === quoteId; });
+
+  const { data: { session } } = await _supabase.auth.getSession();
+  const accessToken = session ? session.access_token : null;
+
+  // ── Step 1: UPDATE quotes (status='Closed', close_reason=reason) ──
+  const { error: updateErr } = await _supabase
+    .from('quotes')
+    .update({ status: 'Closed', close_reason: reason })
+    .eq('id', quoteId);
+
+  if (updateErr) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    errEl.textContent = 'Failed to close quote: ' + (updateErr.message || 'Unknown error');
+    errEl.classList.add('show');
+    return;
+  }
+
+  // ── Step 2: 寄 close email 給 dealer (mandatory) ──
+  let emailErr = null;
+  try {
+    const dealer = allDealers[q.dealer_id] || {};
+    const quotePayload = {
+      id:            quoteId,
+      po_number:     q.po_number,
+      job_name:      q.job_name,
+      close_reason:  reason,
+      close_mode:    'quote',
+    };
+
+    const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + accessToken,
+        'apikey': SUPABASE_ANON,
+      },
+      body: JSON.stringify({
+        notification_type: 'close',
+        quote:             quotePayload,
+        dealer:            buildDealerPayload(dealer),
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      emailErr = new Error('HTTP ' + res.status + ': ' + errBody);
+    }
+  } catch (e) {
+    emailErr = e;
+  }
+
+  if (emailErr) {
+    console.warn('[confirmCloseQuote] Failed to send close notification email:', emailErr);
+  }
+
+  // 更新 local state
+  if (q) {
+    q.status = 'Closed';
+    q.close_reason = reason;
+  }
+  _previousStatus[quoteId] = 'Closed';
+
+  document.getElementById('closeQuoteModal').classList.remove('show');
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  renderStats();
+  renderTable();
+
+  if (emailErr) {
+    showToast('Quote closed, but email notification failed to send.');
+  } else {
+    showToast('Quote closed and dealer notified.');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Delete Draft Modal (Admin) — NEW v5.3-A
+// ════════════════════════════════════════════════════════════════════
+
+let _pendingDeleteDealerId = null;
+
+function openDeleteDraftModal(quoteId, jobName, dealerId) {
+  document.getElementById('deleteDraftId').value = quoteId;
+  _pendingDeleteDealerId = dealerId;
+
+  const dealer = allDealers[dealerId] || {};
+  const metaEl = document.getElementById('deleteDraftMeta');
+  metaEl.innerHTML =
+    '<strong>Dealer:</strong> ' + escapeHtml(dealer.company_name || '—') + '<br>' +
+    '<strong>Job:</strong> ' + escapeHtml(jobName || 'Untitled');
+
+  // Reset form state
+  document.getElementById('deleteNotifyDealer').checked = false;
+  document.getElementById('deleteReason').value = '';
+  document.getElementById('deleteReasonWrap').classList.add('disabled');
+  updateDeleteCharCounter();
+  document.getElementById('deleteModalError').classList.remove('show');
+
+  const btn = document.getElementById('btnConfirmDeleteDraft');
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  document.getElementById('deleteDraftModal').classList.add('show');
+}
+
+function toggleDeleteReasonField() {
+  const checked = document.getElementById('deleteNotifyDealer').checked;
+  const wrap = document.getElementById('deleteReasonWrap');
+  if (checked) {
+    wrap.classList.remove('disabled');
+    setTimeout(function() {
+      document.getElementById('deleteReason').focus();
+    }, 50);
+  } else {
+    wrap.classList.add('disabled');
+  }
+}
+
+function updateDeleteCharCounter() {
+  const ta = document.getElementById('deleteReason');
+  const counter = document.getElementById('deleteCharCounter');
+  const len = ta.value.length;
+  counter.textContent = len + ' / 1000';
+  counter.classList.toggle('warn', len > 900);
+}
+
+function cancelDeleteDraft() {
+  // Don't cancel mid-flight
+  const btn = document.getElementById('btnConfirmDeleteDraft');
+  if (btn.classList.contains('loading')) return;
+
+  document.getElementById('deleteDraftModal').classList.remove('show');
+  _pendingDeleteDealerId = null;
+}
+
+document.getElementById('deleteDraftModal').addEventListener('click', function(e) {
+  if (e.target === this) cancelDeleteDraft();
+});
+
+async function confirmDeleteDraft() {
+  const quoteId = document.getElementById('deleteDraftId').value;
+  const notify  = document.getElementById('deleteNotifyDealer').checked;
+  const reason  = document.getElementById('deleteReason').value.trim();
+  const errEl   = document.getElementById('deleteModalError');
+  const btn     = document.getElementById('btnConfirmDeleteDraft');
+
+  errEl.classList.remove('show');
+
+  if (notify && reason.length > 1000) {
+    errEl.textContent = 'Reason cannot exceed 1000 characters.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  // Snapshot data needed for email BEFORE we delete the row
+  const q = allQuotes.find(function(q) { return q.id === quoteId; });
+  const snapshot = {
+    job_name:  q ? q.job_name : '',
+    dealer:    allDealers[_pendingDeleteDealerId] || null,
+  };
+
+  const { data: { session } } = await _supabase.auth.getSession();
+  const accessToken = session ? session.access_token : null;
+
+  // ── Step 1: DELETE quote_items (FK constraint requires this first) ──
+  const { error: itemsErr } = await _supabase
+    .from('quote_items').delete().eq('quote_id', quoteId);
+  if (itemsErr) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    errEl.textContent = 'Failed to delete quote items: ' + (itemsErr.message || 'Unknown error');
+    errEl.classList.add('show');
+    return;
+  }
+
+  // ── Step 2: DELETE quotes ──
+  // RLS only allows status='Draft' deletion, so this implicitly guards
+  // against deleting non-Draft quotes even if status changed mid-flight.
+  const { error: deleteErr, count } = await _supabase
+    .from('quotes')
+    .delete({ count: 'exact' })
+    .eq('id', quoteId);
+
+  if (deleteErr) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    errEl.textContent = 'Failed to delete draft: ' + (deleteErr.message || 'Unknown error');
+    errEl.classList.add('show');
+    return;
+  }
+  if (count === 0) {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    errEl.textContent = 'Could not delete this draft. It may no longer be a draft, or the page is out of date.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  // ── Step 3 (optional): 寄通知 email 給 dealer ──
+  let emailErr = null;
+  if (notify && snapshot.dealer && snapshot.dealer.email) {
+    try {
+      const quotePayload = {
+        id:            quoteId,
+        po_number:     null,                  // Draft 沒有 PO#
+        job_name:      snapshot.job_name,
+        close_reason:  reason || '',          // 可能空字串
+        close_mode:    'draft',               // ← 觸發 v4.1 Draft delete subject/template
+      };
+
+      const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + accessToken,
+          'apikey': SUPABASE_ANON,
+        },
+        body: JSON.stringify({
+          notification_type: 'close',
+          quote:             quotePayload,
+          dealer:            buildDealerPayload(snapshot.dealer),
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        emailErr = new Error('HTTP ' + res.status + ': ' + errBody);
+      }
+    } catch (e) {
+      emailErr = e;
+    }
+
+    if (emailErr) {
+      console.warn('[confirmDeleteDraft] Failed to send draft delete notification:', emailErr);
+    }
+  }
+
+  // ── 從 local state 移除 ──
+  allQuotes = allQuotes.filter(function(item) { return item.id !== quoteId; });
+  delete _previousStatus[quoteId];
+
+  document.getElementById('deleteDraftModal').classList.remove('show');
+  _pendingDeleteDealerId = null;
+  btn.classList.remove('loading');
+  btn.disabled = false;
+
+  renderStats();
+  renderTable();
+
+  // Toast 文案
+  const jobLabel = snapshot.job_name && snapshot.job_name.trim() ? snapshot.job_name.trim() : 'Untitled';
+  if (notify && emailErr) {
+    showToast('Draft "' + jobLabel + '" deleted, but email notification failed.');
+  } else if (notify) {
+    showToast('Draft "' + jobLabel + '" deleted and dealer notified.');
+  } else {
+    showToast('Draft "' + jobLabel + '" deleted.');
   }
 }
 
