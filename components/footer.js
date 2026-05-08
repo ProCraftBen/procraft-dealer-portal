@@ -38,11 +38,14 @@
   // We use min-height:100vh + flex column on body, and flex:1 on the
   // main content wrapper so it pushes the footer down on short pages.
   const STYLES = `
-    /* Sticky footer layout — turns body into a flex column */
+    /* Sticky footer layout — turns body into a flex column.
+       width:100% is critical — without it, flex column body can shrink
+       to intrinsic width on some browsers, breaking the page layout. */
     body {
       display: flex !important;
       flex-direction: column !important;
       min-height: 100vh !important;
+      width: 100% !important;
     }
     /* Make .page (main content wrapper used across all pages) grow to
        fill available space — this pushes footer to bottom on short pages */
@@ -57,15 +60,15 @@
     .pcd-footer {
       background: #3e5a42;
       color: rgba(255,255,255,0.75);
-      padding: 22px 24px;
+      padding: 14px 24px;
       text-align: center;
       font-family: 'DM Sans', sans-serif;
       font-size: 12px;
-      line-height: 1.7;
+      line-height: 1.6;
       letter-spacing: 0.04em;
     }
     .pcd-footer-line { display: block; }
-    .pcd-footer-line + .pcd-footer-line { margin-top: 4px; }
+    .pcd-footer-line + .pcd-footer-line { margin-top: 2px; }
     .pcd-footer-email {
       color: #C9A84C;
       text-decoration: none;
@@ -78,7 +81,7 @@
       text-decoration: underline;
     }
     @media (max-width: 480px) {
-      .pcd-footer { padding: 18px 16px; font-size: 11px; }
+      .pcd-footer { padding: 12px 16px; font-size: 11px; }
     }
   `;
 
