@@ -227,6 +227,26 @@
     .asm-breakdown-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 2px 0; }
     .free-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
     .exempt-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
+
+    /* ── C1: Pending Shipping styles ── */
+    .pending-tag {
+      font-size: 10px;
+      color: var(--status-returned);
+      margin-left: 6px;
+      font-style: italic;
+    }
+    .total-val.pending {
+      color: var(--status-returned);
+      font-weight: 600;
+    }
+    .pending-grand-note {
+      font-size: 11px;
+      color: var(--status-returned);
+      font-style: italic;
+      text-align: right;
+      padding-top: 6px;
+    }
+
     .loading-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
     .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -313,6 +333,14 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+// ── C1: Pending shipping detection ──
+// shipping_cost === null AND logistic_type === 'shipping' → pending Sales confirmation
+function isPendingShipping(quote) {
+  if (!quote) return false;
+  if (quote.logistic_type !== 'shipping') return false;
+  return (quote.shipping_cost === null || quote.shipping_cost === undefined);
+}
+
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -358,7 +386,6 @@ async function init() {
   }
 
   // ── Admin only: load return history ──
-  // RLS 已保證只有 admin/super_admin 能讀到 quote_return_history，這裡只在 isAdmin 才查詢避免無謂的 round trip
   if (isAdmin) {
     const { data: history, error: histErr } = await _supabase
       .from('quote_return_history')
@@ -372,8 +399,6 @@ async function init() {
     } else {
       _returnHistory = history || [];
 
-      // 為每筆 history 載入 admin 名字（returned_by → dealers.contact_name / email）
-      // 用 Set 去重，避免重複查詢
       const adminIds = [...new Set(_returnHistory.map(h => h.returned_by))];
       if (adminIds.length > 0) {
         const { data: admins } = await _supabase
@@ -396,9 +421,7 @@ async function init() {
 
 // ── 產生 Return History 區塊 HTML（只有 admin 看得到）──
 function buildReturnHistoryHtml() {
-  // Dealer 看不到（即使 RLS 沒擋住，這裡也再防一層）
   if (!_isAdmin) return '';
-  // 沒有 history 就完全不顯示這個區塊
   if (!_returnHistory || _returnHistory.length === 0) return '';
 
   const eventsHtml = _returnHistory.map(h => {
@@ -455,11 +478,14 @@ function renderQuote(quote, dealer, addr) {
   const sc    = statusClass[quote.status] || 'pending';
   const isReturned = quote.status === 'Returned';
 
+  // C1: detect pending shipping for display logic
+  const pendingShipping = isPendingShipping(quote);
+
   const shippingHtml = addr
     ? `<strong>${escapeHtml(addr.recipient_name || dealer?.company_name)}</strong><br>${escapeHtml(addr.address_line)}<br>${addr.address_line2 ? escapeHtml(addr.address_line2)+'<br>' : ''}${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} ${escapeHtml(addr.zip_code)}`
     : `<strong>${escapeHtml(dealer?.company_name || '—')}</strong><br>${escapeHtml(dealer?.address_line1 || '')}<br>${dealer?.address_line2 ? escapeHtml(dealer.address_line2)+'<br>' : ''}${escapeHtml(dealer?.city || '')}, ${escapeHtml(dealer?.state || '')} ${escapeHtml(dealer?.zip_code || '')}`;
 
-  // Group & sort（用 style_name 當群組 key，fallback 到 style_code）
+  // Group & sort
   const grouped = {};
   items.forEach(i => {
     const k = i.style_name || i.style_code || '—';
@@ -516,8 +542,30 @@ function renderQuote(quote, dealer, addr) {
         </div>
       </div>` : '';
 
-  const freeShip  = parseFloat(quote.shipping_cost)===0 && parseFloat(quote.subtotal)>0;
-  const taxExempt = parseFloat(quote.tax_amount)===0;
+  // C1: Shipping row — handle pending case
+  // freeShip 只有「非 pending && shipping_cost === 0」才算
+  const freeShip  = !pendingShipping && parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
+  const taxExempt = parseFloat(quote.tax_amount) === 0;
+
+  let shippingRowHtml;
+  if (pendingShipping) {
+    shippingRowHtml = `
+      <div class="total-row">
+        <span class="total-label">Shipping <span class="pending-tag">⚠ Awaiting Sales confirmation</span></span>
+        <span class="total-val pending">Pending — Contact Sales Team</span>
+      </div>`;
+  } else {
+    shippingRowHtml = `
+      <div class="total-row">
+        <span class="total-label">Shipping${freeShip ? ' <span class="free-tag">✓ Free</span>' : ''}</span>
+        <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
+      </div>`;
+  }
+
+  // C1: Pending grand total footnote
+  const pendingFootnote = pendingShipping
+    ? `<div class="pending-grand-note">* Shipping fee pending — final total will be confirmed by Sales</div>`
+    : '';
 
   // ── Item 7: 依 status 渲染下載按鈕 ──
   let downloadButtonsHtml;
@@ -624,10 +672,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="totals">
         <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(quote.subtotal)}</span></div>
         ${asmBreakdown}
-        <div class="total-row">
-          <span class="total-label">Shipping${freeShip?' <span class="free-tag">✓ Free</span>':''}</span>
-          <span class="total-val">${freeShip?'FREE':fmt(quote.shipping_cost)}</span>
-        </div>
+        ${shippingRowHtml}
         <div class="total-row">
           <span class="total-label">Tax${taxExempt?' <span class="exempt-tag">✓ Exempt</span>':''}</span>
           <span class="total-val">${fmt(quote.tax_amount)}</span>
@@ -635,12 +680,12 @@ function renderQuote(quote, dealer, addr) {
         <div class="total-row grand">
           <span class="total-label">Order Total</span><span class="total-val">${fmt(quote.grand_total)}</span>
         </div>
+        ${pendingFootnote}
       </div>
     </div>`;
 }
 
 // ── Build quoteData object for pdf-builder.js ──
-// 用 quote_items snapshot 的 style_name / sku_desc，fallback 到 code / 空字串
 function buildQuoteDataForPdf() {
   const items = (_quote.quote_items || []).map(function(i) {
     return {
@@ -657,6 +702,13 @@ function buildQuoteDataForPdf() {
     };
   });
 
+  // C1: pass shipping_cost (may be null) so pdf-builder can render
+  // "Contact Sales Team" + exclude shipping from grand total.
+  // Use null literal when DB has null, so _isPendingShipping detects it.
+  const shippingCost = (_quote.shipping_cost === null || _quote.shipping_cost === undefined)
+    ? null
+    : parseFloat(_quote.shipping_cost);
+
   return {
     po_number:     _quote.po_number || null,
     job_name:      _quote.job_name || null,
@@ -664,6 +716,7 @@ function buildQuoteDataForPdf() {
     created_at:    _quote.created_at,
     logistic_type: _quote.logistic_type || 'pickup',
     delivery_fee:  parseFloat(_quote.delivery_fee || 0),
+    shipping_cost: shippingCost,                         // C1
     items:         items,
     // Quote Detail 一律 markup=0；用 DB snapshot 的金額反推 taxRate
     _taxRate:    parseFloat(_quote.subtotal || 0) > 0
