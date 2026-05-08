@@ -20,32 +20,6 @@
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
-    /* ── Navbar ── */
-    .navbar { background: var(--green-dark); padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-    .nav-brand { display: flex; align-items: center; gap: 10px; }
-    .nav-logo { width: 30px; height: 30px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .nav-logo svg { width: 13px; height: 13px; fill: var(--gold); }
-    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
-    .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 5px 10px; background: transparent; text-decoration: none; transition: color 0.2s, border-color 0.2s; }
-    .nav-back:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
-    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
-    .nav-link:hover, .nav-link.active { color: #fff; }
-    .nav-right { display: flex; align-items: center; gap: 16px; }
-    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
-    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
-
-    /* ── Progress ── */
-    .progress-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 20px; }
-    .progress-steps { display: flex; align-items: center; justify-content: center; padding: 12px 0; max-width: 480px; margin: 0 auto; }
-    .step { display: flex; align-items: center; gap: 7px; flex: none; }
-    .step:not(:last-child)::after { content: ''; width: 60px; height: 1px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
-    .step-circle { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--muted); flex-shrink: 0; }
-    .step.done .step-circle { background: var(--gold); border-color: var(--gold); color: #fff; }
-    .step.active .step-circle { background: var(--green-dark); border-color: var(--green-dark); color: #fff; }
-    .step-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-    .step.active .step-label { color: var(--green-dark); font-weight: 500; }
-    @media (max-width: 500px) { .step-label { display: none; } }
-
     /* ── Page ── */
     .page { max-width: 780px; margin: 0 auto; padding: 28px 20px 100px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); margin-bottom: 24px; }
@@ -260,59 +234,12 @@
       line-height: 1.7;
       max-width: 360px;
     }
-
-    /* Hamburger */
-    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
-    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
-    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
-    /* Mobile menu */
-    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-    .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
-    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
-    .mobile-menu a.active { color: #fff; }
-    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
   </style>
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="nav-brand">
-    <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
-    <span class="nav-title">ProCraft DC</span>
-  </div>
-  <div class="nav-right">
-    <a href="dashboard.html" class="nav-link">Dashboard</a>
-    <a href="quotes.html" class="nav-link">My Quotes</a>
-    <a href="new-quote.html" class="nav-link active">New Quote</a>
-    <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
-    <button onclick="handleLogout()" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,255,255,0.5);cursor:pointer;border:1px solid rgba(255,255,255,0.15);border-radius:3px;padding:5px 10px;background:transparent;">Sign Out</button>
-  </div>
-  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
-
-<div class="mobile-menu" id="mobileMenu">
-  <a href="dashboard.html">Dashboard</a>
-  <a href="quotes.html">My Quotes</a>
-  <a href="new-quote.html" class="active">New Quote</a>
-  <a href="dealer-profile.html">Edit Profile</a>
-  <a href="change-password.html">Change Password</a>
-  <div class="menu-divider"></div>
-  <button onclick="handleLogout()">Sign Out</button>
-</div>
-
-<div class="progress-bar">
-  <div class="progress-steps">
-    <div class="step done"><div class="step-circle">✓</div><span class="step-label">Order Info</span></div>
-    <div class="step done"><div class="step-circle">✓</div><span class="step-label">Products</span></div>
-    <div class="step active"><div class="step-circle">3</div><span class="step-label">Review</span></div>
-  </div>
-</div>
+<!-- Quote Flow Header -->
+<div id="pcd-quote-flow-header" data-step="3"></div>
 
 <div class="page">
   <div class="page-title">Review Your Quote</div>
@@ -530,6 +457,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="pdf-builder.js"></script>
+<script src="components/quote-flow-header.js"></script>
 <script>
 const { createClient } = supabase;
 const _supabase = createClient(
@@ -572,55 +500,31 @@ function buildReturnedBannerStep3(roleMsg) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // C1 — Shipping decision logic
-//
-// FIRST-TIME submit (no resume):
-//   pickup   → 0
-//   delivery → dealer-entered deliveryFee
-//   shipping → formula:
-//              0–3000   → NULL  (TBD, awaiting Sales)
-//              3000–6000  → subtotal × 15%
-//              6000–9000  → subtotal × 12%
-//              9000–12000 → subtotal × 10%
-//              12000+   → 0 (free)
-//
-// RESUBMIT (resuming a Returned quote that has prior shipping_cost in DB):
-//   Decision tree based on (oldLogistic, newLogistic) and shipping bracket:
-//
-//   newLogistic === 'pickup'      → 0   (always; never preserve)
-//   newLogistic === 'delivery'    → if oldLogistic === 'delivery' → preserve oldShippingCost
-//                                   else                          → use new deliveryFee
-//   newLogistic === 'shipping'    → if oldLogistic === 'shipping' && bracket unchanged
-//                                       → preserve oldShippingCost (admin's number, may be NULL)
-//                                   else
-//                                       → recompute by formula
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getShippingBracket(subtotal) {
   if (subtotal == null) return null;
-  if (subtotal <= 3000)  return 'tier1';   // NULL (TBD)
-  if (subtotal <= 6000)  return 'tier2';   // 15%
-  if (subtotal <= 9000)  return 'tier3';   // 12%
-  if (subtotal <= 12000) return 'tier4';   // 10%
-  return 'tier5';                          // free
+  if (subtotal <= 3000)  return 'tier1';
+  if (subtotal <= 6000)  return 'tier2';
+  if (subtotal <= 9000)  return 'tier3';
+  if (subtotal <= 12000) return 'tier4';
+  return 'tier5';
 }
 
 function calcShippingByFormula(subtotal) {
-  if (subtotal <= 3000)  return null;             // pending
+  if (subtotal <= 3000)  return null;
   if (subtotal <= 6000)  return subtotal * 0.15;
   if (subtotal <= 9000)  return subtotal * 0.12;
   if (subtotal <= 12000) return subtotal * 0.10;
-  return 0;                                       // 12000+ free
+  return 0;
 }
 
-// Returns the shipping_cost value to write to DB (number or null).
-// `mode` is 'submit' or 'draft'.
 function resolveShippingForDb(opts) {
   const newLogistic   = opts.newLogistic;
   const newSubtotal   = opts.newSubtotal;
   const newDeliveryFee= opts.newDeliveryFee;
   const isResuming    = !!opts.isResuming;
 
-  // First-time submit/draft (no resume) → straight formula
   if (!isResuming) {
     if (newLogistic === 'pickup')   return 0;
     if (newLogistic === 'delivery') return newDeliveryFee;
@@ -628,16 +532,14 @@ function resolveShippingForDb(opts) {
     return 0;
   }
 
-  // RESUBMIT path
   const oldLogistic = _existingLogisticType;
-  const oldShipping = _existingShippingCost;       // may be null
+  const oldShipping = _existingShippingCost;
   const oldSubtotal = _existingSubtotal;
 
   if (newLogistic === 'pickup') return 0;
 
   if (newLogistic === 'delivery') {
     if (oldLogistic === 'delivery') {
-      // Preserve admin's number (could be 0)
       return (oldShipping == null) ? newDeliveryFee : oldShipping;
     }
     return newDeliveryFee;
@@ -648,12 +550,9 @@ function resolveShippingForDb(opts) {
       const oldBracket = getShippingBracket(oldSubtotal);
       const newBracket = getShippingBracket(newSubtotal);
       if (oldBracket === newBracket) {
-        // Same bracket → preserve admin's value (may be NULL = still pending,
-        // may be 0 = admin gave free, may be any number)
         return oldShipping;
       }
     }
-    // Bracket changed OR coming from pickup/delivery → recompute
     return calcShippingByFormula(newSubtotal);
   }
 
@@ -675,7 +574,6 @@ async function init() {
   step1Data = JSON.parse(s1);
   step2Data = JSON.parse(s2);
 
-  // 5.4-C: detect Returned-resume mode from sessionStorage
   _isResumingReturned = !!step1Data.isResumingReturned;
 
   const { data: meRow } = await _supabase
@@ -686,7 +584,6 @@ async function init() {
 
   let dealerIdToLoad = session.user.id;
   if (draftId) {
-    // 5.4-C + C1: also fetch logistic_type, shipping_cost, subtotal for resubmit decision tree
     const { data: q } = await _supabase
       .from('quotes')
       .select('dealer_id, revision_number, po_number, status, logistic_type, shipping_cost, subtotal')
@@ -695,7 +592,6 @@ async function init() {
     if (q) {
       _currentRevisionNumber = q.revision_number || 1;
       _existingPoNumber      = q.po_number || null;
-      // C1: snapshot existing shipping context for decision tree
       _existingLogisticType  = q.logistic_type || null;
       _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
                                  ? null
@@ -703,7 +599,6 @@ async function init() {
       _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
                                  ? null
                                  : parseFloat(q.subtotal);
-      // Defensive: if URL has ?draft and DB says Returned, treat as resume even if sessionStorage missed it
       if (q.status === 'Returned') _isResumingReturned = true;
     }
   } else if (step1Data.dealerIdForQuote) {
@@ -730,14 +625,12 @@ async function init() {
   }
 
   if (draftId) {
-    // Edit links must preserve draft id in all branches
     document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep2Link').href     = 'new-quote-step2.html?draft=' + draftId;
     document.getElementById('backToStep2').href       = 'new-quote-step2.html?draft=' + draftId;
   }
 
-  // ── 5.4-C: Banner / button visibility resolution ──
   const isAdminDraftMode = (adminDraft || step1Data.adminDraft);
   _isAdminContext = isAdminDraftMode || (_isResumingReturned && isAdminRole);
 
@@ -769,7 +662,6 @@ async function init() {
   renderReview();
 }
 
-// ── On-screen render helpers ──
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
 
 function typeRank(type) {
@@ -815,7 +707,6 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 }
 
 function renderReview() {
-  // 5.4-C: when resuming Returned, show the existing PO# instead of "—"
   const poDisplay = step1Data.poNumber || _existingPoNumber || '—';
   document.getElementById('reviewPO').textContent       = poDisplay;
   document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
@@ -883,8 +774,6 @@ function renderReview() {
   const logisticType = step1Data.logisticType || 'pickup';
   const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
-  // C1: For on-screen preview, we need to mirror what would actually be written
-  // to DB. Use the same decision tree as submit so dealer sees accurate preview.
   const previewShippingForDb = resolveShippingForDb({
     newLogistic:    logisticType,
     newSubtotal:    subtotal,
@@ -892,7 +781,6 @@ function renderReview() {
     isResuming:     _isResumingReturned,
   });
 
-  // For display purposes, derive label + note from previewShippingForDb + context
   let shippingForTotal = 0;
   let shippingLabel = '';
   let shippingNote  = '';
@@ -913,7 +801,6 @@ function renderReview() {
     }
   } else if (logisticType === 'shipping') {
     if (previewShippingForDb === null) {
-      // Pending — TBD
       isPendingShipping = true;
       shippingForTotal  = 0;
       shippingLabel     = 'TBD';
@@ -923,14 +810,12 @@ function renderReview() {
       shippingLabel    = 'FREE';
       shippingNote     = '✓ Free shipping on orders over $12,000';
     } else if (previewShippingForDb === 0) {
-      // Sales explicitly set to 0 (free) or pickup-bracket admin override
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
       shippingNote     = '✓ Sales-confirmed free shipping';
     } else {
       shippingForTotal = previewShippingForDb;
       shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
-      // Was this preserved from admin or freshly computed?
       const isPreservedAdminValue = (
         _isResumingReturned &&
         _existingLogisticType === 'shipping' &&
@@ -964,12 +849,9 @@ function renderReview() {
     document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(0)}% tax rate`;
   }
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
-
-  // C1: show pending-shipping footnote under grand total when applicable
   document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
 }
 
-// ── 寫入 quote_items 的 payload（含 style_name 和 sku_desc snapshot）──
 function buildItemsPayload(quoteId) {
   return step2Data.map(function(item) {
     return {
@@ -1004,7 +886,6 @@ async function resolveDealerId(session) {
   return session.user.id;
 }
 
-// ── Build quoteData object for pdf-builder.js ──
 function buildQuoteDataForPdf(opts) {
   opts = opts || {};
   const items = step2Data.map(function(i) {
@@ -1032,12 +913,9 @@ function buildQuoteDataForPdf(opts) {
     _taxExempt:  !!dealer?.tax_exempt,
   };
 
-  // C1: Pass shipping_cost (may be null) and pending flag to PDF builder.
-  // Caller can override by supplying opts.shippingCostOverride.
   if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
     out.shipping_cost = opts.shippingCostOverride;
   } else {
-    // Compute the value that would be written to DB right now
     const subtotalNow = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
     out.shipping_cost = resolveShippingForDb({
       newLogistic:    out.logistic_type,
@@ -1066,7 +944,6 @@ async function saveDraft() {
     const logisticType  = step1Data.logisticType || 'pickup';
     const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
 
-    // C1: use the same decision tree as submit
     const shippingForDb = resolveShippingForDb({
       newLogistic:    logisticType,
       newSubtotal:    subtotal,
@@ -1079,7 +956,6 @@ async function saveDraft() {
     const tax   = subtotal * taxRate;
     const grand = subtotal + assembleTotal + shippingForTotal + tax;
 
-    // 5.4-C: when saving a Returned quote → keep status='Returned'
     const targetStatus = _isResumingReturned ? 'Returned' : 'Draft';
 
     const payload = {
@@ -1092,7 +968,6 @@ async function saveDraft() {
       delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
       subtotal:            parseFloat(subtotal.toFixed(2)),
       assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-      // C1: NULL when pending Sales; otherwise rounded number
       shipping_cost:       (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2)),
       tax_amount:          parseFloat(tax.toFixed(2)),
       grand_total:         parseFloat(grand.toFixed(2)),
@@ -1106,8 +981,6 @@ async function saveDraft() {
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
 
-      // C1: refresh in-memory snapshot so subsequent saves/submits in same
-      // session see the just-saved state as "old"
       _existingLogisticType = logisticType;
       _existingShippingCost = payload.shipping_cost;
       _existingSubtotal     = payload.subtotal;
@@ -1178,20 +1051,17 @@ async function submitQuote() {
     const logisticType = step1Data.logisticType || 'pickup';
     const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
-    // ── C1: shipping resolution via decision tree ──
     const shippingForDb = resolveShippingForDb({
       newLogistic:    logisticType,
       newSubtotal:    subtotal,
       newDeliveryFee: deliveryFee,
       isResuming:     _isResumingReturned,
     });
-    // null in shippingForDb → exclude from grand_total; otherwise add
     const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
 
     const tax   = subtotal * taxRate;
     const grand = subtotal + assembleTotal + shippingForTotal + tax;
 
-    // 5.4-C: PO# generation only happens for first-time submits.
     let poNumber;
     let quoteNum;
     let nextRevisionNumber = 1;
@@ -1239,7 +1109,6 @@ async function submitQuote() {
       poNumber = poData;
     }
 
-    // C1: shipping_cost write value (null OR rounded number)
     const shippingCostWrite = (shippingForDb === null)
       ? null
       : parseFloat(shippingForDb.toFixed(2));
@@ -1303,7 +1172,6 @@ async function submitQuote() {
 
     step1Data.poNumber = poNumber;
 
-    // ── Generate two PDFs ──
     setStep('Generating PDF documents...');
     const quoteDataForPdf = buildQuoteDataForPdf({ shippingCostOverride: shippingCostWrite });
     quoteDataForPdf.po_number = poNumber;
@@ -1317,15 +1185,6 @@ async function submitQuote() {
     const packingFilename = ProCraftPDF.getPdfFilename('packing-list', { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
     const invoiceFilename = ProCraftPDF.getPdfFilename('invoice',      { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
 
-    // ── Build shipping_address payload for Edge Function ──
-    // Shape the Edge Function expects:
-    //   shipping_address: {
-    //     mode: 'same' | 'different' | 'pickup',
-    //     recipient_name, address_line, address_line2, city, state, zip_code, phone
-    //   }
-    // - 'same'      → use dealer's own address (treat as billing-style address)
-    // - 'different' → use addresses table row stored in `shippingAddress`
-    // - 'pickup'    → ignored downstream (Edge Function shows ProCraft DC pickup banner instead)
     let shippingAddressPayload = null;
     if (logisticType === 'pickup') {
       shippingAddressPayload = { mode: 'pickup' };
@@ -1369,12 +1228,10 @@ async function submitQuote() {
             quote_number:    quoteNum,
             po_number:       poNumber,
             job_name:        step1Data.jobName,
-            // Email layout extension (Items table + Shipping address + Logistic type)
             logistic_type:   logisticType,
             shipping_address: shippingAddressPayload,
             assemble_total:  assembleTotal.toFixed(2),
             subtotal:        subtotal.toFixed(2),
-            // C1: send NULL marker downstream (Edge Function / template can decide how to render)
             shipping_cost:   (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
             shipping_pending: (shippingCostWrite === null),
             tax_amount:      tax.toFixed(2),
@@ -1391,8 +1248,6 @@ async function submitQuote() {
             optional_email_2:       dealer.optional_email_2 || null,
             optional_email_2_notify: dealer.optional_email_2_notify || false,
           },
-          // Items: extended to include style_name, sku_desc, sku_type, assemble_fee
-          // so dealer email items table matches admin email exactly.
           items: step2Data.map(i => ({
             style_code:   i.style_code,
             style_name:   i.style_name || null,
@@ -1475,7 +1330,6 @@ function updateMarkupPreview() {
   const logisticType   = step1Data?.logisticType || 'pickup';
   const deliveryFee    = parseFloat(step1Data?.deliveryFee || 0);
 
-  // C1: use decision tree on the marked subtotal so preview is consistent
   const previewShippingForDb = resolveShippingForDb({
     newLogistic:    logisticType,
     newSubtotal:    markedSubtotal,
@@ -1523,7 +1377,6 @@ function updateMarkupPreview() {
     : '';
 }
 
-// ── Download PDF (preview, with markup) ──
 async function downloadPDF() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
   const quoteDataForPdf = buildQuoteDataForPdf();
@@ -1537,27 +1390,6 @@ async function downloadPDF() {
     revisionNumber: previewRevisionNumber,
   });
   doc.save(filename);
-}
-
-function toggleMenu() {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  btn.classList.toggle('open');
-  menu.classList.toggle('show');
-}
-
-document.addEventListener('click', function(e) {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open');
-    menu.classList.remove('show');
-  }
-});
-
-async function handleLogout() {
-  await _supabase.auth.signOut();
-  window.location.href = 'login.html';
 }
 
 init();
