@@ -14,16 +14,6 @@
       --border: #DDD8CC; --white: #FFFFFF; --error: #C0392B; --success: #16A34A;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
-    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-    .nav-brand { display: flex; align-items: center; gap: 10px; }
-    .nav-logo { width: 32px; height: 32px; background: rgba(201,168,76,0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .nav-logo svg { width: 14px; height: 14px; fill: var(--gold); }
-    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
-    .nav-right { display: flex; align-items: center; gap: 12px; }
-    .nav-back { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; text-decoration: none; display: none; }
-    .nav-back:hover { color: #fff; }
-    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; }
-    .nav-logout:hover { color: #fff; }
     .first-time-banner { background: var(--green-mid); color: #fff; padding: 14px 24px; text-align: center; font-size: 13px; line-height: 1.6; display: none; }
     .first-time-banner.show { display: block; }
     .first-time-banner strong { color: var(--gold); }
@@ -100,55 +90,14 @@
     .confirmed-icon { width: 16px; height: 16px; fill: var(--success); flex-shrink: 0; }
     .confirmed-text { font-size: 12px; color: var(--muted); }
     .confirmed-value { font-size: 13px; color: var(--text); font-weight: 500; }
-
-    /* Hamburger */
-    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
-    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
-    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-    /* Mobile menu */
-    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-    .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
-    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
-    .mobile-menu a.active { color: #fff; }
-    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    @media (max-width: 768px) {
-      .nav-right { display: none; }
-      .hamburger { display: flex; }
-    }
   </style>
 </head>
 <body>
 
+<div id="pcd-nav" data-page="dealer-profile"></div>
+
 <div class="first-time-banner" id="firstTimeBanner">
   👋 Welcome to ProCraft Dealer Portal! Please take a few minutes to <strong>set up your store profile</strong> — this helps customers find and connect with your showroom.
-</div>
-
-
-<nav class="navbar">
-  <div class="nav-brand">
-    <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
-    <span class="nav-title">ProCraft DC</span>
-  </div>
-  <div class="nav-right">
-    <a href="dashboard.html" class="nav-back" id="backBtn">← Dashboard</a>
-    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
-  </div>
-  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
-
-<div class="mobile-menu" id="mobileMenu">
-  <a href="dashboard.html">Dashboard</a>
-  <a href="quotes.html">My Quotes</a>
-  <a href="new-quote.html">New Quote</a>
-  <a href="dealer-profile.html" class="active">Edit Profile</a>
-  <a href="change-password.html">Change Password</a>
-  <div class="menu-divider"></div>
-  <button onclick="handleLogout()">Sign Out</button>
 </div>
 
 <div class="page">
@@ -378,7 +327,11 @@
   </button>
 </div>
 
+<div id="pcd-footer"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="components/navigator.js"></script>
+<script src="components/footer.js"></script>
 <script>
 const { createClient } = window.supabase;
 const _supabase = createClient(
@@ -554,9 +507,6 @@ async function init() {
   isFirstTime = !dealer.profile_completed;
   if (isFirstTime) {
     document.getElementById('firstTimeBanner').classList.add('show');
-    document.getElementById('backBtn').style.display = 'none';
-  } else {
-    document.getElementById('backBtn').style.display = 'inline-block';
   }
 
   // Populate contact info
@@ -730,11 +680,6 @@ function showError(msg) {
   window.scrollTo(0, 0);
 }
 
-async function handleLogout() {
-  await _supabase.auth.signOut();
-  window.location.href = 'login.html';
-}
-
 function updatePreview() {
   const heading = document.getElementById('f_heading').value.trim();
   const desc    = document.getElementById('f_description').value.trim();
@@ -772,22 +717,6 @@ function initMaps() {
     document.getElementById('f_address_formatted').value = place.formatted_address;
   });
 }
-
-function toggleMenu() {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  btn.classList.toggle('open');
-  menu.classList.toggle('show');
-}
-
-document.addEventListener('click', function(e) {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open');
-    menu.classList.remove('show');
-  }
-});
 
 init();
 </script>
