@@ -911,14 +911,17 @@ function renderTable() {
 }
 
 // ── Event delegation for dynamically-rendered Delete Draft buttons ──
-// Note: script is at end of <body>, so DOM is already ready when this runs.
-// We do NOT wait for DOMContentLoaded — that event has already fired by now,
-// so adding a listener for it would never fire.
+// IMPORTANT: We bind on `document`, not `tbody`. The action cell <td> uses
+// `onclick="event.stopPropagation()"` to prevent View link clicks from
+// triggering row toggle — that also stops bubbling to tbody, so tbody-level
+// delegation does not work. document-level listener fires before the inline
+// onclick on td (capture: false bubbles up; we use capture: true to fire
+// before the td-level stopPropagation can run on its parent — but in fact
+// since td's stopPropagation is on the td's bubble phase, our document
+// capture-phase listener is guaranteed to fire first).
 (function attachDeleteDelegation() {
-  const tbody = document.getElementById('quotesBody');
-  if (!tbody) return;
-  tbody.addEventListener('click', function(e) {
-    const btn = e.target.closest('.js-admin-delete-draft');
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest && e.target.closest('.js-admin-delete-draft');
     if (!btn) return;
     e.preventDefault();
     e.stopPropagation();
@@ -926,7 +929,7 @@ function renderTable() {
     const jobName  = btn.dataset.jobName;
     const dealerId = btn.dataset.dealerId;
     if (quoteId) openDeleteDraftModal(quoteId, jobName, dealerId);
-  });
+  }, true);  // ← capture phase, fires before any bubble-phase stopPropagation
 })();
 
 // ── Toggle detail row ──────────────────────────────────────────────
