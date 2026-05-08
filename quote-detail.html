@@ -583,7 +583,11 @@ function renderQuote(quote, dealer, addr) {
   const pendingShipping = isPendingShipping(quote);
 
   // C1: admin edit shipping permission
-  const canAdminEditShipping = _isAdmin && SHIPPING_EDIT_ALLOWED_STATUSES.includes(quote.status);
+  // Pickup quotes are excluded — pickup is always FREE by definition (customer self-pickup),
+  // so admin should not be able to add a shipping fee even if status allows editing.
+  const canAdminEditShipping = _isAdmin
+    && SHIPPING_EDIT_ALLOWED_STATUSES.includes(quote.status)
+    && quote.logistic_type !== 'pickup';
 
   const shippingHtml = addr
     ? `<strong>${escapeHtml(addr.recipient_name || dealer?.company_name)}</strong><br>${escapeHtml(addr.address_line)}<br>${addr.address_line2 ? escapeHtml(addr.address_line2)+'<br>' : ''}${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} ${escapeHtml(addr.zip_code)}`
@@ -850,6 +854,8 @@ function closeShippingEditor() {
 async function saveShipping() {
   if (!_isAdmin || !_quote) return;
   if (!SHIPPING_EDIT_ALLOWED_STATUSES.includes(_quote.status)) return;
+  // C1: pickup quotes can never have a shipping fee (defense-in-depth — UI hides the link too)
+  if (_quote.logistic_type === 'pickup') return;
 
   const input  = document.getElementById('shippingInput');
   const errEl  = document.getElementById('shippingEditorError');
