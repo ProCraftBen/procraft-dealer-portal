@@ -26,37 +26,6 @@
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
-    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-    .nav-brand { display: flex; align-items: center; gap: 10px; }
-    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
-    .nav-right { display: flex; align-items: center; gap: 16px; }
-    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; transition: color 0.2s, border-color 0.2s; }
-    .nav-logout:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
-    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
-    .nav-link:hover, .nav-link.active { color: #fff; }
-
-    /* Hamburger */
-    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
-    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
-    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-    /* Mobile menu */
-    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-    .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
-    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
-    .mobile-menu a.active { color: #fff; }
-    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
-
-    @media (max-width: 768px) {
-      .nav-right { display: none; }
-      .hamburger { display: flex; }
-      .nav-logo-img { height: 36px; max-width: 90px; }
-    }
-
     .page { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
     .page-header { margin-bottom: 28px; }
     .page-header .greeting { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
@@ -115,33 +84,8 @@
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="nav-brand">
-    <img class="nav-logo-img" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
-    <span class="nav-title">ProCraft DC</span>
-  </div>
-  <div class="nav-right">
-    <a href="dashboard.html" class="nav-link active">Dashboard</a>
-    <a href="quotes.html" class="nav-link">My Quotes</a>
-    <a href="new-quote.html" class="nav-link">New Quote</a>
-    <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
-    <a href="change-password.html" class="nav-link">Change Password</a>
-    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
-  </div>
-  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
-
-<div class="mobile-menu" id="mobileMenu">
-  <a href="dashboard.html" class="active">Dashboard</a>
-  <a href="quotes.html">My Quotes</a>
-  <a href="new-quote.html">New Quote</a>
-  <a href="dealer-profile.html">Edit Profile</a>
-  <a href="change-password.html">Change Password</a>
-  <div class="menu-divider"></div>
-  <button onclick="handleLogout()">Sign Out</button>
-</div>
+<!-- Unified Navigator (replaces old <nav> and mobile menu) -->
+<div id="pcd-nav" data-page="dashboard"></div>
 
 <div class="page">
   <div class="page-header">
@@ -192,7 +136,12 @@
   </div>
 </div>
 
+<!-- Unified Footer -->
+<div id="pcd-footer"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="components/navigator.js"></script>
+<script src="components/footer.js"></script>
 <script>
   const SUPABASE_URL = 'https://acwgemgpnusworpxxoai.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
@@ -206,22 +155,6 @@
     'Complete': 'complete',
     'Closed': 'closed'
   };
-
-  function toggleMenu() {
-    const btn  = document.getElementById('hamburger');
-    const menu = document.getElementById('mobileMenu');
-    btn.classList.toggle('open');
-    menu.classList.toggle('show');
-  }
-
-  document.addEventListener('click', function(e) {
-    const btn  = document.getElementById('hamburger');
-    const menu = document.getElementById('mobileMenu');
-    if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-      btn.classList.remove('open');
-      menu.classList.remove('show');
-    }
-  });
 
   function formatDate(str) {
     const d = new Date(str);
@@ -308,11 +241,6 @@
     }
 
     document.getElementById('orderList').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>No orders yet.</div>`;
-  }
-
-  async function handleLogout() {
-    await _supabase.auth.signOut();
-    window.location.href = 'login.html';
   }
 
   init();
