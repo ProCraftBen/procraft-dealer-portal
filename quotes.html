@@ -16,27 +16,6 @@
       --status-returned:#E07B39;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
-    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-    .nav-brand { display: flex; align-items: center; gap: 10px; }
-    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
-    .nav-right { display: flex; align-items: center; gap: 16px; }
-    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
-    .nav-link:hover, .nav-link.active { color: #fff; }
-    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; }
-    .nav-logout:hover { color: #fff; }
-    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
-    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
-    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-    .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
-    .mobile-menu a.active { color: #fff; }
-    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    .nav-logo-img { height: 44px; max-width: 110px; object-fit: contain; }
-    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } .nav-logo-img { height: 36px; max-width: 90px; } }
 
     .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
     .page-header { margin-bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
@@ -307,33 +286,8 @@
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="nav-brand">
-    <img class="nav-logo-img" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
-    <span class="nav-title">ProCraft DC</span>
-  </div>
-  <div class="nav-right">
-    <a href="dashboard.html" class="nav-link">Dashboard</a>
-    <a href="quotes.html" class="nav-link active">My Quotes</a>
-    <a href="new-quote.html" class="nav-link">New Quote</a>
-    <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
-    <a href="change-password.html" class="nav-link">Change Password</a>
-    <button class="nav-logout" onclick="handleLogout()">Sign Out</button>
-  </div>
-  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
-
-<div class="mobile-menu" id="mobileMenu">
-  <a href="dashboard.html">Dashboard</a>
-  <a href="quotes.html" class="active">My Quotes</a>
-  <a href="new-quote.html">New Quote</a>
-  <a href="dealer-profile.html">Edit Profile</a>
-  <a href="change-password.html">Change Password</a>
-  <div class="menu-divider"></div>
-  <button onclick="handleLogout()">Sign Out</button>
-</div>
+<!-- Unified Navigator (replaces old <nav> and mobile menu) -->
+<div id="pcd-nav" data-page="quotes"></div>
 
 <div class="page">
   <div class="page-header">
@@ -447,7 +401,12 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- Unified Footer -->
+<div id="pcd-footer"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="components/navigator.js"></script>
+<script src="components/footer.js"></script>
 <script>
 const { createClient } = window.supabase;
 const _supabase = createClient(
@@ -464,22 +423,6 @@ const statusClass = {
   Draft: 'draft', Pending: 'pending', Processing: 'processing',
   Complete: 'complete', Closed: 'closed', Returned: 'returned'
 };
-
-function toggleMenu() {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  btn.classList.toggle('open');
-  menu.classList.toggle('show');
-}
-
-document.addEventListener('click', function(e) {
-  const btn  = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open');
-    menu.classList.remove('show');
-  }
-});
 
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) {
@@ -766,11 +709,6 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-async function handleLogout() {
-  await _supabase.auth.signOut();
-  window.location.href = 'login.html';
 }
 
 init();
