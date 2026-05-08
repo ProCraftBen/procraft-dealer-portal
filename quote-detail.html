@@ -15,6 +15,7 @@
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
       --status-draft:#7A8C82; --status-returned:#E07B39;
+      --error:#C0392B;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
     .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -247,11 +248,108 @@
       padding-top: 6px;
     }
 
+    /* ── C1: Admin shipping editor (admin-only inline UI) ── */
+    .admin-edit-link {
+      font-size: 10px;
+      color: var(--gold);
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      margin-left: 8px;
+      text-decoration: none;
+      display: inline-block;
+      padding: 2px 6px;
+      border: 1px solid rgba(201,168,76,0.4);
+      border-radius: 2px;
+      background: rgba(201,168,76,0.06);
+      transition: all 0.15s;
+    }
+    .admin-edit-link:hover {
+      color: var(--green-dark);
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.07);
+    }
+    .admin-shipping-editor {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      margin: 4px 0;
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 3px;
+    }
+    .admin-shipping-editor.show { display: flex; }
+    .admin-shipping-editor .editor-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+      flex-shrink: 0;
+    }
+    .admin-shipping-editor input {
+      width: 100px;
+      height: 32px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      text-align: right;
+    }
+    .admin-shipping-editor input:focus {
+      outline: none;
+      border-color: var(--green-dark);
+    }
+    .editor-currency-prefix {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .editor-btn {
+      height: 32px;
+      padding: 0 14px;
+      border: none;
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .editor-btn.save {
+      background: var(--green-dark);
+      color: #fff;
+    }
+    .editor-btn.save:hover { background: var(--green-mid); }
+    .editor-btn.save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .editor-btn.cancel {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .editor-btn.cancel:hover { color: var(--text); border-color: var(--text); }
+    .editor-error {
+      width: 100%;
+      font-size: 11px;
+      color: var(--error);
+      padding-top: 4px;
+    }
+    .editor-hint {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+      flex-basis: 100%;
+      padding-top: 2px;
+    }
+
     .loading-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
     .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-    @media print { .navbar, .btn-action, .hamburger, .mobile-menu, .return-banner, .return-history { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
+    @media print { .navbar, .btn-action, .hamburger, .mobile-menu, .return-banner, .return-history, .admin-edit-link, .admin-shipping-editor { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
   </style>
 </head>
 <body>
@@ -295,6 +393,10 @@ const statusClass = {
   Returned:'returned',
 };
 
+// ── C1: which statuses allow admin to edit shipping_cost ──
+// (Pending / Returned only — already-completed quotes shouldn't be touched)
+const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
+
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false;
 let _returnHistory = [];
@@ -323,7 +425,7 @@ function formatDateTime(str) {
   });
 }
 
-// HTML escape (防止 return_reason / notes 等使用者輸入內容把版面搞壞)
+// HTML escape
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -334,7 +436,6 @@ function escapeHtml(s) {
 }
 
 // ── C1: Pending shipping detection ──
-// shipping_cost === null AND logistic_type === 'shipping' → pending Sales confirmation
 function isPendingShipping(quote) {
   if (!quote) return false;
   if (quote.logistic_type !== 'shipping') return false;
@@ -481,6 +582,9 @@ function renderQuote(quote, dealer, addr) {
   // C1: detect pending shipping for display logic
   const pendingShipping = isPendingShipping(quote);
 
+  // C1: admin edit shipping permission
+  const canAdminEditShipping = _isAdmin && SHIPPING_EDIT_ALLOWED_STATUSES.includes(quote.status);
+
   const shippingHtml = addr
     ? `<strong>${escapeHtml(addr.recipient_name || dealer?.company_name)}</strong><br>${escapeHtml(addr.address_line)}<br>${addr.address_line2 ? escapeHtml(addr.address_line2)+'<br>' : ''}${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} ${escapeHtml(addr.zip_code)}`
     : `<strong>${escapeHtml(dealer?.company_name || '—')}</strong><br>${escapeHtml(dealer?.address_line1 || '')}<br>${dealer?.address_line2 ? escapeHtml(dealer.address_line2)+'<br>' : ''}${escapeHtml(dealer?.city || '')}, ${escapeHtml(dealer?.state || '')} ${escapeHtml(dealer?.zip_code || '')}`;
@@ -542,25 +646,57 @@ function renderQuote(quote, dealer, addr) {
         </div>
       </div>` : '';
 
-  // C1: Shipping row — handle pending case
-  // freeShip 只有「非 pending && shipping_cost === 0」才算
+  // C1: Shipping row — handle pending case + admin edit link
   const freeShip  = !pendingShipping && parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
   const taxExempt = parseFloat(quote.tax_amount) === 0;
+
+  // Admin edit link (only if admin + status allows)
+  const editLinkLabel = pendingShipping ? 'Set Fee' : 'Edit Fee';
+  const adminEditLink = canAdminEditShipping
+    ? `<span class="admin-edit-link" onclick="openShippingEditor()">✎ ${editLinkLabel}</span>`
+    : '';
+
+  // Pre-filled value: existing shipping_cost (or empty if NULL)
+  const existingShippingValue = (quote.shipping_cost === null || quote.shipping_cost === undefined)
+    ? ''
+    : parseFloat(quote.shipping_cost).toFixed(2);
 
   let shippingRowHtml;
   if (pendingShipping) {
     shippingRowHtml = `
       <div class="total-row">
-        <span class="total-label">Shipping <span class="pending-tag">⚠ Awaiting Sales confirmation</span></span>
+        <span class="total-label">
+          Shipping
+          <span class="pending-tag">⚠ Awaiting Sales confirmation</span>
+          ${adminEditLink}
+        </span>
         <span class="total-val pending">Pending — Contact Sales Team</span>
       </div>`;
   } else {
     shippingRowHtml = `
       <div class="total-row">
-        <span class="total-label">Shipping${freeShip ? ' <span class="free-tag">✓ Free</span>' : ''}</span>
+        <span class="total-label">
+          Shipping${freeShip ? ' <span class="free-tag">✓ Free</span>' : ''}
+          ${adminEditLink}
+        </span>
         <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
       </div>`;
   }
+
+  // C1: admin shipping editor (hidden by default; shown via openShippingEditor())
+  const shippingEditorHtml = canAdminEditShipping ? `
+    <div class="admin-shipping-editor" id="shippingEditor">
+      <span class="editor-label">Set Shipping</span>
+      <span class="editor-currency-prefix">$</span>
+      <input type="number" id="shippingInput" min="0" step="0.01" placeholder="0.00" value="${existingShippingValue}"/>
+      <button class="editor-btn save" id="shippingSaveBtn" onclick="saveShipping()">Save</button>
+      <button class="editor-btn cancel" onclick="closeShippingEditor()">Cancel</button>
+      <div class="editor-hint">
+        Enter the shipping fee for this quote. Use 0 for free shipping. The dealer will see this value.
+        After saving, return the quote so the dealer can review and resubmit.
+      </div>
+      <div class="editor-error" id="shippingEditorError" style="display:none;"></div>
+    </div>` : '';
 
   // C1: Pending grand total footnote
   const pendingFootnote = pendingShipping
@@ -673,6 +809,7 @@ function renderQuote(quote, dealer, addr) {
         <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(quote.subtotal)}</span></div>
         ${asmBreakdown}
         ${shippingRowHtml}
+        ${shippingEditorHtml}
         <div class="total-row">
           <span class="total-label">Tax${taxExempt?' <span class="exempt-tag">✓ Exempt</span>':''}</span>
           <span class="total-val">${fmt(quote.tax_amount)}</span>
@@ -685,7 +822,95 @@ function renderQuote(quote, dealer, addr) {
     </div>`;
 }
 
-// ── Build quoteData object for pdf-builder.js ──
+// ─────────────────────────────────────────────────────────────────────────
+// C1: Admin shipping editor functions
+// ─────────────────────────────────────────────────────────────────────────
+
+function openShippingEditor() {
+  const editor = document.getElementById('shippingEditor');
+  if (!editor) return;
+  editor.classList.add('show');
+  const input = document.getElementById('shippingInput');
+  if (input) {
+    input.focus();
+    input.select();
+  }
+  const errEl = document.getElementById('shippingEditorError');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+}
+
+function closeShippingEditor() {
+  const editor = document.getElementById('shippingEditor');
+  if (!editor) return;
+  editor.classList.remove('show');
+  const errEl = document.getElementById('shippingEditorError');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+}
+
+async function saveShipping() {
+  if (!_isAdmin || !_quote) return;
+  if (!SHIPPING_EDIT_ALLOWED_STATUSES.includes(_quote.status)) return;
+
+  const input  = document.getElementById('shippingInput');
+  const errEl  = document.getElementById('shippingEditorError');
+  const saveBtn = document.getElementById('shippingSaveBtn');
+  if (!input) return;
+
+  const showError = (msg) => {
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+  };
+
+  const raw = (input.value || '').trim();
+  if (raw === '') {
+    showError('Please enter a shipping fee. Use 0 for free shipping.');
+    input.focus();
+    return;
+  }
+  const newShipping = parseFloat(raw);
+  if (isNaN(newShipping) || newShipping < 0) {
+    showError('Please enter a valid non-negative number.');
+    input.focus();
+    return;
+  }
+
+  // Recompute grand_total = subtotal + assemble_total + new_shipping + tax
+  // (We use existing DB values; admin only edits shipping_cost.)
+  const subtotal      = parseFloat(_quote.subtotal       || 0);
+  const assembleTotal = parseFloat(_quote.assemble_total || 0);
+  const taxAmount     = parseFloat(_quote.tax_amount     || 0);
+  const newShippingRounded = parseFloat(newShipping.toFixed(2));
+  const newGrand      = parseFloat((subtotal + assembleTotal + newShippingRounded + taxAmount).toFixed(2));
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  try {
+    const { error } = await _supabase
+      .from('quotes')
+      .update({
+        shipping_cost: newShippingRounded,
+        grand_total:   newGrand,
+      })
+      .eq('id', _quote.id);
+
+    if (error) throw error;
+
+    // Refresh in-memory + re-render
+    _quote.shipping_cost = newShippingRounded;
+    _quote.grand_total   = newGrand;
+    renderQuote(_quote, _dealer, _addr);
+  } catch (err) {
+    console.error('[saveShipping] failed:', err);
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+    showError(err.message || 'Failed to save. Please try again.');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PDF download functions
+// ─────────────────────────────────────────────────────────────────────────
+
 function buildQuoteDataForPdf() {
   const items = (_quote.quote_items || []).map(function(i) {
     return {
@@ -704,7 +929,6 @@ function buildQuoteDataForPdf() {
 
   // C1: pass shipping_cost (may be null) so pdf-builder can render
   // "Contact Sales Team" + exclude shipping from grand total.
-  // Use null literal when DB has null, so _isPendingShipping detects it.
   const shippingCost = (_quote.shipping_cost === null || _quote.shipping_cost === undefined)
     ? null
     : parseFloat(_quote.shipping_cost);
@@ -718,7 +942,6 @@ function buildQuoteDataForPdf() {
     delivery_fee:  parseFloat(_quote.delivery_fee || 0),
     shipping_cost: shippingCost,                         // C1
     items:         items,
-    // Quote Detail 一律 markup=0；用 DB snapshot 的金額反推 taxRate
     _taxRate:    parseFloat(_quote.subtotal || 0) > 0
                   ? parseFloat(_quote.tax_amount || 0) / parseFloat(_quote.subtotal || 1)
                   : 0,
@@ -726,9 +949,6 @@ function buildQuoteDataForPdf() {
   };
 }
 
-// ── 三種下載對應到 pdf-builder.js 的三種 PDF ──
-
-// Item 7: Draft 狀態 → Download Draft Quote
 async function downloadDraftQuote() {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
@@ -743,7 +963,6 @@ async function downloadDraftQuote() {
   doc.save(filename);
 }
 
-// Item 7: 其他狀態 → Download Packing List
 async function downloadPackingList() {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
@@ -757,7 +976,6 @@ async function downloadPackingList() {
   doc.save(filename);
 }
 
-// Item 7: 其他狀態 → Download Invoice
 async function downloadInvoice() {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
