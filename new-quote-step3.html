@@ -1317,6 +1317,42 @@ async function submitQuote() {
     const packingFilename = ProCraftPDF.getPdfFilename('packing-list', { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
     const invoiceFilename = ProCraftPDF.getPdfFilename('invoice',      { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
 
+    // ── Build shipping_address payload for Edge Function ──
+    // Shape the Edge Function expects:
+    //   shipping_address: {
+    //     mode: 'same' | 'different' | 'pickup',
+    //     recipient_name, address_line, address_line2, city, state, zip_code, phone
+    //   }
+    // - 'same'      → use dealer's own address (treat as billing-style address)
+    // - 'different' → use addresses table row stored in `shippingAddress`
+    // - 'pickup'    → ignored downstream (Edge Function shows ProCraft DC pickup banner instead)
+    let shippingAddressPayload = null;
+    if (logisticType === 'pickup') {
+      shippingAddressPayload = { mode: 'pickup' };
+    } else if (step1Data.shippingMode === 'same') {
+      shippingAddressPayload = {
+        mode:           'same',
+        recipient_name: dealer.company_name,
+        address_line:   dealer.address || '',
+        address_line2:  null,
+        city:           dealer.city || '',
+        state:          dealer.state || '',
+        zip_code:       dealer.zip_code || dealer.zip || '',
+        phone:          dealer.phone || '',
+      };
+    } else if (shippingAddress) {
+      shippingAddressPayload = {
+        mode:           'different',
+        recipient_name: shippingAddress.recipient_name || '',
+        address_line:   shippingAddress.address_line || '',
+        address_line2:  shippingAddress.address_line2 || null,
+        city:           shippingAddress.city || '',
+        state:          shippingAddress.state || '',
+        zip_code:       shippingAddress.zip_code || '',
+        phone:          shippingAddress.phone || '',
+      };
+    }
+
     setStep(_isResumingReturned ? 'Sending resubmission email...' : 'Sending confirmation email...');
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
@@ -1333,6 +1369,10 @@ async function submitQuote() {
             quote_number:    quoteNum,
             po_number:       poNumber,
             job_name:        step1Data.jobName,
+            // Email layout extension (Items table + Shipping address + Logistic type)
+            logistic_type:   logisticType,
+            shipping_address: shippingAddressPayload,
+            assemble_total:  assembleTotal.toFixed(2),
             subtotal:        subtotal.toFixed(2),
             // C1: send NULL marker downstream (Edge Function / template can decide how to render)
             shipping_cost:   (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
@@ -1351,12 +1391,18 @@ async function submitQuote() {
             optional_email_2:       dealer.optional_email_2 || null,
             optional_email_2_notify: dealer.optional_email_2_notify || false,
           },
+          // Items: extended to include style_name, sku_desc, sku_type, assemble_fee
+          // so dealer email items table matches admin email exactly.
           items: step2Data.map(i => ({
-            style_code: i.style_code,
-            sku_code:   i.sku_code,
-            type:       i.type,
-            quantity:   i.quantity,
-            unit_price: i.unit_price,
+            style_code:   i.style_code,
+            style_name:   i.style_name || null,
+            sku_code:     i.sku_code,
+            sku_desc:     i.sku_desc || null,
+            sku_type:     i.skuType || null,
+            type:         i.type,
+            quantity:     i.quantity,
+            unit_price:   i.unit_price,
+            assemble_fee: i.assemble_fee || 0,
           })),
           attachments: [
             { filename: packingFilename, content: pdfA, type: 'application/pdf' },
