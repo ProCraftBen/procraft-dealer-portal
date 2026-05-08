@@ -122,7 +122,8 @@
       transition: all 0.15s;
       padding: 0;
     }
-    .btn-delete-draft-admin svg { width: 13px; height: 13px; fill: currentColor; }
+    .btn-delete-draft-admin svg { width: 13px; height: 13px; fill: currentColor; pointer-events: none; }
+    .btn-delete-draft-admin svg * { pointer-events: none; }
     .btn-delete-draft-admin:hover {
       background: rgba(192,57,43,0.08);
       border-color: var(--error);
