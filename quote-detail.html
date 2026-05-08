@@ -18,26 +18,22 @@
       --error:#C0392B;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
-    .navbar { background: var(--green-dark); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-    .nav-brand { display: flex; align-items: center; gap: 10px; }
-    .nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
-    .nav-right { display: flex; align-items: center; gap: 16px; }
-    .nav-link { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.2s; }
-    .nav-link:hover, .nav-link.active { color: #fff; }
-    .nav-logout { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.5); cursor: pointer; border: 1px solid rgba(255,255,255,0.15); border-radius: 3px; padding: 6px 12px; background: transparent; }
-    .nav-logout:hover { color: #fff; }
-    .hamburger { display: none; flex-direction: column; justify-content: center; gap: 5px; width: 36px; height: 36px; background: none; border: none; cursor: pointer; padding: 4px; }
-    .hamburger span { display: block; width: 22px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 2px; transition: all 0.25s; }
-    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-    .hamburger.open span:nth-child(2) { opacity: 0; }
-    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-    .mobile-menu { display: none; position: fixed; top: 60px; left: 0; right: 0; background: #3e5a42; border-top: 1px solid rgba(255,255,255,0.08); z-index: 99; flex-direction: column; padding: 8px 0 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-    .mobile-menu.show { display: flex; }
-    .mobile-menu a, .mobile-menu button { display: block; width: 100%; padding: 12px 24px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.6); text-decoration: none; background: none; border: none; text-align: left; cursor: pointer; font-family: 'DM Sans', sans-serif; }
-    .mobile-menu a:hover, .mobile-menu button:hover { color: #fff; background: rgba(255,255,255,0.05); }
-    .mobile-menu .menu-divider { height: 1px; background: rgba(255,255,255,0.08); margin: 8px 0; }
-    @media (max-width: 768px) { .nav-right { display: none !important; } .hamburger { display: flex !important; } }
     .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+
+    /* Back link */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      margin-bottom: 18px;
+      transition: color 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .back-link:hover { color: var(--green-dark); }
+
     .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
     .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
     .quote-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
@@ -349,33 +345,22 @@
     .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
-    @media print { .navbar, .btn-action, .hamburger, .mobile-menu, .return-banner, .return-history, .admin-edit-link, .admin-shipping-editor { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
+    @media print { .btn-action, .back-link, .return-banner, .return-history, .admin-edit-link, .admin-shipping-editor { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
   </style>
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="nav-brand">
-    <img style="height:44px;max-width:110px;object-fit:contain;" src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
-    <span class="nav-title">ProCraft DC</span>
-  </div>
-  <div class="nav-right" id="navRight"></div>
-  <button class="hamburger" id="hamburger" onclick="toggleMenu()">
-    <span></span><span></span><span></span>
-  </button>
-</nav>
-
-<div class="mobile-menu" id="mobileMenu">
-  <div id="mobileMenuLinks"></div>
-  <div class="menu-divider"></div>
-  <button onclick="handleLogout()">Sign Out</button>
-</div>
+<div id="pcd-nav" data-page="quotes"></div>
 
 <div class="page" id="pageContent">
   <div class="loading-wrap"><div class="spinner-large"></div>Loading quote...</div>
 </div>
 
+<div id="pcd-footer"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="components/navigator.js"></script>
+<script src="components/footer.js"></script>
 <script>
 const { createClient } = window.supabase;
 const _supabase = createClient(
@@ -401,21 +386,6 @@ const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false;
 let _returnHistory = [];
 
-function toggleMenu() {
-  const btn = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  btn.classList.toggle('open');
-  menu.classList.toggle('show');
-}
-document.addEventListener('click', function(e) {
-  const btn = document.getElementById('hamburger');
-  const menu = document.getElementById('mobileMenu');
-  if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-    btn.classList.remove('open'); menu.classList.remove('show');
-  }
-});
-
-async function handleLogout() { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
 function formatDateTime(str) {
@@ -458,26 +428,6 @@ async function init() {
   const isAdmin = ['admin','super_admin'].includes(me?.role);
   _isAdmin = isAdmin;
   if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
-
-  if (isAdmin) {
-    document.getElementById('navRight').innerHTML = `
-      <a href="admin.html" class="nav-link">Dashboard</a>
-      <a href="admin-quotes.html" class="nav-link active">Quotes</a>
-      <a href="admin-dealers.html" class="nav-link">Dealers</a>
-      <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
-    document.getElementById('mobileMenuLinks').innerHTML = `
-      <a href="admin.html">Dashboard</a><a href="admin-quotes.html" class="active">Quotes</a><a href="admin-dealers.html">Dealers</a>`;
-  } else {
-    document.getElementById('navRight').innerHTML = `
-      <a href="dashboard.html" class="nav-link">Dashboard</a>
-      <a href="quotes.html" class="nav-link active">My Quotes</a>
-      <a href="new-quote.html" class="nav-link">New Quote</a>
-      <a href="dealer-profile.html" class="nav-link">Edit Profile</a>
-      <button class="nav-logout" onclick="handleLogout()">Sign Out</button>`;
-    document.getElementById('mobileMenuLinks').innerHTML = `
-      <a href="dashboard.html">Dashboard</a><a href="quotes.html" class="active">My Quotes</a>
-      <a href="new-quote.html">New Quote</a><a href="dealer-profile.html">Edit Profile</a>`;
-  }
 
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
   let shippingAddr = null;
@@ -578,6 +528,11 @@ function renderQuote(quote, dealer, addr) {
   const items = quote.quote_items || [];
   const sc    = statusClass[quote.status] || 'pending';
   const isReturned = quote.status === 'Returned';
+
+  // Back link target — admin → admin-quotes, dealer → quotes
+  const backHref  = _isAdmin ? 'admin-quotes.html' : 'quotes.html';
+  const backLabel = _isAdmin ? '← Back to Quotes' : '← Back to My Quotes';
+  const backLinkHtml = `<a href="${backHref}" class="back-link">${backLabel}</a>`;
 
   // C1: detect pending shipping for display logic
   const pendingShipping = isPendingShipping(quote);
@@ -764,6 +719,7 @@ function renderQuote(quote, dealer, addr) {
   const returnHistoryHtml = buildReturnHistoryHtml();
 
   document.getElementById('pageContent').innerHTML = `
+    ${backLinkHtml}
     ${returnedBannerHtml}
     ${returnHistoryHtml}
     <div class="quote-header">
