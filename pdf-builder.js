@@ -22,6 +22,7 @@
     border:    [221, 216, 204],
     gold:      [201, 168, 76],
     white:     [255, 255, 255],
+    pending:   [224, 123, 57],   // C1: orange for pending shipping (matches UI #E07B39)
   };
 
   // PDF 版面常數
@@ -98,6 +99,23 @@
       img.onerror = reject;
       img.src = url;
     });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // C1: Pending shipping detection
+  //
+  // A quote has "pending shipping" when:
+  //   - logistic_type === 'shipping' AND
+  //   - shipping_cost is NULL/undefined (not yet confirmed by Sales)
+  //
+  // Caller may also explicitly pass quoteData._isPendingShipping = true
+  // (Step 3 sets this when the upcoming write would put NULL into DB).
+  // ─────────────────────────────────────────────────────────────────────────
+  function _isPendingShipping(quoteData) {
+    if (!quoteData) return false;
+    if (quoteData._isPendingShipping === true) return true;
+    if (quoteData.logistic_type !== 'shipping') return false;
+    return (quoteData.shipping_cost === null || quoteData.shipping_cost === undefined);
   }
 
   // ----------------------------------------
@@ -415,6 +433,15 @@
   // Totals 區塊
   // ----------------------------------------
 
+  /**
+   * 畫 Totals 區塊（右下角）
+   *
+   * C1 changes:
+   *   - context.pendingShipping (boolean) — 若 true，Shipping 行顯示
+   *     "Contact Sales Team" (橘色) 而非數字；grand total 已由 caller
+   *     計算為「不含 shipping」。
+   *   - 在 Order Total 下方多印一行 footnote 提示。
+   */
   function _drawTotals(doc, context) {
     const { pageW, margin } = LAYOUT;
     const {
@@ -422,6 +449,7 @@
       asmByType,
       taxExempt = false,
       freeShipping = false,
+      pendingShipping = false,    // C1
       showPrices = true,
       startY,
       items,
@@ -433,6 +461,7 @@
     const valX    = pageW - margin;
     let y = startY;
 
+    // ── Subtotal ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -444,6 +473,7 @@
     );
     y += 6;
 
+    // ── Assemble Fee ──
     if (totals.assembleTotal > 0) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
@@ -470,18 +500,31 @@
       y += 2;
     }
 
+    // ── Shipping ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text('Shipping', totalsX, y);
-    doc.setTextColor(40, 40, 40);
-    let shippingStr;
-    if (!showPrices) shippingStr = '—';
-    else if (freeShipping) shippingStr = 'FREE';
-    else shippingStr = `$${totals.shipping.toFixed(2)}`;
-    doc.text(shippingStr, valX, y, { align: 'right' });
+
+    if (!showPrices) {
+      doc.setTextColor(40, 40, 40);
+      doc.text('—', valX, y, { align: 'right' });
+    } else if (pendingShipping) {
+      // C1: pending → orange "Contact Sales Team"
+      doc.setTextColor(...COLORS.pending);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Contact Sales Team', valX, y, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+    } else if (freeShipping) {
+      doc.setTextColor(40, 40, 40);
+      doc.text('FREE', valX, y, { align: 'right' });
+    } else {
+      doc.setTextColor(40, 40, 40);
+      doc.text(`$${totals.shipping.toFixed(2)}`, valX, y, { align: 'right' });
+    }
     y += 6;
 
+    // ── Tax ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -498,6 +541,7 @@
     doc.line(totalsX, y, valX, y);
     y += 5;
 
+    // ── Order Total ──
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
@@ -506,6 +550,19 @@
       showPrices ? `$${totals.grand.toFixed(2)}` : '—',
       valX, y, { align: 'right' }
     );
+    y += 5;
+
+    // ── C1: pending-shipping footnote ──
+    if (showPrices && pendingShipping) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...COLORS.pending);
+      doc.text(
+        '* Shipping fee pending — final total will be confirmed by Sales',
+        valX, y, { align: 'right' }
+      );
+      y += 4;
+    }
 
     return y;
   }
@@ -595,6 +652,12 @@
 
   /**
    * 內部用：畫完 items table 後，處理 totals + T&C + footer + 頁碼
+   *
+   * C1: shipping resolution priority:
+   *   1) pending shipping (logistic=shipping && shipping_cost==null) → "Contact Sales Team",
+   *      grand total excludes shipping
+   *   2) explicit quoteData.shipping_cost (admin-set) → use as-is, no formula
+   *   3) fallback formula on marked subtotal (legacy / preview path)
    */
   function _finalizeWithTotals(args) {
     const {
@@ -610,21 +673,36 @@
       (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
     );
 
-    const logisticType = quoteData.logistic_type || 'pickup';
-    const deliveryFee = parseFloat(quoteData.delivery_fee || 0);
-    let shipping = 0;
-    if (logisticType === 'delivery') {
-      shipping = deliveryFee;
-    } else if (logisticType === 'shipping') {
-      if      (markedSubtotal <= 6000)  shipping = markedSubtotal * 0.15;
-      else if (markedSubtotal <= 9000)  shipping = markedSubtotal * 0.12;
-      else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
+    const logisticType    = quoteData.logistic_type || 'pickup';
+    const deliveryFee     = parseFloat(quoteData.delivery_fee || 0);
+    const pendingShipping = _isPendingShipping(quoteData);
+
+    // ── C1: shipping resolution ──
+    let shipping;
+    if (pendingShipping) {
+      shipping = 0;  // not added to grand total
+    } else if (quoteData.shipping_cost !== null && quoteData.shipping_cost !== undefined) {
+      // Use admin-confirmed / DB-stored value as-is (also covers pickup=0, delivery, computed shipping)
+      shipping = parseFloat(quoteData.shipping_cost) || 0;
+    } else {
+      // No shipping_cost provided (legacy preview path) — fall back to formula
+      shipping = 0;
+      if (logisticType === 'delivery') {
+        shipping = deliveryFee;
+      } else if (logisticType === 'shipping') {
+        if      (markedSubtotal <= 3000)  shipping = 0;  // would be NULL in new flow
+        else if (markedSubtotal <= 6000)  shipping = markedSubtotal * 0.15;
+        else if (markedSubtotal <= 9000)  shipping = markedSubtotal * 0.12;
+        else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
+        else                              shipping = 0;
+      }
     }
 
-    const taxRate = quoteData._taxRate || 0;
+    const taxRate   = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
-    const tax = taxExempt ? 0 : markedSubtotal * taxRate;
-    const grand = markedSubtotal + assembleTotal + shipping + tax;
+    const tax       = taxExempt ? 0 : markedSubtotal * taxRate;
+    // C1: pending → exclude shipping from grand total
+    const grand     = markedSubtotal + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
 
     const totals = {
       subtotal:      markedSubtotal,
@@ -654,9 +732,11 @@
     _drawTermsAndConditions(doc, { startY: y });
 
     // Totals（右側）
-    const freeShipping = shipping === 0 && markedSubtotal > 0;
+    // C1: freeShipping only when explicitly $0 and not pending
+    const freeShipping = !pendingShipping && shipping === 0 && markedSubtotal > 0;
     _drawTotals(doc, {
       totals, asmByType, taxExempt, freeShipping,
+      pendingShipping,                  // C1
       showPrices, startY: y, items,
     });
 
@@ -832,10 +912,11 @@
     _LAYOUT:     LAYOUT,
 
     // ─── Internal Helpers ───
-    _typeRank:      _typeRank,
-    _groupAndSort:  _groupAndSort,
-    _calcAsmByType: _calcAsmByType,
-    _loadImage:     _loadImage,
+    _typeRank:          _typeRank,
+    _groupAndSort:      _groupAndSort,
+    _calcAsmByType:     _calcAsmByType,
+    _loadImage:         _loadImage,
+    _isPendingShipping: _isPendingShipping,   // C1
 
     // ─── Internal Drawing Blocks ───
     _drawHeader:             _drawHeader,
