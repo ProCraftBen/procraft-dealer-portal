@@ -1,11 +1,22 @@
 /* ──────────────────────────────────────────────────────────────────────
- * ProCraft Dealer Portal — Unified Footer Component (v1.0)
+ * ProCraft Dealer Portal — Unified Footer Component (v1.2)
  *
  * Self-contained sticky footer that sits at the bottom of every page.
  * Mirrors navigator.js design:
  *   - Dark green background (echoes navbar)
  *   - Gold accent color
  *   - Same typography stack
+ *
+ * v1.2 CHANGES:
+ *   - Fix RWD bug: body > .page now has min-width:0 + width:100%
+ *     Previously, flex-shrink:0 + flex-basis:auto caused .page to grow
+ *     to its content's natural width (e.g. 1200px wide tables) and
+ *     refuse to shrink on mobile, breaking responsive layout. Adding
+ *     min-width:0 + width:100% lets .page respect the viewport width.
+ *
+ * v1.1 CHANGES:
+ *   - Added width:100% !important on body to prevent column body from
+ *     shrinking to child width.
  *
  * USAGE in any HTML page:
  *   1. Add `<div id="pcd-footer"></div>` near the end of <body>
@@ -37,6 +48,13 @@
   // The body flex layout is what makes the footer sticky to bottom.
   // We use min-height:100vh + flex column on body, and flex:1 on the
   // main content wrapper so it pushes the footer down on short pages.
+  //
+  // CRITICAL — min-width:0 + width:100% on body > .page:
+  //   Default flex items have min-width:auto, which means they won't
+  //   shrink below their content's intrinsic width. With wide tables
+  //   inside .page, this caused the page to stay at desktop width even
+  //   on mobile viewports, breaking RWD. Setting min-width:0 lets it
+  //   shrink; width:100% makes it match the viewport.
   const STYLES = `
     /* Sticky footer layout — turns body into a flex column.
        width:100% is critical — without it, flex column body can shrink
@@ -48,9 +66,14 @@
       width: 100% !important;
     }
     /* Make .page (main content wrapper used across all pages) grow to
-       fill available space — this pushes footer to bottom on short pages */
+       fill available space — this pushes footer to bottom on short pages.
+       min-width:0 + width:100% lets it respect viewport width on mobile,
+       so wide internal content (tables) stays inside its scroll container
+       instead of forcing .page itself to expand. */
     body > .page {
       flex: 1 0 auto;
+      min-width: 0;
+      width: 100%;
     }
     /* Footer must not shrink */
     #pcd-footer {
