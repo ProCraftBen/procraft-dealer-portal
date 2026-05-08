@@ -910,7 +910,10 @@ function renderTable() {
 }
 
 // ── Event delegation for dynamically-rendered Delete Draft buttons ──
-document.addEventListener('DOMContentLoaded', function() {
+// Note: script is at end of <body>, so DOM is already ready when this runs.
+// We do NOT wait for DOMContentLoaded — that event has already fired by now,
+// so adding a listener for it would never fire.
+(function attachDeleteDelegation() {
   const tbody = document.getElementById('quotesBody');
   if (!tbody) return;
   tbody.addEventListener('click', function(e) {
@@ -923,7 +926,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const dealerId = btn.dataset.dealerId;
     if (quoteId) openDeleteDraftModal(quoteId, jobName, dealerId);
   });
-});
+})();
 
 // ── Toggle detail row ──────────────────────────────────────────────
 function toggleDetail(idx) {
