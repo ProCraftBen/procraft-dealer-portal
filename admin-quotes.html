@@ -334,11 +334,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL  = 'https://acwgemgpnusworpxxoai.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
+
 const { createClient } = window.supabase;
-const _supabase = createClient(
-  'https://acwgemgpnusworpxxoai.supabase.co',
-  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
-);
+const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
 const statusClass = {
@@ -389,7 +389,7 @@ async function init() {
 
   const { data: dealers } = await _supabase
     .from('dealers')
-    .select('id, uid, company_name, contact_name, email, city, state')
+    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state')
     .order('company_name');
 
   if (dealers) {
@@ -796,9 +796,10 @@ async function confirmReturnQuote() {
   const q = allQuotes.find(function(q) { return q.id === quoteId; });
   const revisionAtReturn = (q && q.revision_number) ? q.revision_number : 1;
 
-  // 取得目前登入的 admin id（returned_by）
+  // 取得目前登入的 admin id（returned_by） + access_token（呼叫 Edge Function 用）
   const { data: { session } } = await _supabase.auth.getSession();
-  const adminId = session && session.user ? session.user.id : null;
+  const adminId      = session && session.user ? session.user.id : null;
+  const accessToken  = session ? session.access_token : null;
 
   if (!adminId) {
     btn.disabled = false;
@@ -835,14 +836,64 @@ async function confirmReturnQuote() {
     });
 
   if (historyErr) {
-    // 不擋下整體流程（quote 已成功標記為 Returned），但 console 警告 + toast 提示
+    // 不擋下整體流程（quote 已成功標記為 Returned），但 console 警告
     console.warn('[confirmReturnQuote] Failed to write quote_return_history:', historyErr);
-    showToast('Quote returned, but history log failed to save.');
   }
 
-  // TODO 5.2: 之後這裡會呼叫 Edge Function 寄退回通知 email
+  // ── Step 3 (5.2-B): 寄退回通知 email 給 dealer ──
+  // 即使 email 寄送失敗也不擋流程：quote 已經 Returned，dealer 仍可在 portal 看到。
+  // 但會在 console 警告，並改用不同 toast 文案。
+  let emailErr = null;
+  try {
+    const dealer = allDealers[q.dealer_id] || {};
 
-  // 更新 local state
+    // 組 quote payload — 給 Edge Function 用 'return' 模式所需的欄位
+    const quotePayload = {
+      id:             quoteId,
+      po_number:      q.po_number,
+      job_name:       q.job_name,
+      shipping_cost:  q.shipping_cost,   // null = pending；數字 = admin 已設過
+      return_reason:  reason,
+    };
+
+    // 組 dealer payload — 含 email 通知設定
+    const dealerPayload = {
+      email:                    dealer.email,
+      contact_name:             dealer.contact_name,
+      company_name:             dealer.company_name,
+      secondary_email:          dealer.secondary_email,
+      secondary_email_notify:   dealer.secondary_email_notify,
+      optional_email_2:         dealer.optional_email_2,
+      optional_email_2_notify:  dealer.optional_email_2_notify,
+    };
+
+    const res = await fetch(SUPABASE_URL + '/functions/v1/send-quote-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + accessToken,
+        'apikey': SUPABASE_ANON,
+      },
+      body: JSON.stringify({
+        notification_type: 'return',
+        quote:             quotePayload,
+        dealer:            dealerPayload,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      emailErr = new Error('HTTP ' + res.status + ': ' + errBody);
+    }
+  } catch (e) {
+    emailErr = e;
+  }
+
+  if (emailErr) {
+    console.warn('[confirmReturnQuote] Failed to send return notification email:', emailErr);
+  }
+
+  // ── 更新 local state ──
   if (q) {
     q.status = 'Returned';
     q.return_reason = reason;
@@ -857,9 +908,13 @@ async function confirmReturnQuote() {
   renderStats();
   renderTable();
 
-  // 沒有 historyErr 才顯示成功 toast（避免覆蓋上面的警告）
-  if (!historyErr) {
-    showToast('Quote returned to dealer.');
+  // 根據 history / email 狀態決定 toast 文案（優先順序：email > history > 成功）
+  if (emailErr) {
+    showToast('Quote returned, but email notification failed to send.');
+  } else if (historyErr) {
+    showToast('Quote returned, but history log failed to save.');
+  } else {
+    showToast('Quote returned and dealer notified.');
   }
 }
 
