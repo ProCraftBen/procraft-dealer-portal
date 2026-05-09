@@ -1,5 +1,5 @@
 /* ============================================================
- * ProCraft Dealer Portal — Quote Flow Header Component v1.0
+ * ProCraft Dealer Portal — Quote Flow Header Component v1.1
  *
  * Renders a minimal header for the new-quote step1/2/3 flow:
  *  - (Optional) Orange "Admin Mode" bar
@@ -12,15 +12,22 @@
  * Optional attributes on the mount div:
  *   data-step="1|2|3"        — current step (required)
  *
- * The component reads context from URL params + sessionStorage:
+ * The component reads context from URL params + sessionStorage + DB:
  *   ?adminDraft=1            → admin creating a draft on dealer's behalf
  *   ?draft={quoteId}         → resuming a Draft or Returned quote
  *   sessionStorage.quoteStep1 → may contain isResumingReturned flag
  *   sessionStorage.adminDraftDealerId → dealer id for admin-draft mode
+ *   DB lookup (fallback)     → quote.status === 'Returned'
+ *                              (handles first entry from quote-detail before
+ *                               step1's init() writes sessionStorage)
  *
  * Logo click → confirm dialog (avoids accidental data loss).
  * Discard button → context-aware label + target.
  * Admin Mode bar → shown when admin is editing on dealer's behalf.
+ *
+ * v1.1 fix: Resolve isResumingReturned in async path (with DB fallback)
+ *           so Admin Mode bar shows on first entry to step1, not just
+ *           when sessionStorage already has the flag.
  * ============================================================ */
 
 (function () {
@@ -213,23 +220,25 @@
     `;
   }
 
-  // ── Context resolution ──────────────────────────────────────
+  // ── Context resolution (sync only — DB-aware bits resolved later) ──
   // Returns: {
-  //   draftId, adminDraftFlag, isResumingReturned,
-  //   adminDealerIdHint  — from sessionStorage (admin-draft mode)
+  //   draftId, adminDraftFlag,
+  //   isResumingReturnedHint  — from sessionStorage (may be false even when actually
+  //                             resuming Returned, if step1 hasn't written sessionStorage yet)
+  //   adminDealerIdHint       — from sessionStorage (admin-draft mode)
   // }
   function readContext() {
     const params = new URLSearchParams(window.location.search);
     const draftId = params.get('draft') || null;
     const adminDraftFlag = params.get('adminDraft') === '1';
 
-    let isResumingReturned = false;
+    let isResumingReturnedHint = false;
     let adminDealerIdHint = null;
     try {
       const s1raw = sessionStorage.getItem('quoteStep1');
       if (s1raw) {
         const s1 = JSON.parse(s1raw);
-        if (s1 && s1.isResumingReturned) isResumingReturned = true;
+        if (s1 && s1.isResumingReturned) isResumingReturnedHint = true;
         if (s1 && s1.dealerIdForQuote) adminDealerIdHint = s1.dealerIdForQuote;
       }
     } catch (_) { /* ignore */ }
@@ -238,30 +247,30 @@
       adminDealerIdHint = sessionStorage.getItem('adminDraftDealerId') || null;
     }
 
-    return { draftId, adminDraftFlag, isResumingReturned, adminDealerIdHint };
+    return { draftId, adminDraftFlag, isResumingReturnedHint, adminDealerIdHint };
   }
 
   // ── Discard label + target resolver ─────────────────────────
-  function resolveDiscard(ctx, viewerIsAdmin) {
+  function resolveDiscard(opts) {
     // Label: "Cancel Editing" only when resuming a Returned quote
-    const label = ctx.isResumingReturned ? 'Cancel Editing' : 'Discard';
+    const label = opts.isResumingReturned ? 'Cancel Editing' : 'Discard';
 
     // Target URL
     let target;
-    if (ctx.isResumingReturned && ctx.draftId) {
-      target = `quote-detail.html?id=${ctx.draftId}`;
-    } else if (ctx.adminDraftFlag) {
+    if (opts.isResumingReturned && opts.draftId) {
+      target = `quote-detail.html?id=${opts.draftId}`;
+    } else if (opts.adminDraftFlag) {
       target = 'admin-quotes.html';
-    } else if (ctx.draftId) {
+    } else if (opts.draftId) {
       // Editing a plain Draft → list of quotes
-      target = viewerIsAdmin ? 'admin-quotes.html' : 'quotes.html';
+      target = opts.viewerIsAdmin ? 'admin-quotes.html' : 'quotes.html';
     } else {
       // Brand new quote
-      target = viewerIsAdmin ? 'admin.html' : 'dashboard.html';
+      target = opts.viewerIsAdmin ? 'admin.html' : 'dashboard.html';
     }
 
     // Confirm message
-    const confirmMsg = ctx.isResumingReturned
+    const confirmMsg = opts.isResumingReturned
       ? 'Cancel editing? Unsaved changes will be lost.'
       : 'Discard your changes? Unsaved data will be lost.';
 
@@ -273,36 +282,36 @@
     return viewerIsAdmin ? 'admin.html' : 'dashboard.html';
   }
 
-  function bindBehaviors(ctx, viewerIsAdmin) {
+  function bindBehaviors(opts) {
     // Discard button
     const btn = document.getElementById('pcd-qfh-discard');
     if (btn) {
-      const { label, target, confirmMsg } = resolveDiscard(ctx, viewerIsAdmin);
+      const { label, target, confirmMsg } = resolveDiscard(opts);
       btn.textContent = label;
-      btn.addEventListener('click', () => {
+      // Replace listener on every call so re-binding (after async resolves) wins
+      btn.onclick = () => {
         if (window.confirm(confirmMsg)) {
-          // Clear flow-only sessionStorage so a fresh entry is clean
           try {
             sessionStorage.removeItem('quoteStep1');
             sessionStorage.removeItem('quoteStep2');
           } catch (_) {}
           window.location.href = target;
         }
-      });
+      };
     }
 
     // Logo click — confirm before leaving
     const logo = document.getElementById('pcd-qfh-logo');
     if (logo) {
-      logo.addEventListener('click', () => {
+      logo.onclick = () => {
         if (window.confirm('Discard your unsaved changes?')) {
           try {
             sessionStorage.removeItem('quoteStep1');
             sessionStorage.removeItem('quoteStep2');
           } catch (_) {}
-          window.location.href = resolveLogoTarget(viewerIsAdmin);
+          window.location.href = resolveLogoTarget(opts.viewerIsAdmin);
         }
-      });
+      };
     }
   }
 
@@ -317,11 +326,22 @@
     bar.style.display = 'flex';
   }
 
-  // ── Async resolver: figure out viewer role + admin-mode dealer ──
+  // ── Async resolver: figure out viewer role + isResumingReturned + admin-mode dealer ──
+  // Resolution priority for isResumingReturned:
+  //   1. sessionStorage hint (set by step pages after their own init())
+  //   2. DB lookup on quote.status when ?draft=xxx is present
+  //
+  // The DB fallback handles the first entry into step1 from quote-detail's
+  // "Edit & Resubmit" button: at that moment sessionStorage is empty, but the
+  // header still needs to know it's a Returned-resume to show the Admin bar.
   async function resolveAsyncContext(ctx) {
     // Fail-soft: if Supabase not present, skip async work
     if (!window.supabase || !window.supabase.createClient) {
-      return { viewerIsAdmin: false, adminBarDealerName: null };
+      return {
+        viewerIsAdmin: false,
+        isResumingReturned: ctx.isResumingReturnedHint,
+        adminBarDealerName: null,
+      };
     }
 
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -334,8 +354,12 @@
     } catch (_) { /* ignore */ }
 
     if (!session) {
-      // Not logged in — page itself will redirect; we don't show admin bar
-      return { viewerIsAdmin: false, adminBarDealerName: null };
+      // Not logged in — page itself will redirect; skip
+      return {
+        viewerIsAdmin: false,
+        isResumingReturned: ctx.isResumingReturnedHint,
+        adminBarDealerName: null,
+      };
     }
 
     // Resolve viewer role
@@ -347,21 +371,35 @@
       viewerIsAdmin = (role === 'admin' || role === 'super_admin');
     } catch (_) { /* ignore */ }
 
-    // Resolve target dealer for admin bar
-    // Show admin bar when:
-    //   - adminDraftFlag (?adminDraft=1) — admin creating draft on dealer's behalf, OR
-    //   - isResumingReturned && viewer is admin — admin editing dealer's Returned quote
+    // ── v1.1: Resolve isResumingReturned via DB fallback ──
+    // Start with sessionStorage hint; if we have ?draft and the hint is false,
+    // ask the DB whether the quote is actually Returned.
+    let isResumingReturned = ctx.isResumingReturnedHint;
+    let quoteOwnerDealerId = null;
+
+    if (ctx.draftId) {
+      try {
+        const { data: q } = await sb.from('quotes')
+          .select('status, dealer_id').eq('id', ctx.draftId).single();
+        if (q) {
+          quoteOwnerDealerId = q.dealer_id || null;
+          if (q.status === 'Returned') isResumingReturned = true;
+        }
+      } catch (_) { /* ignore — fall back to sessionStorage hint */ }
+    }
+
+    // ── Decide which dealer (if any) to show in Admin Mode bar ──
+    // Show the bar when:
+    //   - adminDraftFlag (?adminDraft=1) — admin creating draft on dealer's behalf
+    //   - viewer is admin AND quote owner is a different user (resuming someone
+    //     else's Draft or Returned quote)
     let adminBarDealerName = null;
     let targetDealerId = null;
 
     if (ctx.adminDraftFlag) {
       targetDealerId = ctx.adminDealerIdHint;
-    } else if (ctx.isResumingReturned && viewerIsAdmin && ctx.draftId) {
-      try {
-        const { data: q } = await sb.from('quotes')
-          .select('dealer_id').eq('id', ctx.draftId).single();
-        if (q && q.dealer_id) targetDealerId = q.dealer_id;
-      } catch (_) { /* ignore */ }
+    } else if (viewerIsAdmin && ctx.draftId && quoteOwnerDealerId) {
+      targetDealerId = quoteOwnerDealerId;
     }
 
     // Only show bar if target dealer is different from logged-in user
@@ -378,7 +416,7 @@
       } catch (_) { /* ignore */ }
     }
 
-    return { viewerIsAdmin, adminBarDealerName };
+    return { viewerIsAdmin, isResumingReturned, adminBarDealerName };
   }
 
   function renderInto(container) {
@@ -390,13 +428,23 @@
     injectCss();
     renderSkeleton(container, currentStep);
 
-    // Default: assume non-admin until async resolves
-    bindBehaviors(ctx, false);
+    // Initial bind with sessionStorage-only hints (best effort, non-admin assumed)
+    bindBehaviors({
+      draftId:            ctx.draftId,
+      adminDraftFlag:     ctx.adminDraftFlag,
+      isResumingReturned: ctx.isResumingReturnedHint,
+      viewerIsAdmin:      false,
+    });
 
-    // Async: resolve role + admin bar
+    // Async: resolve viewer role + isResumingReturned (with DB fallback) + admin bar
     resolveAsyncContext(ctx).then((res) => {
-      // Re-bind behaviors with correct role (target URLs may differ)
-      bindBehaviors(ctx, res.viewerIsAdmin);
+      // Re-bind behaviors with fully-resolved info (Discard label/target may change)
+      bindBehaviors({
+        draftId:            ctx.draftId,
+        adminDraftFlag:     ctx.adminDraftFlag,
+        isResumingReturned: res.isResumingReturned,
+        viewerIsAdmin:      res.viewerIsAdmin,
+      });
 
       if (res.adminBarDealerName) {
         showAdminBar(res.adminBarDealerName);
