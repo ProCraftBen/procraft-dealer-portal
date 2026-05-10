@@ -668,9 +668,20 @@ async function init() {
     openSubcats.add(key);
   });
 
-  // Restore cart — from DB if draft, from sessionStorage if returning from step 3
+  // ── Restore cart ─────────────────────────────────────────────
+  // Resume Draft 模式:sessionStorage 優先(保留未存 DB 的修改),沒東西才從 DB 讀
+  // 非 Resume Draft:照舊讀 sessionStorage
   if (draftId) {
-    await loadDraftItems();
+    const savedCart = sessionStorage.getItem('quoteStep2');
+    if (savedCart) {
+      try {
+        const parsed = JSON.parse(savedCart);
+        if (parsed && parsed.length) cartItems = parsed;
+      } catch (e) {}
+    }
+    if (!cartItems.length) {
+      await loadDraftItems();
+    }
   } else {
     const savedCart = sessionStorage.getItem('quoteStep2');
     if (savedCart) {
@@ -1040,12 +1051,14 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
     });
   }
   if (el) el.value=0;
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
   showToast(`${sku.sku_code} (${type}) × ${qty} added`);
 }
 
 function removeFromCart(key) {
   cartItems=cartItems.filter(i=>i.key!==key);
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
 }
 
