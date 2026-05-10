@@ -410,6 +410,11 @@
       background: rgba(62,90,66,0.1);
       color: var(--green-dark);
     }
+    /* E3: Skipped badge — info-blue 灰藍色,跟 unprocessed 視覺分明 */
+    .sku-status.skipped {
+      background: rgba(90,122,149,0.1);
+      color: var(--info-blue);
+    }
     .sku-row .sku-arrow {
       flex-shrink: 0;
       color: var(--muted);
@@ -460,6 +465,267 @@
       opacity: 0.7; transition: opacity 0.2s;
     }
     .lightbox-close:hover { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ║  E3: Layer 2 Modal — Modification Configurator (CSS)        ║
+       ═══════════════════════════════════════════════════════════════ */
+
+    /* Overlay (full-screen dim background) */
+    .mf-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(44, 58, 50, 0.55);
+      z-index: 800;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .mf-modal-overlay.show { display: flex; }
+
+    /* Container */
+    .mf-modal-container {
+      width: 90vw;
+      max-width: 900px;
+      max-height: 85vh;
+      background: var(--white);
+      border-radius: 6px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .mf-modal-header {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .mf-modal-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    .mf-modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 24px;
+      line-height: 1;
+      padding: 0 4px;
+      transition: color 0.15s;
+    }
+    .mf-modal-close:hover { color: var(--text); }
+
+    /* Body (scrollable) */
+    .mf-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 22px;
+    }
+    .mf-modal-body::-webkit-scrollbar { width: 6px; }
+    .mf-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* SKU info head */
+    .mf-sku-head {
+      background: #FAFAF8;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+    }
+    .mf-sku-head-row1 {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--green-dark);
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+    .mf-sku-head-code {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .mf-sku-head-row2 {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .mf-sku-head-row2 .mf-pill {
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+    .mf-pill.framed     { background: rgba(62,90,66,0.08);    color: var(--green-dark); }
+    .mf-pill.frameless  { background: rgba(201,168,76,0.12);  color: #8B6914; }
+    .mf-pill.unknown    { background: rgba(122,140,130,0.12); color: var(--muted); }
+    .mf-pill.assembled  { background: rgba(201,168,76,0.15);  color: #8B6914; }
+
+    /* Qty>1 hint (E3 advisory; will be removed in E5 when Split is implemented) */
+    .mf-qty-hint {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(90,122,149,0.06);
+      border: 1px solid rgba(90,122,149,0.2);
+      border-left: 3px solid var(--info-blue);
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* MF Group (E3 預埋 — E5 will make this splittable) */
+    .mf-group {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: var(--white);
+    }
+    .mf-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .mf-group-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .mf-group-qty {
+      font-size: 11px;
+      color: var(--green-dark);
+      font-weight: 500;
+    }
+    .mf-group-body {
+      min-height: 80px;
+    }
+    /* E3 placeholder — E4 will fill this with MF elements */
+    .mf-placeholder {
+      padding: 30px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      border: 1px dashed var(--border);
+      border-radius: 3px;
+      background: var(--cream);
+    }
+    .mf-placeholder-title {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    /* Footer */
+    .mf-modal-footer {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .mf-modal-footer-left  { display: flex; gap: 8px; }
+    .mf-modal-footer-right { display: flex; gap: 8px; }
+
+    .mf-btn {
+      padding: 9px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.15s;
+      min-height: 38px;
+      border: 1px solid transparent;
+    }
+    .mf-btn-skip {
+      background: transparent;
+      color: var(--info-blue);
+      border-color: rgba(90,122,149,0.4);
+    }
+    .mf-btn-skip:hover {
+      background: rgba(90,122,149,0.08);
+      border-color: var(--info-blue);
+    }
+    .mf-btn-cancel {
+      background: transparent;
+      color: var(--muted);
+      border-color: var(--border);
+    }
+    .mf-btn-cancel:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
+    .mf-btn-save {
+      background: var(--green-dark);
+      color: #fff;
+      border-color: var(--green-dark);
+    }
+    .mf-btn-save:hover {
+      background: var(--green-mid);
+      border-color: var(--green-mid);
+    }
+
+    /* Body scroll lock when modal open */
+    body.mf-modal-open {
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ║  E3 Modal — Mobile RWD                                      ║
+       ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 700px) {
+      .mf-modal-overlay { padding: 10px; }
+      .mf-modal-container { max-height: 92vh; }
+      .mf-modal-header { padding: 12px 16px; }
+      .mf-modal-body { padding: 14px 16px; }
+      .mf-modal-footer {
+        padding: 12px 16px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .mf-modal-footer-left,
+      .mf-modal-footer-right {
+        width: 100%;
+        justify-content: stretch;
+      }
+      .mf-btn {
+        flex: 1;
+        padding: 9px 12px;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+      }
+      .mf-sku-head { padding: 12px 14px; }
+    }
 
     /* ── Bottom Bar ── */
     .bottom-bar {
@@ -646,6 +912,61 @@
   <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════
+     ║  E3: Layer 2 Modal — Modification Configurator (HTML)       ║
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="mf-modal-overlay" id="mfModalOverlay">
+  <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
+    <div class="mf-modal-header">
+      <span class="mf-modal-title" id="mfModalTitle">Configure Modifications</span>
+      <button class="mf-modal-close" type="button" onclick="closeMfModal()" aria-label="Close">×</button>
+    </div>
+
+    <div class="mf-modal-body">
+      <!-- SKU info head (filled by openMfModal) -->
+      <div class="mf-sku-head" id="mfSkuHead">
+        <div class="mf-sku-head-row1">
+          <span class="mf-sku-head-code" id="mfHeadCode">—</span>
+          <span id="mfHeadDescSep"> </span>
+          <span id="mfHeadDesc">—</span>
+        </div>
+        <div class="mf-sku-head-row2" id="mfHeadMeta">
+          <!-- pills filled by openMfModal -->
+        </div>
+        <!-- Qty>1 hint (only shown when quantity > 1) -->
+        <div class="mf-qty-hint" id="mfQtyHint" style="display:none;">
+          All <span id="mfQtyHintNum">N</span> units will share the same modifications. Splitting per-unit configuration coming soon.
+        </div>
+      </div>
+
+      <!-- E3: Single Group placeholder (E5 will make this splittable into multiple groups) -->
+      <div class="mf-group" data-group-no="1">
+        <div class="mf-group-header">
+          <span class="mf-group-label">Group 1</span>
+          <span class="mf-group-qty" id="mfGroup1Qty">Qty: 0</span>
+        </div>
+        <div class="mf-group-body">
+          <!-- E3 placeholder — E4 will replace with real MF elements -->
+          <div class="mf-placeholder">
+            <div class="mf-placeholder-title">Modification Elements</div>
+            <div>This area will display the available modification options for this SKU.<br>Coming in E4.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mf-modal-footer">
+      <div class="mf-modal-footer-left">
+        <button class="mf-btn mf-btn-skip" type="button" onclick="handleMfSkip()">Skip This SKU</button>
+      </div>
+      <div class="mf-modal-footer-right">
+        <button class="mf-btn mf-btn-cancel" type="button" onclick="closeMfModal()">Cancel</button>
+        <button class="mf-btn mf-btn-save" type="button" onclick="handleMfSave()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <div class="bottom-bar">
@@ -675,6 +996,9 @@ let doorStyleGroups  = [];
 let draftId          = null;
 let isResumingReturned = false;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
+
+// E3: Modal state — key of cartItem currently open in modal
+let activeMfModalKey = null;
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -821,6 +1145,9 @@ function logDoorStyleGroups(groups) {
   });
 }
 
+// E3: Progress now counts BOTH 'configured' AND 'skipped' as "done".
+// (skipped means dealer reviewed it and chose not to modify — a valid
+//  "done" state for purposes of unblocking the Review button.)
 function calculateProgress(groups) {
   let pageDone = 0;
   let pageTotal = 0;
@@ -828,7 +1155,8 @@ function calculateProgress(groups) {
   groups.forEach(function (group) {
     const total = group.assembledItems.length;
     const done  = group.assembledItems.filter(function (item) {
-      return item.modification_status === 'configured';
+      return item.modification_status === 'configured'
+          || item.modification_status === 'skipped';
     }).length;
 
     group.progress.total = total;
@@ -967,10 +1295,21 @@ function buildGroupProgressDisplay(group) {
     </div>`;
 }
 
+// E3: buildAssembledRow now supports 3 status states (unprocessed / configured / skipped).
 function buildAssembledRow(item, gIdx) {
-  const isConfigured = item.modification_status === 'configured';
-  const statusClass = isConfigured ? 'configured' : 'unprocessed';
-  const statusLabel = isConfigured ? '● Configured' : '○ Unprocessed';
+  const status = item.modification_status;
+  let statusClass, statusLabel;
+
+  if (status === 'configured') {
+    statusClass = 'configured';
+    statusLabel = '● Configured';
+  } else if (status === 'skipped') {
+    statusClass = 'skipped';
+    statusLabel = '⊘ Skipped';
+  } else {
+    statusClass = 'unprocessed';
+    statusLabel = '○ Unprocessed';
+  }
 
   return `
     <div class="sku-row assembled" onclick="onAssembledRowClick('${esc(item.key)}')">
@@ -991,9 +1330,9 @@ function buildRtaRow(item) {
     </div>`;
 }
 
+// E3: clicking an Assembled row opens the modal (replaces the E1 stub toast).
 function onAssembledRowClick(key) {
-  showToast('Configure modifications — coming in E3 (Layer 2 modal)');
-  console.log('[E1.5] Assembled row clicked, key:', key);
+  openMfModal(key);
 }
 
 function renderBottomBar(progress) {
@@ -1055,6 +1394,137 @@ function goReview() {
     : 'new-quote-step3.html';
 
   window.location.href = nextUrl;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ║                                                                 ║
+// ║  E3: Layer 2 Modal — Modification Configurator (JavaScript)     ║
+// ║                                                                 ║
+// ║  Scope (E3 only — see Stage_E_Handoff_v5.0.md Section 7):       ║
+// ║    • Modal shell: open, close, lock body scroll                 ║
+// ║    • SKU info head: code, desc, style, construction, qty pill   ║
+// ║    • Qty>1 hint: advisory text for multi-unit SKUs              ║
+// ║    • Group placeholder: <div.mf-group> ready, body empty (E4)   ║
+// ║    • Three button stubs: Skip / Cancel / Save                   ║
+// ║                                                                 ║
+// ║  NOT in E3 (deferred):                                          ║
+// ║    • MF element rendering              → E4                     ║
+// ║    • match_modifications_for_sku call  → E4                     ║
+// ║    • Quantity split into multi-group   → E5                     ║
+// ║    • Live merge / dirty tracking       → E6                     ║
+// ║    • Required-field enforcement        → E7                     ║
+// ║                                                                 ║
+// ║  Closing rules (per design Q7):                                 ║
+// ║    • × button and Cancel button close                           ║
+// ║    • Background click does NOT close (avoid mis-click)          ║
+// ║    • ESC does NOT close (avoid mis-press)                       ║
+// ║                                                                 ║
+// ═══════════════════════════════════════════════════════════════════
+
+function openMfModal(key) {
+  const item = cartItems.find(function (i) { return i.key === key; });
+  if (!item) {
+    console.warn('[E3] openMfModal: cartItem not found for key', key);
+    return;
+  }
+
+  activeMfModalKey = key;
+
+  // Look up door style for construction_type display
+  const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+  const ctype    = (styleRow && styleRow.construction_type) || 'unknown';
+  const ctypeClass = ctype === 'framed' ? 'framed'
+                  : ctype === 'frameless' ? 'frameless'
+                  : 'unknown';
+  const ctypeLabel = ctype === 'unknown' ? '—' : ctype;
+
+  // Fill SKU info head
+  document.getElementById('mfHeadCode').textContent = item.sku_code;
+  document.getElementById('mfHeadDescSep').textContent = '  ';
+  document.getElementById('mfHeadDesc').textContent = item.sku_desc || '';
+
+  document.getElementById('mfHeadMeta').innerHTML = `
+    <span>${esc(item.style_name || item.style_code)}</span>
+    <span class="mf-pill ${ctypeClass}">${esc(ctypeLabel)}</span>
+    <span class="mf-pill assembled">Assembled</span>
+    <span>· Qty ${item.quantity}</span>
+  `;
+
+  // Qty>1 hint
+  const qtyHint = document.getElementById('mfQtyHint');
+  if (item.quantity > 1) {
+    document.getElementById('mfQtyHintNum').textContent = item.quantity;
+    qtyHint.style.display = 'block';
+  } else {
+    qtyHint.style.display = 'none';
+  }
+
+  // Group 1 qty (E5 will allow split — for now, group 1 holds entire qty)
+  document.getElementById('mfGroup1Qty').textContent = 'Qty: ' + item.quantity;
+
+  // Show modal + lock body scroll
+  document.getElementById('mfModalOverlay').classList.add('show');
+  document.body.classList.add('mf-modal-open');
+
+  console.log('[E3] openMfModal', key, '→ status was:', item.modification_status);
+}
+
+function closeMfModal() {
+  document.getElementById('mfModalOverlay').classList.remove('show');
+  document.body.classList.remove('mf-modal-open');
+  activeMfModalKey = null;
+  console.log('[E3] closeMfModal (Cancel / × — no status change)');
+}
+
+// Internal: close modal without the "no status change" log line
+// (used by Save/Skip which already logged their own action).
+function closeMfModalSilent() {
+  document.getElementById('mfModalOverlay').classList.remove('show');
+  document.body.classList.remove('mf-modal-open');
+  activeMfModalKey = null;
+}
+
+// Internal helper: re-run progress calc + re-render main page after modal action.
+// Called by both handleMfSave and handleMfSkip.
+function refreshAfterModalAction() {
+  doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
+  pageProgress    = calculateProgress(doorStyleGroups);
+  renderProgressCard(pageProgress);
+  renderDoorStyleList();
+  renderBottomBar(pageProgress);
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+}
+
+function handleMfSave() {
+  if (!activeMfModalKey) return;
+  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  if (!item) return;
+
+  // E3 stub: just flip status to 'configured'.
+  // E4+ will also collect MF element values and persist them.
+  item.modification_status = 'configured';
+
+  console.log('[E3] handleMfSave', activeMfModalKey, '→ status: configured');
+
+  refreshAfterModalAction();
+  const skuCode = item.sku_code;
+  closeMfModalSilent();
+  showToast(skuCode + ' marked as Configured');
+}
+
+function handleMfSkip() {
+  if (!activeMfModalKey) return;
+  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  if (!item) return;
+
+  item.modification_status = 'skipped';
+
+  console.log('[E3] handleMfSkip', activeMfModalKey, '→ status: skipped');
+
+  refreshAfterModalAction();
+  const skuCode = item.sku_code;
+  closeMfModalSilent();
+  showToast(skuCode + ' skipped');
 }
 
 async function init() {
@@ -1195,6 +1665,7 @@ async function init() {
   console.log('[E1.5] door style list rendered (with zoom icon on image thumbs)');
   console.log('[E1.7] bottom bar rendered, Review button enabled:', !document.getElementById('btnNext').disabled);
   console.log('[E1.9] goReview() wired up');
+  console.log('[E3] Layer 2 modal shell ready (openMfModal / closeMfModal / handleMfSave / handleMfSkip)');
 
   setInterval(async function () {
     const { data: check } = await _supabase
