@@ -520,7 +520,7 @@
   <div class="cart-footer" id="cartFooter" style="display:none;">
     <div class="cart-total"><span>Subtotal</span><span id="cartTotal">$0.00</span></div>
     <div class="cart-note">* Dealer pricing applied. Final pricing confirmed upon order processing.</div>
-    <button class="btn-checkout" id="btnCheckout" onclick="goNext()">Review Quote →</button>
+    <button class="btn-checkout" id="btnCheckout" onclick="goNext()">Continue →</button>
   </div>
 </div>
 
@@ -532,7 +532,7 @@
   <div class="bottom-left"><strong id="bottomCount">0 items</strong> in quote</div>
   <div style="display:flex;gap:10px;align-items:center;">
     <a href="new-quote.html" class="btn-back" id="btnBack">← Back</a>
-    <button class="btn-next" id="btnNext" onclick="goNext()" disabled>Review Quote →</button>
+    <button class="btn-next" id="btnNext" onclick="goNext()" disabled>Continue →</button>
   </div>
 </div>
 
@@ -1120,7 +1120,7 @@ function showToast(msg) {
 function goNext() {
   if (!cartItems.length) return;
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-  const nextUrl = draftId ? 'new-quote-step3.html?draft=' + draftId : 'new-quote-step3.html';
+  const nextUrl = draftId ? 'new-quote-modifications.html?draft=' + draftId : 'new-quote-modifications.html';
   window.location.href = nextUrl;
 }
 
