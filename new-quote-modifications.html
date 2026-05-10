@@ -124,6 +124,11 @@
     .progress-bar-fill.complete {
       background: var(--gold);
     }
+    /* Empty state — no Assembled SKUs at all */
+    .progress-card.no-assembled .progress-count {
+      color: var(--muted);
+      font-weight: 400;
+    }
 
     /* ── Door Style Card ── */
     .ds-card {
@@ -707,10 +712,13 @@ const _supabase = createClient(
 // ── State ──
 let dealer           = null;
 let cartItems        = [];
-let allDoorStyles    = [];   // for thumb image lookup
-let doorStyleGroups  = [];   // ── E1.3: cart grouped by door style ──
+let allDoorStyles    = [];
+let doorStyleGroups  = [];
 let draftId          = null;
 let isResumingReturned = false;
+
+// ── Page-level progress (E1.4) ──
+let pageProgress = { done: 0, total: 0, percent: 0 };
 
 // ── Color map for fallback swatches (mirrors Step 2) ──
 const colorMap = {
@@ -760,7 +768,7 @@ function normalizeCartItems(items) {
   });
 }
 
-// ── Load draft items from DB → rebuild cartItems (mirrors Step 2 pattern) ──
+// ── Load draft items from DB ──
 async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   const { data: items, error } = await _supabase
     .from('quote_items').select('*').eq('quote_id', draftId);
@@ -786,67 +794,45 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   });
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E1.3: buildDoorStyleGroups
-//
-// Transforms flat cartItems → array of door-style groups for E1.5 to render.
-//
-// Order rules:
-//   - Groups are ordered by "first appearance in cart" (Q1)
-//   - Within each group, assembledItems / rtaItems preserve cart order (Q2)
-//
-// Discontinued style handling (Q3):
-//   - If a style_code in cartItems isn't found in allDoorStyles
-//     (e.g. admin set is_active=false after dealer added it),
-//     the group is still created with fallback fields, and
-//     `is_discontinued: true` flag is set so E1.5 can render a
-//     light warning banner.
-// ──────────────────────────────────────────────────────────────────
+// ── E1.3: Build doorStyleGroups ──
 function buildDoorStyleGroups(items, doorStyles) {
   const groups = [];
-  const indexByCode = new Map();  // style_code → index in groups[]
+  const indexByCode = new Map();
 
   items.forEach(function (item) {
     const code = item.style_code;
     let idx = indexByCode.get(code);
 
-    // Lazy-create the group on first encounter of this style_code
     if (idx === undefined) {
       const styleRow = doorStyles.find(function (s) { return s.style_code === code; });
-
       const group = {
         style_code:        code,
-        style_name:        (styleRow && styleRow.style_name) ||
-                           item.style_name ||
-                           code,
+        style_name:        (styleRow && styleRow.style_name) || item.style_name || code,
         construction_type: (styleRow && styleRow.construction_type) || 'unknown',
         image_url:         (styleRow && styleRow.image_url) || null,
         color:             (styleRow && styleRow.color) || null,
         subcategory:       (styleRow && styleRow.subcategory) || null,
-        is_discontinued:   !styleRow,   // ← E1.5 will check this flag
+        is_discontinued:   !styleRow,
         assembledItems:    [],
         rtaItems:          [],
-        progress:          { done: 0, total: 0 },  // E1.4 will fill this
+        progress:          { done: 0, total: 0 },
       };
-
       groups.push(group);
       idx = groups.length - 1;
       indexByCode.set(code, idx);
     }
 
-    // Append item to the appropriate sub-list (preserves cart order)
     if (item.type === 'Assembled') {
       groups[idx].assembledItems.push(item);
     } else if (item.type === 'RTA') {
       groups[idx].rtaItems.push(item);
     }
-    // Other types (if any): silently dropped — should not occur in v1
   });
 
   return groups;
 }
 
-// ── Pretty-print doorStyleGroups to console for E1.3 verification ──
+// ── E1.3 Pretty-print ──
 function logDoorStyleGroups(groups) {
   console.log('[E1.3] doorStyleGroups built (' + groups.length + ' group' + (groups.length !== 1 ? 's' : '') + '):');
   groups.forEach(function (g, i) {
@@ -859,6 +845,81 @@ function logDoorStyleGroups(groups) {
       '  ·  RTA: ' + g.rtaItems.length + ' SKU' + (g.rtaItems.length !== 1 ? 's' : '')
     );
   });
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E1.4: calculateProgress
+//
+// Computes:
+//   - per-group progress: Number of Assembled SKUs in that group whose
+//     modification_status === 'configured', out of total Assembled SKUs.
+//     Mutates each group's `progress` object in-place.
+//   - page-level progress: Same calculation across all Assembled SKUs.
+//     Returns an object { done, total, percent }.
+//
+// RTA SKUs are excluded entirely (they default to 'skipped' and don't
+// contribute to the denominator).
+//
+// Edge cases:
+//   - If total === 0 (no Assembled SKUs anywhere or in a group), percent
+//     is reported as 100% — semantically "nothing pending = complete".
+// ──────────────────────────────────────────────────────────────────
+function calculateProgress(groups) {
+  let pageDone = 0;
+  let pageTotal = 0;
+
+  groups.forEach(function (group) {
+    const total = group.assembledItems.length;
+    const done  = group.assembledItems.filter(function (item) {
+      return item.modification_status === 'configured';
+    }).length;
+
+    group.progress.total = total;
+    group.progress.done  = done;
+
+    pageTotal += total;
+    pageDone  += done;
+  });
+
+  const percent = pageTotal === 0 ? 100 : Math.round((pageDone / pageTotal) * 100);
+
+  return { done: pageDone, total: pageTotal, percent: percent };
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E1.4: renderProgressCard
+//
+// Updates the top progress card DOM:
+//   - "X / Y done · Z%" text
+//   - progress bar fill width
+//   - bar color: green during progress, gold when complete (100%)
+//   - special class for "no Assembled SKUs at all" case
+// ──────────────────────────────────────────────────────────────────
+function renderProgressCard(progress) {
+  const card        = document.getElementById('progressCard');
+  const doneEl      = document.getElementById('progressDone');
+  const totalEl     = document.getElementById('progressTotal');
+  const percentEl   = document.getElementById('progressPercent');
+  const barFillEl   = document.getElementById('progressBarFill');
+
+  doneEl.textContent    = progress.done;
+  totalEl.textContent   = progress.total;
+  percentEl.textContent = progress.percent + '%';
+  barFillEl.style.width = progress.percent + '%';
+
+  // Color: gold when fully complete, green otherwise
+  if (progress.total > 0 && progress.done === progress.total) {
+    barFillEl.classList.add('complete');
+  } else {
+    barFillEl.classList.remove('complete');
+  }
+
+  // Special styling for "all RTA, no Assembled" case
+  if (progress.total === 0) {
+    card.classList.add('no-assembled');
+  } else {
+    card.classList.remove('no-assembled');
+  }
 }
 
 // ── Navigation: Review → ──
@@ -940,7 +1001,7 @@ async function init() {
   const allSkusFramed    = framedRes.data    || [];
   const allSkusFrameless = framelessRes.data || [];
 
-  // Step H: Restore cart — DB if draft, sessionStorage otherwise
+  // Step H: Restore cart
   if (draftId) {
     cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
   } else {
@@ -950,21 +1011,27 @@ async function init() {
     }
   }
 
-  // Step I: Normalize modification_status on every item
+  // Step I: Normalize modification_status
   cartItems = normalizeCartItems(cartItems);
 
   // Step J: Persist back to sessionStorage
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
-  // Step K: Guardrail — empty cart should not be on this page
+  // Step K: Guardrail
   if (!cartItems.length) {
     alert('No items in your quote. Returning to product selection.');
     window.location.href = draftId ? 'new-quote-step2.html?draft=' + draftId : 'new-quote-step2.html';
     return;
   }
 
-  // ── E1.3: Build doorStyleGroups data structure ──
+  // ── E1.3: Build doorStyleGroups ──
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
+
+  // ── E1.4: Calculate progress (per-group + page-level) ──
+  pageProgress = calculateProgress(doorStyleGroups);
+
+  // ── E1.4: Render progress card ──
+  renderProgressCard(pageProgress);
 
   // Step L: Render Returned banner if applicable
   if (isResumingReturned) {
@@ -972,13 +1039,14 @@ async function init() {
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
   }
 
-  // Step M: Update bottom bar text (proper render in E1.7)
-  const pendingAssembled = cartItems.filter(function (i) {
-    return i.type === 'Assembled' && i.modification_status !== 'configured';
-  }).length;
+  // Step M: Update bottom bar text
+  const pendingAssembled = pageProgress.total - pageProgress.done;
   const bottomStatusText = document.getElementById('bottomStatusText');
   if (bottomStatusText) {
-    if (pendingAssembled === 0) {
+    if (pageProgress.total === 0) {
+      bottomStatusText.textContent = 'No assembled items — ready to review';
+      document.getElementById('bottomStatus').classList.add('complete');
+    } else if (pendingAssembled === 0) {
       bottomStatusText.textContent = 'All set — ready to review';
       document.getElementById('bottomStatus').classList.add('complete');
     } else {
@@ -987,7 +1055,7 @@ async function init() {
     }
   }
 
-  // ── E1.2 verification logs (kept for cross-reference) ──
+  // ── Verification logs ──
   console.log('[E1.2] init() complete');
   console.log('[E1.2] dealer:', dealer);
   console.log('[E1.2] draftId:', draftId);
@@ -999,9 +1067,15 @@ async function init() {
   console.log('[E1.2] RTA count:',
     cartItems.filter(function (i) { return i.type === 'RTA'; }).length);
 
-  // ── E1.3 verification logs ──
   logDoorStyleGroups(doorStyleGroups);
   console.log('[E1.3] doorStyleGroups raw object (expand to inspect):', doorStyleGroups);
+
+  // ── E1.4 verification logs ──
+  console.log('[E1.4] page progress:', pageProgress);
+  console.log('[E1.4] per-group progress:');
+  doorStyleGroups.forEach(function (g, i) {
+    console.log('  #' + (i + 1) + '  ' + g.style_code + ': ' + g.progress.done + ' / ' + g.progress.total);
+  });
 
   // Step N: Poll is_active every 60s
   setInterval(async function () {
