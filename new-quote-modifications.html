@@ -705,11 +705,18 @@ const _supabase = createClient(
 );
 
 // ── State ──
-let dealer        = null;
-let cartItems     = [];
-let allDoorStyles = [];   // for thumb image lookup
-let draftId       = null;
+let dealer           = null;
+let cartItems        = [];
+let allDoorStyles    = [];   // for thumb image lookup
+let doorStyleGroups  = [];   // ── E1.3: cart grouped by door style ──
+let draftId          = null;
 let isResumingReturned = false;
+
+// ── Color map for fallback swatches (mirrors Step 2) ──
+const colorMap = {
+  black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
+  grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
+};
 
 // ── Lightbox ──
 function openLightbox(src) {
@@ -743,9 +750,6 @@ function buildReturnedBannerSimple(roleMsg) {
 }
 
 // ── Helper: ensure modification_status is set on every cart item ──
-// New entry from Step 2: cartItems have no modification_status yet.
-// Resume Draft: cartItems may already have it from DB, keep as-is.
-// Decision A1: RTA defaults to 'skipped'; Assembled defaults to 'unprocessed'.
 function normalizeCartItems(items) {
   return items.map(function (item) {
     var status = item.modification_status;
@@ -777,9 +781,83 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       unit_price:          parseFloat(item.unit_price),
       msrp:                parseFloat(item.msrp || 0),
       assemble_fee:        parseFloat(item.assemble_fee || 0),
-      // ── E1.2: pull modification_status from DB if present ──
       modification_status: item.modification_status || null,
     };
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E1.3: buildDoorStyleGroups
+//
+// Transforms flat cartItems → array of door-style groups for E1.5 to render.
+//
+// Order rules:
+//   - Groups are ordered by "first appearance in cart" (Q1)
+//   - Within each group, assembledItems / rtaItems preserve cart order (Q2)
+//
+// Discontinued style handling (Q3):
+//   - If a style_code in cartItems isn't found in allDoorStyles
+//     (e.g. admin set is_active=false after dealer added it),
+//     the group is still created with fallback fields, and
+//     `is_discontinued: true` flag is set so E1.5 can render a
+//     light warning banner.
+// ──────────────────────────────────────────────────────────────────
+function buildDoorStyleGroups(items, doorStyles) {
+  const groups = [];
+  const indexByCode = new Map();  // style_code → index in groups[]
+
+  items.forEach(function (item) {
+    const code = item.style_code;
+    let idx = indexByCode.get(code);
+
+    // Lazy-create the group on first encounter of this style_code
+    if (idx === undefined) {
+      const styleRow = doorStyles.find(function (s) { return s.style_code === code; });
+
+      const group = {
+        style_code:        code,
+        style_name:        (styleRow && styleRow.style_name) ||
+                           item.style_name ||
+                           code,
+        construction_type: (styleRow && styleRow.construction_type) || 'unknown',
+        image_url:         (styleRow && styleRow.image_url) || null,
+        color:             (styleRow && styleRow.color) || null,
+        subcategory:       (styleRow && styleRow.subcategory) || null,
+        is_discontinued:   !styleRow,   // ← E1.5 will check this flag
+        assembledItems:    [],
+        rtaItems:          [],
+        progress:          { done: 0, total: 0 },  // E1.4 will fill this
+      };
+
+      groups.push(group);
+      idx = groups.length - 1;
+      indexByCode.set(code, idx);
+    }
+
+    // Append item to the appropriate sub-list (preserves cart order)
+    if (item.type === 'Assembled') {
+      groups[idx].assembledItems.push(item);
+    } else if (item.type === 'RTA') {
+      groups[idx].rtaItems.push(item);
+    }
+    // Other types (if any): silently dropped — should not occur in v1
+  });
+
+  return groups;
+}
+
+// ── Pretty-print doorStyleGroups to console for E1.3 verification ──
+function logDoorStyleGroups(groups) {
+  console.log('[E1.3] doorStyleGroups built (' + groups.length + ' group' + (groups.length !== 1 ? 's' : '') + '):');
+  groups.forEach(function (g, i) {
+    const tag = g.is_discontinued ? ' ⚠ DISCONTINUED' : '';
+    const ctype = g.construction_type !== 'unknown' ? '[' + g.construction_type + ']' : '[unknown]';
+    console.log(
+      '  #' + (i + 1) + '  ' + g.style_code +
+      ' (' + g.style_name + ') ' + ctype + tag +
+      '\n        Assembled: ' + g.assembledItems.length + ' SKU' + (g.assembledItems.length !== 1 ? 's' : '') +
+      '  ·  RTA: ' + g.rtaItems.length + ' SKU' + (g.rtaItems.length !== 1 ? 's' : '')
+    );
   });
 }
 
@@ -789,16 +867,16 @@ function goReview() {
   showToast('Review action — wiring up in E1.9');
 }
 
-// ── init() — E1.2 implementation ──
+// ── init() ──
 async function init() {
-  // Step A: Auth check (mirrors Step 2 pattern)
+  // Step A: Auth check
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) {
     window.location.href = 'login.html';
     return;
   }
 
-  // Step B: Verify the logged-in user is active (security gate)
+  // Step B: Verify the logged-in user is active
   const { data: meRow } = await _supabase
     .from('dealers').select('is_active').eq('id', session.user.id).single();
   if (!meRow?.is_active) {
@@ -822,7 +900,6 @@ async function init() {
   } catch (_) { /* ignore */ }
 
   // Step D: Resolve which dealer's data to load
-  // Priority: Resume Draft (DB) > Admin Draft (sessionStorage hint) > current session
   let dealerIdToLoad = session.user.id;
   if (draftId) {
     const { data: q } = await _supabase
@@ -853,7 +930,7 @@ async function init() {
   }
   dealer = d;
 
-  // Step G: Load door_styles + sku tables (needed for resume mode + thumb lookup)
+  // Step G: Load door_styles + sku tables
   const [styleRes, framedRes, framelessRes] = await Promise.all([
     _supabase.from('door_styles').select('*').eq('is_active', true),
     _supabase.from('skus_framed').select('*').eq('active', true),
@@ -873,10 +950,10 @@ async function init() {
     }
   }
 
-  // Step I: Normalize modification_status on every item (A1 decision)
+  // Step I: Normalize modification_status on every item
   cartItems = normalizeCartItems(cartItems);
 
-  // Step J: Persist back to sessionStorage so Step 3 / Back-from-Step3 see normalized data
+  // Step J: Persist back to sessionStorage
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
   // Step K: Guardrail — empty cart should not be on this page
@@ -886,7 +963,10 @@ async function init() {
     return;
   }
 
-  // Step L: Render Returned banner if applicable (banner only — full UI render in E1.5+)
+  // ── E1.3: Build doorStyleGroups data structure ──
+  doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
+
+  // Step L: Render Returned banner if applicable
   if (isResumingReturned) {
     document.getElementById('returnedBannerMount').innerHTML =
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
@@ -907,7 +987,7 @@ async function init() {
     }
   }
 
-  // ── E1.2 verification: log state for Ben to inspect in DevTools ──
+  // ── E1.2 verification logs (kept for cross-reference) ──
   console.log('[E1.2] init() complete');
   console.log('[E1.2] dealer:', dealer);
   console.log('[E1.2] draftId:', draftId);
@@ -918,6 +998,10 @@ async function init() {
     cartItems.filter(function (i) { return i.type === 'Assembled'; }).length);
   console.log('[E1.2] RTA count:',
     cartItems.filter(function (i) { return i.type === 'RTA'; }).length);
+
+  // ── E1.3 verification logs ──
+  logDoorStyleGroups(doorStyleGroups);
+  console.log('[E1.3] doorStyleGroups raw object (expand to inspect):', doorStyleGroups);
 
   // Step N: Poll is_active every 60s
   setInterval(async function () {
