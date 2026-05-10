@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Dealer Portal — Configure Modifications</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+    }
+    html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    /* ── Page ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 20px 20px 80px; }
+
+    /* ── Returned Revising Banner (sames as Step 2) ── */
+    .returned-revising-banner {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid #E07B39;
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .returned-revising-banner .rrb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(224,123,57,0.14);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .returned-revising-banner .rrb-icon-wrap svg {
+      width: 16px; height: 16px; fill: #E07B39;
+    }
+    .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
+    .returned-revising-banner .rrb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 4px;
+    }
+    .returned-revising-banner .rrb-msg {
+      font-size: 13px;
+      color: #2C3A32;
+      line-height: 1.55;
+    }
+
+    /* ── Page Heading ── */
+    .page-heading {
+      margin-bottom: 24px;
+    }
+    .page-heading h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--green-dark);
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+    .page-heading .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Progress Card ── */
+    .progress-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+    }
+    .progress-card-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .progress-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .progress-count {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green-dark);
+    }
+    .progress-count .progress-percent {
+      color: var(--muted);
+      margin-left: 6px;
+      font-weight: 400;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--cream);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--green-dark);
+      transition: width 0.3s ease;
+      border-radius: 3px;
+    }
+    .progress-bar-fill.complete {
+      background: var(--gold);
+    }
+
+    /* ── Door Style Card ── */
+    .ds-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .ds-card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .ds-thumb {
+      width: 64px;
+      flex-shrink: 0;
+      aspect-ratio: 355 / 601;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      cursor: zoom-in;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s;
+    }
+    .ds-thumb:hover {
+      border-color: var(--gold);
+    }
+    .ds-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .ds-thumb-fallback {
+      width: 100%;
+      height: 100%;
+    }
+    .ds-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .ds-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--green-dark);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .ds-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .ds-code {
+      font-weight: 500;
+    }
+    .ds-construction-tag {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 500;
+    }
+    .ds-construction-tag.framed {
+      background: rgba(62,90,66,0.08);
+      color: var(--green-dark);
+    }
+    .ds-construction-tag.frameless {
+      background: rgba(201,168,76,0.12);
+      color: #8B6914;
+    }
+    .ds-progress {
+      flex-shrink: 0;
+      text-align: right;
+    }
+    .ds-progress-count {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--green-dark);
+    }
+    .ds-progress-count.complete::after {
+      content: ' ✓';
+      color: var(--gold);
+      font-weight: 700;
+    }
+    .ds-progress-label {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── Group (ASSEMBLED / RTA) ── */
+    .ds-group {
+      padding: 12px 18px;
+    }
+    .ds-group + .ds-group {
+      border-top: 1px solid var(--border);
+    }
+    .ds-group-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .ds-group.rta {
+      background: #FAFAF8;
+    }
+
+    /* ── SKU Row ── */
+    .sku-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .sku-row:last-child {
+      border-bottom: none;
+    }
+    .sku-row.assembled {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .sku-row.assembled:hover {
+      background: rgba(62,90,66,0.04);
+      margin: 0 -10px;
+      padding: 10px;
+      border-radius: 3px;
+    }
+    .sku-row.rta {
+      cursor: default;
+    }
+    .sku-code {
+      font-weight: 500;
+      color: var(--green-dark);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 110px;
+    }
+    .sku-row.rta .sku-code {
+      color: var(--muted);
+    }
+    .sku-desc {
+      flex: 1;
+      color: var(--text);
+      min-width: 0;
+    }
+    .sku-row.rta .sku-desc {
+      color: var(--muted);
+    }
+    .sku-qty {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 50px;
+      text-align: right;
+    }
+    .sku-status {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 3px 9px;
+      border-radius: 20px;
+      min-width: 110px;
+      justify-content: center;
+      font-weight: 500;
+    }
+    .sku-status.unprocessed {
+      background: rgba(122,140,130,0.12);
+      color: var(--muted);
+    }
+    .sku-status.configured {
+      background: rgba(62,90,66,0.1);
+      color: var(--green-dark);
+    }
+    .sku-row .sku-arrow {
+      flex-shrink: 0;
+      color: var(--muted);
+      font-size: 14px;
+      width: 14px;
+      text-align: center;
+      transition: color 0.15s;
+    }
+    .sku-row.assembled:hover .sku-arrow {
+      color: var(--green-dark);
+    }
+
+    /* ── Empty State (loading / no items) ── */
+    .empty-state {
+      background: var(--white);
+      border: 1px dashed var(--border);
+      border-radius: 4px;
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ── Lightbox (same as Step 2) ── */
+    .lightbox-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      cursor: zoom-out;
+    }
+    .lightbox-overlay.show { display: flex; }
+    .lightbox-img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .lightbox-close {
+      position: fixed;
+      top: 20px; right: 24px;
+      background: none; border: none;
+      color: #fff; font-size: 28px;
+      cursor: pointer; line-height: 1;
+      opacity: 0.7; transition: opacity 0.2s;
+    }
+    .lightbox-close:hover { opacity: 1; }
+
+    /* ── Bottom Bar (same pattern as Step 2) ── */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 150;
+      height: 56px;
+      gap: 12px;
+    }
+    .bottom-left {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .bottom-left strong { color: var(--green-dark); }
+    .bottom-left.complete strong { color: var(--gold); }
+    .bottom-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .btn-back {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 10px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 40px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-back:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
+    .btn-next {
+      background: var(--green-dark);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 10px 24px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-height: 40px;
+    }
+    .btn-next:hover { background: var(--green-mid); }
+    .btn-next:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--green-dark);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 600;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Mobile RWD ── */
+    @media (max-width: 700px) {
+      .page { padding: 16px 14px 80px; }
+
+      .ds-card-header {
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      .ds-info {
+        flex: 1 0 calc(100% - 78px);
+      }
+      .ds-progress {
+        flex: 1 0 100%;
+        text-align: left;
+        padding-left: 78px;
+        margin-top: -4px;
+      }
+      .ds-name {
+        font-size: 17px;
+      }
+      .ds-thumb {
+        width: 64px;
+      }
+
+      .ds-group {
+        padding: 10px 14px;
+      }
+
+      .sku-row {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        padding: 12px 0;
+      }
+      .sku-code {
+        min-width: 0;
+        flex: 1 0 auto;
+      }
+      .sku-desc {
+        flex: 1 0 100%;
+        font-size: 11px;
+      }
+      .sku-qty {
+        text-align: left;
+        min-width: 0;
+      }
+      .sku-status {
+        min-width: 0;
+        font-size: 9px;
+        padding: 2px 7px;
+      }
+
+      .page-heading h1 {
+        font-size: 22px;
+      }
+      .page-heading .subtitle {
+        font-size: 12px;
+      }
+
+      .bottom-bar {
+        padding: 8px 14px;
+        height: auto;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .bottom-left {
+        flex: 1 0 100%;
+        font-size: 11px;
+      }
+      .bottom-right {
+        flex: 1 0 100%;
+        justify-content: space-between;
+      }
+      .btn-back, .btn-next {
+        padding: 9px 14px;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Quote Flow Header -->
+<div id="pcd-quote-flow-header" data-step="3"></div>
+
+<div class="page">
+
+  <!-- Returned Banner mount point (populated by JS if applicable) -->
+  <div id="returnedBannerMount"></div>
+
+  <!-- Page Heading -->
+  <div class="page-heading">
+    <h1>Customize Your Order</h1>
+    <div class="subtitle">Configure modifications for assembled cabinets</div>
+  </div>
+
+  <!-- Progress Card -->
+  <div class="progress-card" id="progressCard">
+    <div class="progress-card-row">
+      <span class="progress-label">Progress</span>
+      <span class="progress-count">
+        <span id="progressDone">0</span> / <span id="progressTotal">0</span> done
+        <span class="progress-percent" id="progressPercent">0%</span>
+      </span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+    </div>
+  </div>
+
+  <!-- Door Style List (rendered dynamically) -->
+  <div id="doorStyleList">
+    <!-- ─────────── E1.1 STATIC PLACEHOLDER (will be replaced in E1.5) ─────────── -->
+    <div class="ds-card">
+      <div class="ds-card-header">
+        <div class="ds-thumb" onclick="openLightbox('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png')">
+          <div class="ds-thumb-fallback" style="background: #7B5C3E;"></div>
+        </div>
+        <div class="ds-info">
+          <div class="ds-name">Heritage Oak (placeholder)</div>
+          <div class="ds-meta">
+            <span class="ds-code">HO-201</span>
+            <span class="ds-construction-tag framed">framed</span>
+          </div>
+        </div>
+        <div class="ds-progress">
+          <div class="ds-progress-count">1 / 3</div>
+          <div class="ds-progress-label">Configured</div>
+        </div>
+      </div>
+
+      <div class="ds-group">
+        <div class="ds-group-label">Assembled</div>
+        <div class="sku-row assembled">
+          <span class="sku-code">MOCK-B12</span>
+          <span class="sku-desc">Base Cabinet 12" 1-Door</span>
+          <span class="sku-qty">Qty 5</span>
+          <span class="sku-status configured">● Configured</span>
+          <span class="sku-arrow">›</span>
+        </div>
+        <div class="sku-row assembled">
+          <span class="sku-code">MOCK-W30</span>
+          <span class="sku-desc">Wall Cabinet 30" 2-Door</span>
+          <span class="sku-qty">Qty 2</span>
+          <span class="sku-status unprocessed">○ Unprocessed</span>
+          <span class="sku-arrow">›</span>
+        </div>
+        <div class="sku-row assembled">
+          <span class="sku-code">MOCK-T84</span>
+          <span class="sku-desc">Tall Cabinet 84"</span>
+          <span class="sku-qty">Qty 1</span>
+          <span class="sku-status unprocessed">○ Unprocessed</span>
+          <span class="sku-arrow">›</span>
+        </div>
+      </div>
+
+      <div class="ds-group rta">
+        <div class="ds-group-label">RTA</div>
+        <div class="sku-row rta">
+          <span class="sku-code">MOCK-B18</span>
+          <span class="sku-desc">Base Cabinet 18" 1-Door</span>
+          <span class="sku-qty">Qty 3</span>
+        </div>
+        <div class="sku-row rta">
+          <span class="sku-code">MOCK-W24</span>
+          <span class="sku-desc">Wall Cabinet 24"</span>
+          <span class="sku-qty">Qty 4</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ds-card">
+      <div class="ds-card-header">
+        <div class="ds-thumb" onclick="openLightbox('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png')">
+          <div class="ds-thumb-fallback" style="background: #F0EDE8;"></div>
+        </div>
+        <div class="ds-info">
+          <div class="ds-name">White Shaker (placeholder)</div>
+          <div class="ds-meta">
+            <span class="ds-code">WS-101</span>
+            <span class="ds-construction-tag frameless">frameless</span>
+          </div>
+        </div>
+        <div class="ds-progress">
+          <div class="ds-progress-count complete">2 / 2</div>
+          <div class="ds-progress-label">Configured</div>
+        </div>
+      </div>
+
+      <div class="ds-group">
+        <div class="ds-group-label">Assembled</div>
+        <div class="sku-row assembled">
+          <span class="sku-code">MOCK-B12-FL</span>
+          <span class="sku-desc">Base Cabinet 12" (Frameless)</span>
+          <span class="sku-qty">Qty 4</span>
+          <span class="sku-status configured">● Configured</span>
+          <span class="sku-arrow">›</span>
+        </div>
+        <div class="sku-row assembled">
+          <span class="sku-code">MOCK-W18-FL</span>
+          <span class="sku-desc">Wall Cabinet 18" (Frameless)</span>
+          <span class="sku-qty">Qty 2</span>
+          <span class="sku-status configured">● Configured</span>
+          <span class="sku-arrow">›</span>
+        </div>
+      </div>
+    </div>
+    <!-- ─────────── END E1.1 STATIC PLACEHOLDER ─────────── -->
+  </div>
+
+</div>
+
+
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Bottom Bar -->
+<div class="bottom-bar">
+  <div class="bottom-left" id="bottomStatus">
+    <strong id="bottomStatusText">Loading...</strong>
+  </div>
+  <div class="bottom-right">
+    <a href="new-quote-step2.html" class="btn-back" id="btnBack">← Back to Products</a>
+    <button class="btn-next" id="btnNext" onclick="goReview()" disabled>Review →</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="components/quote-flow-header.js"></script>
+<script>
+const { createClient } = supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+// ── State ──
+let dealer        = null;
+let cartItems     = [];
+let allDoorStyles = [];   // for thumb image lookup
+let draftId       = null;
+let isResumingReturned = false;
+
+// ── Lightbox ──
+function openLightbox(src) {
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxOverlay').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('lightboxOverlay').classList.remove('show');
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── Returned Banner builder (same as Step 2) ──
+function buildReturnedBannerSimple(roleMsg) {
+  return `
+    <div class="returned-revising-banner">
+      <div class="rrb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+      <div class="rrb-body">
+        <div class="rrb-title">Revising Returned Quote</div>
+        <div class="rrb-msg">${roleMsg}</div>
+      </div>
+    </div>`;
+}
+
+// ── Helper: ensure modification_status is set on every cart item ──
+// New entry from Step 2: cartItems have no modification_status yet.
+// Resume Draft: cartItems may already have it from DB, keep as-is.
+// Decision A1: RTA defaults to 'skipped'; Assembled defaults to 'unprocessed'.
+function normalizeCartItems(items) {
+  return items.map(function (item) {
+    var status = item.modification_status;
+    if (!status) {
+      status = (item.type === 'RTA') ? 'skipped' : 'unprocessed';
+    }
+    return Object.assign({}, item, { modification_status: status });
+  });
+}
+
+// ── Load draft items from DB → rebuild cartItems (mirrors Step 2 pattern) ──
+async function loadDraftItems(allSkusFramed, allSkusFrameless) {
+  const { data: items, error } = await _supabase
+    .from('quote_items').select('*').eq('quote_id', draftId);
+  if (error || !items || !items.length) return [];
+  const skuAll = allSkusFramed.concat(allSkusFrameless);
+  return items.map(function (item) {
+    const style = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+    const sku   = skuAll.find(function (s) { return s.sku_code === item.sku_code; });
+    return {
+      key:                 item.sku_code + '_' + item.assemble_status,
+      style_code:          item.style_code,
+      style_name:          style ? style.style_name : item.style_code,
+      sku_code:            item.sku_code,
+      sku_desc:            sku ? sku.description : item.sku_code,
+      skuType:             item.sku_type || '',
+      type:                item.assemble_status,
+      quantity:            item.quantity,
+      unit_price:          parseFloat(item.unit_price),
+      msrp:                parseFloat(item.msrp || 0),
+      assemble_fee:        parseFloat(item.assemble_fee || 0),
+      // ── E1.2: pull modification_status from DB if present ──
+      modification_status: item.modification_status || null,
+    };
+  });
+}
+
+// ── Navigation: Review → ──
+function goReview() {
+  // E1.9 will fill in real logic
+  showToast('Review action — wiring up in E1.9');
+}
+
+// ── init() — E1.2 implementation ──
+async function init() {
+  // Step A: Auth check (mirrors Step 2 pattern)
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  // Step B: Verify the logged-in user is active (security gate)
+  const { data: meRow } = await _supabase
+    .from('dealers').select('is_active').eq('id', session.user.id).single();
+  if (!meRow?.is_active) {
+    await _supabase.auth.signOut();
+    window.location.href = 'login.html';
+    return;
+  }
+
+  // Step C: Detect URL params + Returned-revision flag
+  const params = new URLSearchParams(window.location.search);
+  draftId = params.get('draft') || null;
+
+  try {
+    const s1 = sessionStorage.getItem('quoteStep1');
+    if (s1) {
+      const parsed = JSON.parse(s1);
+      if (parsed?.isResumingReturned) {
+        isResumingReturned = true;
+      }
+    }
+  } catch (_) { /* ignore */ }
+
+  // Step D: Resolve which dealer's data to load
+  // Priority: Resume Draft (DB) > Admin Draft (sessionStorage hint) > current session
+  let dealerIdToLoad = session.user.id;
+  if (draftId) {
+    const { data: q } = await _supabase
+      .from('quotes').select('dealer_id').eq('id', draftId).single();
+    if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
+  } else {
+    try {
+      const s1 = sessionStorage.getItem('quoteStep1');
+      if (s1) {
+        const parsed = JSON.parse(s1);
+        if (parsed?.dealerIdForQuote) dealerIdToLoad = parsed.dealerIdForQuote;
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  // Step E: Update Back link to preserve draft id
+  if (draftId) {
+    const backBtn = document.getElementById('btnBack');
+    if (backBtn) backBtn.href = 'new-quote-step2.html?draft=' + draftId;
+  }
+
+  // Step F: Load dealer profile
+  const { data: d } = await _supabase
+    .from('dealers').select('*').eq('id', dealerIdToLoad).single();
+  if (!d) {
+    alert('Could not load dealer data. Please go back and try again.');
+    return;
+  }
+  dealer = d;
+
+  // Step G: Load door_styles + sku tables (needed for resume mode + thumb lookup)
+  const [styleRes, framedRes, framelessRes] = await Promise.all([
+    _supabase.from('door_styles').select('*').eq('is_active', true),
+    _supabase.from('skus_framed').select('*').eq('active', true),
+    _supabase.from('skus_frameless').select('*').eq('active', true),
+  ]);
+  allDoorStyles = styleRes.data || [];
+  const allSkusFramed    = framedRes.data    || [];
+  const allSkusFrameless = framelessRes.data || [];
+
+  // Step H: Restore cart — DB if draft, sessionStorage otherwise
+  if (draftId) {
+    cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
+  } else {
+    const savedCart = sessionStorage.getItem('quoteStep2');
+    if (savedCart) {
+      try { cartItems = JSON.parse(savedCart); } catch (e) { cartItems = []; }
+    }
+  }
+
+  // Step I: Normalize modification_status on every item (A1 decision)
+  cartItems = normalizeCartItems(cartItems);
+
+  // Step J: Persist back to sessionStorage so Step 3 / Back-from-Step3 see normalized data
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+
+  // Step K: Guardrail — empty cart should not be on this page
+  if (!cartItems.length) {
+    alert('No items in your quote. Returning to product selection.');
+    window.location.href = draftId ? 'new-quote-step2.html?draft=' + draftId : 'new-quote-step2.html';
+    return;
+  }
+
+  // Step L: Render Returned banner if applicable (banner only — full UI render in E1.5+)
+  if (isResumingReturned) {
+    document.getElementById('returnedBannerMount').innerHTML =
+      buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
+  }
+
+  // Step M: Update bottom bar text (proper render in E1.7)
+  const pendingAssembled = cartItems.filter(function (i) {
+    return i.type === 'Assembled' && i.modification_status !== 'configured';
+  }).length;
+  const bottomStatusText = document.getElementById('bottomStatusText');
+  if (bottomStatusText) {
+    if (pendingAssembled === 0) {
+      bottomStatusText.textContent = 'All set — ready to review';
+      document.getElementById('bottomStatus').classList.add('complete');
+    } else {
+      bottomStatusText.textContent = pendingAssembled + ' assembled SKU' +
+        (pendingAssembled !== 1 ? 's' : '') + ' need attention';
+    }
+  }
+
+  // ── E1.2 verification: log state for Ben to inspect in DevTools ──
+  console.log('[E1.2] init() complete');
+  console.log('[E1.2] dealer:', dealer);
+  console.log('[E1.2] draftId:', draftId);
+  console.log('[E1.2] isResumingReturned:', isResumingReturned);
+  console.log('[E1.2] allDoorStyles count:', allDoorStyles.length);
+  console.log('[E1.2] cartItems:', cartItems);
+  console.log('[E1.2] Assembled count:',
+    cartItems.filter(function (i) { return i.type === 'Assembled'; }).length);
+  console.log('[E1.2] RTA count:',
+    cartItems.filter(function (i) { return i.type === 'RTA'; }).length);
+
+  // Step N: Poll is_active every 60s
+  setInterval(async function () {
+    const { data: check } = await _supabase
+      .from('dealers').select('is_active').eq('id', session.user.id).single();
+    if (!check?.is_active) {
+      await _supabase.auth.signOut();
+      window.location.href = 'login.html';
+    }
+  }, 60000);
+}
+
+init();
+</script>
+</body>
+</html>
