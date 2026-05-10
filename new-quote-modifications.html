@@ -24,7 +24,7 @@
     /* ── Page ── */
     .page { max-width: 1100px; margin: 0 auto; padding: 20px 20px 80px; }
 
-    /* ── Returned Revising Banner (sames as Step 2) ── */
+    /* ── Returned Revising Banner ── */
     .returned-revising-banner {
       background: rgba(224,123,57,0.07);
       border: 1px solid rgba(224,123,57,0.3);
@@ -158,14 +158,10 @@
       align-items: center;
       justify-content: center;
       transition: border-color 0.15s;
-      position: relative;  /* ← anchor for zoom icon */
+      position: relative;
     }
-    .ds-thumb.zoomable {
-      cursor: zoom-in;
-    }
-    .ds-thumb.zoomable:hover {
-      border-color: var(--gold);
-    }
+    .ds-thumb.zoomable { cursor: zoom-in; }
+    .ds-thumb.zoomable:hover { border-color: var(--gold); }
     .ds-thumb img {
       width: 100%;
       height: 100%;
@@ -176,7 +172,6 @@
       width: 100%;
       height: 100%;
     }
-    /* Zoom icon overlay (right-bottom corner) — only shown on zoomable thumbs */
     .ds-thumb-zoom-icon {
       position: absolute;
       right: 4px;
@@ -189,7 +184,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      pointer-events: none;  /* let click pass through to .ds-thumb */
+      pointer-events: none;
       box-shadow: 0 1px 3px rgba(0,0,0,0.15);
       transition: background 0.15s, transform 0.15s;
     }
@@ -206,10 +201,7 @@
       stroke-linecap: round;
     }
 
-    .ds-info {
-      flex: 1;
-      min-width: 0;
-    }
+    .ds-info { flex: 1; min-width: 0; }
     .ds-name {
       font-family: 'Cormorant Garamond', serif;
       font-size: 20px;
@@ -226,9 +218,7 @@
       font-size: 11px;
       color: var(--muted);
     }
-    .ds-code {
-      font-weight: 500;
-    }
+    .ds-code { font-weight: 500; }
     .ds-construction-tag {
       font-size: 9px;
       letter-spacing: 0.1em;
@@ -311,12 +301,8 @@
     }
 
     /* ── Group ── */
-    .ds-group {
-      padding: 12px 18px;
-    }
-    .ds-group + .ds-group {
-      border-top: 1px solid var(--border);
-    }
+    .ds-group { padding: 12px 18px; }
+    .ds-group + .ds-group { border-top: 1px solid var(--border); }
     .ds-group-label {
       font-size: 9px;
       font-weight: 500;
@@ -325,9 +311,7 @@
       color: var(--muted);
       margin-bottom: 8px;
     }
-    .ds-group.rta {
-      background: #FAFAF8;
-    }
+    .ds-group.rta { background: #FAFAF8; }
 
     /* ── SKU Row ── */
     .sku-row {
@@ -338,9 +322,7 @@
       border-bottom: 1px solid var(--border);
       font-size: 12px;
     }
-    .sku-row:last-child {
-      border-bottom: none;
-    }
+    .sku-row:last-child { border-bottom: none; }
     .sku-row.assembled {
       cursor: pointer;
       transition: background 0.1s;
@@ -351,9 +333,7 @@
       padding: 10px;
       border-radius: 3px;
     }
-    .sku-row.rta {
-      cursor: default;
-    }
+    .sku-row.rta { cursor: default; }
     .sku-code {
       font-weight: 500;
       color: var(--green-dark);
@@ -361,17 +341,13 @@
       flex-shrink: 0;
       min-width: 110px;
     }
-    .sku-row.rta .sku-code {
-      color: var(--muted);
-    }
+    .sku-row.rta .sku-code { color: var(--muted); }
     .sku-desc {
       flex: 1;
       color: var(--text);
       min-width: 0;
     }
-    .sku-row.rta .sku-desc {
-      color: var(--muted);
-    }
+    .sku-row.rta .sku-desc { color: var(--muted); }
     .sku-qty {
       flex-shrink: 0;
       font-size: 11px;
@@ -408,9 +384,7 @@
       text-align: center;
       transition: color 0.15s;
     }
-    .sku-row.assembled:hover .sku-arrow {
-      color: var(--green-dark);
-    }
+    .sku-row.assembled:hover .sku-arrow { color: var(--green-dark); }
 
     /* ── Empty State ── */
     .empty-state {
@@ -551,29 +525,19 @@
         padding: 12px 14px;
         gap: 10px;
       }
-      .ds-info {
-        flex: 1 0 calc(100% - 78px);
-      }
+      .ds-info { flex: 1 0 calc(100% - 78px); }
       .ds-progress {
         flex: 1 0 100%;
         text-align: left;
         padding-left: 78px;
         margin-top: -4px;
       }
-      .ds-name {
-        font-size: 17px;
-      }
-      .ds-thumb {
-        width: 64px;
-      }
+      .ds-name { font-size: 17px; }
+      .ds-thumb { width: 64px; }
 
-      .ds-discontinued-banner {
-        padding: 10px 14px;
-      }
+      .ds-discontinued-banner { padding: 10px 14px; }
 
-      .ds-group {
-        padding: 10px 14px;
-      }
+      .ds-group { padding: 10px 14px; }
 
       .sku-row {
         flex-wrap: wrap;
@@ -598,12 +562,8 @@
         padding: 2px 7px;
       }
 
-      .page-heading h1 {
-        font-size: 22px;
-      }
-      .page-heading .subtitle {
-        font-size: 12px;
-      }
+      .page-heading h1 { font-size: 22px; }
+      .page-heading .subtitle { font-size: 12px; }
 
       .bottom-bar {
         padding: 8px 14px;
@@ -701,7 +661,6 @@ const colorMap = {
   grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
 };
 
-// Reusable SVG: zoom-in icon (magnifying glass with +)
 const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
 
 function openLightbox(src) {
@@ -886,9 +845,6 @@ function renderDoorStyleList() {
 }
 
 function buildDoorStyleCard(group, gIdx) {
-  // ── Thumbnail ──
-  // - If has image_url → <img> + zoom icon overlay + clickable
-  // - If only color fallback → solid swatch, no overlay, not clickable
   const hasImage = !!group.image_url;
 
   const thumbInner = hasImage
@@ -900,7 +856,6 @@ function buildDoorStyleCard(group, gIdx) {
     ? `class="ds-thumb zoomable" onclick="openLightbox('${esc(group.image_url)}')"`
     : `class="ds-thumb"`;
 
-  // Construction tag
   const ctypeClass = group.construction_type === 'framed' ? 'framed'
                   : group.construction_type === 'frameless' ? 'frameless'
                   : 'unknown';
@@ -1005,7 +960,58 @@ function onAssembledRowClick(key) {
   console.log('[E1.5] Assembled row clicked, key:', key);
 }
 
+// ──────────────────────────────────────────────────────────────────
+// E1.7: Render bottom bar (status text + Review button enable state)
+//
+// Combined into one function for atomicity — text and button state should
+// always reflect the same source of truth (pageProgress).
+//
+// Review button enable rules:
+//   - All RTA quote (no Assembled SKUs at all): enabled
+//   - All Assembled SKUs configured: enabled
+//   - Otherwise: disabled
+//
+// Bottom-left text rules:
+//   - All RTA quote: "No assembled items — ready to review" (gold)
+//   - All configured: "All set — ready to review" (gold)
+//   - N pending: "N assembled SKU(s) need attention" (green)
+//
+// E3/E4/E6 will call this function whenever cartItems mutates (after Save,
+// after split/merge) so progress + button state stay in sync.
+// ──────────────────────────────────────────────────────────────────
+function renderBottomBar(progress) {
+  const statusEl     = document.getElementById('bottomStatus');
+  const statusTextEl = document.getElementById('bottomStatusText');
+  const btnNext      = document.getElementById('btnNext');
+
+  if (!statusEl || !statusTextEl || !btnNext) return;
+
+  const pendingAssembled = progress.total - progress.done;
+  const isReady = (progress.total === 0) || (pendingAssembled === 0);
+
+  // Status text
+  if (progress.total === 0) {
+    statusTextEl.textContent = 'No assembled items — ready to review';
+  } else if (pendingAssembled === 0) {
+    statusTextEl.textContent = 'All set — ready to review';
+  } else {
+    statusTextEl.textContent = pendingAssembled + ' assembled SKU' +
+      (pendingAssembled !== 1 ? 's' : '') + ' need attention';
+  }
+
+  // Status color (green vs gold)
+  if (isReady) {
+    statusEl.classList.add('complete');
+  } else {
+    statusEl.classList.remove('complete');
+  }
+
+  // Review button enable
+  btnNext.disabled = !isReady;
+}
+
 function goReview() {
+  // E1.9 will fill in real logic
   showToast('Review action — wiring up in E1.9');
 }
 
@@ -1094,27 +1100,14 @@ async function init() {
 
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
+
   renderProgressCard(pageProgress);
   renderDoorStyleList();
+  renderBottomBar(pageProgress);   // ← E1.7
 
   if (isResumingReturned) {
     document.getElementById('returnedBannerMount').innerHTML =
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
-  }
-
-  const pendingAssembled = pageProgress.total - pageProgress.done;
-  const bottomStatusText = document.getElementById('bottomStatusText');
-  if (bottomStatusText) {
-    if (pageProgress.total === 0) {
-      bottomStatusText.textContent = 'No assembled items — ready to review';
-      document.getElementById('bottomStatus').classList.add('complete');
-    } else if (pendingAssembled === 0) {
-      bottomStatusText.textContent = 'All set — ready to review';
-      document.getElementById('bottomStatus').classList.add('complete');
-    } else {
-      bottomStatusText.textContent = pendingAssembled + ' assembled SKU' +
-        (pendingAssembled !== 1 ? 's' : '') + ' need attention';
-    }
   }
 
   console.log('[E1.2] init() complete');
@@ -1138,6 +1131,7 @@ async function init() {
   });
 
   console.log('[E1.5] door style list rendered (with zoom icon on image thumbs)');
+  console.log('[E1.7] bottom bar rendered, Review button enabled:', !document.getElementById('btnNext').disabled);
 
   setInterval(async function () {
     const { data: check } = await _supabase
