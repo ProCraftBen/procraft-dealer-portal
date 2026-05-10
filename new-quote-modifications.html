@@ -18,6 +18,7 @@
       --white:      #FFFFFF;
       --error:      #C0392B;
       --warn-orange: #E07B39;
+      --info-blue:  #5A7A95;
     }
     html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
@@ -60,10 +61,44 @@
       line-height: 1.55;
     }
 
-    /* ── Page Heading ── */
-    .page-heading {
-      margin-bottom: 24px;
+    /* ── No-Assembled Info Banner (Q3) ── */
+    .no-assembled-banner {
+      background: rgba(90,122,149,0.06);
+      border: 1px solid rgba(90,122,149,0.25);
+      border-left: 4px solid var(--info-blue);
+      border-radius: 4px;
+      padding: 14px 22px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
     }
+    .no-assembled-banner .nab-icon-wrap {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      background: rgba(90,122,149,0.12);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .no-assembled-banner .nab-icon-wrap svg {
+      width: 14px; height: 14px; fill: var(--info-blue);
+    }
+    .no-assembled-banner .nab-body { flex: 1; min-width: 0; }
+    .no-assembled-banner .nab-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.13em; text-transform: uppercase;
+      color: var(--info-blue);
+      margin-bottom: 3px;
+    }
+    .no-assembled-banner .nab-msg {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    /* ── Page Heading ── */
+    .page-heading { margin-bottom: 24px; }
     .page-heading h1 {
       font-family: 'Cormorant Garamond', serif;
       font-size: 28px;
@@ -275,7 +310,6 @@
       margin-top: 2px;
     }
 
-    /* Discontinued banner inside card */
     .ds-discontinued-banner {
       background: rgba(224,123,57,0.06);
       border-bottom: 1px solid rgba(224,123,57,0.25);
@@ -536,6 +570,7 @@
       .ds-thumb { width: 64px; }
 
       .ds-discontinued-banner { padding: 10px 14px; }
+      .no-assembled-banner { padding: 12px 16px; }
 
       .ds-group { padding: 10px 14px; }
 
@@ -544,23 +579,10 @@
         gap: 6px 10px;
         padding: 12px 0;
       }
-      .sku-code {
-        min-width: 0;
-        flex: 1 0 auto;
-      }
-      .sku-desc {
-        flex: 1 0 100%;
-        font-size: 11px;
-      }
-      .sku-qty {
-        text-align: left;
-        min-width: 0;
-      }
-      .sku-status {
-        min-width: 0;
-        font-size: 9px;
-        padding: 2px 7px;
-      }
+      .sku-code { min-width: 0; flex: 1 0 auto; }
+      .sku-desc { flex: 1 0 100%; font-size: 11px; }
+      .sku-qty { text-align: left; min-width: 0; }
+      .sku-status { min-width: 0; font-size: 9px; padding: 2px 7px; }
 
       .page-heading h1 { font-size: 22px; }
       .page-heading .subtitle { font-size: 12px; }
@@ -571,14 +593,8 @@
         flex-wrap: wrap;
         gap: 8px;
       }
-      .bottom-left {
-        flex: 1 0 100%;
-        font-size: 11px;
-      }
-      .bottom-right {
-        flex: 1 0 100%;
-        justify-content: space-between;
-      }
+      .bottom-left { flex: 1 0 100%; font-size: 11px; }
+      .bottom-right { flex: 1 0 100%; justify-content: space-between; }
       .btn-back, .btn-next {
         padding: 9px 14px;
         font-size: 10px;
@@ -594,7 +610,11 @@
 
 <div class="page">
 
+  <!-- Returned Banner (Returned-revision mode) -->
   <div id="returnedBannerMount"></div>
+
+  <!-- No-Assembled Info Banner (all-RTA quote) -->
+  <div id="noAssembledBannerMount"></div>
 
   <div class="page-heading">
     <h1>Customize Your Order</h1>
@@ -699,6 +719,22 @@ function buildReturnedBannerSimple(roleMsg) {
     </div>`;
 }
 
+// ── Q3: No-Assembled Info Banner builder ──
+// Shown when the quote has no Assembled SKUs (all RTA). Reassures dealer
+// that nothing's wrong; they can proceed to Review directly.
+function buildNoAssembledBanner() {
+  return `
+    <div class="no-assembled-banner">
+      <div class="nab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      </div>
+      <div class="nab-body">
+        <div class="nab-title">No Modifications Needed</div>
+        <div class="nab-msg">This quote has no assembled items. No modifications are needed — click Review to continue.</div>
+      </div>
+    </div>`;
+}
+
 function normalizeCartItems(items) {
   return items.map(function (item) {
     var status = item.modification_status;
@@ -721,7 +757,7 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       key:                 item.sku_code + '_' + item.assemble_status,
       style_code:          item.style_code,
       style_name:          style ? style.style_name : item.style_code,
-      sku_code:            item.sku_code,
+      sku_code:             item.sku_code,
       sku_desc:            sku ? sku.description : item.sku_code,
       skuType:             item.sku_type || '',
       type:                item.assemble_status,
@@ -960,25 +996,6 @@ function onAssembledRowClick(key) {
   console.log('[E1.5] Assembled row clicked, key:', key);
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E1.7: Render bottom bar (status text + Review button enable state)
-//
-// Combined into one function for atomicity — text and button state should
-// always reflect the same source of truth (pageProgress).
-//
-// Review button enable rules:
-//   - All RTA quote (no Assembled SKUs at all): enabled
-//   - All Assembled SKUs configured: enabled
-//   - Otherwise: disabled
-//
-// Bottom-left text rules:
-//   - All RTA quote: "No assembled items — ready to review" (gold)
-//   - All configured: "All set — ready to review" (gold)
-//   - N pending: "N assembled SKU(s) need attention" (green)
-//
-// E3/E4/E6 will call this function whenever cartItems mutates (after Save,
-// after split/merge) so progress + button state stay in sync.
-// ──────────────────────────────────────────────────────────────────
 function renderBottomBar(progress) {
   const statusEl     = document.getElementById('bottomStatus');
   const statusTextEl = document.getElementById('bottomStatusText');
@@ -989,7 +1006,6 @@ function renderBottomBar(progress) {
   const pendingAssembled = progress.total - progress.done;
   const isReady = (progress.total === 0) || (pendingAssembled === 0);
 
-  // Status text
   if (progress.total === 0) {
     statusTextEl.textContent = 'No assembled items — ready to review';
   } else if (pendingAssembled === 0) {
@@ -999,20 +1015,46 @@ function renderBottomBar(progress) {
       (pendingAssembled !== 1 ? 's' : '') + ' need attention';
   }
 
-  // Status color (green vs gold)
   if (isReady) {
     statusEl.classList.add('complete');
   } else {
     statusEl.classList.remove('complete');
   }
 
-  // Review button enable
   btnNext.disabled = !isReady;
 }
 
+// ──────────────────────────────────────────────────────────────────
+// E1.9: goReview()
+//
+// Triggered when dealer clicks the Review button. Workflow:
+//   1. Persist current cartItems back to sessionStorage (Step 3 reads this).
+//      In E1, cartItems is unchanged from init(). In E3/E4/E6,
+//      modification_status will have been mutated and this captures the
+//      latest state for Step 3 to receive.
+//   2. Navigate to step3.html, preserving ?draft=xxx if resuming.
+//
+// Note: Step 3's existing code does not yet read modification_status;
+// that integration happens in stage F (deferred per v1 scope).
+// ──────────────────────────────────────────────────────────────────
 function goReview() {
-  // E1.9 will fill in real logic
-  showToast('Review action — wiring up in E1.9');
+  // Defensive guard — should not happen because button is disabled in this case
+  const pendingAssembled = pageProgress.total - pageProgress.done;
+  const isReady = (pageProgress.total === 0) || (pendingAssembled === 0);
+  if (!isReady) {
+    showToast('Please configure all assembled SKUs first');
+    return;
+  }
+
+  // Persist cartItems to sessionStorage for Step 3 to read
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+
+  // Navigate to Step 3, preserving draftId if resuming
+  const nextUrl = draftId
+    ? 'new-quote-step3.html?draft=' + draftId
+    : 'new-quote-step3.html';
+
+  window.location.href = nextUrl;
 }
 
 async function init() {
@@ -1101,13 +1143,21 @@ async function init() {
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
 
+  // Render
   renderProgressCard(pageProgress);
   renderDoorStyleList();
-  renderBottomBar(pageProgress);   // ← E1.7
+  renderBottomBar(pageProgress);
 
+  // ── Top-of-page banners ──
+  // Returned-revision banner (Returned mode)
   if (isResumingReturned) {
     document.getElementById('returnedBannerMount').innerHTML =
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
+  }
+
+  // No-Assembled info banner (all-RTA quote — Q3)
+  if (pageProgress.total === 0) {
+    document.getElementById('noAssembledBannerMount').innerHTML = buildNoAssembledBanner();
   }
 
   console.log('[E1.2] init() complete');
@@ -1132,6 +1182,7 @@ async function init() {
 
   console.log('[E1.5] door style list rendered (with zoom icon on image thumbs)');
   console.log('[E1.7] bottom bar rendered, Review button enabled:', !document.getElementById('btnNext').disabled);
+  console.log('[E1.9] goReview() wired up');
 
   setInterval(async function () {
     const { data: check } = await _supabase
