@@ -719,6 +719,8 @@ async function loadDraftItems() {
       sku_code:     item.sku_code,
       sku_desc:     sku ? sku.description : item.sku_code,
       skuType:      item.sku_type || '',
+      category:     sku ? (sku.category    || '') : '',
+      subcategory:  sku ? (sku.subcategory || '') : '',
       type:         item.assemble_status,
       quantity:     item.quantity,
       unit_price:   parseFloat(item.unit_price),
@@ -1044,8 +1046,9 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
     cartItems.push({
       key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
       sku_code:skuCode, sku_desc:sku.description, type,
-      category: sku.category || '',
-      skuType:  sku.type || '',
+      category:    sku.category    || '',
+      subcategory: sku.subcategory || '',
+      skuType:     sku.type        || '',
       quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue,
       assemble_fee: parseFloat(assembledFee||0)
     });
