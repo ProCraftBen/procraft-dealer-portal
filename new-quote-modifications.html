@@ -1122,8 +1122,20 @@ async function init() {
   const allSkusFramed    = framedRes.data    || [];
   const allSkusFrameless = framelessRes.data || [];
 
+  // ── Restore cart ─────────────────────────────────────────────
+  // Resume Draft 模式:sessionStorage 優先(保留 Step 2 加 SKU 等未存 DB 的修改),
+  // 沒東西才從 DB 讀。非 Resume Draft 照舊讀 sessionStorage。
   if (draftId) {
-    cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
+    const savedCart = sessionStorage.getItem('quoteStep2');
+    if (savedCart) {
+      try {
+        const parsed = JSON.parse(savedCart);
+        if (parsed && parsed.length) cartItems = parsed;
+      } catch (e) {}
+    }
+    if (!cartItems.length) {
+      cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
+    }
   } else {
     const savedCart = sessionStorage.getItem('quoteStep2');
     if (savedCart) {
