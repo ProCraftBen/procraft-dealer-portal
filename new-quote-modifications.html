@@ -17,6 +17,7 @@
       --border:     #DDD8CC;
       --white:      #FFFFFF;
       --error:      #C0392B;
+      --warn-orange: #E07B39;
     }
     html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
@@ -27,7 +28,7 @@
     .returned-revising-banner {
       background: rgba(224,123,57,0.07);
       border: 1px solid rgba(224,123,57,0.3);
-      border-left: 4px solid #E07B39;
+      border-left: 4px solid var(--warn-orange);
       border-radius: 4px;
       padding: 16px 22px;
       margin-bottom: 20px;
@@ -44,13 +45,13 @@
       margin-top: 2px;
     }
     .returned-revising-banner .rrb-icon-wrap svg {
-      width: 16px; height: 16px; fill: #E07B39;
+      width: 16px; height: 16px; fill: var(--warn-orange);
     }
     .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
     .returned-revising-banner .rrb-title {
       font-size: 11px; font-weight: 600;
       letter-spacing: 0.15em; text-transform: uppercase;
-      color: #E07B39;
+      color: var(--warn-orange);
       margin-bottom: 4px;
     }
     .returned-revising-banner .rrb-msg {
@@ -124,7 +125,6 @@
     .progress-bar-fill.complete {
       background: var(--gold);
     }
-    /* Empty state — no Assembled SKUs at all */
     .progress-card.no-assembled .progress-count {
       color: var(--muted);
       font-weight: 400;
@@ -212,6 +212,21 @@
       background: rgba(201,168,76,0.12);
       color: #8B6914;
     }
+    .ds-construction-tag.unknown {
+      background: rgba(122,140,130,0.12);
+      color: var(--muted);
+    }
+    /* Discontinued tag (small, in header) */
+    .ds-discontinued-tag {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 500;
+      background: rgba(224,123,57,0.12);
+      color: var(--warn-orange);
+    }
     .ds-progress {
       flex-shrink: 0;
       text-align: right;
@@ -226,12 +241,41 @@
       color: var(--gold);
       font-weight: 700;
     }
+    .ds-progress-count.no-assembled {
+      color: var(--muted);
+      font-weight: 400;
+    }
     .ds-progress-label {
       font-size: 9px;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--muted);
       margin-top: 2px;
+    }
+
+    /* Discontinued banner inside card (between header and groups) */
+    .ds-discontinued-banner {
+      background: rgba(224,123,57,0.06);
+      border-bottom: 1px solid rgba(224,123,57,0.25);
+      padding: 10px 18px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .ds-discontinued-banner-icon {
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .ds-discontinued-banner-icon svg {
+      width: 14px; height: 14px; fill: var(--warn-orange);
+    }
+    .ds-discontinued-banner-msg {
+      font-size: 12px;
+      color: #2C3A32;
+      line-height: 1.5;
+      flex: 1;
     }
 
     /* ── Group (ASSEMBLED / RTA) ── */
@@ -491,6 +535,10 @@
         width: 64px;
       }
 
+      .ds-discontinued-banner {
+        padding: 10px 14px;
+      }
+
       .ds-group {
         padding: 10px 14px;
       }
@@ -577,104 +625,9 @@
     </div>
   </div>
 
-  <!-- Door Style List (rendered dynamically) -->
+  <!-- Door Style List (rendered dynamically by E1.5) -->
   <div id="doorStyleList">
-    <!-- ─────────── E1.1 STATIC PLACEHOLDER (will be replaced in E1.5) ─────────── -->
-    <div class="ds-card">
-      <div class="ds-card-header">
-        <div class="ds-thumb" onclick="openLightbox('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png')">
-          <div class="ds-thumb-fallback" style="background: #7B5C3E;"></div>
-        </div>
-        <div class="ds-info">
-          <div class="ds-name">Heritage Oak (placeholder)</div>
-          <div class="ds-meta">
-            <span class="ds-code">HO-201</span>
-            <span class="ds-construction-tag framed">framed</span>
-          </div>
-        </div>
-        <div class="ds-progress">
-          <div class="ds-progress-count">1 / 3</div>
-          <div class="ds-progress-label">Configured</div>
-        </div>
-      </div>
-
-      <div class="ds-group">
-        <div class="ds-group-label">Assembled</div>
-        <div class="sku-row assembled">
-          <span class="sku-code">MOCK-B12</span>
-          <span class="sku-desc">Base Cabinet 12" 1-Door</span>
-          <span class="sku-qty">Qty 5</span>
-          <span class="sku-status configured">● Configured</span>
-          <span class="sku-arrow">›</span>
-        </div>
-        <div class="sku-row assembled">
-          <span class="sku-code">MOCK-W30</span>
-          <span class="sku-desc">Wall Cabinet 30" 2-Door</span>
-          <span class="sku-qty">Qty 2</span>
-          <span class="sku-status unprocessed">○ Unprocessed</span>
-          <span class="sku-arrow">›</span>
-        </div>
-        <div class="sku-row assembled">
-          <span class="sku-code">MOCK-T84</span>
-          <span class="sku-desc">Tall Cabinet 84"</span>
-          <span class="sku-qty">Qty 1</span>
-          <span class="sku-status unprocessed">○ Unprocessed</span>
-          <span class="sku-arrow">›</span>
-        </div>
-      </div>
-
-      <div class="ds-group rta">
-        <div class="ds-group-label">RTA</div>
-        <div class="sku-row rta">
-          <span class="sku-code">MOCK-B18</span>
-          <span class="sku-desc">Base Cabinet 18" 1-Door</span>
-          <span class="sku-qty">Qty 3</span>
-        </div>
-        <div class="sku-row rta">
-          <span class="sku-code">MOCK-W24</span>
-          <span class="sku-desc">Wall Cabinet 24"</span>
-          <span class="sku-qty">Qty 4</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="ds-card">
-      <div class="ds-card-header">
-        <div class="ds-thumb" onclick="openLightbox('https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png')">
-          <div class="ds-thumb-fallback" style="background: #F0EDE8;"></div>
-        </div>
-        <div class="ds-info">
-          <div class="ds-name">White Shaker (placeholder)</div>
-          <div class="ds-meta">
-            <span class="ds-code">WS-101</span>
-            <span class="ds-construction-tag frameless">frameless</span>
-          </div>
-        </div>
-        <div class="ds-progress">
-          <div class="ds-progress-count complete">2 / 2</div>
-          <div class="ds-progress-label">Configured</div>
-        </div>
-      </div>
-
-      <div class="ds-group">
-        <div class="ds-group-label">Assembled</div>
-        <div class="sku-row assembled">
-          <span class="sku-code">MOCK-B12-FL</span>
-          <span class="sku-desc">Base Cabinet 12" (Frameless)</span>
-          <span class="sku-qty">Qty 4</span>
-          <span class="sku-status configured">● Configured</span>
-          <span class="sku-arrow">›</span>
-        </div>
-        <div class="sku-row assembled">
-          <span class="sku-code">MOCK-W18-FL</span>
-          <span class="sku-desc">Wall Cabinet 18" (Frameless)</span>
-          <span class="sku-qty">Qty 2</span>
-          <span class="sku-status configured">● Configured</span>
-          <span class="sku-arrow">›</span>
-        </div>
-      </div>
-    </div>
-    <!-- ─────────── END E1.1 STATIC PLACEHOLDER ─────────── -->
+    <div class="empty-state">Loading...</div>
   </div>
 
 </div>
@@ -716,9 +669,7 @@ let allDoorStyles    = [];
 let doorStyleGroups  = [];
 let draftId          = null;
 let isResumingReturned = false;
-
-// ── Page-level progress (E1.4) ──
-let pageProgress = { done: 0, total: 0, percent: 0 };
+let pageProgress     = { done: 0, total: 0, percent: 0 };
 
 // ── Color map for fallback swatches (mirrors Step 2) ──
 const colorMap = {
@@ -728,6 +679,7 @@ const colorMap = {
 
 // ── Lightbox ──
 function openLightbox(src) {
+  if (!src) return;
   document.getElementById('lightboxImg').src = src;
   document.getElementById('lightboxOverlay').classList.add('show');
 }
@@ -741,6 +693,14 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── HTML escape (defense against weird sku descriptions) ──
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
 }
 
 // ── Returned Banner builder (same as Step 2) ──
@@ -794,7 +754,7 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   });
 }
 
-// ── E1.3: Build doorStyleGroups ──
+// ── Build doorStyleGroups ──
 function buildDoorStyleGroups(items, doorStyles) {
   const groups = [];
   const indexByCode = new Map();
@@ -832,7 +792,7 @@ function buildDoorStyleGroups(items, doorStyles) {
   return groups;
 }
 
-// ── E1.3 Pretty-print ──
+// ── Pretty-print to console ──
 function logDoorStyleGroups(groups) {
   console.log('[E1.3] doorStyleGroups built (' + groups.length + ' group' + (groups.length !== 1 ? 's' : '') + '):');
   groups.forEach(function (g, i) {
@@ -847,23 +807,7 @@ function logDoorStyleGroups(groups) {
   });
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E1.4: calculateProgress
-//
-// Computes:
-//   - per-group progress: Number of Assembled SKUs in that group whose
-//     modification_status === 'configured', out of total Assembled SKUs.
-//     Mutates each group's `progress` object in-place.
-//   - page-level progress: Same calculation across all Assembled SKUs.
-//     Returns an object { done, total, percent }.
-//
-// RTA SKUs are excluded entirely (they default to 'skipped' and don't
-// contribute to the denominator).
-//
-// Edge cases:
-//   - If total === 0 (no Assembled SKUs anywhere or in a group), percent
-//     is reported as 100% — semantically "nothing pending = complete".
-// ──────────────────────────────────────────────────────────────────
+// ── Calculate progress ──
 function calculateProgress(groups) {
   let pageDone = 0;
   let pageTotal = 0;
@@ -882,19 +826,10 @@ function calculateProgress(groups) {
   });
 
   const percent = pageTotal === 0 ? 100 : Math.round((pageDone / pageTotal) * 100);
-
   return { done: pageDone, total: pageTotal, percent: percent };
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E1.4: renderProgressCard
-//
-// Updates the top progress card DOM:
-//   - "X / Y done · Z%" text
-//   - progress bar fill width
-//   - bar color: green during progress, gold when complete (100%)
-//   - special class for "no Assembled SKUs at all" case
-// ──────────────────────────────────────────────────────────────────
+// ── Render progress card ──
 function renderProgressCard(progress) {
   const card        = document.getElementById('progressCard');
   const doneEl      = document.getElementById('progressDone');
@@ -907,19 +842,170 @@ function renderProgressCard(progress) {
   percentEl.textContent = progress.percent + '%';
   barFillEl.style.width = progress.percent + '%';
 
-  // Color: gold when fully complete, green otherwise
   if (progress.total > 0 && progress.done === progress.total) {
     barFillEl.classList.add('complete');
   } else {
     barFillEl.classList.remove('complete');
   }
 
-  // Special styling for "all RTA, no Assembled" case
   if (progress.total === 0) {
     card.classList.add('no-assembled');
   } else {
     card.classList.remove('no-assembled');
   }
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E1.5: Render door style list
+//
+// Builds full HTML for all door style cards from `doorStyleGroups`.
+// Each card includes:
+//   - Thumbnail (image_url, or color swatch fallback). Click → lightbox.
+//   - Style name, code, construction tag, optional discontinued tag.
+//   - Per-group progress (e.g. "1 / 3" with checkmark when complete).
+//   - Discontinued banner (if is_discontinued === true).
+//   - ASSEMBLED group: clickable rows with status badge (E3 hooks here).
+//   - RTA group: gray, non-clickable rows with no status badge.
+//     Skipped entirely if rtaItems is empty.
+// ──────────────────────────────────────────────────────────────────
+function renderDoorStyleList() {
+  const container = document.getElementById('doorStyleList');
+
+  if (!doorStyleGroups.length) {
+    container.innerHTML = '<div class="empty-state">No items in your quote.</div>';
+    return;
+  }
+
+  container.innerHTML = doorStyleGroups.map(function (g, gIdx) {
+    return buildDoorStyleCard(g, gIdx);
+  }).join('');
+}
+
+// ── Build a single door style card ──
+function buildDoorStyleCard(group, gIdx) {
+  // Thumbnail: image_url > color swatch > generic fallback
+  const thumbInner = group.image_url
+    ? `<img src="${esc(group.image_url)}" alt="${esc(group.style_name)}" loading="lazy"/>`
+    : `<div class="ds-thumb-fallback" style="background: ${esc(colorMap[group.color] || '#8A8A8A')};"></div>`;
+
+  const thumbClickAttr = group.image_url
+    ? `onclick="openLightbox('${esc(group.image_url)}')" style="cursor:zoom-in;"`
+    : `style="cursor:default;"`;
+
+  // Construction tag (framed / frameless / unknown)
+  const ctypeClass = group.construction_type === 'framed' ? 'framed'
+                  : group.construction_type === 'frameless' ? 'frameless'
+                  : 'unknown';
+  const ctypeLabel = group.construction_type === 'unknown' ? '—' : group.construction_type;
+
+  // Discontinued tag in header (compact)
+  const discTag = group.is_discontinued
+    ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
+    : '';
+
+  // Per-group progress display
+  const progressHtml = buildGroupProgressDisplay(group);
+
+  // Discontinued banner (between header and groups)
+  const discBanner = group.is_discontinued ? `
+    <div class="ds-discontinued-banner">
+      <div class="ds-discontinued-banner-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 4l8.5 14.5h-17L12 6zm-1 5v5h2v-5h-2zm0 7v2h2v-2h-2z"/></svg>
+      </div>
+      <div class="ds-discontinued-banner-msg">
+        This door style is currently unavailable. Please remove or replace these items. If you have any questions, please contact us.
+      </div>
+    </div>` : '';
+
+  // Assembled group (only if has items — should always have, since groups are
+  // created from cart items, but guard anyway)
+  const assembledGroupHtml = group.assembledItems.length > 0 ? `
+    <div class="ds-group">
+      <div class="ds-group-label">Assembled</div>
+      ${group.assembledItems.map(function (item) { return buildAssembledRow(item, gIdx); }).join('')}
+    </div>` : '';
+
+  // RTA group (only if has items)
+  const rtaGroupHtml = group.rtaItems.length > 0 ? `
+    <div class="ds-group rta">
+      <div class="ds-group-label">RTA</div>
+      ${group.rtaItems.map(function (item) { return buildRtaRow(item); }).join('')}
+    </div>` : '';
+
+  return `
+    <div class="ds-card" data-style-code="${esc(group.style_code)}">
+      <div class="ds-card-header">
+        <div class="ds-thumb" ${thumbClickAttr}>
+          ${thumbInner}
+        </div>
+        <div class="ds-info">
+          <div class="ds-name">${esc(group.style_name)}</div>
+          <div class="ds-meta">
+            <span class="ds-code">${esc(group.style_code)}</span>
+            <span class="ds-construction-tag ${ctypeClass}">${esc(ctypeLabel)}</span>
+            ${discTag}
+          </div>
+        </div>
+        ${progressHtml}
+      </div>
+      ${discBanner}
+      ${assembledGroupHtml}
+      ${rtaGroupHtml}
+    </div>`;
+}
+
+// ── Build per-group progress display in the card header ──
+function buildGroupProgressDisplay(group) {
+  const total = group.progress.total;
+  const done  = group.progress.done;
+
+  // Edge case: all RTA, no Assembled in this group
+  if (total === 0) {
+    return `
+      <div class="ds-progress">
+        <div class="ds-progress-count no-assembled">—</div>
+        <div class="ds-progress-label">RTA only</div>
+      </div>`;
+  }
+
+  const completeClass = (done === total) ? ' complete' : '';
+  return `
+    <div class="ds-progress">
+      <div class="ds-progress-count${completeClass}">${done} / ${total}</div>
+      <div class="ds-progress-label">Configured</div>
+    </div>`;
+}
+
+// ── Build a clickable Assembled SKU row ──
+function buildAssembledRow(item, gIdx) {
+  const isConfigured = item.modification_status === 'configured';
+  const statusClass = isConfigured ? 'configured' : 'unprocessed';
+  const statusLabel = isConfigured ? '● Configured' : '○ Unprocessed';
+
+  return `
+    <div class="sku-row assembled" onclick="onAssembledRowClick('${esc(item.key)}')">
+      <span class="sku-code">${esc(item.sku_code)}</span>
+      <span class="sku-desc">${esc(item.sku_desc)}</span>
+      <span class="sku-qty">Qty ${item.quantity}</span>
+      <span class="sku-status ${statusClass}">${statusLabel}</span>
+      <span class="sku-arrow">›</span>
+    </div>`;
+}
+
+// ── Build a non-clickable RTA SKU row ──
+function buildRtaRow(item) {
+  return `
+    <div class="sku-row rta">
+      <span class="sku-code">${esc(item.sku_code)}</span>
+      <span class="sku-desc">${esc(item.sku_desc)}</span>
+      <span class="sku-qty">Qty ${item.quantity}</span>
+    </div>`;
+}
+
+// ── E1.5: stub click handler for Assembled rows (E3 will wire Layer 2) ──
+function onAssembledRowClick(key) {
+  showToast('Configure modifications — coming in E3 (Layer 2 modal)');
+  console.log('[E1.5] Assembled row clicked, key:', key);
 }
 
 // ── Navigation: Review → ──
@@ -930,14 +1016,12 @@ function goReview() {
 
 // ── init() ──
 async function init() {
-  // Step A: Auth check
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) {
     window.location.href = 'login.html';
     return;
   }
 
-  // Step B: Verify the logged-in user is active
   const { data: meRow } = await _supabase
     .from('dealers').select('is_active').eq('id', session.user.id).single();
   if (!meRow?.is_active) {
@@ -946,7 +1030,6 @@ async function init() {
     return;
   }
 
-  // Step C: Detect URL params + Returned-revision flag
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
 
@@ -960,7 +1043,6 @@ async function init() {
     }
   } catch (_) { /* ignore */ }
 
-  // Step D: Resolve which dealer's data to load
   let dealerIdToLoad = session.user.id;
   if (draftId) {
     const { data: q } = await _supabase
@@ -976,13 +1058,11 @@ async function init() {
     } catch (_) { /* ignore */ }
   }
 
-  // Step E: Update Back link to preserve draft id
   if (draftId) {
     const backBtn = document.getElementById('btnBack');
     if (backBtn) backBtn.href = 'new-quote-step2.html?draft=' + draftId;
   }
 
-  // Step F: Load dealer profile
   const { data: d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
   if (!d) {
@@ -991,7 +1071,6 @@ async function init() {
   }
   dealer = d;
 
-  // Step G: Load door_styles + sku tables
   const [styleRes, framedRes, framelessRes] = await Promise.all([
     _supabase.from('door_styles').select('*').eq('is_active', true),
     _supabase.from('skus_framed').select('*').eq('active', true),
@@ -1001,7 +1080,6 @@ async function init() {
   const allSkusFramed    = framedRes.data    || [];
   const allSkusFrameless = framelessRes.data || [];
 
-  // Step H: Restore cart
   if (draftId) {
     cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
   } else {
@@ -1011,35 +1089,29 @@ async function init() {
     }
   }
 
-  // Step I: Normalize modification_status
   cartItems = normalizeCartItems(cartItems);
-
-  // Step J: Persist back to sessionStorage
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
-  // Step K: Guardrail
   if (!cartItems.length) {
     alert('No items in your quote. Returning to product selection.');
     window.location.href = draftId ? 'new-quote-step2.html?draft=' + draftId : 'new-quote-step2.html';
     return;
   }
 
-  // ── E1.3: Build doorStyleGroups ──
+  // Build groups + calc progress + render
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
-
-  // ── E1.4: Calculate progress (per-group + page-level) ──
-  pageProgress = calculateProgress(doorStyleGroups);
-
-  // ── E1.4: Render progress card ──
+  pageProgress    = calculateProgress(doorStyleGroups);
   renderProgressCard(pageProgress);
 
-  // Step L: Render Returned banner if applicable
+  // ── E1.5: Render real door style cards ──
+  renderDoorStyleList();
+
   if (isResumingReturned) {
     document.getElementById('returnedBannerMount').innerHTML =
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
   }
 
-  // Step M: Update bottom bar text
+  // Bottom bar text
   const pendingAssembled = pageProgress.total - pageProgress.done;
   const bottomStatusText = document.getElementById('bottomStatusText');
   if (bottomStatusText) {
@@ -1070,14 +1142,15 @@ async function init() {
   logDoorStyleGroups(doorStyleGroups);
   console.log('[E1.3] doorStyleGroups raw object (expand to inspect):', doorStyleGroups);
 
-  // ── E1.4 verification logs ──
   console.log('[E1.4] page progress:', pageProgress);
   console.log('[E1.4] per-group progress:');
   doorStyleGroups.forEach(function (g, i) {
     console.log('  #' + (i + 1) + '  ' + g.style_code + ': ' + g.progress.done + ' / ' + g.progress.total);
   });
 
-  // Step N: Poll is_active every 60s
+  console.log('[E1.5] door style list rendered');
+
+  // Poll is_active every 60s
   setInterval(async function () {
     const { data: check } = await _supabase
       .from('dealers').select('is_active').eq('id', session.user.id).single();
