@@ -154,13 +154,16 @@
       border: 1px solid var(--border);
       border-radius: 3px;
       overflow: hidden;
-      cursor: zoom-in;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: border-color 0.15s;
+      position: relative;  /* ← anchor for zoom icon */
     }
-    .ds-thumb:hover {
+    .ds-thumb.zoomable {
+      cursor: zoom-in;
+    }
+    .ds-thumb.zoomable:hover {
       border-color: var(--gold);
     }
     .ds-thumb img {
@@ -173,6 +176,36 @@
       width: 100%;
       height: 100%;
     }
+    /* Zoom icon overlay (right-bottom corner) — only shown on zoomable thumbs */
+    .ds-thumb-zoom-icon {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;  /* let click pass through to .ds-thumb */
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: background 0.15s, transform 0.15s;
+    }
+    .ds-thumb.zoomable:hover .ds-thumb-zoom-icon {
+      background: rgba(255,255,255,1);
+      transform: scale(1.08);
+    }
+    .ds-thumb-zoom-icon svg {
+      width: 10px;
+      height: 10px;
+      fill: none;
+      stroke: var(--green-dark);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+    }
+
     .ds-info {
       flex: 1;
       min-width: 0;
@@ -216,7 +249,6 @@
       background: rgba(122,140,130,0.12);
       color: var(--muted);
     }
-    /* Discontinued tag (small, in header) */
     .ds-discontinued-tag {
       font-size: 9px;
       letter-spacing: 0.1em;
@@ -253,7 +285,7 @@
       margin-top: 2px;
     }
 
-    /* Discontinued banner inside card (between header and groups) */
+    /* Discontinued banner inside card */
     .ds-discontinued-banner {
       background: rgba(224,123,57,0.06);
       border-bottom: 1px solid rgba(224,123,57,0.25);
@@ -278,7 +310,7 @@
       flex: 1;
     }
 
-    /* ── Group (ASSEMBLED / RTA) ── */
+    /* ── Group ── */
     .ds-group {
       padding: 12px 18px;
     }
@@ -380,7 +412,7 @@
       color: var(--green-dark);
     }
 
-    /* ── Empty State (loading / no items) ── */
+    /* ── Empty State ── */
     .empty-state {
       background: var(--white);
       border: 1px dashed var(--border);
@@ -392,7 +424,7 @@
       line-height: 1.6;
     }
 
-    /* ── Lightbox (same as Step 2) ── */
+    /* ── Lightbox ── */
     .lightbox-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.85);
@@ -421,7 +453,7 @@
     }
     .lightbox-close:hover { opacity: 1; }
 
-    /* ── Bottom Bar (same pattern as Step 2) ── */
+    /* ── Bottom Bar ── */
     .bottom-bar {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -602,16 +634,13 @@
 
 <div class="page">
 
-  <!-- Returned Banner mount point (populated by JS if applicable) -->
   <div id="returnedBannerMount"></div>
 
-  <!-- Page Heading -->
   <div class="page-heading">
     <h1>Customize Your Order</h1>
     <div class="subtitle">Configure modifications for assembled cabinets</div>
   </div>
 
-  <!-- Progress Card -->
   <div class="progress-card" id="progressCard">
     <div class="progress-card-row">
       <span class="progress-label">Progress</span>
@@ -625,7 +654,6 @@
     </div>
   </div>
 
-  <!-- Door Style List (rendered dynamically by E1.5) -->
   <div id="doorStyleList">
     <div class="empty-state">Loading...</div>
   </div>
@@ -633,16 +661,13 @@
 </div>
 
 
-<!-- Lightbox -->
 <div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">×</button>
   <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Bottom Bar -->
 <div class="bottom-bar">
   <div class="bottom-left" id="bottomStatus">
     <strong id="bottomStatusText">Loading...</strong>
@@ -671,13 +696,14 @@ let draftId          = null;
 let isResumingReturned = false;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
 
-// ── Color map for fallback swatches (mirrors Step 2) ──
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
   grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
 };
 
-// ── Lightbox ──
+// Reusable SVG: zoom-in icon (magnifying glass with +)
+const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
+
 function openLightbox(src) {
   if (!src) return;
   document.getElementById('lightboxImg').src = src;
@@ -687,7 +713,6 @@ function closeLightbox() {
   document.getElementById('lightboxOverlay').classList.remove('show');
 }
 
-// ── Toast ──
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -695,7 +720,6 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2000);
 }
 
-// ── HTML escape (defense against weird sku descriptions) ──
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, function (c) {
@@ -703,7 +727,6 @@ function esc(s) {
   });
 }
 
-// ── Returned Banner builder (same as Step 2) ──
 function buildReturnedBannerSimple(roleMsg) {
   return `
     <div class="returned-revising-banner">
@@ -717,7 +740,6 @@ function buildReturnedBannerSimple(roleMsg) {
     </div>`;
 }
 
-// ── Helper: ensure modification_status is set on every cart item ──
 function normalizeCartItems(items) {
   return items.map(function (item) {
     var status = item.modification_status;
@@ -728,7 +750,6 @@ function normalizeCartItems(items) {
   });
 }
 
-// ── Load draft items from DB ──
 async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   const { data: items, error } = await _supabase
     .from('quote_items').select('*').eq('quote_id', draftId);
@@ -754,7 +775,6 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   });
 }
 
-// ── Build doorStyleGroups ──
 function buildDoorStyleGroups(items, doorStyles) {
   const groups = [];
   const indexByCode = new Map();
@@ -792,7 +812,6 @@ function buildDoorStyleGroups(items, doorStyles) {
   return groups;
 }
 
-// ── Pretty-print to console ──
 function logDoorStyleGroups(groups) {
   console.log('[E1.3] doorStyleGroups built (' + groups.length + ' group' + (groups.length !== 1 ? 's' : '') + '):');
   groups.forEach(function (g, i) {
@@ -807,7 +826,6 @@ function logDoorStyleGroups(groups) {
   });
 }
 
-// ── Calculate progress ──
 function calculateProgress(groups) {
   let pageDone = 0;
   let pageTotal = 0;
@@ -829,7 +847,6 @@ function calculateProgress(groups) {
   return { done: pageDone, total: pageTotal, percent: percent };
 }
 
-// ── Render progress card ──
 function renderProgressCard(progress) {
   const card        = document.getElementById('progressCard');
   const doneEl      = document.getElementById('progressDone');
@@ -855,19 +872,6 @@ function renderProgressCard(progress) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E1.5: Render door style list
-//
-// Builds full HTML for all door style cards from `doorStyleGroups`.
-// Each card includes:
-//   - Thumbnail (image_url, or color swatch fallback). Click → lightbox.
-//   - Style name, code, construction tag, optional discontinued tag.
-//   - Per-group progress (e.g. "1 / 3" with checkmark when complete).
-//   - Discontinued banner (if is_discontinued === true).
-//   - ASSEMBLED group: clickable rows with status badge (E3 hooks here).
-//   - RTA group: gray, non-clickable rows with no status badge.
-//     Skipped entirely if rtaItems is empty.
-// ──────────────────────────────────────────────────────────────────
 function renderDoorStyleList() {
   const container = document.getElementById('doorStyleList');
 
@@ -881,32 +885,33 @@ function renderDoorStyleList() {
   }).join('');
 }
 
-// ── Build a single door style card ──
 function buildDoorStyleCard(group, gIdx) {
-  // Thumbnail: image_url > color swatch > generic fallback
-  const thumbInner = group.image_url
-    ? `<img src="${esc(group.image_url)}" alt="${esc(group.style_name)}" loading="lazy"/>`
+  // ── Thumbnail ──
+  // - If has image_url → <img> + zoom icon overlay + clickable
+  // - If only color fallback → solid swatch, no overlay, not clickable
+  const hasImage = !!group.image_url;
+
+  const thumbInner = hasImage
+    ? `<img src="${esc(group.image_url)}" alt="${esc(group.style_name)}" loading="lazy"/>
+       <div class="ds-thumb-zoom-icon" aria-hidden="true">${ZOOM_ICON_SVG}</div>`
     : `<div class="ds-thumb-fallback" style="background: ${esc(colorMap[group.color] || '#8A8A8A')};"></div>`;
 
-  const thumbClickAttr = group.image_url
-    ? `onclick="openLightbox('${esc(group.image_url)}')" style="cursor:zoom-in;"`
-    : `style="cursor:default;"`;
+  const thumbAttrs = hasImage
+    ? `class="ds-thumb zoomable" onclick="openLightbox('${esc(group.image_url)}')"`
+    : `class="ds-thumb"`;
 
-  // Construction tag (framed / frameless / unknown)
+  // Construction tag
   const ctypeClass = group.construction_type === 'framed' ? 'framed'
                   : group.construction_type === 'frameless' ? 'frameless'
                   : 'unknown';
   const ctypeLabel = group.construction_type === 'unknown' ? '—' : group.construction_type;
 
-  // Discontinued tag in header (compact)
   const discTag = group.is_discontinued
     ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
     : '';
 
-  // Per-group progress display
   const progressHtml = buildGroupProgressDisplay(group);
 
-  // Discontinued banner (between header and groups)
   const discBanner = group.is_discontinued ? `
     <div class="ds-discontinued-banner">
       <div class="ds-discontinued-banner-icon">
@@ -917,15 +922,12 @@ function buildDoorStyleCard(group, gIdx) {
       </div>
     </div>` : '';
 
-  // Assembled group (only if has items — should always have, since groups are
-  // created from cart items, but guard anyway)
   const assembledGroupHtml = group.assembledItems.length > 0 ? `
     <div class="ds-group">
       <div class="ds-group-label">Assembled</div>
       ${group.assembledItems.map(function (item) { return buildAssembledRow(item, gIdx); }).join('')}
     </div>` : '';
 
-  // RTA group (only if has items)
   const rtaGroupHtml = group.rtaItems.length > 0 ? `
     <div class="ds-group rta">
       <div class="ds-group-label">RTA</div>
@@ -935,7 +937,7 @@ function buildDoorStyleCard(group, gIdx) {
   return `
     <div class="ds-card" data-style-code="${esc(group.style_code)}">
       <div class="ds-card-header">
-        <div class="ds-thumb" ${thumbClickAttr}>
+        <div ${thumbAttrs}>
           ${thumbInner}
         </div>
         <div class="ds-info">
@@ -954,12 +956,10 @@ function buildDoorStyleCard(group, gIdx) {
     </div>`;
 }
 
-// ── Build per-group progress display in the card header ──
 function buildGroupProgressDisplay(group) {
   const total = group.progress.total;
   const done  = group.progress.done;
 
-  // Edge case: all RTA, no Assembled in this group
   if (total === 0) {
     return `
       <div class="ds-progress">
@@ -976,7 +976,6 @@ function buildGroupProgressDisplay(group) {
     </div>`;
 }
 
-// ── Build a clickable Assembled SKU row ──
 function buildAssembledRow(item, gIdx) {
   const isConfigured = item.modification_status === 'configured';
   const statusClass = isConfigured ? 'configured' : 'unprocessed';
@@ -992,7 +991,6 @@ function buildAssembledRow(item, gIdx) {
     </div>`;
 }
 
-// ── Build a non-clickable RTA SKU row ──
 function buildRtaRow(item) {
   return `
     <div class="sku-row rta">
@@ -1002,19 +1000,15 @@ function buildRtaRow(item) {
     </div>`;
 }
 
-// ── E1.5: stub click handler for Assembled rows (E3 will wire Layer 2) ──
 function onAssembledRowClick(key) {
   showToast('Configure modifications — coming in E3 (Layer 2 modal)');
   console.log('[E1.5] Assembled row clicked, key:', key);
 }
 
-// ── Navigation: Review → ──
 function goReview() {
-  // E1.9 will fill in real logic
   showToast('Review action — wiring up in E1.9');
 }
 
-// ── init() ──
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) {
@@ -1098,12 +1092,9 @@ async function init() {
     return;
   }
 
-  // Build groups + calc progress + render
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
   renderProgressCard(pageProgress);
-
-  // ── E1.5: Render real door style cards ──
   renderDoorStyleList();
 
   if (isResumingReturned) {
@@ -1111,7 +1102,6 @@ async function init() {
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
   }
 
-  // Bottom bar text
   const pendingAssembled = pageProgress.total - pageProgress.done;
   const bottomStatusText = document.getElementById('bottomStatusText');
   if (bottomStatusText) {
@@ -1127,7 +1117,6 @@ async function init() {
     }
   }
 
-  // ── Verification logs ──
   console.log('[E1.2] init() complete');
   console.log('[E1.2] dealer:', dealer);
   console.log('[E1.2] draftId:', draftId);
@@ -1148,9 +1137,8 @@ async function init() {
     console.log('  #' + (i + 1) + '  ' + g.style_code + ': ' + g.progress.done + ' / ' + g.progress.total);
   });
 
-  console.log('[E1.5] door style list rendered');
+  console.log('[E1.5] door style list rendered (with zoom icon on image thumbs)');
 
-  // Poll is_active every 60s
   setInterval(async function () {
     const { data: check } = await _supabase
       .from('dealers').select('is_active').eq('id', session.user.id).single();
