@@ -1137,7 +1137,7 @@ function applyTotals(opts) {
     document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
   } else {
     document.getElementById('totalTax').textContent = `$${tax.toFixed(2)}`;
-    document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(0)}% tax rate`;
+    document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(2)}% tax rate`;
   }
 
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
