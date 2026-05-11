@@ -1971,42 +1971,18 @@ function goReview() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//
-//   【PART 1 END — Part 2 接續】
-//
-//   Part 2 will contain:
-//     • shouldKeepModification, makeVirtualInstance, extractMf07Description
-//     • renderReadOnlyAdminRow, renderMfElements
-//     • E5 NEW: split panel render, tab render, switchSubGroupTab,
-//               addSubGroup, deleteSubGroup, qty handlers, validateSplit
-//     • openMfModal (with sub_groups working copy + RPC + F3.1)
-//     • closeMfModal, refreshAfterModalAction
-//     • handleMfSave (collect ALL sub_groups), handleMfSkip
-//     • destroyMfInstances (per-sub)
-//     • updateRunningTotal (per-sub, multiplied by sub.qty)
-//     • init()
-//
-// ═══════════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════════
 // ║                                                                 ║
-// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7 + F3.1 + E5: Modal       ║
+// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7 + F3.1 + E5 + F-TAX:     ║
+// ║  Modal logic                                                    ║
 // ║                                                                 ║
-// ║  E5 changes (this stage — multi sub-group support):             ║
-// ║    • Modal works on a working copy of item.sub_groups           ║
-// ║      (activeSubGroups), so Cancel discards all changes.         ║
-// ║    • Each sub-group has its own instances/liveValues/frozen.    ║
-// ║    • Tab switching freezes current sub → destroys instances →   ║
-// ║      renders new sub from its frozen/saved values.              ║
-// ║    • Split panel allows: change sub qty, delete sub, add sub.   ║
-// ║    • SKU qty editable in modal header; Save syncs to cart.      ║
-// ║    • Save collects ALL sub-groups (loops through tabs).         ║
-// ║    • Skip clears every sub-group (Q12 A).                       ║
-// ║    • Running total shows the ACTIVE sub-group's line total      ║
-// ║      (per-unit cost × sub.qty, Q17 B).                          ║
-// ║                                                                 ║
-// ║  E4.7 + F3.1 preserved verbatim — RPC runs ONCE per modal       ║
-// ║  session (rules don't change per sub-group), but savedByIdx /   ║
-// ║  reKeyed is computed PER sub-group when its tab is rendered.    ║
+// ║  F-TAX changes (2026-05-11):                                    ║
+// ║    • handleMfSave now snapshots tax_status into each mod entry  ║
+// ║      written to quote_items.modifications[i].tax_status         ║
+// ║    • MF1-6: tax_status = matching rule's tax_status (DB)        ║
+// ║    • MF07:  tax_status = value.taxable (per-instance, admin     ║
+// ║             toggles in MF07 modal Taxable checkbox)             ║
+// ║    • Tax base is computed downstream in step3 using these       ║
+// ║      snapshots; this file only persists them.                   ║
 // ║                                                                 ║
 // ═══════════════════════════════════════════════════════════════════
 
@@ -2024,6 +2000,29 @@ function shouldKeepModification(value) {
     if (value.enabled === false) return false;
   }
   return true;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// F-TAX: Resolve the tax_status for a single mod entry at save time.
+//   MF07 → per-instance, read from entry.value.taxable
+//   MF01-MF06 → per-rule, read from the matching rule's tax_status
+//     (snapshot, so future rule edits don't change historical quotes)
+// ──────────────────────────────────────────────────────────────────
+function resolveTaxStatusForEntry(entry) {
+  if (!entry) return false;
+
+  // MF07: read from the admin's per-instance Taxable checkbox
+  if (entry.mf_code === 'MF07') {
+    return !!(entry.value && entry.value.taxable === true);
+  }
+
+  // MF01-MF06: snapshot from the rule that was rendered
+  // entry.rule_idx is the index in activeMfModalRules (set in
+  // renderMfElements; preserved through freezeActiveSub).
+  if (!Array.isArray(activeMfModalRules)) return false;
+  const rule = activeMfModalRules[entry.rule_idx];
+  if (!rule) return false;
+  return rule.tax_status === true;
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -2383,20 +2382,12 @@ function clearMfContainerToLoading() {
 
 // ═══════════════════════════════════════════════════════════════════
 // E5: Freeze / hydrate logic
-// When user switches tab (or saves), we capture the active sub's
-// live MF values into frozenValues so they survive the destroy.
-// When we render a sub-group's tab, we use frozenValues if present
-// (more recent than the original saved snapshot), otherwise fall
-// back to its modifications array.
 // ═══════════════════════════════════════════════════════════════════
 
 function freezeActiveSub() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
   if (!activeSub) return;
 
-  // Collect current values from each instance (the source of truth
-  // while a tab is active, not the live event-driven map alone —
-  // because some instances may not have fired mf-change yet).
   const snapshot = [];
   (activeSub.instances || []).forEach(function (rec) {
     let val, cost;
@@ -2420,12 +2411,6 @@ function freezeActiveSub() {
   activeSub.frozenValues = snapshot;
 }
 
-/**
- * Build savedByIdx for a given sub-group: prefer frozenValues
- * (if user already touched this tab this session), else fall back
- * to the sub's persisted modifications array (which was loaded
- * from item.sub_groups at modal open).
- */
 function buildSavedByIdxForSub(subRef, rules) {
   const rawList = (subRef.frozenValues && subRef.frozenValues.length)
     ? subRef.frozenValues
@@ -2476,8 +2461,6 @@ function renderSplitPanel() {
       </div>`;
   }).join('');
 
-  // Disable Add button if any sub has qty 0 and total already equals SKU qty?
-  // No — we allow Add and validation happens before Save.
   addBtn.disabled = false;
 
   updateSplitSummary();
@@ -2510,7 +2493,6 @@ function updateSplitSummary() {
     skuQtyEl.classList.toggle('invalid', sum !== skuQty);
   }
 
-  // Reflect on Save button
   const saveBtn = document.getElementById('mfBtnSave');
   if (saveBtn) {
     saveBtn.disabled = (sum !== skuQty) || activeSubGroups.length === 0 || skuQty < 1;
@@ -2524,10 +2506,8 @@ function onSubQtyChange(subIdx, newVal) {
   if (!isFinite(q) || q < 1) q = 1;
   sub.qty = q;
   updateSplitSummary();
-  // If this sub is the active tab, running total depends on qty
   if (subIdx === activeSubGroupIdx) {
     updateRunningTotal();
-    // Also update the Group label qty display
     const groupQtyEl = document.getElementById('mfGroupQty');
     if (groupQtyEl) groupQtyEl.textContent = 'Qty: ' + q;
   }
@@ -2541,18 +2521,13 @@ function onDeleteSubGroup(subIdx) {
   const sub = activeSubGroups[subIdx];
   if (!sub) return;
 
-  // If the sub being deleted is the active tab, freeze first (so we
-  // can safely destroy without losing un-saved data from OTHER tabs —
-  // although other tabs already froze their values when user left them).
   if (subIdx === activeSubGroupIdx) {
     destroyActiveSubInstances();
   }
 
   activeSubGroups.splice(subIdx, 1);
-  // Re-number sub_index 1..N
   activeSubGroups.forEach(function (g, i) { g.sub_index = i + 1; });
 
-  // Decide new active tab
   if (activeSubGroupIdx >= activeSubGroups.length) {
     activeSubGroupIdx = activeSubGroups.length - 1;
   }
@@ -2567,7 +2542,6 @@ function addSubGroup() {
   const currentSum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   const remaining = skuQty - currentSum;
 
-  // New sub default qty: take whatever is left over, but at least 1
   const newQty = remaining > 0 ? remaining : 1;
 
   activeSubGroups.push({
@@ -2582,8 +2556,6 @@ function addSubGroup() {
 
   renderSplitPanel();
   renderTabs();
-  // Stay on currently active tab (user can switch manually); but if
-  // they had only 1 sub before, now there are 2 — keep them on Sub 1.
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2615,7 +2587,6 @@ function onTabClick(newIdx) {
   if (newIdx === activeSubGroupIdx) return;
   if (newIdx < 0 || newIdx >= activeSubGroups.length) return;
 
-  // Freeze current sub before destroying its instances
   freezeActiveSub();
   destroyActiveSubInstances();
 
@@ -2624,10 +2595,6 @@ function onTabClick(newIdx) {
   renderActiveSubTab();
 }
 
-/**
- * Render the currently active sub-group into the modal body
- * (split panel + tabs are already up to date; this renders MF rows).
- */
 function renderActiveSubTab() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
   if (!activeSub) {
@@ -2635,7 +2602,6 @@ function renderActiveSubTab() {
     return;
   }
 
-  // Update group label / qty display
   const groupLabel = document.getElementById('mfGroupLabel');
   const groupQty   = document.getElementById('mfGroupQty');
   if (groupLabel) {
@@ -2645,7 +2611,6 @@ function renderActiveSubTab() {
   }
   if (groupQty) groupQty.textContent = 'Qty: ' + (activeSub.qty || 0);
 
-  // If we don't yet have the RPC rules, show loading state
   if (!Array.isArray(activeMfModalRules)) {
     clearMfContainerToLoading();
     return;
@@ -2680,10 +2645,8 @@ async function openMfModal(key) {
   ensureSubGroups(item);
 
   activeMfModalKey = key;
-  activeMfModalRules = null;   // null = not yet loaded; render will show "loading"
+  activeMfModalRules = null;
 
-  // Build modal working copy of sub_groups (deep enough — modifications
-  // arrays are NOT mutated in place; replaced on Save).
   activeSubGroups = item.sub_groups.map(function (g, i) {
     return {
       sub_index:           g.sub_index || (i + 1),
@@ -2698,7 +2661,6 @@ async function openMfModal(key) {
   activeSubGroupIdx = 0;
   activeSkuQty      = item.quantity;
 
-  // ── SKU header ──
   const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
   const ctype    = (styleRow && styleRow.construction_type) || 'unknown';
   const ctypeClass = ctype === 'framed' ? 'framed'
@@ -2723,11 +2685,9 @@ async function openMfModal(key) {
     </span>
   `;
 
-  // ── Initial split panel + tabs ──
   renderSplitPanel();
   renderTabs();
 
-  // ── Reset MF container to loading state ──
   clearMfContainerToLoading();
   setRunningTotalDOM(
     activeSubGroups.length > 1
@@ -2739,7 +2699,6 @@ async function openMfModal(key) {
   document.getElementById('mfModalOverlay').classList.add('show');
   document.body.classList.add('mf-modal-open');
 
-  // ── Log saved data for each sub (debug visibility) ──
   console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item));
   console.log('[E5] sub_groups loaded:', activeSubGroups.length, 'sub-group(s):');
   activeSubGroups.forEach(function (g, i) {
@@ -2748,7 +2707,6 @@ async function openMfModal(key) {
                 ' mods=' + g.modifications.length);
   });
 
-  // ── RPC: run ONCE per modal session, shared by all sub-groups ──
   const doorParam = (ctype || '').toLowerCase();
   if (doorParam !== 'framed' && doorParam !== 'frameless') {
     console.warn('[E4.3] Unknown construction type for SKU', item.sku_code,
@@ -2789,7 +2747,6 @@ async function openMfModal(key) {
     const rawRules = rules || [];
     console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
 
-    // Build a union of saved mf_codes across ALL sub-groups (for F3.1 fetch logic)
     const allSavedByMfCode = {};
     activeSubGroups.forEach(function (sub) {
       (sub.modifications || []).forEach(function (m) {
@@ -2807,7 +2764,6 @@ async function openMfModal(key) {
       });
       if (allowed) return true;
 
-      // E4.7: dealer-side keep rule if ANY sub has saved data for it
       if (role === 'dealer') {
         return Object.values(allSavedByMfCode).some(function (s) {
           return s.mf_code === r.mf_code
@@ -2817,7 +2773,6 @@ async function openMfModal(key) {
       return false;
     });
 
-    // F3.1: fetch admin-only rules dealer cannot see via RLS
     if (role === 'dealer' && savedCountTotal > 0) {
       const filteredMfCodes = new Set(filtered.map(function (r) { return r.mf_code; }));
       const missingMfCodes = [];
@@ -2864,6 +2819,12 @@ async function openMfModal(key) {
     activeMfModalRules = filtered;
     console.log('[E4.3]   After role filter + F3.1: ' + filtered.length + ' rule(s)');
     console.log('[E4.3]   Rules:', filtered);
+    // F-TAX: log per-rule tax_status for visibility
+    console.log('[F-TAX]   Rule tax_status map:',
+      filtered.map(function (r) {
+        return r.mf_code + ' "' + (r.display_label || '') + '" → tax_status=' + r.tax_status;
+      })
+    );
 
     renderActiveSubTab();
 
@@ -2880,13 +2841,7 @@ async function openMfModal(key) {
 // ═══════════════════════════════════════════════════════════════════
 
 function closeMfModal() {
-  // Destroy active sub's instances; other subs already destroyed
-  // when user switched away from them.
   destroyActiveSubInstances();
-  // Also destroy any frozen-but-still-allocated other subs (no DOM,
-  // but instances may have been created and never destroyed if the
-  // user added a sub and never visited its tab? — actually no, instances
-  // only exist for active tab. Safe to skip.)
 
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
@@ -2919,12 +2874,18 @@ function refreshAfterModalAction() {
 }
 
 /**
- * E5: Save collects from ALL sub-groups.
+ * E5 + F-TAX: Save collects from ALL sub-groups.
  *   - Active tab: read from live instances
  *   - Other tabs: read from frozenValues snapshot
  *   - Determines per-sub status: configured (any mod kept) or skipped (none)
  *   - Validates Σ(sub.qty) === activeSkuQty
  *   - Writes back to item.sub_groups + item.quantity
+ *
+ * F-TAX (2026-05-11):
+ *   - Each kept mod entry now carries a `tax_status` boolean snapshot.
+ *   - MF07: from value.taxable (per-instance admin toggle)
+ *   - MF01-MF06: from the matching rule's tax_status (DB column)
+ *   - step3 reads this to compute taxableBase.
  */
 function handleMfSave() {
   if (!activeMfModalKey) return;
@@ -2952,26 +2913,34 @@ function handleMfSave() {
   // ── Collect per-sub modifications ──
   const newSubGroups = [];
   let totalLineCost = 0;
+  let taxableLineCost = 0;  // F-TAX: for debug logging only
 
   activeSubGroups.forEach(function (sub, i) {
     const snapshot = sub.frozenValues || [];
     const kept = snapshot.filter(function (entry) {
       return shouldKeepModification(entry.value);
     }).map(function (entry) {
+      // F-TAX: resolve tax_status per entry and snapshot it
+      const taxStatus = resolveTaxStatusForEntry(entry);
       return {
         rule_idx:      entry.rule_idx,
         mf_code:       entry.mf_code,
         display_label: entry.display_label,
         value:         entry.value,
         cost:          (typeof entry.cost === 'number' && isFinite(entry.cost)) ? entry.cost : 0,
+        tax_status:    taxStatus,   // F-TAX: snapshot
       };
     });
 
     // Q14 (A): no kept mods → skipped; else configured
     const status = kept.length > 0 ? 'configured' : 'skipped';
 
-    const perUnit = kept.reduce(function (s, m) { return s + (m.cost || 0); }, 0);
-    totalLineCost += perUnit * (sub.qty || 0);
+    const perUnit        = kept.reduce(function (s, m) { return s + (m.cost || 0); }, 0);
+    const perUnitTaxable = kept.reduce(function (s, m) {
+      return s + (m.tax_status === true ? (m.cost || 0) : 0);
+    }, 0);
+    totalLineCost   += perUnit        * (sub.qty || 0);
+    taxableLineCost += perUnitTaxable * (sub.qty || 0);
 
     newSubGroups.push({
       sub_index:           i + 1,
@@ -2990,10 +2959,17 @@ function handleMfSave() {
               '→', newSubGroups.length, 'sub-group(s),',
               'total line cost $' + totalLineCost.toFixed(2),
               (oldQty !== activeSkuQty ? '(SKU qty: ' + oldQty + ' → ' + activeSkuQty + ')' : ''));
+  console.log('[F-TAX]   Taxable mods line cost: $' + taxableLineCost.toFixed(2) +
+              ' (of $' + totalLineCost.toFixed(2) + ' total)');
   newSubGroups.forEach(function (g) {
     console.log('  Sub ' + g.sub_index + ' qty=' + g.qty +
                 ' status=' + g.modification_status +
-                ' mods=' + g.modifications.length);
+                ' mods=' + g.modifications.length +
+                ' taxable=' + g.modifications.filter(function (m) { return m.tax_status === true; }).length);
+    g.modifications.forEach(function (m) {
+      console.log('     · ' + m.mf_code + ' "' + m.display_label + '" cost=$' + (m.cost || 0).toFixed(2) +
+                  ' tax_status=' + m.tax_status);
+    });
   });
 
   refreshAfterModalAction();
@@ -3011,7 +2987,6 @@ function handleMfSkip() {
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  // Validate split sum first (Skip still requires a valid structure)
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
     showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ') before skipping', true);
@@ -3127,7 +3102,6 @@ async function init() {
   }
 
   cartItems = normalizeCartItems(cartItems);
-  // Re-key each item to ensure `key` matches '<sku>_<type>'
   cartItems.forEach(function (item) {
     if (!item.key) item.key = item.sku_code + '_' + item.type;
   });
@@ -3187,6 +3161,7 @@ async function init() {
   logDoorStyleGroups(doorStyleGroups);
   console.log('[E5] Multi sub-group split + delete + qty edit ready');
   console.log('[F3.1] Re-hydrate + Option B (read-only admin MF07, RLS-aware) ready');
+  console.log('[F-TAX] tax_status snapshot active (MF07 per-instance, MF1-6 per-rule)');
 
   setInterval(async function () {
     const { data: check } = await _supabase
@@ -3202,5 +3177,3 @@ init();
 </script>
 </body>
 </html>
-
-
