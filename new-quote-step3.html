@@ -406,7 +406,7 @@
 
 <!-- Bottom Bar -->
 <div class="bottom-bar">
-  <a id="backToStep2" href="new-quote-step2.html" class="btn-back">← Edit Items</a>
+  <a id="backToStep2" href="new-quote-modifications.html" class="btn-back">← Back to Modifications</a>
 </div>
 
 <!-- Progress Overlay — During Submit -->
@@ -628,7 +628,8 @@ async function init() {
     document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep2Link').href     = 'new-quote-step2.html?draft=' + draftId;
-    document.getElementById('backToStep2').href       = 'new-quote-step2.html?draft=' + draftId;
+    // F2: Bottom Bar "Back to Modifications" now points to Step 2.5
+    document.getElementById('backToStep2').href       = 'new-quote-modifications.html?draft=' + draftId;
   }
 
   const isAdminDraftMode = (adminDraft || step1Data.adminDraft);
@@ -852,20 +853,34 @@ function renderReview() {
   document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F2: buildItemsPayload — now persists modifications + modification_status
+// ─────────────────────────────────────────────────────────────────────────────
+// Both Save Draft and Submit flow through this function, so persisting
+// modifications here fixes the bug where Step 2.5 work was silently dropped
+// when writing to the DB.
+//
+// `modifications` is the array collected by Stage E's handleMfSave() in
+// new-quote-modifications.html. It can be empty (skipped, or no mods needed).
+// `modification_status` is one of: 'unprocessed' | 'configured' | 'skipped'.
+// For RTA items, Stage E normalizes status to 'skipped' (decided 2026/5/11).
+// ─────────────────────────────────────────────────────────────────────────────
 function buildItemsPayload(quoteId) {
   return step2Data.map(function(item) {
     return {
-      quote_id:        quoteId,
-      style_code:      item.style_code,
-      style_name:      item.style_name || null,
-      sku_code:        item.sku_code,
-      sku_desc:        item.sku_desc || null,
-      sku_type:        item.skuType || null,
-      assemble_status: item.type,
-      quantity:        item.quantity,
-      unit_price:      item.unit_price,
-      msrp:            item.msrp || null,
-      assemble_fee:    item.assemble_fee || 0,
+      quote_id:            quoteId,
+      style_code:          item.style_code,
+      style_name:          item.style_name || null,
+      sku_code:            item.sku_code,
+      sku_desc:            item.sku_desc || null,
+      sku_type:            item.skuType || null,
+      assemble_status:     item.type,
+      quantity:            item.quantity,
+      unit_price:          item.unit_price,
+      msrp:                item.msrp || null,
+      assemble_fee:        item.assemble_fee || 0,
+      modifications:       Array.isArray(item.modifications) ? item.modifications : [],
+      modification_status: item.modification_status || 'unprocessed',
     };
   });
 }
