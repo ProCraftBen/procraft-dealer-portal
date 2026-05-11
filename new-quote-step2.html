@@ -703,34 +703,80 @@ async function init() {
   }, 60000);
 }
 
-// ── Load draft items from DB → rebuild cartItems ──────────────────
+// ─────────────────────────────────────────────────────────────────
+// E5: Load draft items from DB, GROUP BY (style_code, sku_code,
+// assemble_status) to merge multi-row sub_index records back into a
+// single cart entry with sub_groups[].
+//
+// A single SKU split into N sub-groups in Step 2.5 is stored as N
+// rows in quote_items (sub_index 1..N). The cart should still show
+// 1 line per (SKU, type), so we sum quantities and stash each row
+// as a sub_group on the cart item.
+// ─────────────────────────────────────────────────────────────────
 async function loadDraftItems() {
   const { data: items, error } = await _supabase
     .from('quote_items').select('*').eq('quote_id', draftId);
   if (error || !items || !items.length) return;
-  cartItems = items.map(function(item) {
-    const style    = allStyles.find(function(s) { return s.style_code === item.style_code; });
-    const skuAll   = allSkusFramed.concat(allSkusFrameless);
-    const sku      = skuAll.find(function(s) { return s.sku_code === item.sku_code; });
-    return {
-      key:          item.sku_code + '_' + item.assemble_status,
-      style_code:   item.style_code,
-      style_name:   style ? style.style_name : item.style_code,
-      sku_code:     item.sku_code,
-      sku_desc:     sku ? sku.description : item.sku_code,
-      skuType:      item.sku_type || '',
-      category:     sku ? (sku.category    || '') : '',
-      subcategory:  sku ? (sku.subcategory || '') : '',
-      type:         item.assemble_status,
-      quantity:     item.quantity,
-      unit_price:   parseFloat(item.unit_price),
-      msrp:         parseFloat(item.msrp || 0),
-      assemble_fee: parseFloat(item.assemble_fee || 0),
-      modifications:       Array.isArray(item.modifications) ? item.modifications : [],
-      modification_status: item.modification_status || null,
-    };
+
+  const skuAll = allSkusFramed.concat(allSkusFrameless);
+  const groupsByKey = new Map();
+
+  // Sort by sub_index ASC so sub_groups end up in correct order
+  const sorted = items.slice().sort(function (a, b) {
+    if (a.style_code !== b.style_code) return a.style_code.localeCompare(b.style_code);
+    if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
+    if (a.assemble_status !== b.assemble_status) {
+      return a.assemble_status.localeCompare(b.assemble_status);
+    }
+    return (a.sub_index || 1) - (b.sub_index || 1);
   });
+
+  sorted.forEach(function (row) {
+    const key = row.style_code + '-' + row.sku_code + '-' + row.assemble_status;
+
+    if (!groupsByKey.has(key)) {
+      const style = allStyles.find(function (s) { return s.style_code === row.style_code; });
+      const sku   = skuAll.find(function (s) { return s.sku_code === row.sku_code; });
+      groupsByKey.set(key, {
+        key:          key,
+        style_code:   row.style_code,
+        style_name:   style ? style.style_name : row.style_code,
+        sku_code:     row.sku_code,
+        sku_desc:     sku ? sku.description : row.sku_code,
+        skuType:      row.sku_type || '',
+        category:     sku ? (sku.category    || '') : '',
+        subcategory:  sku ? (sku.subcategory || '') : '',
+        type:         row.assemble_status,
+        quantity:     0,
+        unit_price:   parseFloat(row.unit_price),
+        msrp:         parseFloat(row.msrp || 0),
+        assemble_fee: parseFloat(row.assemble_fee || 0),
+        sub_groups:   [],
+      });
+    }
+
+    const cartItem = groupsByKey.get(key);
+    const rowQty = parseInt(row.quantity, 10) || 0;
+    cartItem.quantity += rowQty;
+    cartItem.sub_groups.push({
+      sub_index:           parseInt(row.sub_index, 10) || (cartItem.sub_groups.length + 1),
+      qty:                 rowQty,
+      modifications:       Array.isArray(row.modifications) ? row.modifications : [],
+      modification_status: row.modification_status
+        || (row.assemble_status === 'RTA' ? 'skipped' : 'unprocessed'),
+    });
+  });
+
+  // Re-number sub_indexes 1..N within each cart item
+  cartItems = [];
+  groupsByKey.forEach(function (item) {
+    item.sub_groups.forEach(function (g, i) { g.sub_index = i + 1; });
+    cartItems.push(item);
+  });
+
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+  console.log('[E5/step2] Loaded ' + items.length + ' DB row(s) → merged into ' +
+              cartItems.length + ' cart item(s).');
 }
 
 
@@ -1041,9 +1087,23 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
     showToast('This SKU is not available for the selected style group');
     return;
   }
-  const key = `${activeStyle.style_code}-${skuCode}-${type}`;
+const key = `${activeStyle.style_code}-${skuCode}-${type}`;
   const idx = cartItems.findIndex(i=>i.key===key);
-  if (idx>=0) { cartItems[idx].quantity+=qty; }
+  if (idx>=0) {
+    // E5: increment qty + grow the default sub_group qty (no split yet)
+    cartItems[idx].quantity += qty;
+    if (Array.isArray(cartItems[idx].sub_groups) && cartItems[idx].sub_groups.length === 1) {
+      cartItems[idx].sub_groups[0].qty = cartItems[idx].quantity;
+    } else if (!Array.isArray(cartItems[idx].sub_groups) || !cartItems[idx].sub_groups.length) {
+      // Defensive: rebuild sub_groups if missing
+      cartItems[idx].sub_groups = [{
+        sub_index:           1,
+        qty:                 cartItems[idx].quantity,
+        modifications:       [],
+        modification_status: type === 'RTA' ? 'skipped' : 'unprocessed',
+      }];
+    }
+  }
   else {
     cartItems.push({
       key, style_code:activeStyle.style_code, style_name:activeStyle.style_name,
@@ -1052,7 +1112,14 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
       subcategory: sku.subcategory || '',
       skuType:     sku.type        || '',
       quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue,
-      assemble_fee: parseFloat(assembledFee||0)
+      assemble_fee: parseFloat(assembledFee||0),
+      // E5: new cart items start as a single un-split sub-group
+      sub_groups: [{
+        sub_index:           1,
+        qty:                 qty,
+        modifications:       [],
+        modification_status: type === 'RTA' ? 'skipped' : 'unprocessed',
+      }],
     });
   }
   if (el) el.value=0;
