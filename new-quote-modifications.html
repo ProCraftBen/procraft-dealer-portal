@@ -2017,6 +2017,11 @@ function shouldKeepModification(value) {
   if (Array.isArray(value) && value.length === 0) return false;
   if (typeof value === 'object' && !Array.isArray(value)) {
     if (Object.keys(value).length === 0) return false;
+    // E5 fix: MFs with explicit `enabled: false` mean the user didn't
+    // activate this modification (MF04 / MF07 default state). Don't
+    // persist these as "configured modifications" — they add noise
+    // and would show as $0 line items downstream.
+    if (value.enabled === false) return false;
   }
   return true;
 }
