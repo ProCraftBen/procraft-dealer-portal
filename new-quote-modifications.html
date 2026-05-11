@@ -61,7 +61,7 @@
       line-height: 1.55;
     }
 
-    /* ── No-Assembled Info Banner (Q3) ── */
+    /* ── No-Assembled Info Banner ── */
     .no-assembled-banner {
       background: rgba(90,122,149,0.06);
       border: 1px solid rgba(90,122,149,0.25);
@@ -466,7 +466,7 @@
     .lightbox-close:hover { opacity: 1; }
 
     /* ═══════════════════════════════════════════════════════════════
-       ║  E3: Layer 2 Modal — Modification Configurator (CSS)        ║
+       ║  E3+E4.4+E4.6+E4.7: Layer 2 Modal — Modification (CSS)      ║
        ═══════════════════════════════════════════════════════════════ */
 
     .mf-modal-overlay {
@@ -612,10 +612,7 @@
       min-height: 80px;
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       ║  E4.4: MF Row Styling                                       ║
-       ║  E4.6: + running total bar at bottom of modal               ║
-       ═══════════════════════════════════════════════════════════════ */
+    /* MF Row */
     #mfElementsContainer {
       display: flex;
       flex-direction: column;
@@ -633,6 +630,15 @@
       border-color: rgba(62,90,66,0.3);
     }
 
+    /* E4.7: Read-only row variant (Dealer viewing admin-added MF07) */
+    .mf-row.readonly {
+      background: rgba(201,168,76,0.04);
+      border-color: rgba(201,168,76,0.3);
+    }
+    .mf-row.readonly:hover {
+      border-color: rgba(201,168,76,0.5);
+    }
+
     .mf-row-label {
       display: flex;
       align-items: center;
@@ -647,6 +653,9 @@
       font-weight: 500;
       color: var(--green-dark);
       letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
     .mf-row-label-cost {
       font-size: 11px;
@@ -664,8 +673,48 @@
       font-weight: 600;
     }
 
-    .mf-row-element {
-      /* No padding here; MF elements provide their own spacing */
+    /* E4.7: "Added by admin" badge for read-only rows */
+    .mf-row-admin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(201,168,76,0.15);
+      color: #8B6914;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .mf-row-admin-badge svg {
+      width: 10px;
+      height: 10px;
+      fill: currentColor;
+    }
+
+    .mf-row-element { /* no padding */ }
+
+    /* E4.7: Read-only display of saved value (MF07-style) */
+    .mf-readonly-body {
+      padding: 4px 0;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .mf-readonly-body .mf-readonly-desc {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .mf-readonly-body .mf-readonly-cost {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      background: rgba(62,90,66,0.08);
+      color: var(--green-dark);
+      border-radius: 2px;
+      font-size: 11px;
+      font-weight: 500;
     }
 
     .mf-no-rules {
@@ -709,7 +758,7 @@
       to { transform: rotate(360deg); }
     }
 
-    /* E4.6: Running total bar above the footer */
+    /* Running total bar */
     .mf-running-total {
       flex-shrink: 0;
       padding: 10px 22px;
@@ -1004,10 +1053,7 @@
   <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     ║  E3+E4.4+E4.6: Layer 2 Modal (HTML)                         ║
-     ║  E4.6 adds the running total bar above the footer.          ║
-     ═══════════════════════════════════════════════════════════════ -->
+<!-- Modal -->
 <div class="mf-modal-overlay" id="mfModalOverlay">
   <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
     <div class="mf-modal-header">
@@ -1043,7 +1089,6 @@
       </div>
     </div>
 
-    <!-- E4.6: Running total bar -->
     <div class="mf-running-total" id="mfRunningTotal">
       <span class="mf-running-total-label">Modifications subtotal</span>
       <span class="mf-running-total-value zero" id="mfRunningTotalValue">$0.00</span>
@@ -1101,23 +1146,12 @@ let draftId          = null;
 let isResumingReturned = false;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
 
-// E3: Modal state
+// Modal state
 let activeMfModalKey = null;
-
-// E4.3: Rules matched for the currently open SKU (after role filter)
 let activeMfModalRules = [];
-
-// E4.3: Effective role for RPC filtering (handles Admin Draft Mode)
 let effectiveRole = 'dealer';
-
-// E4.4: MF instances currently rendered in modal.
-// Each entry: { rule_idx, mf_code, display_label, container, instance }
-let activeMfInstances = [];
-
-// E4.5: Live values dictionary, updated on every mf-change event.
-// Pure debug/UI aid (running total). Save still calls getValue() directly.
-// Shape: { [rule_idx]: { value, cost } }
-let activeMfLiveValues = {};
+let activeMfInstances = [];     // { rule_idx, mf_code, display_label, container, instance, isReadOnly?, isVirtual? }
+let activeMfLiveValues = {};    // { [rule_idx]: { value, cost } }
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -1125,6 +1159,9 @@ const colorMap = {
 };
 
 const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
+
+// SVG for "Added by admin" lock icon
+const ADMIN_LOCK_SVG = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
 
 function openLightbox(src) {
   if (!src) return;
@@ -1175,7 +1212,6 @@ function buildNoAssembledBanner() {
     </div>`;
 }
 
-// E4.6: ensure every cartItem has a modifications array (default empty)
 function normalizeCartItems(items) {
   return items.map(function (item) {
     var status = item.modification_status;
@@ -1212,8 +1248,6 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       msrp:                parseFloat(item.msrp || 0),
       assemble_fee:        parseFloat(item.assemble_fee || 0),
       modification_status: item.modification_status || null,
-      // E4.6: DB schema does not yet have modifications column (Stage F).
-      // Default to empty array; session state will hold values during edit.
       modifications:       [],
     };
   });
@@ -1499,63 +1533,35 @@ function goReview() {
 
 // ═══════════════════════════════════════════════════════════════════
 // ║                                                                 ║
-// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6: Layer 2 Modal                  ║
+// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7: Layer 2 Modal           ║
 // ║                                                                 ║
-// ║  E4.5 (value listening):                                        ║
-// ║    • Single delegated mf-change listener on #mfElementsContainer║
-// ║    • Updates activeMfLiveValues dict                            ║
-// ║    • Updates running total bar in real-time                     ║
-// ║    • Logs every value change for debug                          ║
+// ║  E4.7 (this stage — re-hydrate + Option B):                     ║
+// ║    • openMfModal builds savedByIdx from item.modifications      ║
+// ║    • renderMfElements passes saved value as 3rd arg to create() ║
+// ║    • Pre-populates activeMfLiveValues so running total is       ║
+// ║      correct on re-open (not $0)                                ║
+// ║    • Option B: Dealer sees admin-added MF07 as a READ-ONLY row  ║
+// ║      (lock badge, no element instance, virtual instance         ║
+// ║       preserves the value through Save)                         ║
+// ║    • Dealer Skip still clears ALL modifications (decided 5/10)  ║
 // ║                                                                 ║
-// ║  E4.6 (value collection + persistence):                         ║
-// ║    • handleMfSave() collects via instance.getValue() +          ║
-// ║      calculateCost(), applies "rule 1" filter (no-op values)    ║
-// ║    • Saves to cartItem.modifications array                      ║
-// ║    • handleMfSkip() clears modifications array                  ║
-// ║    • Cancel/× discards in-flight values (no save)               ║
-// ║    • sessionStorage automatically updated via                   ║
-// ║      refreshAfterModalAction()                                  ║
-// ║                                                                 ║
-// ║  NOT in E4.5/E4.6 (deferred):                                   ║
-// ║    • Re-hydrate saved values on open   → E4.7                   ║
+// ║  NOT in E4.7:                                                   ║
 // ║    • Validate on Save (required check) → E7                     ║
 // ║    • DB persistence of modifications    → Stage F                ║
 // ║                                                                 ║
 // ═══════════════════════════════════════════════════════════════════
 
-// ──────────────────────────────────────────────────────────────────
-// E4.6: shouldKeepModification(value)
-//
-// Rule 1 filter — decide whether a collected value is "meaningful".
-// Returns false for no-op values that should NOT be written to
-// cartItem.modifications:
-//   • undefined / null         → element never set or RPC empty
-//   • boolean false            → MF03 toggle off (rule 1)
-//   • empty string             → MF06 textarea, MF01/05 default placeholder
-//   • empty array/object       → MF07-style nested no-op
-// Everything else (true / non-empty string / number / array / object)
-// is kept.
-// ──────────────────────────────────────────────────────────────────
 function shouldKeepModification(value) {
   if (value === null || value === undefined) return false;
   if (value === false) return false;
   if (typeof value === 'string' && value.trim() === '') return false;
   if (Array.isArray(value) && value.length === 0) return false;
   if (typeof value === 'object' && !Array.isArray(value)) {
-    // Treat plain empty object as no-op
     if (Object.keys(value).length === 0) return false;
   }
   return true;
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E4.5: updateRunningTotal()
-//
-// Recompute the modifications subtotal from activeMfLiveValues and
-// update the bar in the modal footer. Called by:
-//   • mf-change event listener (real-time)
-//   • renderMfElements() (initial render, no values yet → $0.00)
-// ──────────────────────────────────────────────────────────────────
 function updateRunningTotal() {
   let total = 0;
   Object.keys(activeMfLiveValues).forEach(function (k) {
@@ -1576,11 +1582,175 @@ function updateRunningTotal() {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// E4.4: renderMfElements(rules)
-//   + E4.5: attach single delegated mf-change listener to wrap
+// E4.7: makeVirtualInstance(savedEntry)
+//
+// Returns an object that mimics the MF instance API but holds an
+// immutable saved value. Used for the dealer-side read-only MF07 row
+// so handleMfSave's collection loop can treat it uniformly.
 // ──────────────────────────────────────────────────────────────────
-function renderMfElements(rules) {
+function makeVirtualInstance(savedEntry) {
+  const frozenValue = savedEntry.value;
+  const frozenCost  = (typeof savedEntry.cost === 'number') ? savedEntry.cost : 0;
+  return {
+    getValue:       function () { return frozenValue; },
+    validate:       function () { return { valid: true, errors: [] }; },
+    calculateCost:  function () { return frozenCost; },
+    destroy:        function () { /* no-op */ },
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.7: extractMf07Description(value)
+//
+// MF07 value shape is { enabled, description, cost, ... } per the
+// console logs from earlier testing. Returns the description string
+// (may be empty) so dealer-side display can check whether to render.
+// ──────────────────────────────────────────────────────────────────
+function extractMf07Description(value) {
+  if (!value || typeof value !== 'object') return '';
+  if (typeof value.description === 'string') return value.description;
+  return '';
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.7: renderReadOnlyAdminRow
+//
+// Render a dealer-view read-only row for an admin-added rule.
+// Pushes a virtual instance into activeMfInstances so Save preserves it.
+// Returns true if rendered, false if skipped (e.g. no description).
+// ──────────────────────────────────────────────────────────────────
+function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
+  const mfCode = rule.mf_code;
+  const savedValue = savedEntry.value;
+  const savedCost  = (typeof savedEntry.cost === 'number') ? savedEntry.cost : 0;
+
+  // Q3 rule: If MF07 has no description, hide the row entirely
+  // (for MF07 specifically — other admin-only MF codes hypothetically
+  // could land here too but the rule was scoped to MF07 in design talk.
+  // For safety, apply the same "must have description" rule to any
+  // MF code with a `.description` field.)
+  if (mfCode === 'MF07') {
+    const desc = extractMf07Description(savedValue);
+    if (!desc.trim()) {
+      console.log('[E4.7] Skipping read-only ' + mfCode +
+                  ' (rule_idx=' + idx + '): empty description');
+      // Still register virtual instance so Save preserves it — even
+      // hidden, admin's choice to add (even empty-description) stays.
+      // Wait — that would mean dealer can never see *why* it's there.
+      // Decision: if no description, drop the modification entirely
+      // on dealer re-save. Admin can see it in their own re-hydrate.
+      // → DO NOT register virtual instance.
+      // → Net effect: dealer's Save will silently drop this MF07.
+      //   That's actually a problem (silent data loss).
+      //
+      // Reconciling with Q3 ("if there's a description, show it"):
+      // The contrapositive isn't "if there's no description, lose it".
+      // We should preserve the data but just not display it.
+      //
+      // Final approach: register virtual instance (preserves data),
+      // do NOT render any DOM (hidden from dealer).
+      activeMfInstances.push({
+        rule_idx:      idx,
+        mf_code:       mfCode,
+        display_label: rule.display_label || mfCode,
+        container:     null,
+        instance:      makeVirtualInstance(savedEntry),
+        isReadOnly:    true,
+        isVirtual:     true,
+        isHidden:      true,
+      });
+      activeMfLiveValues[idx] = { value: savedValue, cost: savedCost };
+      return false;
+    }
+  }
+
+  // Build read-only row DOM
+  const row = document.createElement('div');
+  row.className = 'mf-row readonly';
+  row.setAttribute('data-mf-code', mfCode);
+  row.setAttribute('data-rule-idx', String(idx));
+  row.setAttribute('data-readonly', 'true');
+
+  // Label header with admin badge
+  const labelDiv = document.createElement('div');
+  labelDiv.className = 'mf-row-label';
+
+  const labelText = document.createElement('span');
+  labelText.className = 'mf-row-label-text';
+  labelText.innerHTML =
+    esc(rule.display_label || mfCode) +
+    '<span class="mf-row-admin-badge" title="Added by admin">' +
+      ADMIN_LOCK_SVG + 'Added by admin' +
+    '</span>';
+  labelDiv.appendChild(labelText);
+
+  const costSpan = document.createElement('span');
+  costSpan.className = 'mf-row-label-cost';
+  costSpan.textContent = savedCost > 0
+    ? '+$' + savedCost.toFixed(2)
+    : 'Included';
+  labelDiv.appendChild(costSpan);
+
+  row.appendChild(labelDiv);
+
+  // Body: description + cost pill
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'mf-readonly-body';
+
+  let descriptionText = '';
+  if (mfCode === 'MF07') {
+    descriptionText = extractMf07Description(savedValue);
+  } else if (typeof savedValue === 'string') {
+    descriptionText = savedValue;
+  } else {
+    // Fallback: stringify whatever it is
+    try { descriptionText = JSON.stringify(savedValue); }
+    catch (_) { descriptionText = String(savedValue); }
+  }
+
+  const descDiv = document.createElement('div');
+  descDiv.className = 'mf-readonly-desc';
+  descDiv.textContent = descriptionText;
+  bodyDiv.appendChild(descDiv);
+
+  if (savedCost > 0) {
+    const costPill = document.createElement('div');
+    costPill.className = 'mf-readonly-cost';
+    costPill.textContent = '+$' + savedCost.toFixed(2);
+    bodyDiv.appendChild(costPill);
+  }
+
+  row.appendChild(bodyDiv);
+  wrap.appendChild(row);
+
+  // Register virtual instance + seed live values
+  activeMfInstances.push({
+    rule_idx:      idx,
+    mf_code:       mfCode,
+    display_label: rule.display_label || mfCode,
+    container:     row,
+    instance:      makeVirtualInstance(savedEntry),
+    isReadOnly:    true,
+    isVirtual:     true,
+    isHidden:      false,
+  });
+  activeMfLiveValues[idx] = { value: savedValue, cost: savedCost };
+
+  return true;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.4 + E4.7: renderMfElements(rules, savedByIdx)
+//
+// E4.7 changes:
+//   • Accepts savedByIdx (rule_idx → saved entry map from item.modifications)
+//   • Passes saved value as 3rd arg to MF[mf_code].create()
+//   • Dealer + MF07 rule + saved data → render read-only row
+//   • Seeds activeMfLiveValues from saved values (running total ≠ $0)
+// ──────────────────────────────────────────────────────────────────
+function renderMfElements(rules, savedByIdx) {
   const wrap = document.getElementById('mfElementsContainer');
+  savedByIdx = savedByIdx || {};
 
   if (!rules || !rules.length) {
     wrap.innerHTML = `
@@ -1588,38 +1758,56 @@ function renderMfElements(rules) {
         <div class="mf-no-rules-title">No modifications available</div>
         <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
       </div>`;
-    // E4.5: also reset running total to $0
     activeMfLiveValues = {};
     updateRunningTotal();
     return;
   }
 
   wrap.innerHTML = '';
-
-  // E4.5: reset live values + running total before rendering
   activeMfLiveValues = {};
 
   let renderedCount = 0;
+  let readOnlyCount = 0;
+  let hiddenCount   = 0;
   let skippedCount  = 0;
 
   rules.forEach(function (rule, idx) {
     const mfCode = rule.mf_code;
+    const savedEntry = savedByIdx[idx] || null;
 
+    // ── E4.7: Option B — Dealer viewing admin-added MF07 → read-only ──
+    // Condition: rule is admin-only (allowed_roles excludes dealer)
+    //            AND current effectiveRole is dealer
+    //            AND there's saved data for this rule
+    const isAdminOnly = Array.isArray(rule.allowed_roles)
+      && !rule.allowed_roles.some(function (r) { return (r || '').toLowerCase() === 'dealer'; });
+    const isDealerViewingAdminMod = isAdminOnly
+      && effectiveRole === 'dealer'
+      && savedEntry;
+
+    if (isDealerViewingAdminMod) {
+      const wasRendered = renderReadOnlyAdminRow(wrap, rule, idx, savedEntry);
+      if (wasRendered) {
+        readOnlyCount++;
+      } else {
+        hiddenCount++;
+      }
+      return;
+    }
+
+    // ── Normal interactive row ──
     if (!window.MF || !window.MF[mfCode] || typeof window.MF[mfCode].create !== 'function') {
       console.warn('[E4.4] window.MF.' + mfCode + ' not available; skipping rule', rule);
       skippedCount++;
       return;
     }
 
-    // ── Build row DOM ──
     const row = document.createElement('div');
     row.className = 'mf-row';
     row.setAttribute('data-mf-code', mfCode);
     row.setAttribute('data-rule-idx', String(idx));
 
     const baseCost = parseFloat(rule.cost) || 0;
-    const isAdminOnly = Array.isArray(rule.allowed_roles)
-      && !rule.allowed_roles.some(function (r) { return (r || '').toLowerCase() === 'dealer'; });
 
     const costHtml = isAdminOnly
       ? '<span class="mf-row-label-cost admin-only">Admin Only</span>'
@@ -1640,16 +1828,17 @@ function renderMfElements(rules) {
 
     wrap.appendChild(row);
 
-    // ── Hydrate mf_params ──
     const params = Object.assign({}, rule.mf_params || {}, {
       _base_cost: baseCost,
       _display_label: rule.display_label || ''
     });
 
-    // ── Create instance ──
+    // E4.7: pass saved value (or null if none) as 3rd arg
+    const savedValueForCreate = savedEntry ? savedEntry.value : null;
+
     let instance;
     try {
-      instance = window.MF[mfCode].create(elementDiv, params, null);
+      instance = window.MF[mfCode].create(elementDiv, params, savedValueForCreate);
     } catch (err) {
       console.error('[E4.4] Failed to create instance for', mfCode, err);
       elementDiv.innerHTML = '<div style="font-size:11px;color:var(--error);padding:8px 0;">Failed to render this modification. Please contact support.</div>';
@@ -1663,36 +1852,39 @@ function renderMfElements(rules) {
       display_label: rule.display_label || mfCode,
       container:     elementDiv,
       instance:      instance,
+      isReadOnly:    false,
+      isVirtual:     false,
     });
+
+    // E4.7: Seed live values from instance state (which reflects saved value)
+    // so initial running total is correct.
+    try {
+      const initVal  = (typeof instance.getValue === 'function') ? instance.getValue() : null;
+      const initCost = (typeof instance.calculateCost === 'function') ? instance.calculateCost() : 0;
+      activeMfLiveValues[idx] = {
+        value: initVal,
+        cost: (typeof initCost === 'number' && isFinite(initCost)) ? initCost : 0
+      };
+    } catch (err) {
+      console.warn('[E4.7] Failed to seed live value for ' + mfCode, err);
+    }
 
     renderedCount++;
   });
 
-  console.log('[E4.4]   Rendered ' + renderedCount + ' element(s)' +
+  console.log('[E4.4]   Rendered ' + renderedCount + ' interactive element(s)' +
+              (readOnlyCount ? ', ' + readOnlyCount + ' read-only (admin-added)' : '') +
+              (hiddenCount ? ', ' + hiddenCount + ' hidden (no-description admin mod)' : '') +
               (skippedCount ? ' (' + skippedCount + ' skipped due to errors)' : ''));
 
-  // E4.5: attach a single delegated listener on wrap.
-  // mf-change bubbles up from each element container.
-  // Re-attaching is safe because wrap.innerHTML='' above destroyed the
-  // previous DOM tree (and any listeners attached to it).
   wrap.addEventListener('mf-change', onMfChangeDelegated);
 
-  // E4.5: initial running total (all zeros until user interacts)
   updateRunningTotal();
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E4.5: onMfChangeDelegated
-//
-// Single delegated listener for all mf-change events bubbling up from
-// MF element containers. Identifies which rule fired via the .mf-row
-// ancestor's data-rule-idx attribute, then updates activeMfLiveValues
-// and the running total.
-// ──────────────────────────────────────────────────────────────────
 function onMfChangeDelegated(e) {
   if (!e || !e.detail) return;
 
-  // Find which rule this event came from by walking up to .mf-row
   let row = e.target;
   while (row && row !== document && !row.classList?.contains('mf-row')) {
     row = row.parentNode;
@@ -1715,12 +1907,7 @@ function onMfChangeDelegated(e) {
   updateRunningTotal();
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E4.4: destroyMfInstances()
-// ──────────────────────────────────────────────────────────────────
 function destroyMfInstances() {
-  // E4.5: remove the delegated listener BEFORE destroying instances
-  // (so any teardown emissions don't trip the listener)
   const wrap = document.getElementById('mfElementsContainer');
   if (wrap) {
     wrap.removeEventListener('mf-change', onMfChangeDelegated);
@@ -1736,8 +1923,6 @@ function destroyMfInstances() {
     }
   });
   activeMfInstances = [];
-
-  // E4.5: clear live values
   activeMfLiveValues = {};
 
   if (wrap) {
@@ -1747,7 +1932,6 @@ function destroyMfInstances() {
       </div>`;
   }
 
-  // Reset running total UI
   const valueEl = document.getElementById('mfRunningTotalValue');
   if (valueEl) {
     valueEl.textContent = '$0.00';
@@ -1772,7 +1956,6 @@ async function openMfModal(key) {
                   : 'unknown';
   const ctypeLabel = ctype === 'unknown' ? '—' : ctype;
 
-  // Fill SKU info head
   document.getElementById('mfHeadCode').textContent = item.sku_code;
   document.getElementById('mfHeadDescSep').textContent = '  ';
   document.getElementById('mfHeadDesc').textContent = item.sku_desc || '';
@@ -1784,7 +1967,6 @@ async function openMfModal(key) {
     <span>· Qty ${item.quantity}</span>
   `;
 
-  // Qty>1 hint
   const qtyHint = document.getElementById('mfQtyHint');
   if (item.quantity > 1) {
     document.getElementById('mfQtyHintNum').textContent = item.quantity;
@@ -1795,31 +1977,39 @@ async function openMfModal(key) {
 
   document.getElementById('mfGroup1Qty').textContent = 'Qty: ' + item.quantity;
 
-  // Reset element container to loading state
   document.getElementById('mfElementsContainer').innerHTML = `
     <div class="mf-loading">
       <span class="mf-loading-spinner"></span>Loading modifications...
     </div>`;
 
-  // E4.6: Reset running total
   const valueEl = document.getElementById('mfRunningTotalValue');
   if (valueEl) {
     valueEl.textContent = '$0.00';
     valueEl.classList.add('zero');
   }
 
-  // Show modal + lock body scroll
   document.getElementById('mfModalOverlay').classList.add('show');
   document.body.classList.add('mf-modal-open');
 
-  console.log('[E3] openMfModal', key, '→ status was:', item.modification_status);
+  // ── E4.7: Build saved values map for re-hydrate ──
+  const savedByIdx = {};
+  if (Array.isArray(item.modifications)) {
+    item.modifications.forEach(function (m) {
+      if (m && (typeof m.rule_idx === 'number' || typeof m.rule_idx === 'string')) {
+        savedByIdx[m.rule_idx] = m;
+      }
+    });
+  }
+  const savedCount = Object.keys(savedByIdx).length;
 
-  // ── E4.3: Fetch matching modification rules via RPC ────────────
+  console.log('[E3] openMfModal', key, '→ status was:', item.modification_status);
+  console.log('[E4.7] Saved modifications to re-hydrate: ' + savedCount, savedByIdx);
+
   const doorParam = (ctype || '').toLowerCase();
   if (doorParam !== 'framed' && doorParam !== 'frameless') {
     console.warn('[E4.3] Unknown construction type for SKU', item.sku_code,
                  '— cannot match modifications. ctype was:', ctype);
-    renderMfElements([]);
+    renderMfElements([], savedByIdx);
     return;
   }
 
@@ -1841,7 +2031,7 @@ async function openMfModal(key) {
     if (error) {
       console.error('[E4.3] RPC error:', error);
       showToast('Failed to load modifications — you can still Skip or Save');
-      renderMfElements([]);
+      renderMfElements([], savedByIdx);
       return;
     }
 
@@ -1853,23 +2043,73 @@ async function openMfModal(key) {
     const rawRules = rules || [];
     console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
 
+    // E4.7: For dealers, also include admin-only rules that have saved
+    // data (so we can render the read-only row). Otherwise the rule
+    // would never reach renderMfElements and dealer would silently lose
+    // visibility of admin's MF07.
     const filtered = rawRules.filter(function (r) {
       if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
-      return r.allowed_roles.some(function (ar) {
+
+      // Normal role-allowed rule
+      const allowed = r.allowed_roles.some(function (ar) {
         return (ar || '').toLowerCase() === role;
       });
+      if (allowed) return true;
+
+      // E4.7: If dealer is viewing this SKU AND there's saved data
+      // for this rule, keep it so we can render read-only.
+      // We don't know which index this rule will have after filter,
+      // so just check by rule equality via mf_code + display_label.
+      // Simpler approach: keep all rules whose mf_code+display_label
+      // match any saved entry. We'll rely on rule_idx in the rendered
+      // list to match savedByIdx (which uses the original saved
+      // rule_idx). Since savedByIdx is keyed by the ORIGINAL idx at
+      // save-time, and rule_idx in renderMfElements is the NEW idx
+      // in the filtered list, we need to keep the saved rule_idx
+      // semantics aligned.
+      //
+      // To keep this simple and correct, we use the saved entry's
+      // mf_code + display_label to identify "this is the admin rule
+      // dealer saved before". Then re-key savedByIdx on the fly so
+      // it lines up with the new filtered idx.
+      if (role === 'dealer') {
+        const matchedSaved = Object.values(savedByIdx).some(function (s) {
+          return s.mf_code === r.mf_code
+              && (s.display_label || '') === (r.display_label || '');
+        });
+        return matchedSaved;
+      }
+
+      return false;
+    });
+
+    // E4.7: Re-key savedByIdx so its keys match the rule_idx that
+    // renderMfElements will assign (= position in filtered array).
+    const reKeyed = {};
+    filtered.forEach(function (r, newIdx) {
+      // Find a saved entry whose mf_code+display_label matches this rule
+      const match = Object.values(savedByIdx).find(function (s) {
+        return s.mf_code === r.mf_code
+            && (s.display_label || '') === (r.display_label || '');
+      });
+      if (match) {
+        reKeyed[newIdx] = match;
+      }
     });
 
     activeMfModalRules = filtered;
 
     console.log('[E4.3]   After role filter: ' + filtered.length + ' rule(s)');
     console.log('[E4.3]   Rules:', filtered);
+    if (Object.keys(reKeyed).length) {
+      console.log('[E4.7]   Re-keyed saved entries:', reKeyed);
+    }
 
-    renderMfElements(filtered);
+    renderMfElements(filtered, reKeyed);
   } catch (e) {
     console.error('[E4.3] Unexpected error calling RPC:', e);
     showToast('Failed to load modifications — you can still Skip or Save');
-    renderMfElements([]);
+    renderMfElements([], savedByIdx);
   }
 }
 
@@ -1899,23 +2139,17 @@ function refreshAfterModalAction() {
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E4.6: handleMfSave()
-//
-// Collect each instance's getValue() + calculateCost(),
-// filter via shouldKeepModification(), write to cartItem.modifications.
-// ──────────────────────────────────────────────────────────────────
 function handleMfSave() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  // ── Collect from instances (NOT from activeMfLiveValues — that's
-  // only updated on change events, but instances always reflect
-  // current truth even for elements the user never touched) ──
   const collected = [];
   let totalCost = 0;
 
+  // E4.7: collect from BOTH real and virtual (read-only) instances.
+  // Virtual instance's getValue/calculateCost return the saved value
+  // unchanged, so admin-added MF07 flows through naturally.
   activeMfInstances.forEach(function (rec) {
     let val, cost;
     try {
@@ -1927,11 +2161,9 @@ function handleMfSave() {
     }
 
     if (!shouldKeepModification(val)) {
-      // Filtered out (toggle off / empty text / unselected dropdown / etc.)
       return;
     }
 
-    // Defensive: cost should be a finite number, default 0
     if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
 
     collected.push({
@@ -1944,11 +2176,14 @@ function handleMfSave() {
     totalCost += cost;
   });
 
-  item.modifications        = collected;
-  item.modification_status  = 'configured';
+  item.modifications       = collected;
+  item.modification_status = 'configured';
+
+  const adminPreservedCount = activeMfInstances.filter(function (r) { return r.isReadOnly; }).length;
 
   console.log('[E4.6] handleMfSave', activeMfModalKey,
-              '→ collected', collected.length, 'modification(s), subtotal $' + totalCost.toFixed(2));
+              '→ collected', collected.length, 'modification(s), subtotal $' + totalCost.toFixed(2) +
+              (adminPreservedCount ? ' (' + adminPreservedCount + ' admin-preserved)' : ''));
   console.log('[E4.6]   modifications array:', collected);
   console.log('[E4.6]   full cartItem:', item);
 
@@ -1958,22 +2193,17 @@ function handleMfSave() {
   showToast(skuCode + ' configured — $' + totalCost.toFixed(2));
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E4.6: handleMfSkip()
-//
-// Skipped means "dealer reviewed and chose not to modify" — clear any
-// previously saved values to keep state honest.
-// ──────────────────────────────────────────────────────────────────
 function handleMfSkip() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
+  // Decision (5/10): Skip clears ALL modifications, including admin-added.
   item.modifications       = [];
   item.modification_status = 'skipped';
 
   console.log('[E4.6] handleMfSkip', activeMfModalKey,
-              '→ status: skipped, modifications cleared');
+              '→ status: skipped, modifications cleared (including admin-added)');
 
   refreshAfterModalAction();
   const skuCode = item.sku_code;
@@ -2089,7 +2319,6 @@ async function init() {
     document.getElementById('noAssembledBannerMount').innerHTML = buildNoAssembledBanner();
   }
 
-  // ── E4.3: Compute effectiveRole ──
   effectiveRole = ((dealer && dealer.role) || 'dealer').toLowerCase();
   try {
     const s1 = sessionStorage.getItem('quoteStep1');
@@ -2102,7 +2331,6 @@ async function init() {
   } catch (_) { /* ignore */ }
   console.log('[E4.3] effectiveRole =', effectiveRole, '(dealer.role:', dealer && dealer.role, ', adminDraft mode:', effectiveRole === 'admin' && (dealer && dealer.role) !== 'admin', ')');
 
-  // ── E4.4: Sanity check — verify all 7 MF factories loaded ──
   const mfCodes = ['MF01','MF02','MF03','MF04','MF05','MF06','MF07'];
   const missing = mfCodes.filter(function (c) {
     return !window.MF || !window.MF[c] || typeof window.MF[c].create !== 'function';
@@ -2116,32 +2344,10 @@ async function init() {
 
   console.log('[E1.2] init() complete');
   console.log('[E1.2] dealer:', dealer);
-  console.log('[E1.2] dealer.role:', dealer && dealer.role);
-  console.log('[E1.2] draftId:', draftId);
-  console.log('[E1.2] isResumingReturned:', isResumingReturned);
-  console.log('[E1.2] allDoorStyles count:', allDoorStyles.length);
   console.log('[E1.2] cartItems:', cartItems);
-  console.log('[E1.2] Assembled count:',
-    cartItems.filter(function (i) { return i.type === 'Assembled'; }).length);
-  console.log('[E1.2] RTA count:',
-    cartItems.filter(function (i) { return i.type === 'RTA'; }).length);
 
   logDoorStyleGroups(doorStyleGroups);
-  console.log('[E1.3] doorStyleGroups raw object (expand to inspect):', doorStyleGroups);
-
-  console.log('[E1.4] page progress:', pageProgress);
-  doorStyleGroups.forEach(function (g, i) {
-    console.log('  #' + (i + 1) + '  ' + g.style_code + ': ' + g.progress.done + ' / ' + g.progress.total);
-  });
-
-  console.log('[E1.5] door style list rendered');
-  console.log('[E1.7] bottom bar rendered, Review button enabled:', !document.getElementById('btnNext').disabled);
-  console.log('[E1.9] goReview() wired up');
-  console.log('[E3] Layer 2 modal shell ready');
-  console.log('[E4.3] RPC integration ready');
-  console.log('[E4.4] Dynamic MF rendering ready');
-  console.log('[E4.5] mf-change delegated listener ready (running total updates live)');
-  console.log('[E4.6] Save/Skip collect values into cartItem.modifications and persist to sessionStorage');
+  console.log('[E4.7] Re-hydrate + Option B (read-only admin MF07) ready');
 
   setInterval(async function () {
     const { data: check } = await _supabase
