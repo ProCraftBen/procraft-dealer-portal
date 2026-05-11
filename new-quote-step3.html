@@ -91,6 +91,56 @@
     .td-right { text-align: right; }
     .td-total { font-weight: 500; }
 
+    /* ── E5: sub-group row styling ── */
+    /* Continuation rows (Sub 2+) get a subtle left rail to show grouping */
+    .items-table tbody tr.sub-continuation {
+      border-top: 1px dashed rgba(201,168,76,0.25);
+    }
+    .items-table tbody tr.sub-continuation td:first-child {
+      border-left: 2px solid rgba(201,168,76,0.35);
+    }
+    .sub-label {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      color: #8B6914;
+      background: rgba(201,168,76,0.10);
+      padding: 1px 6px;
+      border-radius: 2px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .mods-list {
+      margin-top: 6px;
+      padding: 6px 0 0;
+      border-top: 1px dotted rgba(125,140,130,0.25);
+    }
+    .mods-list .mod-line {
+      font-size: 11px;
+      color: var(--green-dark);
+      line-height: 1.45;
+      padding: 1px 0;
+    }
+    .mods-list .mod-line .mod-bullet {
+      color: var(--gold);
+      margin-right: 4px;
+    }
+    .mods-list .mod-line .mod-cost {
+      color: #8B6914;
+      font-weight: 500;
+    }
+    .mods-list .mod-empty {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+    .mods-list .mod-status-skipped,
+    .mods-list .mod-status-unprocessed {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
     /* ── Totals ── */
     .totals-section { padding: 0 20px 18px; }
     .total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
@@ -298,7 +348,8 @@
   <div class="card">
     <div class="card-header">
       <span class="card-title">Items</span>
-      <a id="editStep2Link" href="new-quote-step2.html" class="btn-edit">Edit ✎</a>
+      <!-- F4.1: Edit ✎ now points to Step 2.5 (Modifications) instead of Step 2 -->
+      <a id="editStep2Link" href="new-quote-modifications.html" class="btn-edit">Edit ✎</a>
     </div>
 
     <!-- Markup Feature -->
@@ -341,6 +392,11 @@
       <div class="total-row">
         <span class="total-label">Subtotal</span>
         <span class="total-value" id="totalSubtotal">$0.00</span>
+      </div>
+      <!-- F4.1: Modifications subtotal row -->
+      <div class="total-row" id="modsRow" style="display:none;">
+        <span class="total-label">Modifications</span>
+        <span class="total-value" id="totalMods" style="color:#8B6914;">+$0.00</span>
       </div>
       <div id="assembleRow" style="display:none;">
         <div class="total-row" style="padding-bottom:2px;">
@@ -478,11 +534,9 @@ let _existingPoNumber       = null;     // for resubmit: keep original PO#
 let _isAdminContext         = false;    // adminDraft OR isResumingReturned + admin role
 
 // ── C1: Existing quote shipping snapshot (for resubmit decision tree) ──
-// Captured from DB during init() when draftId is present. Used by submitQuote()
-// to decide whether to preserve admin-set shipping_cost or recompute by formula.
-let _existingLogisticType = null;   // 'pickup' | 'delivery' | 'shipping' | null
-let _existingShippingCost = null;   // number | null  (NULL = pending sales)
-let _existingSubtotal     = null;   // number | null  (used to compute old shipping bracket)
+let _existingLogisticType = null;
+let _existingShippingCost = null;
+let _existingSubtotal     = null;
 
 // ── Returned Banner builder (Step 3, with role-specific message) ──
 function buildReturnedBannerStep3(roleMsg) {
@@ -499,7 +553,119 @@ function buildReturnedBannerStep3(roleMsg) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C1 — Shipping decision logic
+// F4.1 — sub_groups helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Normalize an item's sub_groups. Legacy fallback synthesizes a single sub-group
+ * from item-level fields (matches buildItemsPayload's behavior).
+ */
+function getNormalizedSubGroups(item) {
+  if (Array.isArray(item.sub_groups) && item.sub_groups.length) {
+    return item.sub_groups;
+  }
+  const legacyStatus = item.modification_status
+    || (item.type === 'RTA' ? 'skipped' : 'unprocessed');
+  const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
+  return [{
+    sub_index:           1,
+    qty:                 item.quantity,
+    modifications:       legacyMods,
+    modification_status: legacyStatus,
+  }];
+}
+
+/**
+ * Per-sub modification cost (sum of mod.cost for that sub-group).
+ * This is per-unit-of-sub; line cost = perSubCost × sub.qty.
+ */
+function calcPerSubModCost(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  return mods.reduce(function (s, m) {
+    var c = parseFloat(m && m.cost);
+    return s + (isNaN(c) ? 0 : c);
+  }, 0);
+}
+
+/**
+ * Total Modifications cost across all items.
+ * Formula: Σ over items, Σ over sub_groups of (perSubModCost × sub.qty)
+ * NOT affected by markup.
+ */
+function calcTotalModsCost(items) {
+  let total = 0;
+  items.forEach(function (item) {
+    const subs = getNormalizedSubGroups(item);
+    subs.forEach(function (sub) {
+      const perSub = calcPerSubModCost(sub);
+      const qty    = parseInt(sub.qty, 10) || 0;
+      total += perSub * qty;
+    });
+  });
+  return total;
+}
+
+/**
+ * Render the per-sub modifications block inside the SKU description cell.
+ * Shows: ◆ <Label>: <value> ($cost/ea × qty = +$total)
+ * For sub-groups with no mods, shows a status hint (Skipped / Pending).
+ */
+function renderModsBlock(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  const status = sub.modification_status || 'unprocessed';
+  const subQty = parseInt(sub.qty, 10) || 0;
+
+  if (!mods.length) {
+    if (status === 'skipped') {
+      return `<div class="mods-list"><span class="mod-status-skipped">— No modifications</span></div>`;
+    }
+    if (status === 'configured') {
+      return `<div class="mods-list"><span class="mod-status-skipped">— No modifications</span></div>`;
+    }
+    return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
+  }
+
+  const lines = mods.map(function (m) {
+    const label = m.display_label || m.mf_code || 'Modification';
+    const value = formatModValue(m.value);
+    const cost  = parseFloat(m.cost) || 0;
+    const line  = cost * subQty;
+    const costStr = cost > 0
+      ? `<span class="mod-cost">($${cost.toFixed(2)}/ea × ${subQty} = +$${line.toFixed(2)})</span>`
+      : '<span class="mod-cost">(no charge)</span>';
+    const valStr = value ? `: ${escapeHtml(value)}` : '';
+    return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}${valStr} ${costStr}</div>`;
+  });
+
+  return `<div class="mods-list">${lines.join('')}</div>`;
+}
+
+function formatModValue(v) {
+  if (v == null) return '';
+  if (typeof v === 'string')  return v;
+  if (typeof v === 'number')  return String(v);
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (typeof v === 'object') {
+    // MF04/MF07-style: { enabled, description, ... }
+    if ('description' in v && v.description) return String(v.description);
+    if ('label' in v && v.label)             return String(v.label);
+    if ('value' in v && v.value != null)     return String(v.value);
+    try { return JSON.stringify(v); } catch (e) { return ''; }
+  }
+  return String(v);
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// C1 — Shipping decision logic (unchanged from prior version)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getShippingBracket(subtotal) {
@@ -627,8 +793,8 @@ async function init() {
   if (draftId) {
     document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
-    document.getElementById('editStep2Link').href     = 'new-quote-step2.html?draft=' + draftId;
-    // F2: Bottom Bar "Back to Modifications" now points to Step 2.5
+    // F4.1: Items Edit ✎ → Step 2.5 (Modifications)
+    document.getElementById('editStep2Link').href     = 'new-quote-modifications.html?draft=' + draftId;
     document.getElementById('backToStep2').href       = 'new-quote-modifications.html?draft=' + draftId;
   }
 
@@ -707,77 +873,102 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
   }).join('');
 }
 
-function renderReview() {
-  const poDisplay = step1Data.poNumber || _existingPoNumber || '—';
-  document.getElementById('reviewPO').textContent       = poDisplay;
-  document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
-  document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
-  document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
-
-  const shippingEl = document.getElementById('reviewShipping');
-  if (step1Data.shippingMode === 'same') {
-    shippingEl.innerHTML = `
-      <strong>${dealer?.company_name}</strong><br>
-      ${dealer?.city || ''}, ${dealer?.state || ''}<br>
-      ${dealer?.phone || ''}`;
-  } else if (shippingAddress) {
-    const line2Html = shippingAddress.address_line2 ? `${shippingAddress.address_line2}<br>` : '';
-    shippingEl.innerHTML = `
-      <strong>${shippingAddress.recipient_name}</strong><br>
-      ${shippingAddress.address_line}<br>
-      ${line2Html}${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}<br>
-      ${shippingAddress.phone || ''}`;
-  }
-
-  if (step1Data.notes) {
-    document.getElementById('notesCard').style.display = 'block';
-    document.getElementById('reviewNotes').textContent = step1Data.notes;
-  }
-
-  const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-  const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
-  const grouped       = groupAndSort(step2Data);
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 — Build item rows (shared by renderReview + updateMarkupPreview)
+// Each sub_group → 1 table row.
+// ─────────────────────────────────────────────────────────────────────────────
+function buildItemRowsHtml(markupPct) {
+  markupPct = markupPct || 0;
+  const grouped = groupAndSort(step2Data);
 
   let itemNum = 0;
   let lastStyle = null;
   const rows = [];
-  Object.entries(grouped).forEach(([styleName, items]) => {
-    items.forEach(item => {
-      itemNum++;
-      const showStyle = styleName !== lastStyle;
-      lastStyle = styleName;
-      rows.push(`
-        <tr>
-          <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
-          <td class="td-style">${showStyle ? styleName : ''}</td>
-          <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
-          <td style="font-size:11px;">${item.skuType ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${item.skuType.toUpperCase()}</span>` : '—'}</td>
-          <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
-          <td class="td-right">${item.quantity}</td>
-          <td class="td-right">$${item.unit_price.toFixed(2)}</td>
-          <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
-          <td class="td-right td-total">$${(item.unit_price * item.quantity).toFixed(2)}</td>
-        </tr>`);
+
+  Object.entries(grouped).forEach(function ([styleName, items]) {
+    items.forEach(function (item) {
+      const subs = getNormalizedSubGroups(item);
+      const isSplit = subs.length > 1;
+      const markedUnitPrice = item.unit_price * (1 + markupPct);
+
+      subs.forEach(function (sub, subIdx) {
+        itemNum++;
+        const isFirstSub  = subIdx === 0;
+        const showStyle   = isFirstSub && (styleName !== lastStyle);
+        if (isFirstSub) lastStyle = styleName;
+
+        const subQty = parseInt(sub.qty, 10) || 0;
+        const lineSkuTotal = markedUnitPrice * subQty;
+        const asmFeeTotal  = (item.assemble_fee || 0) * subQty;
+
+        // SKU cell content
+        let skuCellHtml;
+        if (isFirstSub) {
+          const splitTag = isSplit
+            ? `<span class="sub-label">Sub 1 of ${subs.length}</span>`
+            : '';
+          skuCellHtml = `
+            ${escapeHtml(item.sku_code)}${splitTag}
+            <br><span style="font-size:11px;color:var(--muted);">${escapeHtml(item.sku_desc || '')}</span>
+            ${renderModsBlock(sub)}
+          `;
+        } else {
+          skuCellHtml = `
+            ${escapeHtml(item.sku_code)}<span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>
+            ${renderModsBlock(sub)}
+          `;
+        }
+
+        // Type badge (only first sub shows the SKU type tag; continuation rows leave blank for visual grouping)
+        const typeColHtml = isFirstSub && item.skuType
+          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${escapeHtml(item.skuType.toUpperCase())}</span>`
+          : '';
+
+        // Assemble status badge (only first sub)
+        const assembleStatusHtml = isFirstSub
+          ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(item.type)}</span>`
+          : '';
+
+        const trClass = isFirstSub ? '' : 'sub-continuation';
+
+        rows.push(`
+          <tr class="${trClass}">
+            <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
+            <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
+            <td class="td-sku">${skuCellHtml}</td>
+            <td style="font-size:11px;">${typeColHtml}</td>
+            <td class="td-type">${assembleStatusHtml}</td>
+            <td class="td-right">${subQty}</td>
+            <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
+            <td class="td-right" style="color:var(--muted);">${asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—'}</td>
+            <td class="td-right td-total">$${lineSkuTotal.toFixed(2)}</td>
+          </tr>`);
+      });
     });
   });
-  document.getElementById('itemsTableBody').innerHTML = rows.join('');
 
-  if (assembleTotal > 0) {
-    document.getElementById('assembleRow').style.display = 'block';
-    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
-    const byType = calcAsmByType(step2Data);
-    renderAsmBreakdown(byType, true, 'assembleBreakdown');
-  } else {
-    document.getElementById('assembleRow').style.display = 'none';
-  }
+  return rows.join('');
+}
 
-  const taxRate    = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-  const logisticType = step1Data.logisticType || 'pickup';
-  const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 — Apply totals to DOM (shared by renderReview + updateMarkupPreview)
+// ─────────────────────────────────────────────────────────────────────────────
+function applyTotals(opts) {
+  const skuSubtotal   = opts.skuSubtotal;        // Σ(unit_price × qty), may include markup
+  const modsSubtotal  = opts.modsSubtotal;       // Σ mods cost, no markup
+  const assembleTotal = opts.assembleTotal;
+  const showMarkupNote = !!opts.showMarkupNote;
+  const markupPct      = opts.markupPct || 0;
 
+  const taxableBase = skuSubtotal + modsSubtotal;
+  const taxRate     = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+  const logisticType = step1Data?.logisticType || 'pickup';
+  const deliveryFee  = parseFloat(step1Data?.deliveryFee || 0);
+
+  // Shipping is computed off taxableBase (SKU + Mods), since mods now count toward subtotal economics
   const previewShippingForDb = resolveShippingForDb({
     newLogistic:    logisticType,
-    newSubtotal:    subtotal,
+    newSubtotal:    taxableBase,
     newDeliveryFee: deliveryFee,
     isResuming:     _isResumingReturned,
   });
@@ -806,7 +997,7 @@ function renderReview() {
       shippingForTotal  = 0;
       shippingLabel     = 'TBD';
       shippingNote      = '⚠ Contact Sales Team to confirm shipping fee';
-    } else if (previewShippingForDb === 0 && subtotal > 12000) {
+    } else if (previewShippingForDb === 0 && taxableBase > 12000) {
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
       shippingNote     = '✓ Free shipping on orders over $12,000';
@@ -820,21 +1011,43 @@ function renderReview() {
       const isPreservedAdminValue = (
         _isResumingReturned &&
         _existingLogisticType === 'shipping' &&
-        getShippingBracket(_existingSubtotal) === getShippingBracket(subtotal) &&
+        getShippingBracket(_existingSubtotal) === getShippingBracket(taxableBase) &&
         _existingShippingCost === shippingForTotal
       );
       if (isPreservedAdminValue) {
         shippingNote = '✓ Sales-confirmed shipping fee';
-      } else if (subtotal <= 6000)       shippingNote = '15% shipping rate';
-      else if (subtotal <= 9000)         shippingNote = '12% shipping rate';
-      else if (subtotal <= 12000)        shippingNote = '10% shipping rate';
+      } else if (taxableBase <= 6000)       shippingNote = '15% shipping rate';
+      else if (taxableBase <= 9000)         shippingNote = '12% shipping rate';
+      else if (taxableBase <= 12000)        shippingNote = '10% shipping rate';
     }
   }
 
-  const tax   = subtotal * taxRate;
-  const grand = subtotal + assembleTotal + shippingForTotal + tax;
+  const tax   = taxableBase * taxRate;
+  const grand = taxableBase + assembleTotal + shippingForTotal + tax;
 
-  document.getElementById('totalSubtotal').textContent = `$${subtotal.toFixed(2)}`;
+  // DOM updates
+  document.getElementById('totalSubtotal').textContent = `$${skuSubtotal.toFixed(2)}`;
+
+  // Modifications row
+  const modsRow = document.getElementById('modsRow');
+  if (modsSubtotal > 0) {
+    modsRow.style.display = 'flex';
+    document.getElementById('totalMods').textContent = `+$${modsSubtotal.toFixed(2)}`;
+  } else {
+    modsRow.style.display = 'none';
+  }
+
+  // Assembly row
+  if (assembleTotal > 0) {
+    document.getElementById('assembleRow').style.display = 'block';
+    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
+    const byType = calcAsmByType(step2Data);
+    renderAsmBreakdown(byType, true, 'assembleBreakdown');
+  } else {
+    document.getElementById('assembleRow').style.display = 'none';
+  }
+
+  // Shipping
   const shipEl = document.getElementById('totalShipping');
   shipEl.textContent = shippingLabel;
   shipEl.classList.toggle('tbd', isPendingShipping);
@@ -842,6 +1055,7 @@ function renderReview() {
     ? `<span style="color:#E07B39;font-size:11px;">${shippingNote}</span>`
     : `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
 
+  // Tax
   if (dealer?.tax_exempt) {
     document.getElementById('totalTax').textContent = '$0.00';
     document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
@@ -849,21 +1063,71 @@ function renderReview() {
     document.getElementById('totalTax').textContent = `$${tax.toFixed(2)}`;
     document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(0)}% tax rate`;
   }
+
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
   document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
+
+  // Markup note
+  let noteEl = document.getElementById('markupNote');
+  if (showMarkupNote && markupPct > 0) {
+    if (!noteEl) {
+      noteEl = document.createElement('div');
+      noteEl.id = 'markupNote';
+      noteEl.style.cssText = 'font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;padding:0 20px 12px;';
+      document.querySelector('.totals-section').appendChild(noteEl);
+    }
+    noteEl.textContent = `* Preview includes ${(markupPct*100).toFixed(1)}% markup on Unit Price only. Modifications and Assembly are not marked up. Portal prices unchanged.`;
+  } else if (noteEl) {
+    noteEl.textContent = '';
+  }
+}
+
+function renderReview() {
+  const poDisplay = step1Data.poNumber || _existingPoNumber || '—';
+  document.getElementById('reviewPO').textContent       = poDisplay;
+  document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
+  document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
+  document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
+
+  const shippingEl = document.getElementById('reviewShipping');
+  if (step1Data.shippingMode === 'same') {
+    shippingEl.innerHTML = `
+      <strong>${dealer?.company_name}</strong><br>
+      ${dealer?.city || ''}, ${dealer?.state || ''}<br>
+      ${dealer?.phone || ''}`;
+  } else if (shippingAddress) {
+    const line2Html = shippingAddress.address_line2 ? `${shippingAddress.address_line2}<br>` : '';
+    shippingEl.innerHTML = `
+      <strong>${shippingAddress.recipient_name}</strong><br>
+      ${shippingAddress.address_line}<br>
+      ${line2Html}${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}<br>
+      ${shippingAddress.phone || ''}`;
+  }
+
+  if (step1Data.notes) {
+    document.getElementById('notesCard').style.display = 'block';
+    document.getElementById('reviewNotes').textContent = step1Data.notes;
+  }
+
+  const skuSubtotal   = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  const modsSubtotal  = calcTotalModsCost(step2Data);
+  const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+
+  // Rows
+  document.getElementById('itemsTableBody').innerHTML = buildItemRowsHtml(0);
+
+  // Totals
+  applyTotals({
+    skuSubtotal:    skuSubtotal,
+    modsSubtotal:   modsSubtotal,
+    assembleTotal:  assembleTotal,
+    showMarkupNote: false,
+    markupPct:      0,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F2 + E5: buildItemsPayload — flatten sub_groups into multiple DB rows
-// ─────────────────────────────────────────────────────────────────────────────
-// Both Save Draft and Submit flow through this function. Each cart item carries
-// `sub_groups` (the Stage 2.5 split structure); a SKU split into N sub-groups
-// becomes N rows in `quote_items`, each with its own `sub_index`, `quantity`,
-// `modifications`, and `modification_status`.
-//
-// Legacy fallback: if `sub_groups` is missing (older session data), synthesize
-// a single sub-group from `item.modifications` / `item.modification_status`
-// or sensible defaults (RTA = 'skipped', else 'unprocessed').
+// F2 + E5: buildItemsPayload — UNCHANGED (write-side, already correct)
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemsPayload(quoteId) {
   const rows = [];
@@ -921,6 +1185,10 @@ async function resolveDealerId(session) {
   return session.user.id;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 — buildQuoteDataForPdf now passes sub_groups + mods totals to PDF builder.
+// F4.2 will consume these in pdf-builder.js. For now they're already in the payload.
+// ─────────────────────────────────────────────────────────────────────────────
 function buildQuoteDataForPdf(opts) {
   opts = opts || {};
   const items = step2Data.map(function(i) {
@@ -935,8 +1203,13 @@ function buildQuoteDataForPdf(opts) {
       unit_price:      i.unit_price,
       msrp:            i.msrp || null,
       assemble_fee:    i.assemble_fee || 0,
+      // F4.1: pass sub_groups through so pdf-builder.js (F4.2) can render mods
+      sub_groups:      getNormalizedSubGroups(i),
     };
   });
+
+  const skuSubtotalNow  = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  const modsSubtotalNow = calcTotalModsCost(step2Data);
 
   const out = {
     po_number:     step1Data?.poNumber || _existingPoNumber || null,
@@ -946,15 +1219,18 @@ function buildQuoteDataForPdf(opts) {
     items:         items,
     _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
     _taxExempt:  !!dealer?.tax_exempt,
+    // F4.1: mods subtotal exposed for PDF totals block
+    modifications_total: parseFloat(modsSubtotalNow.toFixed(2)),
   };
 
   if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
     out.shipping_cost = opts.shippingCostOverride;
   } else {
-    const subtotalNow = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    // Shipping uses (SKU + Mods) as the basis, matching applyTotals
+    const taxableBaseNow = skuSubtotalNow + modsSubtotalNow;
     out.shipping_cost = resolveShippingForDb({
       newLogistic:    out.logistic_type,
-      newSubtotal:    subtotalNow,
+      newSubtotal:    taxableBaseNow,
       newDeliveryFee: out.delivery_fee,
       isResuming:     _isResumingReturned,
     });
@@ -974,22 +1250,24 @@ async function saveDraft() {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
 
-    const subtotal      = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
+    const skuSubtotal   = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
+    const modsSubtotal  = calcTotalModsCost(step2Data);
     const assembleTotal = step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0);
+    const taxableBase   = skuSubtotal + modsSubtotal;
     const logisticType  = step1Data.logisticType || 'pickup';
     const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
 
     const shippingForDb = resolveShippingForDb({
       newLogistic:    logisticType,
-      newSubtotal:    subtotal,
+      newSubtotal:    taxableBase,
       newDeliveryFee: deliveryFee,
       isResuming:     _isResumingReturned,
     });
     const shippingForTotal = shippingForDb || 0;
 
     const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-    const tax   = subtotal * taxRate;
-    const grand = subtotal + assembleTotal + shippingForTotal + tax;
+    const tax   = taxableBase * taxRate;
+    const grand = taxableBase + assembleTotal + shippingForTotal + tax;
 
     const targetStatus = _isResumingReturned ? 'Returned' : 'Draft';
 
@@ -1001,7 +1279,7 @@ async function saveDraft() {
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
       delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-      subtotal:            parseFloat(subtotal.toFixed(2)),
+      subtotal:            parseFloat(skuSubtotal.toFixed(2)),
       assemble_total:      parseFloat(assembleTotal.toFixed(2)),
       shipping_cost:       (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2)),
       tax_amount:          parseFloat(tax.toFixed(2)),
@@ -1080,22 +1358,24 @@ async function submitQuote() {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
 
-    const subtotal      = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const skuSubtotal   = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const modsSubtotal  = calcTotalModsCost(step2Data);
     const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+    const taxableBase   = skuSubtotal + modsSubtotal;
     const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const logisticType = step1Data.logisticType || 'pickup';
     const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
     const shippingForDb = resolveShippingForDb({
       newLogistic:    logisticType,
-      newSubtotal:    subtotal,
+      newSubtotal:    taxableBase,
       newDeliveryFee: deliveryFee,
       isResuming:     _isResumingReturned,
     });
     const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
 
-    const tax   = subtotal * taxRate;
-    const grand = subtotal + assembleTotal + shippingForTotal + tax;
+    const tax   = taxableBase * taxRate;
+    const grand = taxableBase + assembleTotal + shippingForTotal + tax;
 
     let poNumber;
     let quoteNum;
@@ -1160,7 +1440,7 @@ async function submitQuote() {
         notes:               step1Data.notes || null,
         logistic_type:       logisticType,
         delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-        subtotal:            parseFloat(subtotal.toFixed(2)),
+        subtotal:            parseFloat(skuSubtotal.toFixed(2)),
         assemble_total:      parseFloat(assembleTotal.toFixed(2)),
         shipping_cost:       shippingCostWrite,
         tax_amount:          parseFloat(tax.toFixed(2)),
@@ -1191,7 +1471,7 @@ async function submitQuote() {
           notes:               step1Data.notes || null,
           logistic_type:       logisticType,
           delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-          subtotal:            parseFloat(subtotal.toFixed(2)),
+          subtotal:            parseFloat(skuSubtotal.toFixed(2)),
           assemble_total:      parseFloat(assembleTotal.toFixed(2)),
           shipping_cost:       shippingCostWrite,
           tax_amount:          parseFloat(tax.toFixed(2)),
@@ -1259,20 +1539,22 @@ async function submitQuote() {
         },
         body: JSON.stringify({
           quote: {
-            id:              quoteId,
-            quote_number:    quoteNum,
-            po_number:       poNumber,
-            job_name:        step1Data.jobName,
-            logistic_type:   logisticType,
+            id:               quoteId,
+            quote_number:     quoteNum,
+            po_number:        poNumber,
+            job_name:         step1Data.jobName,
+            logistic_type:    logisticType,
             shipping_address: shippingAddressPayload,
-            assemble_total:  assembleTotal.toFixed(2),
-            subtotal:        subtotal.toFixed(2),
-            shipping_cost:   (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
+            assemble_total:   assembleTotal.toFixed(2),
+            subtotal:         skuSubtotal.toFixed(2),
+            // F4.1: mods totals exposed for email (F4.3 will render)
+            modifications_total: modsSubtotal.toFixed(2),
+            shipping_cost:    (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
             shipping_pending: (shippingCostWrite === null),
-            tax_amount:      tax.toFixed(2),
-            grand_total:     grand.toFixed(2),
-            revision_number: pdfRevisionNumber,
-            is_resubmit:     _isResumingReturned,
+            tax_amount:       tax.toFixed(2),
+            grand_total:      grand.toFixed(2),
+            revision_number:  pdfRevisionNumber,
+            is_resubmit:      _isResumingReturned,
           },
           dealer: {
             company_name:           dealer.company_name,
@@ -1283,6 +1565,7 @@ async function submitQuote() {
             optional_email_2:       dealer.optional_email_2 || null,
             optional_email_2_notify: dealer.optional_email_2_notify || false,
           },
+          // F4.1: items payload now includes sub_groups for F4.3 email rendering
           items: step2Data.map(i => ({
             style_code:   i.style_code,
             style_name:   i.style_name || null,
@@ -1293,6 +1576,7 @@ async function submitQuote() {
             quantity:     i.quantity,
             unit_price:   i.unit_price,
             assemble_fee: i.assemble_fee || 0,
+            sub_groups:   getNormalizedSubGroups(i),
           })),
           attachments: [
             { filename: packingFilename, content: pdfA, type: 'application/pdf' },
@@ -1328,88 +1612,28 @@ async function submitQuote() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 — Markup preview now correctly handles sub_groups and excludes mods from markup
+// ─────────────────────────────────────────────────────────────────────────────
 function updateMarkupPreview() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
   if (!step2Data || !step2Data.length) return;
 
-  const grouped = groupAndSort(step2Data);
-  let itemNum = 0;
-  let lastStyle = null;
-  const rows = [];
-  Object.entries(grouped).forEach(([styleName, items]) => {
-    items.forEach(item => {
-      itemNum++;
-      const showStyle = styleName !== lastStyle;
-      lastStyle = styleName;
-      const markedPrice = item.unit_price * (1 + markupPct);
-      const lineTotal   = markedPrice * item.quantity;
-      rows.push(`
-        <tr>
-          <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
-          <td class="td-style">${showStyle ? styleName : ''}</td>
-          <td class="td-sku">${item.sku_code}<br><span style="font-size:11px;color:var(--muted);">${item.sku_desc}</span></td>
-          <td style="font-size:11px;">${item.skuType ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${item.skuType.toUpperCase()}</span>` : '—'}</td>
-          <td class="td-type"><span class="type-badge ${item.type.toLowerCase()}">${item.type}</span></td>
-          <td class="td-right">${item.quantity}</td>
-          <td class="td-right">$${markedPrice.toFixed(2)}</td>
-          <td class="td-right" style="color:var(--muted);">${item.assemble_fee > 0 ? `+$${(item.assemble_fee * item.quantity).toFixed(2)}` : '—'}</td>
-          <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
-        </tr>`);
-    });
+  // Re-render rows with markup applied (unit price only)
+  document.getElementById('itemsTableBody').innerHTML = buildItemRowsHtml(markupPct);
+
+  // Recalculate totals
+  const markedSkuSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
+  const modsSubtotal      = calcTotalModsCost(step2Data);   // mods NOT marked up
+  const assembleTotal     = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
+
+  applyTotals({
+    skuSubtotal:    markedSkuSubtotal,
+    modsSubtotal:   modsSubtotal,
+    assembleTotal:  assembleTotal,
+    showMarkupNote: true,
+    markupPct:      markupPct,
   });
-  document.getElementById('itemsTableBody').innerHTML = rows.join('');
-
-  const markedSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
-  const assembleTotal  = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
-  const taxRate        = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-  const logisticType   = step1Data?.logisticType || 'pickup';
-  const deliveryFee    = parseFloat(step1Data?.deliveryFee || 0);
-
-  const previewShippingForDb = resolveShippingForDb({
-    newLogistic:    logisticType,
-    newSubtotal:    markedSubtotal,
-    newDeliveryFee: deliveryFee,
-    isResuming:     _isResumingReturned,
-  });
-  const isPendingShipping = (logisticType === 'shipping' && previewShippingForDb === null);
-  const shippingForTotal  = previewShippingForDb || 0;
-
-  const tax   = markedSubtotal * taxRate;
-  const grand = markedSubtotal + assembleTotal + shippingForTotal + tax;
-
-  document.getElementById('totalSubtotal').textContent  = `$${markedSubtotal.toFixed(2)}`;
-  document.getElementById('totalGrand').textContent     = `$${grand.toFixed(2)}`;
-
-  const shipEl = document.getElementById('totalShipping');
-  if (isPendingShipping) {
-    shipEl.textContent = 'TBD';
-    shipEl.classList.add('tbd');
-  } else {
-    shipEl.textContent = shippingForTotal === 0 ? 'FREE' : `$${shippingForTotal.toFixed(2)}`;
-    shipEl.classList.remove('tbd');
-  }
-  document.getElementById('totalTax').textContent       = dealer?.tax_exempt ? 'Exempt' : `$${tax.toFixed(2)}`;
-  document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
-
-  if (assembleTotal > 0) {
-    document.getElementById('assembleRow').style.display = 'block';
-    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
-    const byType = calcAsmByType(step2Data);
-    renderAsmBreakdown(byType, true, 'assembleBreakdown');
-  } else {
-    document.getElementById('assembleRow').style.display = 'none';
-  }
-
-  let noteEl = document.getElementById('markupNote');
-  if (!noteEl) {
-    noteEl = document.createElement('div');
-    noteEl.id = 'markupNote';
-    noteEl.style.cssText = 'font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;padding:0 20px 12px;';
-    document.querySelector('.totals-section').appendChild(noteEl);
-  }
-  noteEl.textContent = markupPct > 0
-    ? `* Preview includes ${(markupPct*100).toFixed(1)}% markup. Portal prices unchanged. Markup only applies to PDF download.`
-    : '';
 }
 
 async function downloadPDF() {
