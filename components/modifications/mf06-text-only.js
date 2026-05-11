@@ -1,198 +1,2365 @@
-/**
- * MF06 — Text Only  (E4.1: factory pattern)
- * ============================================================
- * Modification 元件:純文字輸入(textarea),無 cost 計算
- * 業務範例:Modification Note(dealer 自由備註)
- *
- * E4.1 變更:
- *   ❌ 舊:window.MF.MF06.render(container, mf_params, value)  (單例)
- *   ✅ 新:const inst = window.MF.MF06.create(container, mf_params, value)
- *           inst.getValue() / inst.validate() / inst.calculateCost() / inst.destroy()
- *
- * 同一頁面可建立多個獨立實例,state 不共享。
- *
- * 介面:
- *   create(container, mf_params, current_value) → instance
- *
- *   instance:
- *     getValue()       → string
- *     validate()       → { valid, errors }
- *     calculateCost()  → number  (永遠 0)
- *     destroy()        → void
- *
- * mf_params 結構:
- *   {
- *     textarea_label: string,       // 顯示在 textarea 上方的 label
- *     placeholder: string,          // textarea placeholder 文字
- *     max_length: number            // 字元上限(預設 500)
- *   }
- *
- * current_value 結構:
- *   string  → textarea 內的文字
- *   null    → 初次渲染預設空字串
- *
- * 共通規則 1:空字串時不寫 row(由主頁面在 save 時過濾)
- *
- * 對外通知:
- *   container.dispatchEvent(new CustomEvent('mf-change', {
- *     detail: { mf_code, value, cost }
- *   }))
- * ============================================================
- */
-(function () {
-  'use strict';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Dealer Portal — Configure Modifications</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+      --warn-orange: #E07B39;
+      --info-blue:  #5A7A95;
+    }
+    html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
-  // 預設 max_length(規格定稿:500)
-  const DEFAULT_MAX_LENGTH = 500;
+    /* ── Page ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 20px 20px 80px; }
 
-  /**
-   * Factory:建立一個 MF06 實例
-   * @param {HTMLElement} container
-   * @param {Object} mf_params - { textarea_label, placeholder, max_length }
-   * @param {string|null} current_value
-   * @returns {Object} instance
-   */
-  function create(container, mf_params, current_value) {
-    // 每次 create 都是獨立 closure
-    const state = {
-      container: container,
-      mf_params: mf_params || {},
-      current_value: (typeof current_value === 'string') ? current_value : '',
-      max_length: DEFAULT_MAX_LENGTH,
-      textarea: null  // 保留 ref 以便 destroy
-    };
+    /* ── Returned Revising Banner ── */
+    .returned-revising-banner {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid var(--warn-orange);
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .returned-revising-banner .rrb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(224,123,57,0.14);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .returned-revising-banner .rrb-icon-wrap svg {
+      width: 16px; height: 16px; fill: var(--warn-orange);
+    }
+    .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
+    .returned-revising-banner .rrb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--warn-orange);
+      margin-bottom: 4px;
+    }
+    .returned-revising-banner .rrb-msg {
+      font-size: 13px;
+      color: #2C3A32;
+      line-height: 1.55;
+    }
 
-    state.max_length = (typeof state.mf_params.max_length === 'number')
-      ? state.mf_params.max_length
-      : DEFAULT_MAX_LENGTH;
+    /* ── No-Assembled Info Banner ── */
+    .no-assembled-banner {
+      background: rgba(90,122,149,0.06);
+      border: 1px solid rgba(90,122,149,0.25);
+      border-left: 4px solid var(--info-blue);
+      border-radius: 4px;
+      padding: 14px 22px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .no-assembled-banner .nab-icon-wrap {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      background: rgba(90,122,149,0.12);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .no-assembled-banner .nab-icon-wrap svg {
+      width: 14px; height: 14px; fill: var(--info-blue);
+    }
+    .no-assembled-banner .nab-body { flex: 1; min-width: 0; }
+    .no-assembled-banner .nab-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.13em; text-transform: uppercase;
+      color: var(--info-blue);
+      margin-bottom: 3px;
+    }
+    .no-assembled-banner .nab-msg {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+    }
 
-    function render() {
-      const label = escapeHTML(state.mf_params.textarea_label || 'Note');
-      const placeholder = escapeHTML(state.mf_params.placeholder || '');
-      const valueAttr = escapeHTML(state.current_value);
-      const charCount = state.current_value.length;
+    /* ── Page Heading ── */
+    .page-heading { margin-bottom: 24px; }
+    .page-heading h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--green-dark);
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+    .page-heading .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
 
-      container.innerHTML = `
-        <div style="font-family:'DM Sans',sans-serif;color:#333;">
-          <div style="
-            font-size:14px;
-            font-weight:500;
-            margin-bottom:6px;
-          ">${label}</div>
+    /* ── Progress Card ── */
+    .progress-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+    }
+    .progress-card-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .progress-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .progress-count {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green-dark);
+    }
+    .progress-count .progress-percent {
+      color: var(--muted);
+      margin-left: 6px;
+      font-weight: 400;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: var(--cream);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--green-dark);
+      transition: width 0.3s ease;
+      border-radius: 3px;
+    }
+    .progress-bar-fill.complete {
+      background: var(--gold);
+    }
+    .progress-card.no-assembled .progress-count {
+      color: var(--muted);
+      font-weight: 400;
+    }
 
-          <textarea
-            data-mf="MF06"
-            placeholder="${placeholder}"
-            maxlength="${state.max_length}"
-            style="
-              width:100%;
-              min-height:80px;
-              padding:10px;
-              font-family:inherit;
-              font-size:14px;
-              color:#333;
-              background:#fff;
-              border:1px solid #c5a059;
-              border-radius:4px;
-              resize:vertical;
-              box-sizing:border-box;
-              outline:none;
-            "
-            onfocus="this.style.borderColor='#3e5a42'"
-            onblur="this.style.borderColor='#c5a059'"
-          >${valueAttr}</textarea>
+    /* ── Door Style Card ── */
+    .ds-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .ds-card-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .ds-thumb {
+      width: 64px;
+      flex-shrink: 0;
+      aspect-ratio: 355 / 601;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s;
+      position: relative;
+    }
+    .ds-thumb.zoomable { cursor: zoom-in; }
+    .ds-thumb.zoomable:hover { border-color: var(--gold); }
+    .ds-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .ds-thumb-fallback {
+      width: 100%;
+      height: 100%;
+    }
+    .ds-thumb-zoom-icon {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: background 0.15s, transform 0.15s;
+    }
+    .ds-thumb.zoomable:hover .ds-thumb-zoom-icon {
+      background: rgba(255,255,255,1);
+      transform: scale(1.08);
+    }
+    .ds-thumb-zoom-icon svg {
+      width: 10px;
+      height: 10px;
+      fill: none;
+      stroke: var(--green-dark);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+    }
 
-          <div style="
-            display:flex;
-            justify-content:flex-end;
-            margin-top:4px;
-            font-size:12px;
-            color:#888;
-          ">
-            <span data-mf-count>${charCount}</span> / ${state.max_length}
+    .ds-info { flex: 1; min-width: 0; }
+    .ds-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--green-dark);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .ds-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .ds-code { font-weight: 500; }
+    .ds-construction-tag {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 500;
+    }
+    .ds-construction-tag.framed {
+      background: rgba(62,90,66,0.08);
+      color: var(--green-dark);
+    }
+    .ds-construction-tag.frameless {
+      background: rgba(201,168,76,0.12);
+      color: #8B6914;
+    }
+    .ds-construction-tag.unknown {
+      background: rgba(122,140,130,0.12);
+      color: var(--muted);
+    }
+    .ds-discontinued-tag {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 500;
+      background: rgba(224,123,57,0.12);
+      color: var(--warn-orange);
+    }
+    .ds-progress {
+      flex-shrink: 0;
+      text-align: right;
+    }
+    .ds-progress-count {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--green-dark);
+    }
+    .ds-progress-count.complete::after {
+      content: ' ✓';
+      color: var(--gold);
+      font-weight: 700;
+    }
+    .ds-progress-count.no-assembled {
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .ds-progress-label {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .ds-discontinued-banner {
+      background: rgba(224,123,57,0.06);
+      border-bottom: 1px solid rgba(224,123,57,0.25);
+      padding: 10px 18px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .ds-discontinued-banner-icon {
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .ds-discontinued-banner-icon svg {
+      width: 14px; height: 14px; fill: var(--warn-orange);
+    }
+    .ds-discontinued-banner-msg {
+      font-size: 12px;
+      color: #2C3A32;
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    /* ── Group ── */
+    .ds-group { padding: 12px 18px; }
+    .ds-group + .ds-group { border-top: 1px solid var(--border); }
+    .ds-group-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .ds-group.rta { background: #FAFAF8; }
+
+    /* ── SKU Row ── */
+    .sku-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .sku-row:last-child { border-bottom: none; }
+    .sku-row.assembled {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .sku-row.assembled:hover {
+      background: rgba(62,90,66,0.04);
+      margin: 0 -10px;
+      padding: 10px;
+      border-radius: 3px;
+    }
+    .sku-row.rta { cursor: default; }
+    .sku-code {
+      font-weight: 500;
+      color: var(--green-dark);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 110px;
+    }
+    .sku-row.rta .sku-code { color: var(--muted); }
+    .sku-desc {
+      flex: 1;
+      color: var(--text);
+      min-width: 0;
+    }
+    .sku-row.rta .sku-desc { color: var(--muted); }
+    .sku-qty {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 50px;
+      text-align: right;
+    }
+    .sku-status {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 3px 9px;
+      border-radius: 20px;
+      min-width: 110px;
+      justify-content: center;
+      font-weight: 500;
+    }
+    .sku-status.unprocessed {
+      background: rgba(122,140,130,0.12);
+      color: var(--muted);
+    }
+    .sku-status.configured {
+      background: rgba(62,90,66,0.1);
+      color: var(--green-dark);
+    }
+    .sku-status.skipped {
+      background: rgba(90,122,149,0.1);
+      color: var(--info-blue);
+    }
+    .sku-row .sku-arrow {
+      flex-shrink: 0;
+      color: var(--muted);
+      font-size: 14px;
+      width: 14px;
+      text-align: center;
+      transition: color 0.15s;
+    }
+    .sku-row.assembled:hover .sku-arrow { color: var(--green-dark); }
+
+    /* ── Empty State ── */
+    .empty-state {
+      background: var(--white);
+      border: 1px dashed var(--border);
+      border-radius: 4px;
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ── Lightbox ── */
+    .lightbox-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      cursor: zoom-out;
+    }
+    .lightbox-overlay.show { display: flex; }
+    .lightbox-img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 4px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .lightbox-close {
+      position: fixed;
+      top: 20px; right: 24px;
+      background: none; border: none;
+      color: #fff; font-size: 28px;
+      cursor: pointer; line-height: 1;
+      opacity: 0.7; transition: opacity 0.2s;
+    }
+    .lightbox-close:hover { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       ║  E3+E4.4+E4.6+E4.7: Layer 2 Modal — Modification (CSS)      ║
+       ═══════════════════════════════════════════════════════════════ */
+
+    .mf-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(44, 58, 50, 0.55);
+      z-index: 800;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .mf-modal-overlay.show { display: flex; }
+
+    .mf-modal-container {
+      width: 90vw;
+      max-width: 900px;
+      max-height: 85vh;
+      background: var(--white);
+      border-radius: 6px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .mf-modal-header {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .mf-modal-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    .mf-modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 24px;
+      line-height: 1;
+      padding: 0 4px;
+      transition: color 0.15s;
+    }
+    .mf-modal-close:hover { color: var(--text); }
+
+    .mf-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 22px;
+    }
+    .mf-modal-body::-webkit-scrollbar { width: 6px; }
+    .mf-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .mf-sku-head {
+      background: #FAFAF8;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+    }
+    .mf-sku-head-row1 {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--green-dark);
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+    .mf-sku-head-code {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .mf-sku-head-row2 {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .mf-sku-head-row2 .mf-pill {
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 500;
+    }
+    .mf-pill.framed     { background: rgba(62,90,66,0.08);    color: var(--green-dark); }
+    .mf-pill.frameless  { background: rgba(201,168,76,0.12);  color: #8B6914; }
+    .mf-pill.unknown    { background: rgba(122,140,130,0.12); color: var(--muted); }
+    .mf-pill.assembled  { background: rgba(201,168,76,0.15);  color: #8B6914; }
+
+    .mf-qty-hint {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(90,122,149,0.06);
+      border: 1px solid rgba(90,122,149,0.2);
+      border-left: 3px solid var(--info-blue);
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .mf-group {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: var(--white);
+    }
+    .mf-group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .mf-group-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .mf-group-qty {
+      font-size: 11px;
+      color: var(--green-dark);
+      font-weight: 500;
+    }
+    .mf-group-body {
+      min-height: 80px;
+    }
+
+    /* MF Row */
+    #mfElementsContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .mf-row {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 14px;
+      background: var(--white);
+      transition: border-color 0.15s;
+    }
+    .mf-row:hover {
+      border-color: rgba(62,90,66,0.3);
+    }
+
+    /* E4.7: Read-only row variant (Dealer viewing admin-added MF07) */
+    .mf-row.readonly {
+      background: rgba(201,168,76,0.04);
+      border-color: rgba(201,168,76,0.3);
+    }
+    .mf-row.readonly:hover {
+      border-color: rgba(201,168,76,0.5);
+    }
+
+    .mf-row-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .mf-row-label-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green-dark);
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mf-row-label-cost {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .mf-row-label-cost.admin-only {
+      background: rgba(201,168,76,0.15);
+      color: #8B6914;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* E4.7: "Added by admin" badge for read-only rows */
+    .mf-row-admin-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(201,168,76,0.15);
+      color: #8B6914;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .mf-row-admin-badge svg {
+      width: 10px;
+      height: 10px;
+      fill: currentColor;
+    }
+
+    .mf-row-element { /* no padding */ }
+
+    /* E4.7: Read-only display of saved value (MF07-style) */
+    .mf-readonly-body {
+      padding: 4px 0;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .mf-readonly-body .mf-readonly-desc {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .mf-readonly-body .mf-readonly-cost {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 2px 8px;
+      background: rgba(62,90,66,0.08);
+      color: var(--green-dark);
+      border-radius: 2px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .mf-no-rules {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      border: 1px dashed var(--border);
+      border-radius: 3px;
+      background: var(--cream);
+    }
+    .mf-no-rules-title {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .mf-loading {
+      padding: 30px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .mf-loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green-dark);
+      border-radius: 50%;
+      animation: mf-spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes mf-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Running total bar */
+    .mf-running-total {
+      flex-shrink: 0;
+      padding: 10px 22px;
+      border-top: 1px solid var(--border);
+      background: var(--white);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .mf-running-total-label {
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    .mf-running-total-value {
+      font-weight: 600;
+      color: var(--green-dark);
+      font-size: 14px;
+    }
+    .mf-running-total-value.zero {
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    /* Footer */
+    .mf-modal-footer {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .mf-modal-footer-left  { display: flex; gap: 8px; }
+    .mf-modal-footer-right { display: flex; gap: 8px; }
+
+    .mf-btn {
+      padding: 9px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.15s;
+      min-height: 38px;
+      border: 1px solid transparent;
+    }
+    .mf-btn-skip {
+      background: transparent;
+      color: var(--info-blue);
+      border-color: rgba(90,122,149,0.4);
+    }
+    .mf-btn-skip:hover {
+      background: rgba(90,122,149,0.08);
+      border-color: var(--info-blue);
+    }
+    .mf-btn-cancel {
+      background: transparent;
+      color: var(--muted);
+      border-color: var(--border);
+    }
+    .mf-btn-cancel:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
+    .mf-btn-save {
+      background: var(--green-dark);
+      color: #fff;
+      border-color: var(--green-dark);
+    }
+    .mf-btn-save:hover {
+      background: var(--green-mid);
+      border-color: var(--green-mid);
+    }
+
+    body.mf-modal-open {
+      overflow: hidden;
+    }
+
+    /* Modal Mobile RWD */
+    @media (max-width: 700px) {
+      .mf-modal-overlay { padding: 10px; }
+      .mf-modal-container { max-height: 92vh; }
+      .mf-modal-header { padding: 12px 16px; }
+      .mf-modal-body { padding: 14px 16px; }
+      .mf-running-total { padding: 8px 16px; font-size: 11px; }
+      .mf-modal-footer {
+        padding: 12px 16px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .mf-modal-footer-left,
+      .mf-modal-footer-right {
+        width: 100%;
+        justify-content: stretch;
+      }
+      .mf-btn {
+        flex: 1;
+        padding: 9px 12px;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+      }
+      .mf-sku-head { padding: 12px 14px; }
+      .mf-row { padding: 10px 12px; }
+      .mf-row-label { flex-wrap: wrap; gap: 4px; }
+    }
+
+    /* ── Bottom Bar ── */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 150;
+      height: 56px;
+      gap: 12px;
+    }
+    .bottom-left {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .bottom-left strong { color: var(--green-dark); }
+    .bottom-left.complete strong { color: var(--gold); }
+    .bottom-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .btn-back {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 10px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-height: 40px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-back:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
+    .btn-next {
+      background: var(--green-dark);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 10px 24px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-height: 40px;
+    }
+    .btn-next:hover { background: var(--green-mid); }
+    .btn-next:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--green-dark);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 4px;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 600;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Mobile RWD ── */
+    @media (max-width: 700px) {
+      .page { padding: 16px 14px 80px; }
+
+      .ds-card-header {
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        gap: 10px;
+      }
+      .ds-info { flex: 1 0 calc(100% - 78px); }
+      .ds-progress {
+        flex: 1 0 100%;
+        text-align: left;
+        padding-left: 78px;
+        margin-top: -4px;
+      }
+      .ds-name { font-size: 17px; }
+      .ds-thumb { width: 64px; }
+
+      .ds-discontinued-banner { padding: 10px 14px; }
+      .no-assembled-banner { padding: 12px 16px; }
+
+      .ds-group { padding: 10px 14px; }
+
+      .sku-row {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        padding: 12px 0;
+      }
+      .sku-code { min-width: 0; flex: 1 0 auto; }
+      .sku-desc { flex: 1 0 100%; font-size: 11px; }
+      .sku-qty { text-align: left; min-width: 0; }
+      .sku-status { min-width: 0; font-size: 9px; padding: 2px 7px; }
+
+      .page-heading h1 { font-size: 22px; }
+      .page-heading .subtitle { font-size: 12px; }
+
+      .bottom-bar {
+        padding: 8px 14px;
+        height: auto;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .bottom-left { flex: 1 0 100%; font-size: 11px; }
+      .bottom-right { flex: 1 0 100%; justify-content: space-between; }
+      .btn-back, .btn-next {
+        padding: 9px 14px;
+        font-size: 10px;
+        letter-spacing: 0.12em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Quote Flow Header -->
+<div id="pcd-quote-flow-header" data-step="3"></div>
+
+<div class="page">
+
+  <div id="returnedBannerMount"></div>
+  <div id="noAssembledBannerMount"></div>
+
+  <div class="page-heading">
+    <h1>Customize Your Order</h1>
+    <div class="subtitle">Configure modifications for assembled cabinets</div>
+  </div>
+
+  <div class="progress-card" id="progressCard">
+    <div class="progress-card-row">
+      <span class="progress-label">Progress</span>
+      <span class="progress-count">
+        <span id="progressDone">0</span> / <span id="progressTotal">0</span> done
+        <span class="progress-percent" id="progressPercent">0%</span>
+      </span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
+    </div>
+  </div>
+
+  <div id="doorStyleList">
+    <div class="empty-state">Loading...</div>
+  </div>
+
+</div>
+
+
+<div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
+</div>
+
+<!-- Modal -->
+<div class="mf-modal-overlay" id="mfModalOverlay">
+  <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
+    <div class="mf-modal-header">
+      <span class="mf-modal-title" id="mfModalTitle">Configure Modifications</span>
+      <button class="mf-modal-close" type="button" onclick="closeMfModal()" aria-label="Close">×</button>
+    </div>
+
+    <div class="mf-modal-body">
+      <div class="mf-sku-head" id="mfSkuHead">
+        <div class="mf-sku-head-row1">
+          <span class="mf-sku-head-code" id="mfHeadCode">—</span>
+          <span id="mfHeadDescSep"> </span>
+          <span id="mfHeadDesc">—</span>
+        </div>
+        <div class="mf-sku-head-row2" id="mfHeadMeta"></div>
+        <div class="mf-qty-hint" id="mfQtyHint" style="display:none;">
+          All <span id="mfQtyHintNum">N</span> units will share the same modifications. Splitting per-unit configuration coming soon.
+        </div>
+      </div>
+
+      <div class="mf-group" data-group-no="1">
+        <div class="mf-group-header">
+          <span class="mf-group-label">Group 1</span>
+          <span class="mf-group-qty" id="mfGroup1Qty">Qty: 0</span>
+        </div>
+        <div class="mf-group-body">
+          <div id="mfElementsContainer">
+            <div class="mf-loading">
+              <span class="mf-loading-spinner"></span>Loading modifications...
+            </div>
           </div>
         </div>
-      `;
+      </div>
+    </div>
 
-      state.textarea = container.querySelector('textarea[data-mf="MF06"]');
-      state.textarea.addEventListener('input', onInput);
+    <div class="mf-running-total" id="mfRunningTotal">
+      <span class="mf-running-total-label">Modifications subtotal</span>
+      <span class="mf-running-total-value zero" id="mfRunningTotalValue">$0.00</span>
+    </div>
+
+    <div class="mf-modal-footer">
+      <div class="mf-modal-footer-left">
+        <button class="mf-btn mf-btn-skip" type="button" onclick="handleMfSkip()">Skip This SKU</button>
+      </div>
+      <div class="mf-modal-footer-right">
+        <button class="mf-btn mf-btn-cancel" type="button" onclick="closeMfModal()">Cancel</button>
+        <button class="mf-btn mf-btn-save" type="button" onclick="handleMfSave()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="bottom-bar">
+  <div class="bottom-left" id="bottomStatus">
+    <strong id="bottomStatusText">Loading...</strong>
+  </div>
+  <div class="bottom-right">
+    <a href="new-quote-step2.html" class="btn-back" id="btnBack">← Back to Products</a>
+    <button class="btn-next" id="btnNext" onclick="goReview()" disabled>Review →</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="components/quote-flow-header.js"></script>
+
+<!-- 7 MF element factories -->
+<script src="components/modifications/mf01-skin.js"></script>
+<script src="components/modifications/mf02-toggle-dropdown.js"></script>
+<script src="components/modifications/mf03-pure-toggle.js"></script>
+<script src="components/modifications/mf04-toggle-number.js"></script>
+<script src="components/modifications/mf05-pure-dropdown.js"></script>
+<script src="components/modifications/mf06-text-only.js"></script>
+<script src="components/modifications/mf07-super.js"></script>
+
+<script>
+const { createClient } = supabase;
+const _supabase = createClient(
+  'https://acwgemgpnusworpxxoai.supabase.co',
+  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+);
+
+// ── State ──
+let dealer           = null;
+let cartItems        = [];
+let allDoorStyles    = [];
+let doorStyleGroups  = [];
+let draftId          = null;
+let isResumingReturned = false;
+let pageProgress     = { done: 0, total: 0, percent: 0 };
+
+// Modal state
+let activeMfModalKey = null;
+let activeMfModalRules = [];
+let effectiveRole = 'dealer';
+let activeMfInstances = [];     // { rule_idx, mf_code, display_label, container, instance, isReadOnly?, isVirtual? }
+let activeMfLiveValues = {};    // { [rule_idx]: { value, cost } }
+
+const colorMap = {
+  black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
+  grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
+};
+
+const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
+
+// SVG for "Added by admin" lock icon
+const ADMIN_LOCK_SVG = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
+
+function openLightbox(src) {
+  if (!src) return;
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightboxOverlay').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('lightboxOverlay').classList.remove('show');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+
+function buildReturnedBannerSimple(roleMsg) {
+  return `
+    <div class="returned-revising-banner">
+      <div class="rrb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+      <div class="rrb-body">
+        <div class="rrb-title">Revising Returned Quote</div>
+        <div class="rrb-msg">${roleMsg}</div>
+      </div>
+    </div>`;
+}
+
+function buildNoAssembledBanner() {
+  return `
+    <div class="no-assembled-banner">
+      <div class="nab-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      </div>
+      <div class="nab-body">
+        <div class="nab-title">No Modifications Needed</div>
+        <div class="nab-msg">This quote has no assembled items. No modifications are needed — click Review to continue.</div>
+      </div>
+    </div>`;
+}
+
+function normalizeCartItems(items) {
+  return items.map(function (item) {
+    var status = item.modification_status;
+    if (!status) {
+      status = (item.type === 'RTA') ? 'skipped' : 'unprocessed';
     }
+    return Object.assign({}, item, {
+      modification_status: status,
+      modifications: Array.isArray(item.modifications) ? item.modifications : []
+    });
+  });
+}
 
-    function onInput(e) {
-      state.current_value = e.target.value;
-
-      // 更新字元計數
-      const counter = state.container.querySelector('[data-mf-count]');
-      if (counter) {
-        counter.textContent = state.current_value.length;
-      }
-
-      state.container.dispatchEvent(new CustomEvent('mf-change', {
-        bubbles: true,
-        detail: {
-          mf_code: 'MF06',
-          value: state.current_value,
-          cost: calculateCost()
-        }
-      }));
-    }
-
-    function getValue() {
-      return state.current_value;
-    }
-
-    function validate() {
-      const errors = [];
-
-      if (state.current_value.length > state.max_length) {
-        errors.push(`Note exceeds maximum ${state.max_length} characters.`);
-      }
-
-      return {
-        valid: errors.length === 0,
-        errors: errors
-      };
-    }
-
-    function calculateCost() {
-      return 0;
-    }
-
-    function destroy() {
-      if (state.textarea) {
-        state.textarea.removeEventListener('input', onInput);
-      }
-      if (state.container) {
-        state.container.innerHTML = '';
-      }
-      state.container = null;
-      state.textarea = null;
-    }
-
-    // 初次渲染
-    render();
-
-    // 回傳 instance API
+async function loadDraftItems(allSkusFramed, allSkusFrameless) {
+  const { data: items, error } = await _supabase
+    .from('quote_items').select('*').eq('quote_id', draftId);
+  if (error || !items || !items.length) return [];
+  const skuAll = allSkusFramed.concat(allSkusFrameless);
+  return items.map(function (item) {
+    const style = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+    const sku   = skuAll.find(function (s) { return s.sku_code === item.sku_code; });
     return {
-      getValue: getValue,
-      validate: validate,
-      calculateCost: calculateCost,
-      destroy: destroy
+      key:                 item.sku_code + '_' + item.assemble_status,
+      style_code:          item.style_code,
+      style_name:          style ? style.style_name : item.style_code,
+      sku_code:             item.sku_code,
+      sku_desc:            sku ? sku.description : item.sku_code,
+      skuType:             item.sku_type || '',
+      category:            sku ? (sku.category    || '') : '',
+      subcategory:         sku ? (sku.subcategory || '') : '',
+      type:                item.assemble_status,
+      quantity:            item.quantity,
+      unit_price:          parseFloat(item.unit_price),
+      msrp:                parseFloat(item.msrp || 0),
+      assemble_fee:        parseFloat(item.assemble_fee || 0),
+      modification_status: item.modification_status || null,
+      modifications:       [],
     };
+  });
+}
+
+function buildDoorStyleGroups(items, doorStyles) {
+  const groups = [];
+  const indexByCode = new Map();
+
+  items.forEach(function (item) {
+    const code = item.style_code;
+    let idx = indexByCode.get(code);
+
+    if (idx === undefined) {
+      const styleRow = doorStyles.find(function (s) { return s.style_code === code; });
+      const group = {
+        style_code:        code,
+        style_name:        (styleRow && styleRow.style_name) || item.style_name || code,
+        construction_type: (styleRow && styleRow.construction_type) || 'unknown',
+        image_url:         (styleRow && styleRow.image_url) || null,
+        color:             (styleRow && styleRow.color) || null,
+        subcategory:       (styleRow && styleRow.subcategory) || null,
+        is_discontinued:   !styleRow,
+        assembledItems:    [],
+        rtaItems:          [],
+        progress:          { done: 0, total: 0 },
+      };
+      groups.push(group);
+      idx = groups.length - 1;
+      indexByCode.set(code, idx);
+    }
+
+    if (item.type === 'Assembled') {
+      groups[idx].assembledItems.push(item);
+    } else if (item.type === 'RTA') {
+      groups[idx].rtaItems.push(item);
+    }
+  });
+
+  return groups;
+}
+
+function logDoorStyleGroups(groups) {
+  console.log('[E1.3] doorStyleGroups built (' + groups.length + ' group' + (groups.length !== 1 ? 's' : '') + '):');
+  groups.forEach(function (g, i) {
+    const tag = g.is_discontinued ? ' ⚠ DISCONTINUED' : '';
+    const ctype = g.construction_type !== 'unknown' ? '[' + g.construction_type + ']' : '[unknown]';
+    console.log(
+      '  #' + (i + 1) + '  ' + g.style_code +
+      ' (' + g.style_name + ') ' + ctype + tag +
+      '\n        Assembled: ' + g.assembledItems.length + ' SKU' + (g.assembledItems.length !== 1 ? 's' : '') +
+      '  ·  RTA: ' + g.rtaItems.length + ' SKU' + (g.rtaItems.length !== 1 ? 's' : '')
+    );
+  });
+}
+
+function calculateProgress(groups) {
+  let pageDone = 0;
+  let pageTotal = 0;
+
+  groups.forEach(function (group) {
+    const total = group.assembledItems.length;
+    const done  = group.assembledItems.filter(function (item) {
+      return item.modification_status === 'configured'
+          || item.modification_status === 'skipped';
+    }).length;
+
+    group.progress.total = total;
+    group.progress.done  = done;
+
+    pageTotal += total;
+    pageDone  += done;
+  });
+
+  const percent = pageTotal === 0 ? 100 : Math.round((pageDone / pageTotal) * 100);
+  return { done: pageDone, total: pageTotal, percent: percent };
+}
+
+function renderProgressCard(progress) {
+  const card        = document.getElementById('progressCard');
+  const doneEl      = document.getElementById('progressDone');
+  const totalEl     = document.getElementById('progressTotal');
+  const percentEl   = document.getElementById('progressPercent');
+  const barFillEl   = document.getElementById('progressBarFill');
+
+  doneEl.textContent    = progress.done;
+  totalEl.textContent   = progress.total;
+  percentEl.textContent = progress.percent + '%';
+  barFillEl.style.width = progress.percent + '%';
+
+  if (progress.total > 0 && progress.done === progress.total) {
+    barFillEl.classList.add('complete');
+  } else {
+    barFillEl.classList.remove('complete');
   }
 
-  /**
-   * HTML escape 工具
-   */
-  function escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = String(str);
-    return div.innerHTML;
+  if (progress.total === 0) {
+    card.classList.add('no-assembled');
+  } else {
+    card.classList.remove('no-assembled');
+  }
+}
+
+function renderDoorStyleList() {
+  const container = document.getElementById('doorStyleList');
+
+  if (!doorStyleGroups.length) {
+    container.innerHTML = '<div class="empty-state">No items in your quote.</div>';
+    return;
   }
 
-  // 全域註冊(只暴露 create)
-  window.MF = window.MF || {};
-  window.MF.MF06 = {
-    create: create
+  container.innerHTML = doorStyleGroups.map(function (g, gIdx) {
+    return buildDoorStyleCard(g, gIdx);
+  }).join('');
+}
+
+function buildDoorStyleCard(group, gIdx) {
+  const hasImage = !!group.image_url;
+
+  const thumbInner = hasImage
+    ? `<img src="${esc(group.image_url)}" alt="${esc(group.style_name)}" loading="lazy"/>
+       <div class="ds-thumb-zoom-icon" aria-hidden="true">${ZOOM_ICON_SVG}</div>`
+    : `<div class="ds-thumb-fallback" style="background: ${esc(colorMap[group.color] || '#8A8A8A')};"></div>`;
+
+  const thumbAttrs = hasImage
+    ? `class="ds-thumb zoomable" onclick="openLightbox('${esc(group.image_url)}')"`
+    : `class="ds-thumb"`;
+
+  const ctypeClass = group.construction_type === 'framed' ? 'framed'
+                  : group.construction_type === 'frameless' ? 'frameless'
+                  : 'unknown';
+  const ctypeLabel = group.construction_type === 'unknown' ? '—' : group.construction_type;
+
+  const discTag = group.is_discontinued
+    ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
+    : '';
+
+  const progressHtml = buildGroupProgressDisplay(group);
+
+  const discBanner = group.is_discontinued ? `
+    <div class="ds-discontinued-banner">
+      <div class="ds-discontinued-banner-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 4l8.5 14.5h-17L12 6zm-1 5v5h2v-5h-2zm0 7v2h2v-2h-2z"/></svg>
+      </div>
+      <div class="ds-discontinued-banner-msg">
+        This door style is currently unavailable. Please remove or replace these items. If you have any questions, please contact us.
+      </div>
+    </div>` : '';
+
+  const assembledGroupHtml = group.assembledItems.length > 0 ? `
+    <div class="ds-group">
+      <div class="ds-group-label">Assembled</div>
+      ${group.assembledItems.map(function (item) { return buildAssembledRow(item, gIdx); }).join('')}
+    </div>` : '';
+
+  const rtaGroupHtml = group.rtaItems.length > 0 ? `
+    <div class="ds-group rta">
+      <div class="ds-group-label">RTA</div>
+      ${group.rtaItems.map(function (item) { return buildRtaRow(item); }).join('')}
+    </div>` : '';
+
+  return `
+    <div class="ds-card" data-style-code="${esc(group.style_code)}">
+      <div class="ds-card-header">
+        <div ${thumbAttrs}>
+          ${thumbInner}
+        </div>
+        <div class="ds-info">
+          <div class="ds-name">${esc(group.style_name)}</div>
+          <div class="ds-meta">
+            <span class="ds-code">${esc(group.style_code)}</span>
+            <span class="ds-construction-tag ${ctypeClass}">${esc(ctypeLabel)}</span>
+            ${discTag}
+          </div>
+        </div>
+        ${progressHtml}
+      </div>
+      ${discBanner}
+      ${assembledGroupHtml}
+      ${rtaGroupHtml}
+    </div>`;
+}
+
+function buildGroupProgressDisplay(group) {
+  const total = group.progress.total;
+  const done  = group.progress.done;
+
+  if (total === 0) {
+    return `
+      <div class="ds-progress">
+        <div class="ds-progress-count no-assembled">—</div>
+        <div class="ds-progress-label">RTA only</div>
+      </div>`;
+  }
+
+  const completeClass = (done === total) ? ' complete' : '';
+  return `
+    <div class="ds-progress">
+      <div class="ds-progress-count${completeClass}">${done} / ${total}</div>
+      <div class="ds-progress-label">Configured</div>
+    </div>`;
+}
+
+function buildAssembledRow(item, gIdx) {
+  const status = item.modification_status;
+  let statusClass, statusLabel;
+
+  if (status === 'configured') {
+    statusClass = 'configured';
+    statusLabel = '● Configured';
+  } else if (status === 'skipped') {
+    statusClass = 'skipped';
+    statusLabel = '⊘ Skipped';
+  } else {
+    statusClass = 'unprocessed';
+    statusLabel = '○ Unprocessed';
+  }
+
+  return `
+    <div class="sku-row assembled" onclick="onAssembledRowClick('${esc(item.key)}')">
+      <span class="sku-code">${esc(item.sku_code)}</span>
+      <span class="sku-desc">${esc(item.sku_desc)}</span>
+      <span class="sku-qty">Qty ${item.quantity}</span>
+      <span class="sku-status ${statusClass}">${statusLabel}</span>
+      <span class="sku-arrow">›</span>
+    </div>`;
+}
+
+function buildRtaRow(item) {
+  return `
+    <div class="sku-row rta">
+      <span class="sku-code">${esc(item.sku_code)}</span>
+      <span class="sku-desc">${esc(item.sku_desc)}</span>
+      <span class="sku-qty">Qty ${item.quantity}</span>
+    </div>`;
+}
+
+function onAssembledRowClick(key) {
+  openMfModal(key);
+}
+
+function renderBottomBar(progress) {
+  const statusEl     = document.getElementById('bottomStatus');
+  const statusTextEl = document.getElementById('bottomStatusText');
+  const btnNext      = document.getElementById('btnNext');
+
+  if (!statusEl || !statusTextEl || !btnNext) return;
+
+  const pendingAssembled = progress.total - progress.done;
+  const isReady = (progress.total === 0) || (pendingAssembled === 0);
+
+  if (progress.total === 0) {
+    statusTextEl.textContent = 'No assembled items — ready to review';
+  } else if (pendingAssembled === 0) {
+    statusTextEl.textContent = 'All set — ready to review';
+  } else {
+    statusTextEl.textContent = pendingAssembled + ' assembled SKU' +
+      (pendingAssembled !== 1 ? 's' : '') + ' need attention';
+  }
+
+  if (isReady) {
+    statusEl.classList.add('complete');
+  } else {
+    statusEl.classList.remove('complete');
+  }
+
+  btnNext.disabled = !isReady;
+}
+
+function goReview() {
+  const pendingAssembled = pageProgress.total - pageProgress.done;
+  const isReady = (pageProgress.total === 0) || (pendingAssembled === 0);
+  if (!isReady) {
+    showToast('Please configure all assembled SKUs first');
+    return;
+  }
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+  const nextUrl = draftId
+    ? 'new-quote-step3.html?draft=' + draftId
+    : 'new-quote-step3.html';
+  window.location.href = nextUrl;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ║                                                                 ║
+// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7: Layer 2 Modal           ║
+// ║                                                                 ║
+// ║  E4.7 (this stage — re-hydrate + Option B):                     ║
+// ║    • openMfModal builds savedByIdx from item.modifications      ║
+// ║    • renderMfElements passes saved value as 3rd arg to create() ║
+// ║    • Pre-populates activeMfLiveValues so running total is       ║
+// ║      correct on re-open (not $0)                                ║
+// ║    • Option B: Dealer sees admin-added MF07 as a READ-ONLY row  ║
+// ║      (lock badge, no element instance, virtual instance         ║
+// ║       preserves the value through Save)                         ║
+// ║    • Dealer Skip still clears ALL modifications (decided 5/10)  ║
+// ║                                                                 ║
+// ║  NOT in E4.7:                                                   ║
+// ║    • Validate on Save (required check) → E7                     ║
+// ║    • DB persistence of modifications    → Stage F                ║
+// ║                                                                 ║
+// ═══════════════════════════════════════════════════════════════════
+
+function shouldKeepModification(value) {
+  if (value === null || value === undefined) return false;
+  if (value === false) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    if (Object.keys(value).length === 0) return false;
+  }
+  return true;
+}
+
+function updateRunningTotal() {
+  let total = 0;
+  Object.keys(activeMfLiveValues).forEach(function (k) {
+    const entry = activeMfLiveValues[k];
+    if (entry && typeof entry.cost === 'number') {
+      total += entry.cost;
+    }
+  });
+
+  const valueEl = document.getElementById('mfRunningTotalValue');
+  if (!valueEl) return;
+  valueEl.textContent = '$' + total.toFixed(2);
+  if (total > 0) {
+    valueEl.classList.remove('zero');
+  } else {
+    valueEl.classList.add('zero');
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.7: makeVirtualInstance(savedEntry)
+//
+// Returns an object that mimics the MF instance API but holds an
+// immutable saved value. Used for the dealer-side read-only MF07 row
+// so handleMfSave's collection loop can treat it uniformly.
+// ──────────────────────────────────────────────────────────────────
+function makeVirtualInstance(savedEntry) {
+  const frozenValue = savedEntry.value;
+  const frozenCost  = (typeof savedEntry.cost === 'number') ? savedEntry.cost : 0;
+  return {
+    getValue:       function () { return frozenValue; },
+    validate:       function () { return { valid: true, errors: [] }; },
+    calculateCost:  function () { return frozenCost; },
+    destroy:        function () { /* no-op */ },
   };
-})();
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.7: extractMf07Description(value)
+//
+// MF07 value shape is { enabled, description, cost, ... } per the
+// console logs from earlier testing. Returns the description string
+// (may be empty) so dealer-side display can check whether to render.
+// ──────────────────────────────────────────────────────────────────
+function extractMf07Description(value) {
+  if (!value || typeof value !== 'object') return '';
+  if (typeof value.description === 'string') return value.description;
+  return '';
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.7: renderReadOnlyAdminRow
+//
+// Render a dealer-view read-only row for an admin-added rule.
+// Pushes a virtual instance into activeMfInstances so Save preserves it.
+// Returns true if rendered, false if skipped (e.g. no description).
+// ──────────────────────────────────────────────────────────────────
+function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
+  const mfCode = rule.mf_code;
+  const savedValue = savedEntry.value;
+  const savedCost  = (typeof savedEntry.cost === 'number') ? savedEntry.cost : 0;
+
+  // Q3 rule: If MF07 has no description, hide the row entirely
+  // (for MF07 specifically — other admin-only MF codes hypothetically
+  // could land here too but the rule was scoped to MF07 in design talk.
+  // For safety, apply the same "must have description" rule to any
+  // MF code with a `.description` field.)
+  if (mfCode === 'MF07') {
+    const desc = extractMf07Description(savedValue);
+    if (!desc.trim()) {
+      console.log('[E4.7] Skipping read-only ' + mfCode +
+                  ' (rule_idx=' + idx + '): empty description');
+      // Still register virtual instance so Save preserves it — even
+      // hidden, admin's choice to add (even empty-description) stays.
+      // Wait — that would mean dealer can never see *why* it's there.
+      // Decision: if no description, drop the modification entirely
+      // on dealer re-save. Admin can see it in their own re-hydrate.
+      // → DO NOT register virtual instance.
+      // → Net effect: dealer's Save will silently drop this MF07.
+      //   That's actually a problem (silent data loss).
+      //
+      // Reconciling with Q3 ("if there's a description, show it"):
+      // The contrapositive isn't "if there's no description, lose it".
+      // We should preserve the data but just not display it.
+      //
+      // Final approach: register virtual instance (preserves data),
+      // do NOT render any DOM (hidden from dealer).
+      activeMfInstances.push({
+        rule_idx:      idx,
+        mf_code:       mfCode,
+        display_label: rule.display_label || mfCode,
+        container:     null,
+        instance:      makeVirtualInstance(savedEntry),
+        isReadOnly:    true,
+        isVirtual:     true,
+        isHidden:      true,
+      });
+      activeMfLiveValues[idx] = { value: savedValue, cost: savedCost };
+      return false;
+    }
+  }
+
+  // Build read-only row DOM
+  const row = document.createElement('div');
+  row.className = 'mf-row readonly';
+  row.setAttribute('data-mf-code', mfCode);
+  row.setAttribute('data-rule-idx', String(idx));
+  row.setAttribute('data-readonly', 'true');
+
+  // Label header with admin badge
+  const labelDiv = document.createElement('div');
+  labelDiv.className = 'mf-row-label';
+
+  const labelText = document.createElement('span');
+  labelText.className = 'mf-row-label-text';
+  labelText.innerHTML =
+    esc(rule.display_label || mfCode) +
+    '<span class="mf-row-admin-badge" title="Added by admin">' +
+      ADMIN_LOCK_SVG + 'Added by admin' +
+    '</span>';
+  labelDiv.appendChild(labelText);
+
+  const costSpan = document.createElement('span');
+  costSpan.className = 'mf-row-label-cost';
+  costSpan.textContent = savedCost > 0
+    ? '+$' + savedCost.toFixed(2)
+    : 'Included';
+  labelDiv.appendChild(costSpan);
+
+  row.appendChild(labelDiv);
+
+  // Body: description + cost pill
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'mf-readonly-body';
+
+  let descriptionText = '';
+  if (mfCode === 'MF07') {
+    descriptionText = extractMf07Description(savedValue);
+  } else if (typeof savedValue === 'string') {
+    descriptionText = savedValue;
+  } else {
+    // Fallback: stringify whatever it is
+    try { descriptionText = JSON.stringify(savedValue); }
+    catch (_) { descriptionText = String(savedValue); }
+  }
+
+  const descDiv = document.createElement('div');
+  descDiv.className = 'mf-readonly-desc';
+  descDiv.textContent = descriptionText;
+  bodyDiv.appendChild(descDiv);
+
+  if (savedCost > 0) {
+    const costPill = document.createElement('div');
+    costPill.className = 'mf-readonly-cost';
+    costPill.textContent = '+$' + savedCost.toFixed(2);
+    bodyDiv.appendChild(costPill);
+  }
+
+  row.appendChild(bodyDiv);
+  wrap.appendChild(row);
+
+  // Register virtual instance + seed live values
+  activeMfInstances.push({
+    rule_idx:      idx,
+    mf_code:       mfCode,
+    display_label: rule.display_label || mfCode,
+    container:     row,
+    instance:      makeVirtualInstance(savedEntry),
+    isReadOnly:    true,
+    isVirtual:     true,
+    isHidden:      false,
+  });
+  activeMfLiveValues[idx] = { value: savedValue, cost: savedCost };
+
+  return true;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.4 + E4.7: renderMfElements(rules, savedByIdx)
+//
+// E4.7 changes:
+//   • Accepts savedByIdx (rule_idx → saved entry map from item.modifications)
+//   • Passes saved value as 3rd arg to MF[mf_code].create()
+//   • Dealer + MF07 rule + saved data → render read-only row
+//   • Seeds activeMfLiveValues from saved values (running total ≠ $0)
+// ──────────────────────────────────────────────────────────────────
+function renderMfElements(rules, savedByIdx) {
+  const wrap = document.getElementById('mfElementsContainer');
+  savedByIdx = savedByIdx || {};
+
+  if (!rules || !rules.length) {
+    wrap.innerHTML = `
+      <div class="mf-no-rules">
+        <div class="mf-no-rules-title">No modifications available</div>
+        <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
+      </div>`;
+    activeMfLiveValues = {};
+    updateRunningTotal();
+    return;
+  }
+
+  wrap.innerHTML = '';
+  activeMfLiveValues = {};
+
+  let renderedCount = 0;
+  let readOnlyCount = 0;
+  let hiddenCount   = 0;
+  let skippedCount  = 0;
+
+  rules.forEach(function (rule, idx) {
+    const mfCode = rule.mf_code;
+    const savedEntry = savedByIdx[idx] || null;
+
+    // ── E4.7: Option B — Dealer viewing admin-added MF07 → read-only ──
+    // Condition: rule is admin-only (allowed_roles excludes dealer)
+    //            AND current effectiveRole is dealer
+    //            AND there's saved data for this rule
+    const isAdminOnly = Array.isArray(rule.allowed_roles)
+      && !rule.allowed_roles.some(function (r) { return (r || '').toLowerCase() === 'dealer'; });
+    const isDealerViewingAdminMod = isAdminOnly
+      && effectiveRole === 'dealer'
+      && savedEntry;
+
+    if (isDealerViewingAdminMod) {
+      const wasRendered = renderReadOnlyAdminRow(wrap, rule, idx, savedEntry);
+      if (wasRendered) {
+        readOnlyCount++;
+      } else {
+        hiddenCount++;
+      }
+      return;
+    }
+
+    // ── Normal interactive row ──
+    if (!window.MF || !window.MF[mfCode] || typeof window.MF[mfCode].create !== 'function') {
+      console.warn('[E4.4] window.MF.' + mfCode + ' not available; skipping rule', rule);
+      skippedCount++;
+      return;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'mf-row';
+    row.setAttribute('data-mf-code', mfCode);
+    row.setAttribute('data-rule-idx', String(idx));
+
+    const baseCost = parseFloat(rule.cost) || 0;
+
+    const costHtml = isAdminOnly
+      ? '<span class="mf-row-label-cost admin-only">Admin Only</span>'
+      : (baseCost > 0
+          ? '<span class="mf-row-label-cost">Base cost: +$' + baseCost.toFixed(2) + '</span>'
+          : '<span class="mf-row-label-cost">Included</span>');
+
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'mf-row-label';
+    labelDiv.innerHTML =
+      '<span class="mf-row-label-text">' + esc(rule.display_label || mfCode) + '</span>' +
+      costHtml;
+    row.appendChild(labelDiv);
+
+    const elementDiv = document.createElement('div');
+    elementDiv.className = 'mf-row-element';
+    row.appendChild(elementDiv);
+
+    wrap.appendChild(row);
+
+    const params = Object.assign({}, rule.mf_params || {}, {
+      _base_cost: baseCost,
+      _display_label: rule.display_label || ''
+    });
+
+    // E4.7: pass saved value (or null if none) as 3rd arg
+    const savedValueForCreate = savedEntry ? savedEntry.value : null;
+
+    let instance;
+    try {
+      instance = window.MF[mfCode].create(elementDiv, params, savedValueForCreate);
+    } catch (err) {
+      console.error('[E4.4] Failed to create instance for', mfCode, err);
+      elementDiv.innerHTML = '<div style="font-size:11px;color:var(--error);padding:8px 0;">Failed to render this modification. Please contact support.</div>';
+      skippedCount++;
+      return;
+    }
+
+    activeMfInstances.push({
+      rule_idx:      idx,
+      mf_code:       mfCode,
+      display_label: rule.display_label || mfCode,
+      container:     elementDiv,
+      instance:      instance,
+      isReadOnly:    false,
+      isVirtual:     false,
+    });
+
+    // E4.7: Seed live values from instance state (which reflects saved value)
+    // so initial running total is correct.
+    try {
+      const initVal  = (typeof instance.getValue === 'function') ? instance.getValue() : null;
+      const initCost = (typeof instance.calculateCost === 'function') ? instance.calculateCost() : 0;
+      activeMfLiveValues[idx] = {
+        value: initVal,
+        cost: (typeof initCost === 'number' && isFinite(initCost)) ? initCost : 0
+      };
+    } catch (err) {
+      console.warn('[E4.7] Failed to seed live value for ' + mfCode, err);
+    }
+
+    renderedCount++;
+  });
+
+  console.log('[E4.4]   Rendered ' + renderedCount + ' interactive element(s)' +
+              (readOnlyCount ? ', ' + readOnlyCount + ' read-only (admin-added)' : '') +
+              (hiddenCount ? ', ' + hiddenCount + ' hidden (no-description admin mod)' : '') +
+              (skippedCount ? ' (' + skippedCount + ' skipped due to errors)' : ''));
+
+  wrap.addEventListener('mf-change', onMfChangeDelegated);
+
+  updateRunningTotal();
+}
+
+function onMfChangeDelegated(e) {
+  if (!e || !e.detail) return;
+
+  let row = e.target;
+  while (row && row !== document && !row.classList?.contains('mf-row')) {
+    row = row.parentNode;
+  }
+  if (!row || !row.classList?.contains('mf-row')) {
+    console.warn('[E4.5] mf-change fired but no .mf-row ancestor found', e);
+    return;
+  }
+
+  const ruleIdx = row.getAttribute('data-rule-idx');
+  const mfCode  = e.detail.mf_code || row.getAttribute('data-mf-code') || '?';
+  const value   = e.detail.value;
+  const cost    = (typeof e.detail.cost === 'number') ? e.detail.cost : 0;
+
+  activeMfLiveValues[ruleIdx] = { value: value, cost: cost };
+
+  console.log('[E4.5] ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
+              value, ', cost: $' + cost.toFixed(2));
+
+  updateRunningTotal();
+}
+
+function destroyMfInstances() {
+  const wrap = document.getElementById('mfElementsContainer');
+  if (wrap) {
+    wrap.removeEventListener('mf-change', onMfChangeDelegated);
+  }
+
+  activeMfInstances.forEach(function (rec) {
+    try {
+      if (rec.instance && typeof rec.instance.destroy === 'function') {
+        rec.instance.destroy();
+      }
+    } catch (err) {
+      console.warn('[E4.4] destroy() threw for', rec.mf_code, err);
+    }
+  });
+  activeMfInstances = [];
+  activeMfLiveValues = {};
+
+  if (wrap) {
+    wrap.innerHTML = `
+      <div class="mf-loading">
+        <span class="mf-loading-spinner"></span>Loading modifications...
+      </div>`;
+  }
+
+  const valueEl = document.getElementById('mfRunningTotalValue');
+  if (valueEl) {
+    valueEl.textContent = '$0.00';
+    valueEl.classList.add('zero');
+  }
+}
+
+async function openMfModal(key) {
+  const item = cartItems.find(function (i) { return i.key === key; });
+  if (!item) {
+    console.warn('[E3] openMfModal: cartItem not found for key', key);
+    return;
+  }
+
+  activeMfModalKey = key;
+  activeMfModalRules = [];
+
+  const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+  const ctype    = (styleRow && styleRow.construction_type) || 'unknown';
+  const ctypeClass = ctype === 'framed' ? 'framed'
+                  : ctype === 'frameless' ? 'frameless'
+                  : 'unknown';
+  const ctypeLabel = ctype === 'unknown' ? '—' : ctype;
+
+  document.getElementById('mfHeadCode').textContent = item.sku_code;
+  document.getElementById('mfHeadDescSep').textContent = '  ';
+  document.getElementById('mfHeadDesc').textContent = item.sku_desc || '';
+
+  document.getElementById('mfHeadMeta').innerHTML = `
+    <span>${esc(item.style_name || item.style_code)}</span>
+    <span class="mf-pill ${ctypeClass}">${esc(ctypeLabel)}</span>
+    <span class="mf-pill assembled">Assembled</span>
+    <span>· Qty ${item.quantity}</span>
+  `;
+
+  const qtyHint = document.getElementById('mfQtyHint');
+  if (item.quantity > 1) {
+    document.getElementById('mfQtyHintNum').textContent = item.quantity;
+    qtyHint.style.display = 'block';
+  } else {
+    qtyHint.style.display = 'none';
+  }
+
+  document.getElementById('mfGroup1Qty').textContent = 'Qty: ' + item.quantity;
+
+  document.getElementById('mfElementsContainer').innerHTML = `
+    <div class="mf-loading">
+      <span class="mf-loading-spinner"></span>Loading modifications...
+    </div>`;
+
+  const valueEl = document.getElementById('mfRunningTotalValue');
+  if (valueEl) {
+    valueEl.textContent = '$0.00';
+    valueEl.classList.add('zero');
+  }
+
+  document.getElementById('mfModalOverlay').classList.add('show');
+  document.body.classList.add('mf-modal-open');
+
+  // ── E4.7: Build saved values map for re-hydrate ──
+  const savedByIdx = {};
+  if (Array.isArray(item.modifications)) {
+    item.modifications.forEach(function (m) {
+      if (m && (typeof m.rule_idx === 'number' || typeof m.rule_idx === 'string')) {
+        savedByIdx[m.rule_idx] = m;
+      }
+    });
+  }
+  const savedCount = Object.keys(savedByIdx).length;
+
+  console.log('[E3] openMfModal', key, '→ status was:', item.modification_status);
+  console.log('[E4.7] Saved modifications to re-hydrate: ' + savedCount, savedByIdx);
+
+  const doorParam = (ctype || '').toLowerCase();
+  if (doorParam !== 'framed' && doorParam !== 'frameless') {
+    console.warn('[E4.3] Unknown construction type for SKU', item.sku_code,
+                 '— cannot match modifications. ctype was:', ctype);
+    renderMfElements([], savedByIdx);
+    return;
+  }
+
+  const role = effectiveRole;
+  console.log('[E4.3]   door=' + doorParam +
+              ', type=' + (item.skuType || '') +
+              ', category=' + (item.category || '') +
+              ', subcategory=' + (item.subcategory || '') +
+              ', role=' + role);
+
+  try {
+    const { data: rules, error } = await _supabase.rpc('match_modifications_for_sku', {
+      p_door:        doorParam,
+      p_type:        item.skuType    || '',
+      p_category:    item.category   || '',
+      p_subcategory: item.subcategory || ''
+    });
+
+    if (error) {
+      console.error('[E4.3] RPC error:', error);
+      showToast('Failed to load modifications — you can still Skip or Save');
+      renderMfElements([], savedByIdx);
+      return;
+    }
+
+    if (activeMfModalKey !== key) {
+      console.log('[E4.3] RPC response stale (modal switched); ignoring.');
+      return;
+    }
+
+    const rawRules = rules || [];
+    console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
+
+    // E4.7: For dealers, also include admin-only rules that have saved
+    // data (so we can render the read-only row). Otherwise the rule
+    // would never reach renderMfElements and dealer would silently lose
+    // visibility of admin's MF07.
+    const filtered = rawRules.filter(function (r) {
+      if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
+
+      // Normal role-allowed rule
+      const allowed = r.allowed_roles.some(function (ar) {
+        return (ar || '').toLowerCase() === role;
+      });
+      if (allowed) return true;
+
+      // E4.7: If dealer is viewing this SKU AND there's saved data
+      // for this rule, keep it so we can render read-only.
+      // We don't know which index this rule will have after filter,
+      // so just check by rule equality via mf_code + display_label.
+      // Simpler approach: keep all rules whose mf_code+display_label
+      // match any saved entry. We'll rely on rule_idx in the rendered
+      // list to match savedByIdx (which uses the original saved
+      // rule_idx). Since savedByIdx is keyed by the ORIGINAL idx at
+      // save-time, and rule_idx in renderMfElements is the NEW idx
+      // in the filtered list, we need to keep the saved rule_idx
+      // semantics aligned.
+      //
+      // To keep this simple and correct, we use the saved entry's
+      // mf_code + display_label to identify "this is the admin rule
+      // dealer saved before". Then re-key savedByIdx on the fly so
+      // it lines up with the new filtered idx.
+      if (role === 'dealer') {
+        const matchedSaved = Object.values(savedByIdx).some(function (s) {
+          return s.mf_code === r.mf_code
+              && (s.display_label || '') === (r.display_label || '');
+        });
+        return matchedSaved;
+      }
+
+      return false;
+    });
+
+    // E4.7: Re-key savedByIdx so its keys match the rule_idx that
+    // renderMfElements will assign (= position in filtered array).
+    const reKeyed = {};
+    filtered.forEach(function (r, newIdx) {
+      // Find a saved entry whose mf_code+display_label matches this rule
+      const match = Object.values(savedByIdx).find(function (s) {
+        return s.mf_code === r.mf_code
+            && (s.display_label || '') === (r.display_label || '');
+      });
+      if (match) {
+        reKeyed[newIdx] = match;
+      }
+    });
+
+    activeMfModalRules = filtered;
+
+    console.log('[E4.3]   After role filter: ' + filtered.length + ' rule(s)');
+    console.log('[E4.3]   Rules:', filtered);
+    if (Object.keys(reKeyed).length) {
+      console.log('[E4.7]   Re-keyed saved entries:', reKeyed);
+    }
+
+    renderMfElements(filtered, reKeyed);
+  } catch (e) {
+    console.error('[E4.3] Unexpected error calling RPC:', e);
+    showToast('Failed to load modifications — you can still Skip or Save');
+    renderMfElements([], savedByIdx);
+  }
+}
+
+function closeMfModal() {
+  destroyMfInstances();
+  document.getElementById('mfModalOverlay').classList.remove('show');
+  document.body.classList.remove('mf-modal-open');
+  activeMfModalKey = null;
+  activeMfModalRules = [];
+  console.log('[E3] closeMfModal (Cancel / × — no status change)');
+}
+
+function closeMfModalSilent() {
+  destroyMfInstances();
+  document.getElementById('mfModalOverlay').classList.remove('show');
+  document.body.classList.remove('mf-modal-open');
+  activeMfModalKey = null;
+  activeMfModalRules = [];
+}
+
+function refreshAfterModalAction() {
+  doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
+  pageProgress    = calculateProgress(doorStyleGroups);
+  renderProgressCard(pageProgress);
+  renderDoorStyleList();
+  renderBottomBar(pageProgress);
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+}
+
+function handleMfSave() {
+  if (!activeMfModalKey) return;
+  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  if (!item) return;
+
+  const collected = [];
+  let totalCost = 0;
+
+  // E4.7: collect from BOTH real and virtual (read-only) instances.
+  // Virtual instance's getValue/calculateCost return the saved value
+  // unchanged, so admin-added MF07 flows through naturally.
+  activeMfInstances.forEach(function (rec) {
+    let val, cost;
+    try {
+      val  = (typeof rec.instance.getValue === 'function') ? rec.instance.getValue() : undefined;
+      cost = (typeof rec.instance.calculateCost === 'function') ? rec.instance.calculateCost() : 0;
+    } catch (err) {
+      console.warn('[E4.6] getValue/calculateCost threw for', rec.mf_code, err);
+      return;
+    }
+
+    if (!shouldKeepModification(val)) {
+      return;
+    }
+
+    if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
+
+    collected.push({
+      rule_idx:      rec.rule_idx,
+      mf_code:       rec.mf_code,
+      display_label: rec.display_label,
+      value:         val,
+      cost:          cost,
+    });
+    totalCost += cost;
+  });
+
+  item.modifications       = collected;
+  item.modification_status = 'configured';
+
+  const adminPreservedCount = activeMfInstances.filter(function (r) { return r.isReadOnly; }).length;
+
+  console.log('[E4.6] handleMfSave', activeMfModalKey,
+              '→ collected', collected.length, 'modification(s), subtotal $' + totalCost.toFixed(2) +
+              (adminPreservedCount ? ' (' + adminPreservedCount + ' admin-preserved)' : ''));
+  console.log('[E4.6]   modifications array:', collected);
+  console.log('[E4.6]   full cartItem:', item);
+
+  refreshAfterModalAction();
+  const skuCode = item.sku_code;
+  closeMfModalSilent();
+  showToast(skuCode + ' configured — $' + totalCost.toFixed(2));
+}
+
+function handleMfSkip() {
+  if (!activeMfModalKey) return;
+  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  if (!item) return;
+
+  // Decision (5/10): Skip clears ALL modifications, including admin-added.
+  item.modifications       = [];
+  item.modification_status = 'skipped';
+
+  console.log('[E4.6] handleMfSkip', activeMfModalKey,
+              '→ status: skipped, modifications cleared (including admin-added)');
+
+  refreshAfterModalAction();
+  const skuCode = item.sku_code;
+  closeMfModalSilent();
+  showToast(skuCode + ' skipped');
+}
+
+async function init() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  const { data: meRow } = await _supabase
+    .from('dealers').select('is_active').eq('id', session.user.id).single();
+  if (!meRow?.is_active) {
+    await _supabase.auth.signOut();
+    window.location.href = 'login.html';
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  draftId = params.get('draft') || null;
+
+  try {
+    const s1 = sessionStorage.getItem('quoteStep1');
+    if (s1) {
+      const parsed = JSON.parse(s1);
+      if (parsed?.isResumingReturned) {
+        isResumingReturned = true;
+      }
+    }
+  } catch (_) { /* ignore */ }
+
+  let dealerIdToLoad = session.user.id;
+  if (draftId) {
+    const { data: q } = await _supabase
+      .from('quotes').select('dealer_id').eq('id', draftId).single();
+    if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
+  } else {
+    try {
+      const s1 = sessionStorage.getItem('quoteStep1');
+      if (s1) {
+        const parsed = JSON.parse(s1);
+        if (parsed?.dealerIdForQuote) dealerIdToLoad = parsed.dealerIdForQuote;
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  if (draftId) {
+    const backBtn = document.getElementById('btnBack');
+    if (backBtn) backBtn.href = 'new-quote-step2.html?draft=' + draftId;
+  }
+
+  const { data: d } = await _supabase
+    .from('dealers').select('*').eq('id', dealerIdToLoad).single();
+  if (!d) {
+    alert('Could not load dealer data. Please go back and try again.');
+    return;
+  }
+  dealer = d;
+
+  const [styleRes, framedRes, framelessRes] = await Promise.all([
+    _supabase.from('door_styles').select('*').eq('is_active', true),
+    _supabase.from('skus_framed').select('*').eq('active', true),
+    _supabase.from('skus_frameless').select('*').eq('active', true),
+  ]);
+  allDoorStyles = styleRes.data || [];
+  const allSkusFramed    = framedRes.data    || [];
+  const allSkusFrameless = framelessRes.data || [];
+
+  if (draftId) {
+    const savedCart = sessionStorage.getItem('quoteStep2');
+    if (savedCart) {
+      try {
+        const parsed = JSON.parse(savedCart);
+        if (parsed && parsed.length) cartItems = parsed;
+      } catch (e) {}
+    }
+    if (!cartItems.length) {
+      cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
+    }
+  } else {
+    const savedCart = sessionStorage.getItem('quoteStep2');
+    if (savedCart) {
+      try { cartItems = JSON.parse(savedCart); } catch (e) { cartItems = []; }
+    }
+  }
+
+  cartItems = normalizeCartItems(cartItems);
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+
+  if (!cartItems.length) {
+    alert('No items in your quote. Returning to product selection.');
+    window.location.href = draftId ? 'new-quote-step2.html?draft=' + draftId : 'new-quote-step2.html';
+    return;
+  }
+
+  doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
+  pageProgress    = calculateProgress(doorStyleGroups);
+
+  renderProgressCard(pageProgress);
+  renderDoorStyleList();
+  renderBottomBar(pageProgress);
+
+  if (isResumingReturned) {
+    document.getElementById('returnedBannerMount').innerHTML =
+      buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
+  }
+
+  if (pageProgress.total === 0) {
+    document.getElementById('noAssembledBannerMount').innerHTML = buildNoAssembledBanner();
+  }
+
+  effectiveRole = ((dealer && dealer.role) || 'dealer').toLowerCase();
+  try {
+    const s1 = sessionStorage.getItem('quoteStep1');
+    if (s1) {
+      const parsed = JSON.parse(s1);
+      if (parsed?.adminDraft === true) {
+        effectiveRole = 'admin';
+      }
+    }
+  } catch (_) { /* ignore */ }
+  console.log('[E4.3] effectiveRole =', effectiveRole, '(dealer.role:', dealer && dealer.role, ', adminDraft mode:', effectiveRole === 'admin' && (dealer && dealer.role) !== 'admin', ')');
+
+  const mfCodes = ['MF01','MF02','MF03','MF04','MF05','MF06','MF07'];
+  const missing = mfCodes.filter(function (c) {
+    return !window.MF || !window.MF[c] || typeof window.MF[c].create !== 'function';
+  });
+  if (missing.length) {
+    console.error('[E4.4] Missing MF factories:', missing,
+                  '— check <script> tags for components/modifications/*.js');
+  } else {
+    console.log('[E4.4] All 7 MF factories loaded (MF01-MF07)');
+  }
+
+  console.log('[E1.2] init() complete');
+  console.log('[E1.2] dealer:', dealer);
+  console.log('[E1.2] cartItems:', cartItems);
+
+  logDoorStyleGroups(doorStyleGroups);
+  console.log('[E4.7] Re-hydrate + Option B (read-only admin MF07) ready');
+
+  setInterval(async function () {
+    const { data: check } = await _supabase
+      .from('dealers').select('is_active').eq('id', session.user.id).single();
+    if (!check?.is_active) {
+      await _supabase.auth.signOut();
+      window.location.href = 'login.html';
+    }
+  }, 60000);
+}
+
+init();
+</script>
+</body>
+</html>
