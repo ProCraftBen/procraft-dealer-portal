@@ -726,6 +726,8 @@ async function loadDraftItems() {
       unit_price:   parseFloat(item.unit_price),
       msrp:         parseFloat(item.msrp || 0),
       assemble_fee: parseFloat(item.assemble_fee || 0),
+      modifications:       Array.isArray(item.modifications) ? item.modifications : [],
+      modification_status: item.modification_status || null,
     };
   });
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
