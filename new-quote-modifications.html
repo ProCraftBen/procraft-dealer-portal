@@ -613,7 +613,8 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════
-       ║  E4.4: MF Row Styling — each rule rendered as one row       ║
+       ║  E4.4: MF Row Styling                                       ║
+       ║  E4.6: + running total bar at bottom of modal               ║
        ═══════════════════════════════════════════════════════════════ */
     #mfElementsContainer {
       display: flex;
@@ -708,6 +709,31 @@
       to { transform: rotate(360deg); }
     }
 
+    /* E4.6: Running total bar above the footer */
+    .mf-running-total {
+      flex-shrink: 0;
+      padding: 10px 22px;
+      border-top: 1px solid var(--border);
+      background: var(--white);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+    .mf-running-total-label {
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    .mf-running-total-value {
+      font-weight: 600;
+      color: var(--green-dark);
+      font-size: 14px;
+    }
+    .mf-running-total-value.zero {
+      color: var(--muted);
+      font-weight: 400;
+    }
+
     /* Footer */
     .mf-modal-footer {
       flex-shrink: 0;
@@ -773,6 +799,7 @@
       .mf-modal-container { max-height: 92vh; }
       .mf-modal-header { padding: 12px 16px; }
       .mf-modal-body { padding: 14px 16px; }
+      .mf-running-total { padding: 8px 16px; font-size: 11px; }
       .mf-modal-footer {
         padding: 12px 16px;
         flex-direction: column;
@@ -978,7 +1005,8 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     ║  E3+E4.4: Layer 2 Modal — Modification Configurator (HTML)  ║
+     ║  E3+E4.4+E4.6: Layer 2 Modal (HTML)                         ║
+     ║  E4.6 adds the running total bar above the footer.          ║
      ═══════════════════════════════════════════════════════════════ -->
 <div class="mf-modal-overlay" id="mfModalOverlay">
   <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
@@ -1006,7 +1034,6 @@
           <span class="mf-group-qty" id="mfGroup1Qty">Qty: 0</span>
         </div>
         <div class="mf-group-body">
-          <!-- E4.4: dynamically rendered MF rows go here -->
           <div id="mfElementsContainer">
             <div class="mf-loading">
               <span class="mf-loading-spinner"></span>Loading modifications...
@@ -1014,6 +1041,12 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- E4.6: Running total bar -->
+    <div class="mf-running-total" id="mfRunningTotal">
+      <span class="mf-running-total-label">Modifications subtotal</span>
+      <span class="mf-running-total-value zero" id="mfRunningTotalValue">$0.00</span>
     </div>
 
     <div class="mf-modal-footer">
@@ -1043,10 +1076,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="components/quote-flow-header.js"></script>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     ║  E4.4: Load 7 MF element factories                          ║
-     ║  Each .js registers itself on window.MF.MFXX                ║
-     ═══════════════════════════════════════════════════════════════ -->
+<!-- 7 MF element factories -->
 <script src="components/modifications/mf01-skin.js"></script>
 <script src="components/modifications/mf02-toggle-dropdown.js"></script>
 <script src="components/modifications/mf03-pure-toggle.js"></script>
@@ -1083,6 +1113,11 @@ let effectiveRole = 'dealer';
 // E4.4: MF instances currently rendered in modal.
 // Each entry: { rule_idx, mf_code, display_label, container, instance }
 let activeMfInstances = [];
+
+// E4.5: Live values dictionary, updated on every mf-change event.
+// Pure debug/UI aid (running total). Save still calls getValue() directly.
+// Shape: { [rule_idx]: { value, cost } }
+let activeMfLiveValues = {};
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -1140,13 +1175,17 @@ function buildNoAssembledBanner() {
     </div>`;
 }
 
+// E4.6: ensure every cartItem has a modifications array (default empty)
 function normalizeCartItems(items) {
   return items.map(function (item) {
     var status = item.modification_status;
     if (!status) {
       status = (item.type === 'RTA') ? 'skipped' : 'unprocessed';
     }
-    return Object.assign({}, item, { modification_status: status });
+    return Object.assign({}, item, {
+      modification_status: status,
+      modifications: Array.isArray(item.modifications) ? item.modifications : []
+    });
   });
 }
 
@@ -1173,6 +1212,9 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       msrp:                parseFloat(item.msrp || 0),
       assemble_fee:        parseFloat(item.assemble_fee || 0),
       modification_status: item.modification_status || null,
+      // E4.6: DB schema does not yet have modifications column (Stage F).
+      // Default to empty array; session state will hold values during edit.
+      modifications:       [],
     };
   });
 }
@@ -1457,37 +1499,85 @@ function goReview() {
 
 // ═══════════════════════════════════════════════════════════════════
 // ║                                                                 ║
-// ║  E3 + E4.3 + E4.4: Layer 2 Modal — Modification Configurator    ║
+// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6: Layer 2 Modal                  ║
 // ║                                                                 ║
-// ║  Done in E4.4 (this stage — dynamic rendering):                 ║
-// ║    • Render one .mf-row per matched rule                        ║
-// ║    • Call window.MF[mf_code].create() with hydrated mf_params   ║
-// ║      (_base_cost injected as Number from rule.cost)             ║
-// ║      (_display_label injected for MF01)                         ║
-// ║    • Track instances in activeMfInstances for cleanup           ║
-// ║    • Destroy instances on Cancel/Save/Skip to avoid leaks       ║
+// ║  E4.5 (value listening):                                        ║
+// ║    • Single delegated mf-change listener on #mfElementsContainer║
+// ║    • Updates activeMfLiveValues dict                            ║
+// ║    • Updates running total bar in real-time                     ║
+// ║    • Logs every value change for debug                          ║
 // ║                                                                 ║
-// ║  NOT in E4.4 (deferred):                                        ║
-// ║    • Collect MF values on Save         → E4.6                   ║
+// ║  E4.6 (value collection + persistence):                         ║
+// ║    • handleMfSave() collects via instance.getValue() +          ║
+// ║      calculateCost(), applies "rule 1" filter (no-op values)    ║
+// ║    • Saves to cartItem.modifications array                      ║
+// ║    • handleMfSkip() clears modifications array                  ║
+// ║    • Cancel/× discards in-flight values (no save)               ║
+// ║    • sessionStorage automatically updated via                   ║
+// ║      refreshAfterModalAction()                                  ║
+// ║                                                                 ║
+// ║  NOT in E4.5/E4.6 (deferred):                                   ║
 // ║    • Re-hydrate saved values on open   → E4.7                   ║
 // ║    • Validate on Save (required check) → E7                     ║
+// ║    • DB persistence of modifications    → Stage F                ║
 // ║                                                                 ║
 // ═══════════════════════════════════════════════════════════════════
 
 // ──────────────────────────────────────────────────────────────────
-// E4.4: renderMfElements(rules)
+// E4.6: shouldKeepModification(value)
 //
-// Replaces the loading state in #mfElementsContainer with one .mf-row
-// per matched rule. For each rule:
-//   1. Build label header (display_label + cost hint)
-//   2. Create empty element container
-//   3. Prepare hydrated mf_params:
-//        - _base_cost = Number(rule.cost) — REQUIRED. MF .js does
-//          `typeof === 'number'` so the value MUST be a Number.
-//        - _display_label = rule.display_label (used by MF01)
-//   4. Call window.MF[mf_code].create(elementContainer, params, null)
-//      (null = no saved value yet; E4.7 will pass real value)
-//   5. Push instance ref into activeMfInstances for later cleanup
+// Rule 1 filter — decide whether a collected value is "meaningful".
+// Returns false for no-op values that should NOT be written to
+// cartItem.modifications:
+//   • undefined / null         → element never set or RPC empty
+//   • boolean false            → MF03 toggle off (rule 1)
+//   • empty string             → MF06 textarea, MF01/05 default placeholder
+//   • empty array/object       → MF07-style nested no-op
+// Everything else (true / non-empty string / number / array / object)
+// is kept.
+// ──────────────────────────────────────────────────────────────────
+function shouldKeepModification(value) {
+  if (value === null || value === undefined) return false;
+  if (value === false) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    // Treat plain empty object as no-op
+    if (Object.keys(value).length === 0) return false;
+  }
+  return true;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.5: updateRunningTotal()
+//
+// Recompute the modifications subtotal from activeMfLiveValues and
+// update the bar in the modal footer. Called by:
+//   • mf-change event listener (real-time)
+//   • renderMfElements() (initial render, no values yet → $0.00)
+// ──────────────────────────────────────────────────────────────────
+function updateRunningTotal() {
+  let total = 0;
+  Object.keys(activeMfLiveValues).forEach(function (k) {
+    const entry = activeMfLiveValues[k];
+    if (entry && typeof entry.cost === 'number') {
+      total += entry.cost;
+    }
+  });
+
+  const valueEl = document.getElementById('mfRunningTotalValue');
+  if (!valueEl) return;
+  valueEl.textContent = '$' + total.toFixed(2);
+  if (total > 0) {
+    valueEl.classList.remove('zero');
+  } else {
+    valueEl.classList.add('zero');
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.4: renderMfElements(rules)
+//   + E4.5: attach single delegated mf-change listener to wrap
 // ──────────────────────────────────────────────────────────────────
 function renderMfElements(rules) {
   const wrap = document.getElementById('mfElementsContainer');
@@ -1498,10 +1588,16 @@ function renderMfElements(rules) {
         <div class="mf-no-rules-title">No modifications available</div>
         <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
       </div>`;
+    // E4.5: also reset running total to $0
+    activeMfLiveValues = {};
+    updateRunningTotal();
     return;
   }
 
   wrap.innerHTML = '';
+
+  // E4.5: reset live values + running total before rendering
+  activeMfLiveValues = {};
 
   let renderedCount = 0;
   let skippedCount  = 0;
@@ -1545,8 +1641,6 @@ function renderMfElements(rules) {
     wrap.appendChild(row);
 
     // ── Hydrate mf_params ──
-    // _base_cost MUST be Number (MF .js checks typeof === 'number').
-    // rule.cost from Supabase numeric may come as string "10.0".
     const params = Object.assign({}, rule.mf_params || {}, {
       _base_cost: baseCost,
       _display_label: rule.display_label || ''
@@ -1576,15 +1670,62 @@ function renderMfElements(rules) {
 
   console.log('[E4.4]   Rendered ' + renderedCount + ' element(s)' +
               (skippedCount ? ' (' + skippedCount + ' skipped due to errors)' : ''));
+
+  // E4.5: attach a single delegated listener on wrap.
+  // mf-change bubbles up from each element container.
+  // Re-attaching is safe because wrap.innerHTML='' above destroyed the
+  // previous DOM tree (and any listeners attached to it).
+  wrap.addEventListener('mf-change', onMfChangeDelegated);
+
+  // E4.5: initial running total (all zeros until user interacts)
+  updateRunningTotal();
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.5: onMfChangeDelegated
+//
+// Single delegated listener for all mf-change events bubbling up from
+// MF element containers. Identifies which rule fired via the .mf-row
+// ancestor's data-rule-idx attribute, then updates activeMfLiveValues
+// and the running total.
+// ──────────────────────────────────────────────────────────────────
+function onMfChangeDelegated(e) {
+  if (!e || !e.detail) return;
+
+  // Find which rule this event came from by walking up to .mf-row
+  let row = e.target;
+  while (row && row !== document && !row.classList?.contains('mf-row')) {
+    row = row.parentNode;
+  }
+  if (!row || !row.classList?.contains('mf-row')) {
+    console.warn('[E4.5] mf-change fired but no .mf-row ancestor found', e);
+    return;
+  }
+
+  const ruleIdx = row.getAttribute('data-rule-idx');
+  const mfCode  = e.detail.mf_code || row.getAttribute('data-mf-code') || '?';
+  const value   = e.detail.value;
+  const cost    = (typeof e.detail.cost === 'number') ? e.detail.cost : 0;
+
+  activeMfLiveValues[ruleIdx] = { value: value, cost: cost };
+
+  console.log('[E4.5] ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
+              value, ', cost: $' + cost.toFixed(2));
+
+  updateRunningTotal();
 }
 
 // ──────────────────────────────────────────────────────────────────
 // E4.4: destroyMfInstances()
-//
-// Tear down all currently-rendered MF instances. Called on every modal
-// close (Cancel / × / Save / Skip) so re-opens start clean.
 // ──────────────────────────────────────────────────────────────────
 function destroyMfInstances() {
+  // E4.5: remove the delegated listener BEFORE destroying instances
+  // (so any teardown emissions don't trip the listener)
+  const wrap = document.getElementById('mfElementsContainer');
+  if (wrap) {
+    wrap.removeEventListener('mf-change', onMfChangeDelegated);
+  }
+
   activeMfInstances.forEach(function (rec) {
     try {
       if (rec.instance && typeof rec.instance.destroy === 'function') {
@@ -1596,12 +1737,21 @@ function destroyMfInstances() {
   });
   activeMfInstances = [];
 
-  const wrap = document.getElementById('mfElementsContainer');
+  // E4.5: clear live values
+  activeMfLiveValues = {};
+
   if (wrap) {
     wrap.innerHTML = `
       <div class="mf-loading">
         <span class="mf-loading-spinner"></span>Loading modifications...
       </div>`;
+  }
+
+  // Reset running total UI
+  const valueEl = document.getElementById('mfRunningTotalValue');
+  if (valueEl) {
+    valueEl.textContent = '$0.00';
+    valueEl.classList.add('zero');
   }
 }
 
@@ -1645,11 +1795,18 @@ async function openMfModal(key) {
 
   document.getElementById('mfGroup1Qty').textContent = 'Qty: ' + item.quantity;
 
-  // E4.4: Reset element container to loading state
+  // Reset element container to loading state
   document.getElementById('mfElementsContainer').innerHTML = `
     <div class="mf-loading">
       <span class="mf-loading-spinner"></span>Loading modifications...
     </div>`;
+
+  // E4.6: Reset running total
+  const valueEl = document.getElementById('mfRunningTotalValue');
+  if (valueEl) {
+    valueEl.textContent = '$0.00';
+    valueEl.classList.add('zero');
+  }
 
   // Show modal + lock body scroll
   document.getElementById('mfModalOverlay').classList.add('show');
@@ -1708,7 +1865,6 @@ async function openMfModal(key) {
     console.log('[E4.3]   After role filter: ' + filtered.length + ' rule(s)');
     console.log('[E4.3]   Rules:', filtered);
 
-    // E4.4: Render the MF elements
     renderMfElements(filtered);
   } catch (e) {
     console.error('[E4.3] Unexpected error calling RPC:', e);
@@ -1743,30 +1899,81 @@ function refreshAfterModalAction() {
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 }
 
+// ──────────────────────────────────────────────────────────────────
+// E4.6: handleMfSave()
+//
+// Collect each instance's getValue() + calculateCost(),
+// filter via shouldKeepModification(), write to cartItem.modifications.
+// ──────────────────────────────────────────────────────────────────
 function handleMfSave() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  // E3/E4.4 stub: just flip status. E4.6 will collect MF values.
-  item.modification_status = 'configured';
+  // ── Collect from instances (NOT from activeMfLiveValues — that's
+  // only updated on change events, but instances always reflect
+  // current truth even for elements the user never touched) ──
+  const collected = [];
+  let totalCost = 0;
 
-  console.log('[E3] handleMfSave', activeMfModalKey, '→ status: configured');
+  activeMfInstances.forEach(function (rec) {
+    let val, cost;
+    try {
+      val  = (typeof rec.instance.getValue === 'function') ? rec.instance.getValue() : undefined;
+      cost = (typeof rec.instance.calculateCost === 'function') ? rec.instance.calculateCost() : 0;
+    } catch (err) {
+      console.warn('[E4.6] getValue/calculateCost threw for', rec.mf_code, err);
+      return;
+    }
+
+    if (!shouldKeepModification(val)) {
+      // Filtered out (toggle off / empty text / unselected dropdown / etc.)
+      return;
+    }
+
+    // Defensive: cost should be a finite number, default 0
+    if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
+
+    collected.push({
+      rule_idx:      rec.rule_idx,
+      mf_code:       rec.mf_code,
+      display_label: rec.display_label,
+      value:         val,
+      cost:          cost,
+    });
+    totalCost += cost;
+  });
+
+  item.modifications        = collected;
+  item.modification_status  = 'configured';
+
+  console.log('[E4.6] handleMfSave', activeMfModalKey,
+              '→ collected', collected.length, 'modification(s), subtotal $' + totalCost.toFixed(2));
+  console.log('[E4.6]   modifications array:', collected);
+  console.log('[E4.6]   full cartItem:', item);
 
   refreshAfterModalAction();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(skuCode + ' marked as Configured');
+  showToast(skuCode + ' configured — $' + totalCost.toFixed(2));
 }
 
+// ──────────────────────────────────────────────────────────────────
+// E4.6: handleMfSkip()
+//
+// Skipped means "dealer reviewed and chose not to modify" — clear any
+// previously saved values to keep state honest.
+// ──────────────────────────────────────────────────────────────────
 function handleMfSkip() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
+  item.modifications       = [];
   item.modification_status = 'skipped';
 
-  console.log('[E3] handleMfSkip', activeMfModalKey, '→ status: skipped');
+  console.log('[E4.6] handleMfSkip', activeMfModalKey,
+              '→ status: skipped, modifications cleared');
 
   refreshAfterModalAction();
   const skuCode = item.sku_code;
@@ -1932,7 +2139,9 @@ async function init() {
   console.log('[E1.9] goReview() wired up');
   console.log('[E3] Layer 2 modal shell ready');
   console.log('[E4.3] RPC integration ready');
-  console.log('[E4.4] Dynamic MF rendering ready — modal will render real elements');
+  console.log('[E4.4] Dynamic MF rendering ready');
+  console.log('[E4.5] mf-change delegated listener ready (running total updates live)');
+  console.log('[E4.6] Save/Skip collect values into cartItem.modifications and persist to sessionStorage');
 
   setInterval(async function () {
     const { data: check } = await _supabase
