@@ -1,5 +1,5 @@
 /* ============================================================
- * ProCraft Dealer Portal — Quote Flow Header Component v1.2
+ * ProCraft Dealer Portal — Quote Flow Header Component v1.3
  *
  * Renders a minimal header for the new-quote step1/2/2.5/3 flow:
  *  - (Optional) Orange "Admin Mode" bar
@@ -19,8 +19,8 @@
  * The component reads context from URL params + sessionStorage + DB:
  *   ?adminDraft=1            → admin creating a draft on dealer's behalf
  *   ?draft={quoteId}         → resuming a Draft or Returned quote
- *   sessionStorage.quoteStep1 → may contain isResumingReturned flag
- *   sessionStorage.adminDraftDealerId → dealer id for admin-draft mode
+ *   sessionStorage.quoteStep1 → may contain isResumingReturned flag + dealerIdForQuote
+ *   sessionStorage.adminDraftDealerId → dealer id for admin-draft mode (PRIMARY SOURCE)
  *   DB lookup (fallback)     → quote.status === 'Returned'
  *                              (handles first entry from quote-detail before
  *                               step1's init() writes sessionStorage)
@@ -36,6 +36,21 @@
  * v1.2 (E1.10): Added Step 2.5 "Modifications" as a full-fledged step.
  *               Total steps now 4 instead of 3. data-step="3" now means
  *               Modifications; data-step="4" means Review (Step 3 page).
+ *
+ * v1.3 (F5): Fix Admin Mode bar disappearing after navigation.
+ *            Previously the bar required ?adminDraft=1 in the URL, which
+ *            was only present on initial entry from dashboard. Any
+ *            in-flow navigation (Step 2→2.5, Step 2.5→3, Back links)
+ *            dropped the param and hid the banner across all subsequent
+ *            pages.
+ *            Now: banner shows if EITHER
+ *              (a) URL has ?adminDraft=1, OR
+ *              (b) sessionStorage has adminDraftDealerId (no URL needed)
+ *            sessionStorage is the more durable source — it's set when
+ *            admin clicks "Create Draft for Dealer" on the dashboard and
+ *            persists for the full flow.
+ *            Single-file change resolves banner on Step 2 (second entry),
+ *            Step 2.5, Step 3, and any future page that uses this header.
  * ============================================================ */
 
 (function () {
@@ -238,7 +253,7 @@
   function readContext() {
     const params = new URLSearchParams(window.location.search);
     const draftId = params.get('draft') || null;
-    const adminDraftFlag = params.get('adminDraft') === '1';
+    const urlAdminDraftFlag = params.get('adminDraft') === '1';
 
     let isResumingReturnedHint = false;
     let adminDealerIdHint = null;
@@ -254,6 +269,13 @@
     if (!adminDealerIdHint) {
       adminDealerIdHint = sessionStorage.getItem('adminDraftDealerId') || null;
     }
+
+    // v1.3 (F5): "is this an admin-draft session?" should not require the
+    // URL flag every time — sessionStorage.adminDraftDealerId is the durable
+    // source (set on dashboard "Create Draft for Dealer", persists across
+    // all in-flow navigation). The URL flag is just an additional hint that
+    // also forces the admin path even when sessionStorage is missing.
+    const adminDraftFlag = urlAdminDraftFlag || !!adminDealerIdHint;
 
     return { draftId, adminDraftFlag, isResumingReturnedHint, adminDealerIdHint };
   }
@@ -294,6 +316,9 @@
           try {
             sessionStorage.removeItem('quoteStep1');
             sessionStorage.removeItem('quoteStep2');
+            // v1.3 (F5): also clear admin-draft marker on Discard so the
+            // banner doesn't leak into the next quote attempt.
+            sessionStorage.removeItem('adminDraftDealerId');
           } catch (_) {}
           window.location.href = target;
         }
@@ -307,6 +332,8 @@
           try {
             sessionStorage.removeItem('quoteStep1');
             sessionStorage.removeItem('quoteStep2');
+            // v1.3 (F5): same as Discard — clear admin-draft marker.
+            sessionStorage.removeItem('adminDraftDealerId');
           } catch (_) {}
           window.location.href = resolveLogoTarget(opts.viewerIsAdmin);
         }
@@ -375,6 +402,8 @@
     let adminBarDealerName = null;
     let targetDealerId = null;
 
+    // v1.3 (F5): ctx.adminDraftFlag now reflects URL OR sessionStorage,
+    // so this branch fires for the full flow, not just initial entry.
     if (ctx.adminDraftFlag) {
       targetDealerId = ctx.adminDealerIdHint;
     } else if (viewerIsAdmin && ctx.draftId && quoteOwnerDealerId) {
