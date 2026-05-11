@@ -424,6 +424,45 @@
     }
     .sku-row.assembled:hover .sku-arrow { color: var(--green-dark); }
 
+    /* E5: Delete button on SKU row */
+    .sku-delete-btn {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      width: 22px;
+      height: 22px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: all 0.15s;
+    }
+    .sku-delete-btn:hover {
+      color: var(--error);
+      background: rgba(192,57,43,0.08);
+    }
+    .sku-delete-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    /* E5: Sub-group badge on SKU row (when split into 2+) */
+    .sku-split-badge {
+      flex-shrink: 0;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      background: rgba(201,168,76,0.15);
+      color: #8B6914;
+      font-weight: 600;
+    }
+
     /* ── Empty State ── */
     .empty-state {
       background: var(--white);
@@ -466,7 +505,7 @@
     .lightbox-close:hover { opacity: 1; }
 
     /* ═══════════════════════════════════════════════════════════════
-       ║  E3+E4.4+E4.6+E4.7: Layer 2 Modal — Modification (CSS)      ║
+       ║  E3+E4.4+E4.6+E4.7+E5: Layer 2 Modal (CSS)                  ║
        ═══════════════════════════════════════════════════════════════ */
 
     .mf-modal-overlay {
@@ -569,16 +608,230 @@
     .mf-pill.unknown    { background: rgba(122,140,130,0.12); color: var(--muted); }
     .mf-pill.assembled  { background: rgba(201,168,76,0.15);  color: #8B6914; }
 
-    .mf-qty-hint {
-      margin-top: 10px;
-      padding: 8px 12px;
-      background: rgba(90,122,149,0.06);
-      border: 1px solid rgba(90,122,149,0.2);
-      border-left: 3px solid var(--info-blue);
-      border-radius: 3px;
+    /* E5: Editable SKU qty in modal header */
+    .mf-sku-head-qty {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 8px;
+    }
+    .mf-sku-head-qty-label {
       font-size: 11px;
+      color: var(--muted);
+    }
+    .mf-sku-head-qty-input {
+      width: 56px;
+      height: 26px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      text-align: center;
       color: var(--text);
+      background: var(--white);
+    }
+    .mf-sku-head-qty-input:focus {
+      outline: none;
+      border-color: var(--green-dark);
+    }
+    .mf-sku-head-qty-input.invalid {
+      border-color: var(--error);
+      background: rgba(192,57,43,0.04);
+    }
+
+    /* E5: Split panel */
+    .mf-split-panel {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      background: var(--white);
+    }
+    .mf-split-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .mf-split-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    .mf-split-summary {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .mf-split-summary.invalid {
+      color: var(--error);
+      font-weight: 500;
+    }
+    .mf-split-summary.valid {
+      color: var(--green-mid);
+    }
+    .mf-split-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .mf-split-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border-radius: 3px;
+      background: #FAFAF8;
+    }
+    .mf-split-row-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green-dark);
+      min-width: 50px;
+    }
+    .mf-split-row-qty-label {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .mf-split-row-qty-input {
+      width: 52px;
+      height: 26px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      text-align: center;
+      color: var(--text);
+      background: var(--white);
+    }
+    .mf-split-row-qty-input:focus {
+      outline: none;
+      border-color: var(--green-dark);
+    }
+    .mf-split-row-status {
+      flex: 1;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-align: center;
+      max-width: 110px;
+      font-weight: 500;
+    }
+    .mf-split-row-status.unprocessed {
+      background: rgba(122,140,130,0.12);
+      color: var(--muted);
+    }
+    .mf-split-row-status.configured {
+      background: rgba(62,90,66,0.1);
+      color: var(--green-dark);
+    }
+    .mf-split-row-status.skipped {
+      background: rgba(90,122,149,0.1);
+      color: var(--info-blue);
+    }
+    .mf-split-row-delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      width: 24px;
+      height: 24px;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .mf-split-row-delete:hover {
+      color: var(--error);
+      background: rgba(192,57,43,0.08);
+    }
+    .mf-split-row-delete:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .mf-split-row-delete svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+    }
+    .mf-split-add {
+      background: transparent;
+      border: 1px dashed var(--border);
+      border-radius: 3px;
+      padding: 8px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+    }
+    .mf-split-add:hover {
+      color: var(--green-dark);
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.04);
+    }
+    .mf-split-hint {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+      margin-top: 8px;
       line-height: 1.5;
+    }
+
+    /* E5: Tabs */
+    .mf-tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .mf-tab {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 3px 3px 0 0;
+      padding: 8px 16px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      bottom: -1px;
+    }
+    .mf-tab:hover {
+      color: var(--green-dark);
+    }
+    .mf-tab.active {
+      background: var(--white);
+      color: var(--green-dark);
+      border-bottom: 1px solid var(--white);
+      font-weight: 600;
+    }
+    .mf-tab-qty {
+      font-size: 9px;
+      color: var(--muted);
+      margin-left: 4px;
+      font-weight: 400;
+    }
+    .mf-tab.active .mf-tab-qty {
+      color: var(--green-mid);
     }
 
     .mf-group {
@@ -673,7 +926,6 @@
       font-weight: 600;
     }
 
-    /* E4.7: "Added by admin" badge for read-only rows */
     .mf-row-admin-badge {
       display: inline-flex;
       align-items: center;
@@ -695,7 +947,6 @@
 
     .mf-row-element { /* no padding */ }
 
-    /* E4.7: Read-only display of saved value (MF07-style) */
     .mf-readonly-body {
       padding: 4px 0;
       font-size: 13px;
@@ -837,6 +1088,12 @@
       background: var(--green-mid);
       border-color: var(--green-mid);
     }
+    .mf-btn-save:disabled {
+      background: var(--muted);
+      border-color: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
 
     body.mf-modal-open {
       overflow: hidden;
@@ -959,6 +1216,9 @@
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+    .toast.error {
+      background: var(--error);
+    }
 
     /* ── Mobile RWD ── */
     @media (max-width: 700px) {
@@ -1069,15 +1329,29 @@
           <span id="mfHeadDesc">—</span>
         </div>
         <div class="mf-sku-head-row2" id="mfHeadMeta"></div>
-        <div class="mf-qty-hint" id="mfQtyHint" style="display:none;">
-          All <span id="mfQtyHintNum">N</span> units will share the same modifications. Splitting per-unit configuration coming soon.
+      </div>
+
+      <!-- E5: Split panel -->
+      <div class="mf-split-panel" id="mfSplitPanel">
+        <div class="mf-split-header">
+          <span class="mf-split-title">Split this SKU</span>
+          <span class="mf-split-summary" id="mfSplitSummary">—</span>
+        </div>
+        <div class="mf-split-rows" id="mfSplitRows"></div>
+        <button class="mf-split-add" id="mfSplitAddBtn" type="button" onclick="addSubGroup()">+ Add sub-group</button>
+        <div class="mf-split-hint">
+          Tip: Sub-groups with no modifications selected will be saved as <em>skipped</em>.
+          Split when different units of this SKU need different modifications (e.g. some with a left skin, some with a right skin).
         </div>
       </div>
 
+      <!-- E5: Tabs (only shown when sub_groups.length > 1) -->
+      <div class="mf-tabs" id="mfTabs" style="display:none;"></div>
+
       <div class="mf-group" data-group-no="1">
         <div class="mf-group-header">
-          <span class="mf-group-label">Group 1</span>
-          <span class="mf-group-qty" id="mfGroup1Qty">Qty: 0</span>
+          <span class="mf-group-label" id="mfGroupLabel">Modifications</span>
+          <span class="mf-group-qty" id="mfGroupQty">Qty: 0</span>
         </div>
         <div class="mf-group-body">
           <div id="mfElementsContainer">
@@ -1090,7 +1364,7 @@
     </div>
 
     <div class="mf-running-total" id="mfRunningTotal">
-      <span class="mf-running-total-label">Modifications subtotal</span>
+      <span class="mf-running-total-label" id="mfRunningTotalLabel">Modifications subtotal</span>
       <span class="mf-running-total-value zero" id="mfRunningTotalValue">$0.00</span>
     </div>
 
@@ -1100,7 +1374,7 @@
       </div>
       <div class="mf-modal-footer-right">
         <button class="mf-btn mf-btn-cancel" type="button" onclick="closeMfModal()">Cancel</button>
-        <button class="mf-btn mf-btn-save" type="button" onclick="handleMfSave()">Save</button>
+        <button class="mf-btn mf-btn-save" type="button" id="mfBtnSave" onclick="handleMfSave()">Save</button>
       </div>
     </div>
   </div>
@@ -1147,11 +1421,24 @@ let isResumingReturned = false;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
 
 // Modal state
-let activeMfModalKey = null;
-let activeMfModalRules = [];
-let effectiveRole = 'dealer';
-let activeMfInstances = [];     // { rule_idx, mf_code, display_label, container, instance, isReadOnly?, isVirtual? }
-let activeMfLiveValues = {};    // { [rule_idx]: { value, cost } }
+let activeMfModalKey   = null;
+let activeMfModalRules = [];   // E5: shared RPC result for all sub-groups
+let effectiveRole      = 'dealer';
+
+// E5: Multi sub-group modal state
+// activeSubGroups: working copy of item.sub_groups, mutated during modal session.
+//   Each entry: {
+//     sub_index: number,
+//     qty: number,
+//     modifications: [...],        // last-saved snapshot
+//     modification_status: 'unprocessed'|'configured'|'skipped',
+//     instances: [],               // live MF instances when this sub is active tab
+//     liveValues: {},              // rule_idx -> {value, cost} when active tab
+//     frozenValues: null,          // snapshot of liveValues when tab is inactive
+//   }
+let activeSubGroups    = [];
+let activeSubGroupIdx  = 0;     // currently visible tab index
+let activeSkuQty       = 1;     // editable SKU qty in modal header
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -1159,9 +1446,8 @@ const colorMap = {
 };
 
 const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
-
-// SVG for "Added by admin" lock icon
 const ADMIN_LOCK_SVG = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
+const TRASH_SVG = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
 
 function openLightbox(src) {
   if (!src) return;
@@ -1172,11 +1458,13 @@ function closeLightbox() {
   document.getElementById('lightboxOverlay').classList.remove('show');
 }
 
-function showToast(msg) {
+function showToast(msg, isError) {
   const t = document.getElementById('toast');
   t.textContent = msg;
+  if (isError) t.classList.add('error');
+  else t.classList.remove('error');
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+  setTimeout(() => t.classList.remove('show'), 2200);
 }
 
 function esc(s) {
@@ -1212,45 +1500,154 @@ function buildNoAssembledBanner() {
     </div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// E5: Data layer — sub_groups structure
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * E5: Migrate legacy item.modifications / modification_status to sub_groups.
+ * Idempotent: if sub_groups already exists, only ensures it's well-formed.
+ * Legacy fields (modifications, modification_status) are removed.
+ */
+function ensureSubGroups(item) {
+  if (Array.isArray(item.sub_groups) && item.sub_groups.length) {
+    // Already migrated — ensure each entry is well-formed
+    item.sub_groups = item.sub_groups.map(function (g, i) {
+      return {
+        sub_index:           (typeof g.sub_index === 'number') ? g.sub_index : (i + 1),
+        qty:                 (typeof g.qty === 'number' && g.qty > 0) ? g.qty : 1,
+        modifications:       Array.isArray(g.modifications) ? g.modifications : [],
+        modification_status: g.modification_status
+          || (item.type === 'RTA' ? 'skipped' : 'unprocessed'),
+      };
+    });
+    delete item.modifications;
+    delete item.modification_status;
+    return item;
+  }
+
+  // Legacy fallback: build a single sub-group from the old fields
+  const legacyStatus = item.modification_status
+    || (item.type === 'RTA' ? 'skipped' : 'unprocessed');
+  const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
+
+  item.sub_groups = [{
+    sub_index:           1,
+    qty:                 (typeof item.quantity === 'number' && item.quantity > 0) ? item.quantity : 1,
+    modifications:       legacyMods,
+    modification_status: legacyStatus,
+  }];
+  delete item.modifications;
+  delete item.modification_status;
+  return item;
+}
+
+/**
+ * E5 / Q11: SKU overall status from sub_groups.
+ *   - All sub_groups configured OR skipped → configured (or skipped if ALL skipped)
+ *   - Any sub_group unprocessed → unprocessed
+ *   - RTA always skipped (no UI to configure)
+ */
+function getItemOverallStatus(item) {
+  if (item.type === 'RTA') return 'skipped';
+  if (!Array.isArray(item.sub_groups) || !item.sub_groups.length) return 'unprocessed';
+
+  const allDone = item.sub_groups.every(function (g) {
+    return g.modification_status === 'configured'
+        || g.modification_status === 'skipped';
+  });
+  if (!allDone) return 'unprocessed';
+
+  const allSkipped = item.sub_groups.every(function (g) {
+    return g.modification_status === 'skipped';
+  });
+  return allSkipped ? 'skipped' : 'configured';
+}
+
+/**
+ * E5: Sum of all sub_group qtys (should always equal item.quantity).
+ */
+function sumSubQty(item) {
+  if (!Array.isArray(item.sub_groups)) return 0;
+  return item.sub_groups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
+}
+
 function normalizeCartItems(items) {
   return items.map(function (item) {
-    var status = item.modification_status;
-    if (!status) {
-      status = (item.type === 'RTA') ? 'skipped' : 'unprocessed';
+    const normalized = Object.assign({}, item);
+    if (typeof normalized.quantity !== 'number' || normalized.quantity < 1) {
+      normalized.quantity = 1;
     }
-    return Object.assign({}, item, {
-      modification_status: status,
-      modifications: Array.isArray(item.modifications) ? item.modifications : []
-    });
+    return ensureSubGroups(normalized);
   });
 }
 
+/**
+ * E5: Load draft items from DB, GROUP BY (sku_code, assemble_status, style_code)
+ * to merge multi-row sub_index records back into a single cart entry.
+ */
 async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   const { data: items, error } = await _supabase
     .from('quote_items').select('*').eq('quote_id', draftId);
   if (error || !items || !items.length) return [];
+
   const skuAll = allSkusFramed.concat(allSkusFrameless);
-  return items.map(function (item) {
-    const style = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
-    const sku   = skuAll.find(function (s) { return s.sku_code === item.sku_code; });
-    return {
-      key:                 item.sku_code + '_' + item.assemble_status,
-      style_code:          item.style_code,
-      style_name:          style ? style.style_name : item.style_code,
-      sku_code:             item.sku_code,
-      sku_desc:            sku ? sku.description : item.sku_code,
-      skuType:             item.sku_type || '',
-      category:            sku ? (sku.category    || '') : '',
-      subcategory:         sku ? (sku.subcategory || '') : '',
-      type:                item.assemble_status,
-      quantity:            item.quantity,
-      unit_price:          parseFloat(item.unit_price),
-      msrp:                parseFloat(item.msrp || 0),
-      assemble_fee:        parseFloat(item.assemble_fee || 0),
-      modification_status: item.modification_status || null,
-      modifications:       Array.isArray(item.modifications) ? item.modifications : [],
-    };
+  const groupsByKey = new Map();
+
+  // Sort by sub_index ASC so sub_groups end up in order
+  const sorted = items.slice().sort(function (a, b) {
+    if (a.style_code !== b.style_code) return a.style_code.localeCompare(b.style_code);
+    if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
+    if (a.assemble_status !== b.assemble_status) {
+      return a.assemble_status.localeCompare(b.assemble_status);
+    }
+    return (a.sub_index || 1) - (b.sub_index || 1);
   });
+
+  sorted.forEach(function (row) {
+    const key = row.sku_code + '_' + row.assemble_status;
+    const groupKey = row.style_code + '|' + key;
+
+    if (!groupsByKey.has(groupKey)) {
+      const style = allDoorStyles.find(function (s) { return s.style_code === row.style_code; });
+      const sku   = skuAll.find(function (s) { return s.sku_code === row.sku_code; });
+      groupsByKey.set(groupKey, {
+        key:           key,
+        style_code:    row.style_code,
+        style_name:    style ? style.style_name : row.style_code,
+        sku_code:      row.sku_code,
+        sku_desc:      sku ? sku.description : row.sku_code,
+        skuType:       row.sku_type || '',
+        category:      sku ? (sku.category    || '') : '',
+        subcategory:   sku ? (sku.subcategory || '') : '',
+        type:          row.assemble_status,
+        quantity:      0,
+        unit_price:    parseFloat(row.unit_price),
+        msrp:          parseFloat(row.msrp || 0),
+        assemble_fee:  parseFloat(row.assemble_fee || 0),
+        sub_groups:    [],
+      });
+    }
+
+    const cartItem = groupsByKey.get(groupKey);
+    const rowQty = parseInt(row.quantity, 10) || 0;
+    cartItem.quantity += rowQty;
+    cartItem.sub_groups.push({
+      sub_index:           parseInt(row.sub_index, 10) || (cartItem.sub_groups.length + 1),
+      qty:                 rowQty,
+      modifications:       Array.isArray(row.modifications) ? row.modifications : [],
+      modification_status: row.modification_status
+        || (row.assemble_status === 'RTA' ? 'skipped' : 'unprocessed'),
+    });
+  });
+
+  // Re-number sub_indexes 1..N in case of gaps
+  const out = [];
+  groupsByKey.forEach(function (item) {
+    item.sub_groups.forEach(function (g, i) { g.sub_index = i + 1; });
+    out.push(item);
+  });
+  return out;
 }
 
 function buildDoorStyleGroups(items, doorStyles) {
@@ -1311,8 +1708,8 @@ function calculateProgress(groups) {
   groups.forEach(function (group) {
     const total = group.assembledItems.length;
     const done  = group.assembledItems.filter(function (item) {
-      return item.modification_status === 'configured'
-          || item.modification_status === 'skipped';
+      const s = getItemOverallStatus(item);
+      return s === 'configured' || s === 'skipped';
     }).length;
 
     group.progress.total = total;
@@ -1327,11 +1724,11 @@ function calculateProgress(groups) {
 }
 
 function renderProgressCard(progress) {
-  const card        = document.getElementById('progressCard');
-  const doneEl      = document.getElementById('progressDone');
-  const totalEl     = document.getElementById('progressTotal');
-  const percentEl   = document.getElementById('progressPercent');
-  const barFillEl   = document.getElementById('progressBarFill');
+  const card      = document.getElementById('progressCard');
+  const doneEl    = document.getElementById('progressDone');
+  const totalEl   = document.getElementById('progressTotal');
+  const percentEl = document.getElementById('progressPercent');
+  const barFillEl = document.getElementById('progressBarFill');
 
   doneEl.textContent    = progress.done;
   totalEl.textContent   = progress.total;
@@ -1452,7 +1849,7 @@ function buildGroupProgressDisplay(group) {
 }
 
 function buildAssembledRow(item, gIdx) {
-  const status = item.modification_status;
+  const status = getItemOverallStatus(item);
   let statusClass, statusLabel;
 
   if (status === 'configured') {
@@ -1466,13 +1863,23 @@ function buildAssembledRow(item, gIdx) {
     statusLabel = '○ Unprocessed';
   }
 
+  // E5: split badge when sub_groups > 1
+  const subCount = Array.isArray(item.sub_groups) ? item.sub_groups.length : 1;
+  const splitBadge = subCount > 1
+    ? `<span class="sku-split-badge">Split × ${subCount}</span>`
+    : '';
+
   return `
-    <div class="sku-row assembled" onclick="onAssembledRowClick('${esc(item.key)}')">
+    <div class="sku-row assembled" onclick="onAssembledRowClick(event, '${esc(item.key)}')">
       <span class="sku-code">${esc(item.sku_code)}</span>
       <span class="sku-desc">${esc(item.sku_desc)}</span>
       <span class="sku-qty">Qty ${item.quantity}</span>
+      ${splitBadge}
       <span class="sku-status ${statusClass}">${statusLabel}</span>
       <span class="sku-arrow">›</span>
+      <button class="sku-delete-btn" type="button"
+        onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
+        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
     </div>`;
 }
 
@@ -1482,11 +1889,37 @@ function buildRtaRow(item) {
       <span class="sku-code">${esc(item.sku_code)}</span>
       <span class="sku-desc">${esc(item.sku_desc)}</span>
       <span class="sku-qty">Qty ${item.quantity}</span>
+      <button class="sku-delete-btn" type="button"
+        onclick="onDeleteSkuClick('${esc(item.key)}')"
+        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
     </div>`;
 }
 
-function onAssembledRowClick(key) {
+// E5: Click handler now takes event so Delete can stopPropagation
+function onAssembledRowClick(evt, key) {
+  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) {
+    return;
+  }
   openMfModal(key);
+}
+
+// E5: Delete a SKU from cart (Assembled or RTA)
+function onDeleteSkuClick(key) {
+  const item = cartItems.find(function (i) { return i.key === key; });
+  if (!item) return;
+  const confirmed = confirm('Remove "' + item.sku_code + '" from your quote?');
+  if (!confirmed) return;
+
+  cartItems = cartItems.filter(function (i) { return i.key !== key; });
+  doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
+  pageProgress    = calculateProgress(doorStyleGroups);
+  renderProgressCard(pageProgress);
+  renderDoorStyleList();
+  renderBottomBar(pageProgress);
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+
+  console.log('[E5] Removed SKU', key, 'from cart. Remaining items:', cartItems.length);
+  showToast(item.sku_code + ' removed');
 }
 
 function renderBottomBar(progress) {
@@ -1499,7 +1932,9 @@ function renderBottomBar(progress) {
   const pendingAssembled = progress.total - progress.done;
   const isReady = (progress.total === 0) || (pendingAssembled === 0);
 
-  if (progress.total === 0) {
+  if (cartItems.length === 0) {
+    statusTextEl.textContent = 'Cart is empty';
+  } else if (progress.total === 0) {
     statusTextEl.textContent = 'No assembled items — ready to review';
   } else if (pendingAssembled === 0) {
     statusTextEl.textContent = 'All set — ready to review';
@@ -1508,20 +1943,24 @@ function renderBottomBar(progress) {
       (pendingAssembled !== 1 ? 's' : '') + ' need attention';
   }
 
-  if (isReady) {
+  if (isReady && cartItems.length > 0) {
     statusEl.classList.add('complete');
   } else {
     statusEl.classList.remove('complete');
   }
 
-  btnNext.disabled = !isReady;
+  btnNext.disabled = !isReady || cartItems.length === 0;
 }
 
 function goReview() {
   const pendingAssembled = pageProgress.total - pageProgress.done;
   const isReady = (pageProgress.total === 0) || (pendingAssembled === 0);
   if (!isReady) {
-    showToast('Please configure all assembled SKUs first');
+    showToast('Please configure all assembled SKUs first', true);
+    return;
+  }
+  if (cartItems.length === 0) {
+    showToast('Cart is empty — add items first', true);
     return;
   }
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
@@ -1532,33 +1971,42 @@ function goReview() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//
+//   【PART 1 END — Part 2 接續】
+//
+//   Part 2 will contain:
+//     • shouldKeepModification, makeVirtualInstance, extractMf07Description
+//     • renderReadOnlyAdminRow, renderMfElements
+//     • E5 NEW: split panel render, tab render, switchSubGroupTab,
+//               addSubGroup, deleteSubGroup, qty handlers, validateSplit
+//     • openMfModal (with sub_groups working copy + RPC + F3.1)
+//     • closeMfModal, refreshAfterModalAction
+//     • handleMfSave (collect ALL sub_groups), handleMfSkip
+//     • destroyMfInstances (per-sub)
+//     • updateRunningTotal (per-sub, multiplied by sub.qty)
+//     • init()
+//
+// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
 // ║                                                                 ║
-// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7 + F3.1: Layer 2 Modal    ║
+// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7 + F3.1 + E5: Modal       ║
 // ║                                                                 ║
-// ║  F3.1 (this stage — bypass RLS to fetch admin-only rules):      ║
-// ║    • RLS on modification_assignments hides admin-only rules     ║
-// ║      from dealers. RPC match_modifications_for_sku respects     ║
-// ║      RLS, so dealers cannot see e.g. MF07 even when they have   ║
-// ║      saved data for it.                                         ║
-// ║    • Solution: after RPC returns, if dealer + saved data        ║
-// ║      references mf_codes NOT in the RPC result, fetch those     ║
-// ║      rules via the SECURITY DEFINER RPC                         ║
-// ║      get_modification_rules_by_codes (which bypasses RLS).      ║
-// ║    • Fetched rules are appended to `filtered` so Option B's     ║
-// ║      read-only render path can trigger.                         ║
+// ║  E5 changes (this stage — multi sub-group support):             ║
+// ║    • Modal works on a working copy of item.sub_groups           ║
+// ║      (activeSubGroups), so Cancel discards all changes.         ║
+// ║    • Each sub-group has its own instances/liveValues/frozen.    ║
+// ║    • Tab switching freezes current sub → destroys instances →   ║
+// ║      renders new sub from its frozen/saved values.              ║
+// ║    • Split panel allows: change sub qty, delete sub, add sub.   ║
+// ║    • SKU qty editable in modal header; Save syncs to cart.      ║
+// ║    • Save collects ALL sub-groups (loops through tabs).         ║
+// ║    • Skip clears every sub-group (Q12 A).                       ║
+// ║    • Running total shows the ACTIVE sub-group's line total      ║
+// ║      (per-unit cost × sub.qty, Q17 B).                          ║
 // ║                                                                 ║
-// ║  E4.7 (prior — re-hydrate + Option B):                          ║
-// ║    • openMfModal builds savedByIdx from item.modifications      ║
-// ║    • renderMfElements passes saved value as 3rd arg to create() ║
-// ║    • Pre-populates activeMfLiveValues so running total is       ║
-// ║      correct on re-open (not $0)                                ║
-// ║    • Option B: Dealer sees admin-added MF07 as a READ-ONLY row  ║
-// ║      (lock badge, no element instance, virtual instance         ║
-// ║       preserves the value through Save)                         ║
-// ║    • Dealer Skip still clears ALL modifications (decided 5/10)  ║
-// ║                                                                 ║
-// ║  NOT in F3.1:                                                   ║
-// ║    • Validate on Save (required check) → E7                     ║
+// ║  E4.7 + F3.1 preserved verbatim — RPC runs ONCE per modal       ║
+// ║  session (rules don't change per sub-group), but savedByIdx /   ║
+// ║  reKeyed is computed PER sub-group when its tab is rendered.    ║
 // ║                                                                 ║
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1573,31 +2021,50 @@ function shouldKeepModification(value) {
   return true;
 }
 
+// ──────────────────────────────────────────────────────────────────
+// E5 + Q17 (B): Running total = ACTIVE sub-group's line total.
+//   line total = sum(per-unit cost from liveValues) × sub.qty
+// Display includes the sub label when modal is split (sub_groups > 1).
+// ──────────────────────────────────────────────────────────────────
 function updateRunningTotal() {
-  let total = 0;
-  Object.keys(activeMfLiveValues).forEach(function (k) {
-    const entry = activeMfLiveValues[k];
-    if (entry && typeof entry.cost === 'number') {
-      total += entry.cost;
+  const activeSub = activeSubGroups[activeSubGroupIdx];
+  if (!activeSub) {
+    setRunningTotalDOM('Modifications subtotal', 0);
+    return;
+  }
+
+  let perUnit = 0;
+  Object.keys(activeSub.liveValues || {}).forEach(function (k) {
+    const entry = activeSub.liveValues[k];
+    if (entry && typeof entry.cost === 'number' && isFinite(entry.cost)) {
+      perUnit += entry.cost;
     }
   });
 
+  const subQty = activeSub.qty || 0;
+  const lineTotal = perUnit * subQty;
+
+  const isSplit = activeSubGroups.length > 1;
+  const label = isSplit
+    ? ('Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)) +
+       ' (qty ' + subQty + ') modifications')
+    : 'Modifications subtotal';
+
+  setRunningTotalDOM(label, lineTotal);
+}
+
+function setRunningTotalDOM(label, total) {
+  const labelEl = document.getElementById('mfRunningTotalLabel');
   const valueEl = document.getElementById('mfRunningTotalValue');
+  if (labelEl) labelEl.textContent = label;
   if (!valueEl) return;
   valueEl.textContent = '$' + total.toFixed(2);
-  if (total > 0) {
-    valueEl.classList.remove('zero');
-  } else {
-    valueEl.classList.add('zero');
-  }
+  if (total > 0) valueEl.classList.remove('zero');
+  else valueEl.classList.add('zero');
 }
 
 // ──────────────────────────────────────────────────────────────────
-// E4.7: makeVirtualInstance(savedEntry)
-//
-// Returns an object that mimics the MF instance API but holds an
-// immutable saved value. Used for the dealer-side read-only MF07 row
-// so handleMfSave's collection loop can treat it uniformly.
+// E4.7 helpers (preserved verbatim from prior stage)
 // ──────────────────────────────────────────────────────────────────
 function makeVirtualInstance(savedEntry) {
   const frozenValue = savedEntry.value;
@@ -1610,13 +2077,6 @@ function makeVirtualInstance(savedEntry) {
   };
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E4.7: extractMf07Description(value)
-//
-// MF07 value shape is { enabled, description, cost, ... } per the
-// console logs from earlier testing. Returns the description string
-// (may be empty) so dealer-side display can check whether to render.
-// ──────────────────────────────────────────────────────────────────
 function extractMf07Description(value) {
   if (!value || typeof value !== 'object') return '';
   if (typeof value.description === 'string') return value.description;
@@ -1624,25 +2084,20 @@ function extractMf07Description(value) {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// E4.7: renderReadOnlyAdminRow
-//
-// Render a dealer-view read-only row for an admin-added rule.
-// Pushes a virtual instance into activeMfInstances so Save preserves it.
-// Returns true if rendered, false if skipped (e.g. no description).
+// E5: renderReadOnlyAdminRow now writes into the ACTIVE sub-group's
+// instances/liveValues (instead of the old modal-scoped globals).
 // ──────────────────────────────────────────────────────────────────
-function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
+function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
   const mfCode = rule.mf_code;
   const savedValue = savedEntry.value;
   const savedCost  = (typeof savedEntry.cost === 'number') ? savedEntry.cost : 0;
 
-  // Q3 rule: If MF07 has no description, hide the row entirely but
-  // preserve the data via a virtual instance (no DOM, just registered).
   if (mfCode === 'MF07') {
     const desc = extractMf07Description(savedValue);
     if (!desc.trim()) {
       console.log('[E4.7] Skipping read-only ' + mfCode +
                   ' (rule_idx=' + idx + '): empty description');
-      activeMfInstances.push({
+      subRef.instances.push({
         rule_idx:      idx,
         mf_code:       mfCode,
         display_label: rule.display_label || mfCode,
@@ -1652,19 +2107,17 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
         isVirtual:     true,
         isHidden:      true,
       });
-      activeMfLiveValues[idx] = { value: savedValue, cost: savedCost };
+      subRef.liveValues[idx] = { value: savedValue, cost: savedCost };
       return false;
     }
   }
 
-  // Build read-only row DOM
   const row = document.createElement('div');
   row.className = 'mf-row readonly';
   row.setAttribute('data-mf-code', mfCode);
   row.setAttribute('data-rule-idx', String(idx));
   row.setAttribute('data-readonly', 'true');
 
-  // Label header with admin badge
   const labelDiv = document.createElement('div');
   labelDiv.className = 'mf-row-label';
 
@@ -1686,7 +2139,6 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
 
   row.appendChild(labelDiv);
 
-  // Body: description + cost pill
   const bodyDiv = document.createElement('div');
   bodyDiv.className = 'mf-readonly-body';
 
@@ -1696,7 +2148,6 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
   } else if (typeof savedValue === 'string') {
     descriptionText = savedValue;
   } else {
-    // Fallback: stringify whatever it is
     try { descriptionText = JSON.stringify(savedValue); }
     catch (_) { descriptionText = String(savedValue); }
   }
@@ -1716,8 +2167,7 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
   row.appendChild(bodyDiv);
   wrap.appendChild(row);
 
-  // Register virtual instance + seed live values
-  activeMfInstances.push({
+  subRef.instances.push({
     rule_idx:      idx,
     mf_code:       mfCode,
     display_label: rule.display_label || mfCode,
@@ -1727,21 +2177,15 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
     isVirtual:     true,
     isHidden:      false,
   });
-  activeMfLiveValues[idx] = { value: savedValue, cost: savedCost };
-
+  subRef.liveValues[idx] = { value: savedValue, cost: savedCost };
   return true;
 }
 
 // ──────────────────────────────────────────────────────────────────
-// E4.4 + E4.7: renderMfElements(rules, savedByIdx)
-//
-// E4.7 changes:
-//   • Accepts savedByIdx (rule_idx → saved entry map from item.modifications)
-//   • Passes saved value as 3rd arg to MF[mf_code].create()
-//   • Dealer + MF07 rule + saved data → render read-only row
-//   • Seeds activeMfLiveValues from saved values (running total ≠ $0)
+// E5: renderMfElements now takes (rules, savedByIdx, subRef).
+// All instances/liveValues writes go to subRef (the active sub-group).
 // ──────────────────────────────────────────────────────────────────
-function renderMfElements(rules, savedByIdx) {
+function renderMfElements(rules, savedByIdx, subRef) {
   const wrap = document.getElementById('mfElementsContainer');
   savedByIdx = savedByIdx || {};
 
@@ -1751,13 +2195,15 @@ function renderMfElements(rules, savedByIdx) {
         <div class="mf-no-rules-title">No modifications available</div>
         <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
       </div>`;
-    activeMfLiveValues = {};
+    subRef.instances = [];
+    subRef.liveValues = {};
     updateRunningTotal();
     return;
   }
 
   wrap.innerHTML = '';
-  activeMfLiveValues = {};
+  subRef.instances = [];
+  subRef.liveValues = {};
 
   let renderedCount = 0;
   let readOnlyCount = 0;
@@ -1768,10 +2214,6 @@ function renderMfElements(rules, savedByIdx) {
     const mfCode = rule.mf_code;
     const savedEntry = savedByIdx[idx] || null;
 
-    // ── E4.7: Option B — Dealer viewing admin-added MF07 → read-only ──
-    // Condition: rule is admin-only (allowed_roles excludes dealer)
-    //            AND current effectiveRole is dealer
-    //            AND there's saved data for this rule
     const isAdminOnly = Array.isArray(rule.allowed_roles)
       && !rule.allowed_roles.some(function (r) { return (r || '').toLowerCase() === 'dealer'; });
     const isDealerViewingAdminMod = isAdminOnly
@@ -1779,16 +2221,12 @@ function renderMfElements(rules, savedByIdx) {
       && savedEntry;
 
     if (isDealerViewingAdminMod) {
-      const wasRendered = renderReadOnlyAdminRow(wrap, rule, idx, savedEntry);
-      if (wasRendered) {
-        readOnlyCount++;
-      } else {
-        hiddenCount++;
-      }
+      const wasRendered = renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef);
+      if (wasRendered) readOnlyCount++;
+      else hiddenCount++;
       return;
     }
 
-    // ── Normal interactive row ──
     if (!window.MF || !window.MF[mfCode] || typeof window.MF[mfCode].create !== 'function') {
       console.warn('[E4.4] window.MF.' + mfCode + ' not available; skipping rule', rule);
       skippedCount++;
@@ -1826,7 +2264,6 @@ function renderMfElements(rules, savedByIdx) {
       _display_label: rule.display_label || ''
     });
 
-    // E4.7: pass saved value (or null if none) as 3rd arg
     const savedValueForCreate = savedEntry ? savedEntry.value : null;
 
     let instance;
@@ -1839,7 +2276,7 @@ function renderMfElements(rules, savedByIdx) {
       return;
     }
 
-    activeMfInstances.push({
+    subRef.instances.push({
       rule_idx:      idx,
       mf_code:       mfCode,
       display_label: rule.display_label || mfCode,
@@ -1849,12 +2286,10 @@ function renderMfElements(rules, savedByIdx) {
       isVirtual:     false,
     });
 
-    // E4.7: Seed live values from instance state (which reflects saved value)
-    // so initial running total is correct.
     try {
       const initVal  = (typeof instance.getValue === 'function') ? instance.getValue() : null;
       const initCost = (typeof instance.calculateCost === 'function') ? instance.calculateCost() : 0;
-      activeMfLiveValues[idx] = {
+      subRef.liveValues[idx] = {
         value: initVal,
         cost: (typeof initCost === 'number' && isFinite(initCost)) ? initCost : 0
       };
@@ -1875,8 +2310,13 @@ function renderMfElements(rules, savedByIdx) {
   updateRunningTotal();
 }
 
+// ──────────────────────────────────────────────────────────────────
+// E5: mf-change writes to the ACTIVE sub-group's liveValues
+// ──────────────────────────────────────────────────────────────────
 function onMfChangeDelegated(e) {
   if (!e || !e.detail) return;
+  const activeSub = activeSubGroups[activeSubGroupIdx];
+  if (!activeSub) return;
 
   let row = e.target;
   while (row && row !== document && !row.classList?.contains('mf-row')) {
@@ -1892,45 +2332,338 @@ function onMfChangeDelegated(e) {
   const value   = e.detail.value;
   const cost    = (typeof e.detail.cost === 'number') ? e.detail.cost : 0;
 
-  activeMfLiveValues[ruleIdx] = { value: value, cost: cost };
+  activeSub.liveValues[ruleIdx] = { value: value, cost: cost };
 
-  console.log('[E4.5] ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
+  console.log('[E4.5] Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)) +
+              ' · ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
               value, ', cost: $' + cost.toFixed(2));
 
   updateRunningTotal();
 }
 
-function destroyMfInstances() {
+// ──────────────────────────────────────────────────────────────────
+// E5: destroy ONLY the active sub-group's instances (called before
+// switching tabs or closing modal). Does NOT touch other subs.
+// ──────────────────────────────────────────────────────────────────
+function destroyActiveSubInstances() {
+  const activeSub = activeSubGroups[activeSubGroupIdx];
   const wrap = document.getElementById('mfElementsContainer');
   if (wrap) {
     wrap.removeEventListener('mf-change', onMfChangeDelegated);
   }
 
-  activeMfInstances.forEach(function (rec) {
-    try {
-      if (rec.instance && typeof rec.instance.destroy === 'function') {
-        rec.instance.destroy();
+  if (activeSub && Array.isArray(activeSub.instances)) {
+    activeSub.instances.forEach(function (rec) {
+      try {
+        if (rec.instance && typeof rec.instance.destroy === 'function') {
+          rec.instance.destroy();
+        }
+      } catch (err) {
+        console.warn('[E4.4] destroy() threw for', rec.mf_code, err);
       }
-    } catch (err) {
-      console.warn('[E4.4] destroy() threw for', rec.mf_code, err);
-    }
-  });
-  activeMfInstances = [];
-  activeMfLiveValues = {};
+    });
+    activeSub.instances = [];
+  }
+}
 
+function clearMfContainerToLoading() {
+  const wrap = document.getElementById('mfElementsContainer');
   if (wrap) {
     wrap.innerHTML = `
       <div class="mf-loading">
         <span class="mf-loading-spinner"></span>Loading modifications...
       </div>`;
   }
+}
 
-  const valueEl = document.getElementById('mfRunningTotalValue');
-  if (valueEl) {
-    valueEl.textContent = '$0.00';
-    valueEl.classList.add('zero');
+// ═══════════════════════════════════════════════════════════════════
+// E5: Freeze / hydrate logic
+// When user switches tab (or saves), we capture the active sub's
+// live MF values into frozenValues so they survive the destroy.
+// When we render a sub-group's tab, we use frozenValues if present
+// (more recent than the original saved snapshot), otherwise fall
+// back to its modifications array.
+// ═══════════════════════════════════════════════════════════════════
+
+function freezeActiveSub() {
+  const activeSub = activeSubGroups[activeSubGroupIdx];
+  if (!activeSub) return;
+
+  // Collect current values from each instance (the source of truth
+  // while a tab is active, not the live event-driven map alone —
+  // because some instances may not have fired mf-change yet).
+  const snapshot = [];
+  (activeSub.instances || []).forEach(function (rec) {
+    let val, cost;
+    try {
+      val  = (typeof rec.instance.getValue === 'function') ? rec.instance.getValue() : undefined;
+      cost = (typeof rec.instance.calculateCost === 'function') ? rec.instance.calculateCost() : 0;
+    } catch (err) {
+      console.warn('[E5.freeze] getValue threw for', rec.mf_code, err);
+      return;
+    }
+    if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
+    snapshot.push({
+      rule_idx:      rec.rule_idx,
+      mf_code:       rec.mf_code,
+      display_label: rec.display_label,
+      value:         val,
+      cost:          cost,
+    });
+  });
+
+  activeSub.frozenValues = snapshot;
+}
+
+/**
+ * Build savedByIdx for a given sub-group: prefer frozenValues
+ * (if user already touched this tab this session), else fall back
+ * to the sub's persisted modifications array (which was loaded
+ * from item.sub_groups at modal open).
+ */
+function buildSavedByIdxForSub(subRef, rules) {
+  const rawList = (subRef.frozenValues && subRef.frozenValues.length)
+    ? subRef.frozenValues
+    : (subRef.modifications || []);
+
+  const byMfKey = {};
+  rawList.forEach(function (m) {
+    if (!m || !m.mf_code) return;
+    const k = m.mf_code + '|' + (m.display_label || '');
+    byMfKey[k] = m;
+  });
+
+  const reKeyed = {};
+  rules.forEach(function (r, newIdx) {
+    const k = r.mf_code + '|' + (r.display_label || '');
+    if (byMfKey[k]) reKeyed[newIdx] = byMfKey[k];
+  });
+  return reKeyed;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// E5: Split panel rendering + handlers
+// ═══════════════════════════════════════════════════════════════════
+
+function renderSplitPanel() {
+  const rowsEl = document.getElementById('mfSplitRows');
+  const addBtn = document.getElementById('mfSplitAddBtn');
+  if (!rowsEl) return;
+
+  rowsEl.innerHTML = activeSubGroups.map(function (sub, i) {
+    const statusClass = sub.modification_status || 'unprocessed';
+    const statusLabel = statusClass === 'configured' ? '● Configured'
+                      : statusClass === 'skipped'    ? '⊘ Skipped'
+                      : '○ Unprocessed';
+    const deleteDisabled = activeSubGroups.length <= 1 ? 'disabled' : '';
+    return `
+      <div class="mf-split-row" data-sub-idx="${i}">
+        <span class="mf-split-row-label">Sub ${sub.sub_index || (i + 1)}</span>
+        <span class="mf-split-row-qty-label">Qty:</span>
+        <input type="number" min="1" step="1" class="mf-split-row-qty-input"
+          value="${sub.qty || 0}"
+          onchange="onSubQtyChange(${i}, this.value)"
+          oninput="onSubQtyChange(${i}, this.value)"/>
+        <span class="mf-split-row-status ${statusClass}">${statusLabel}</span>
+        <button class="mf-split-row-delete" type="button" ${deleteDisabled}
+          onclick="onDeleteSubGroup(${i})"
+          aria-label="Delete this sub-group" title="Delete this sub-group">${TRASH_SVG}</button>
+      </div>`;
+  }).join('');
+
+  // Disable Add button if any sub has qty 0 and total already equals SKU qty?
+  // No — we allow Add and validation happens before Save.
+  addBtn.disabled = false;
+
+  updateSplitSummary();
+}
+
+function updateSplitSummary() {
+  const summaryEl = document.getElementById('mfSplitSummary');
+  const skuQtyEl  = document.getElementById('mfSkuQtyInput');
+  if (!summaryEl) return;
+
+  const skuQty = activeSkuQty;
+  const sum    = activeSubGroups.reduce(function (s, g) { return s + (parseInt(g.qty, 10) || 0); }, 0);
+
+  if (sum === skuQty) {
+    summaryEl.classList.remove('invalid');
+    summaryEl.classList.add('valid');
+    summaryEl.textContent = '✓ Total ' + sum + ' = SKU qty ' + skuQty;
+  } else {
+    summaryEl.classList.remove('valid');
+    summaryEl.classList.add('invalid');
+    const diff = skuQty - sum;
+    if (diff > 0) {
+      summaryEl.textContent = 'Need ' + diff + ' more (sum ' + sum + ' / ' + skuQty + ')';
+    } else {
+      summaryEl.textContent = 'Over by ' + Math.abs(diff) + ' (sum ' + sum + ' / ' + skuQty + ')';
+    }
+  }
+
+  if (skuQtyEl) {
+    skuQtyEl.classList.toggle('invalid', sum !== skuQty);
+  }
+
+  // Reflect on Save button
+  const saveBtn = document.getElementById('mfBtnSave');
+  if (saveBtn) {
+    saveBtn.disabled = (sum !== skuQty) || activeSubGroups.length === 0 || skuQty < 1;
   }
 }
+
+function onSubQtyChange(subIdx, newVal) {
+  const sub = activeSubGroups[subIdx];
+  if (!sub) return;
+  let q = parseInt(newVal, 10);
+  if (!isFinite(q) || q < 1) q = 1;
+  sub.qty = q;
+  updateSplitSummary();
+  // If this sub is the active tab, running total depends on qty
+  if (subIdx === activeSubGroupIdx) {
+    updateRunningTotal();
+    // Also update the Group label qty display
+    const groupQtyEl = document.getElementById('mfGroupQty');
+    if (groupQtyEl) groupQtyEl.textContent = 'Qty: ' + q;
+  }
+}
+
+function onDeleteSubGroup(subIdx) {
+  if (activeSubGroups.length <= 1) {
+    showToast('Cannot delete the only sub-group', true);
+    return;
+  }
+  const sub = activeSubGroups[subIdx];
+  if (!sub) return;
+
+  // If the sub being deleted is the active tab, freeze first (so we
+  // can safely destroy without losing un-saved data from OTHER tabs —
+  // although other tabs already froze their values when user left them).
+  if (subIdx === activeSubGroupIdx) {
+    destroyActiveSubInstances();
+  }
+
+  activeSubGroups.splice(subIdx, 1);
+  // Re-number sub_index 1..N
+  activeSubGroups.forEach(function (g, i) { g.sub_index = i + 1; });
+
+  // Decide new active tab
+  if (activeSubGroupIdx >= activeSubGroups.length) {
+    activeSubGroupIdx = activeSubGroups.length - 1;
+  }
+
+  renderSplitPanel();
+  renderTabs();
+  renderActiveSubTab();
+}
+
+function addSubGroup() {
+  const skuQty = activeSkuQty;
+  const currentSum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
+  const remaining = skuQty - currentSum;
+
+  // New sub default qty: take whatever is left over, but at least 1
+  const newQty = remaining > 0 ? remaining : 1;
+
+  activeSubGroups.push({
+    sub_index:           activeSubGroups.length + 1,
+    qty:                 newQty,
+    modifications:       [],
+    modification_status: 'unprocessed',
+    instances:           [],
+    liveValues:          {},
+    frozenValues:        null,
+  });
+
+  renderSplitPanel();
+  renderTabs();
+  // Stay on currently active tab (user can switch manually); but if
+  // they had only 1 sub before, now there are 2 — keep them on Sub 1.
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// E5: Tab rendering + switching
+// ═══════════════════════════════════════════════════════════════════
+
+function renderTabs() {
+  const tabsEl = document.getElementById('mfTabs');
+  if (!tabsEl) return;
+
+  if (activeSubGroups.length <= 1) {
+    tabsEl.style.display = 'none';
+    tabsEl.innerHTML = '';
+    return;
+  }
+
+  tabsEl.style.display = 'flex';
+  tabsEl.innerHTML = activeSubGroups.map(function (sub, i) {
+    const activeClass = (i === activeSubGroupIdx) ? ' active' : '';
+    return `
+      <button class="mf-tab${activeClass}" type="button" onclick="onTabClick(${i})">
+        Sub ${sub.sub_index || (i + 1)}
+        <span class="mf-tab-qty">(qty ${sub.qty})</span>
+      </button>`;
+  }).join('');
+}
+
+function onTabClick(newIdx) {
+  if (newIdx === activeSubGroupIdx) return;
+  if (newIdx < 0 || newIdx >= activeSubGroups.length) return;
+
+  // Freeze current sub before destroying its instances
+  freezeActiveSub();
+  destroyActiveSubInstances();
+
+  activeSubGroupIdx = newIdx;
+  renderTabs();
+  renderActiveSubTab();
+}
+
+/**
+ * Render the currently active sub-group into the modal body
+ * (split panel + tabs are already up to date; this renders MF rows).
+ */
+function renderActiveSubTab() {
+  const activeSub = activeSubGroups[activeSubGroupIdx];
+  if (!activeSub) {
+    clearMfContainerToLoading();
+    return;
+  }
+
+  // Update group label / qty display
+  const groupLabel = document.getElementById('mfGroupLabel');
+  const groupQty   = document.getElementById('mfGroupQty');
+  if (groupLabel) {
+    groupLabel.textContent = activeSubGroups.length > 1
+      ? ('Modifications — Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)))
+      : 'Modifications';
+  }
+  if (groupQty) groupQty.textContent = 'Qty: ' + (activeSub.qty || 0);
+
+  // If we don't yet have the RPC rules, show loading state
+  if (!Array.isArray(activeMfModalRules)) {
+    clearMfContainerToLoading();
+    return;
+  }
+
+  const reKeyed = buildSavedByIdxForSub(activeSub, activeMfModalRules);
+  renderMfElements(activeMfModalRules, reKeyed, activeSub);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// E5: Modal header — editable SKU qty
+// ═══════════════════════════════════════════════════════════════════
+
+function onSkuQtyChange(newVal) {
+  let q = parseInt(newVal, 10);
+  if (!isFinite(q) || q < 1) q = 1;
+  activeSkuQty = q;
+  updateSplitSummary();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// E5: openMfModal — load item.sub_groups as working copy
+// ═══════════════════════════════════════════════════════════════════
 
 async function openMfModal(key) {
   const item = cartItems.find(function (i) { return i.key === key; });
@@ -1939,9 +2672,28 @@ async function openMfModal(key) {
     return;
   }
 
-  activeMfModalKey = key;
-  activeMfModalRules = [];
+  ensureSubGroups(item);
 
+  activeMfModalKey = key;
+  activeMfModalRules = null;   // null = not yet loaded; render will show "loading"
+
+  // Build modal working copy of sub_groups (deep enough — modifications
+  // arrays are NOT mutated in place; replaced on Save).
+  activeSubGroups = item.sub_groups.map(function (g, i) {
+    return {
+      sub_index:           g.sub_index || (i + 1),
+      qty:                 g.qty,
+      modifications:       Array.isArray(g.modifications) ? g.modifications.slice() : [],
+      modification_status: g.modification_status,
+      instances:           [],
+      liveValues:          {},
+      frozenValues:        null,
+    };
+  });
+  activeSubGroupIdx = 0;
+  activeSkuQty      = item.quantity;
+
+  // ── SKU header ──
   const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
   const ctype    = (styleRow && styleRow.construction_type) || 'unknown';
   const ctypeClass = ctype === 'framed' ? 'framed'
@@ -1957,52 +2709,47 @@ async function openMfModal(key) {
     <span>${esc(item.style_name || item.style_code)}</span>
     <span class="mf-pill ${ctypeClass}">${esc(ctypeLabel)}</span>
     <span class="mf-pill assembled">Assembled</span>
-    <span>· Qty ${item.quantity}</span>
+    <span class="mf-sku-head-qty">
+      <span class="mf-sku-head-qty-label">SKU Qty:</span>
+      <input type="number" min="1" step="1" class="mf-sku-head-qty-input"
+        id="mfSkuQtyInput" value="${item.quantity}"
+        onchange="onSkuQtyChange(this.value)"
+        oninput="onSkuQtyChange(this.value)"/>
+    </span>
   `;
 
-  const qtyHint = document.getElementById('mfQtyHint');
-  if (item.quantity > 1) {
-    document.getElementById('mfQtyHintNum').textContent = item.quantity;
-    qtyHint.style.display = 'block';
-  } else {
-    qtyHint.style.display = 'none';
-  }
+  // ── Initial split panel + tabs ──
+  renderSplitPanel();
+  renderTabs();
 
-  document.getElementById('mfGroup1Qty').textContent = 'Qty: ' + item.quantity;
-
-  document.getElementById('mfElementsContainer').innerHTML = `
-    <div class="mf-loading">
-      <span class="mf-loading-spinner"></span>Loading modifications...
-    </div>`;
-
-  const valueEl = document.getElementById('mfRunningTotalValue');
-  if (valueEl) {
-    valueEl.textContent = '$0.00';
-    valueEl.classList.add('zero');
-  }
+  // ── Reset MF container to loading state ──
+  clearMfContainerToLoading();
+  setRunningTotalDOM(
+    activeSubGroups.length > 1
+      ? 'Sub 1 (qty ' + (activeSubGroups[0].qty || 0) + ') modifications'
+      : 'Modifications subtotal',
+    0
+  );
 
   document.getElementById('mfModalOverlay').classList.add('show');
   document.body.classList.add('mf-modal-open');
 
-  // ── E4.7: Build saved values map for re-hydrate ──
-  const savedByIdx = {};
-  if (Array.isArray(item.modifications)) {
-    item.modifications.forEach(function (m) {
-      if (m && (typeof m.rule_idx === 'number' || typeof m.rule_idx === 'string')) {
-        savedByIdx[m.rule_idx] = m;
-      }
-    });
-  }
-  const savedCount = Object.keys(savedByIdx).length;
+  // ── Log saved data for each sub (debug visibility) ──
+  console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item));
+  console.log('[E5] sub_groups loaded:', activeSubGroups.length, 'sub-group(s):');
+  activeSubGroups.forEach(function (g, i) {
+    console.log('  Sub ' + (i + 1) + ' qty=' + g.qty +
+                ' status=' + g.modification_status +
+                ' mods=' + g.modifications.length);
+  });
 
-  console.log('[E3] openMfModal', key, '→ status was:', item.modification_status);
-  console.log('[E4.7] Saved modifications to re-hydrate: ' + savedCount, savedByIdx);
-
+  // ── RPC: run ONCE per modal session, shared by all sub-groups ──
   const doorParam = (ctype || '').toLowerCase();
   if (doorParam !== 'framed' && doorParam !== 'frameless') {
     console.warn('[E4.3] Unknown construction type for SKU', item.sku_code,
                  '— cannot match modifications. ctype was:', ctype);
-    renderMfElements([], savedByIdx);
+    activeMfModalRules = [];
+    renderActiveSubTab();
     return;
   }
 
@@ -2023,8 +2770,9 @@ async function openMfModal(key) {
 
     if (error) {
       console.error('[E4.3] RPC error:', error);
-      showToast('Failed to load modifications — you can still Skip or Save');
-      renderMfElements([], savedByIdx);
+      showToast('Failed to load modifications — you can still Skip or Save', true);
+      activeMfModalRules = [];
+      renderActiveSubTab();
       return;
     }
 
@@ -2036,48 +2784,39 @@ async function openMfModal(key) {
     const rawRules = rules || [];
     console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
 
-    // E4.7: For dealers, also include admin-only rules that have saved
-    // data (so we can render the read-only row). Otherwise the rule
-    // would never reach renderMfElements and dealer would silently lose
-    // visibility of admin's MF07.
+    // Build a union of saved mf_codes across ALL sub-groups (for F3.1 fetch logic)
+    const allSavedByMfCode = {};
+    activeSubGroups.forEach(function (sub) {
+      (sub.modifications || []).forEach(function (m) {
+        if (m && m.mf_code) {
+          allSavedByMfCode[m.mf_code + '|' + (m.display_label || '')] = m;
+        }
+      });
+    });
+    const savedCountTotal = Object.keys(allSavedByMfCode).length;
+
     const filtered = rawRules.filter(function (r) {
       if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
-
-      // Normal role-allowed rule
       const allowed = r.allowed_roles.some(function (ar) {
         return (ar || '').toLowerCase() === role;
       });
       if (allowed) return true;
 
-      // E4.7: If dealer is viewing this SKU AND there's saved data
-      // for this rule, keep it so we can render read-only.
+      // E4.7: dealer-side keep rule if ANY sub has saved data for it
       if (role === 'dealer') {
-        const matchedSaved = Object.values(savedByIdx).some(function (s) {
+        return Object.values(allSavedByMfCode).some(function (s) {
           return s.mf_code === r.mf_code
               && (s.display_label || '') === (r.display_label || '');
         });
-        return matchedSaved;
       }
-
       return false;
     });
 
-    // ────────────────────────────────────────────────────────────────
-    // F3.1: Fetch admin-only rules dealer cannot see via RLS.
-    //
-    // RLS on modification_assignments blocks dealers from seeing rules
-    // where 'dealer' is not in allowed_roles. The main RPC
-    // (match_modifications_for_sku) respects RLS, so admin-only rules
-    // are missing from `rawRules` entirely for dealer callers.
-    //
-    // Use SECURITY DEFINER RPC get_modification_rules_by_codes to
-    // fetch by mf_code (bypasses RLS) ONLY for codes the dealer has
-    // saved data for. Append results to `filtered`.
-    // ────────────────────────────────────────────────────────────────
-    if (role === 'dealer' && savedCount > 0) {
+    // F3.1: fetch admin-only rules dealer cannot see via RLS
+    if (role === 'dealer' && savedCountTotal > 0) {
       const filteredMfCodes = new Set(filtered.map(function (r) { return r.mf_code; }));
       const missingMfCodes = [];
-      Object.values(savedByIdx).forEach(function (s) {
+      Object.values(allSavedByMfCode).forEach(function (s) {
         if (s && s.mf_code && !filteredMfCodes.has(s.mf_code)
             && missingMfCodes.indexOf(s.mf_code) === -1) {
           missingMfCodes.push(s.mf_code);
@@ -2098,13 +2837,10 @@ async function openMfModal(key) {
               p_subcategory: item.subcategory || ''
             }
           );
-
-          // Stale-response guard (modal switched while awaiting)
           if (activeMfModalKey !== key) {
             console.log('[F3.1]   Stale (modal switched); ignoring.');
             return;
           }
-
           if (extraErr) {
             console.warn('[F3.1]   Failed to fetch admin-only rules:', extraErr);
           } else if (extraRules && extraRules.length) {
@@ -2120,50 +2856,52 @@ async function openMfModal(key) {
       }
     }
 
-    // E4.7: Re-key savedByIdx so its keys match the rule_idx that
-    // renderMfElements will assign (= position in filtered array).
-    const reKeyed = {};
-    filtered.forEach(function (r, newIdx) {
-      const match = Object.values(savedByIdx).find(function (s) {
-        return s.mf_code === r.mf_code
-            && (s.display_label || '') === (r.display_label || '');
-      });
-      if (match) {
-        reKeyed[newIdx] = match;
-      }
-    });
-
     activeMfModalRules = filtered;
-
-    console.log('[E4.3]   After role filter: ' + filtered.length + ' rule(s)');
+    console.log('[E4.3]   After role filter + F3.1: ' + filtered.length + ' rule(s)');
     console.log('[E4.3]   Rules:', filtered);
-    if (Object.keys(reKeyed).length) {
-      console.log('[E4.7]   Re-keyed saved entries:', reKeyed);
-    }
 
-    renderMfElements(filtered, reKeyed);
+    renderActiveSubTab();
+
   } catch (e) {
     console.error('[E4.3] Unexpected error calling RPC:', e);
-    showToast('Failed to load modifications — you can still Skip or Save');
-    renderMfElements([], savedByIdx);
+    showToast('Failed to load modifications — you can still Skip or Save', true);
+    activeMfModalRules = [];
+    renderActiveSubTab();
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// E5: Close / Save / Skip
+// ═══════════════════════════════════════════════════════════════════
+
 function closeMfModal() {
-  destroyMfInstances();
+  // Destroy active sub's instances; other subs already destroyed
+  // when user switched away from them.
+  destroyActiveSubInstances();
+  // Also destroy any frozen-but-still-allocated other subs (no DOM,
+  // but instances may have been created and never destroyed if the
+  // user added a sub and never visited its tab? — actually no, instances
+  // only exist for active tab. Safe to skip.)
+
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
-  activeMfModalKey = null;
+  activeMfModalKey   = null;
   activeMfModalRules = [];
+  activeSubGroups    = [];
+  activeSubGroupIdx  = 0;
+  activeSkuQty       = 1;
   console.log('[E3] closeMfModal (Cancel / × — no status change)');
 }
 
 function closeMfModalSilent() {
-  destroyMfInstances();
+  destroyActiveSubInstances();
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
-  activeMfModalKey = null;
+  activeMfModalKey   = null;
   activeMfModalRules = [];
+  activeSubGroups    = [];
+  activeSubGroupIdx  = 0;
+  activeSkuQty       = 1;
 }
 
 function refreshAfterModalAction() {
@@ -2175,77 +2913,130 @@ function refreshAfterModalAction() {
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 }
 
+/**
+ * E5: Save collects from ALL sub-groups.
+ *   - Active tab: read from live instances
+ *   - Other tabs: read from frozenValues snapshot
+ *   - Determines per-sub status: configured (any mod kept) or skipped (none)
+ *   - Validates Σ(sub.qty) === activeSkuQty
+ *   - Writes back to item.sub_groups + item.quantity
+ */
 function handleMfSave() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  const collected = [];
-  let totalCost = 0;
+  // ── Validate split sum ──
+  const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
+  if (sum !== activeSkuQty) {
+    showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ')', true);
+    return;
+  }
+  if (activeSkuQty < 1) {
+    showToast('SKU qty must be at least 1', true);
+    return;
+  }
+  if (activeSubGroups.length === 0) {
+    showToast('At least one sub-group required', true);
+    return;
+  }
 
-  // E4.7: collect from BOTH real and virtual (read-only) instances.
-  // Virtual instance's getValue/calculateCost return the saved value
-  // unchanged, so admin-added MF07 flows through naturally.
-  activeMfInstances.forEach(function (rec) {
-    let val, cost;
-    try {
-      val  = (typeof rec.instance.getValue === 'function') ? rec.instance.getValue() : undefined;
-      cost = (typeof rec.instance.calculateCost === 'function') ? rec.instance.calculateCost() : 0;
-    } catch (err) {
-      console.warn('[E4.6] getValue/calculateCost threw for', rec.mf_code, err);
-      return;
-    }
+  // ── Freeze the active tab so we have a uniform read path below ──
+  freezeActiveSub();
 
-    if (!shouldKeepModification(val)) {
-      return;
-    }
+  // ── Collect per-sub modifications ──
+  const newSubGroups = [];
+  let totalLineCost = 0;
 
-    if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
-
-    collected.push({
-      rule_idx:      rec.rule_idx,
-      mf_code:       rec.mf_code,
-      display_label: rec.display_label,
-      value:         val,
-      cost:          cost,
+  activeSubGroups.forEach(function (sub, i) {
+    const snapshot = sub.frozenValues || [];
+    const kept = snapshot.filter(function (entry) {
+      return shouldKeepModification(entry.value);
+    }).map(function (entry) {
+      return {
+        rule_idx:      entry.rule_idx,
+        mf_code:       entry.mf_code,
+        display_label: entry.display_label,
+        value:         entry.value,
+        cost:          (typeof entry.cost === 'number' && isFinite(entry.cost)) ? entry.cost : 0,
+      };
     });
-    totalCost += cost;
+
+    // Q14 (A): no kept mods → skipped; else configured
+    const status = kept.length > 0 ? 'configured' : 'skipped';
+
+    const perUnit = kept.reduce(function (s, m) { return s + (m.cost || 0); }, 0);
+    totalLineCost += perUnit * (sub.qty || 0);
+
+    newSubGroups.push({
+      sub_index:           i + 1,
+      qty:                 sub.qty,
+      modifications:       kept,
+      modification_status: status,
+    });
   });
 
-  item.modifications       = collected;
-  item.modification_status = 'configured';
-
-  const adminPreservedCount = activeMfInstances.filter(function (r) { return r.isReadOnly; }).length;
+  // ── Write back ──
+  const oldQty = item.quantity;
+  item.quantity   = activeSkuQty;
+  item.sub_groups = newSubGroups;
 
   console.log('[E4.6] handleMfSave', activeMfModalKey,
-              '→ collected', collected.length, 'modification(s), subtotal $' + totalCost.toFixed(2) +
-              (adminPreservedCount ? ' (' + adminPreservedCount + ' admin-preserved)' : ''));
-  console.log('[E4.6]   modifications array:', collected);
-  console.log('[E4.6]   full cartItem:', item);
+              '→', newSubGroups.length, 'sub-group(s),',
+              'total line cost $' + totalLineCost.toFixed(2),
+              (oldQty !== activeSkuQty ? '(SKU qty: ' + oldQty + ' → ' + activeSkuQty + ')' : ''));
+  newSubGroups.forEach(function (g) {
+    console.log('  Sub ' + g.sub_index + ' qty=' + g.qty +
+                ' status=' + g.modification_status +
+                ' mods=' + g.modifications.length);
+  });
 
   refreshAfterModalAction();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(skuCode + ' configured — $' + totalCost.toFixed(2));
+  showToast(skuCode + ' configured — $' + totalLineCost.toFixed(2));
 }
 
+/**
+ * E5 + Q12 (A): Skip clears ALL sub-groups' modifications.
+ * Sub-group structure is preserved (qty + sub_index unchanged).
+ */
 function handleMfSkip() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  // Decision (5/10): Skip clears ALL modifications, including admin-added.
-  item.modifications       = [];
-  item.modification_status = 'skipped';
+  // Validate split sum first (Skip still requires a valid structure)
+  const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
+  if (sum !== activeSkuQty) {
+    showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ') before skipping', true);
+    return;
+  }
+
+  const newSubGroups = activeSubGroups.map(function (sub, i) {
+    return {
+      sub_index:           i + 1,
+      qty:                 sub.qty,
+      modifications:       [],
+      modification_status: 'skipped',
+    };
+  });
+
+  item.quantity   = activeSkuQty;
+  item.sub_groups = newSubGroups;
 
   console.log('[E4.6] handleMfSkip', activeMfModalKey,
-              '→ status: skipped, modifications cleared (including admin-added)');
+              '→ all', newSubGroups.length, 'sub-group(s) cleared & skipped');
 
   refreshAfterModalAction();
   const skuCode = item.sku_code;
   closeMfModalSilent();
   showToast(skuCode + ' skipped');
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// init()
+// ═══════════════════════════════════════════════════════════════════
 
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
@@ -2331,6 +3122,10 @@ async function init() {
   }
 
   cartItems = normalizeCartItems(cartItems);
+  // Re-key each item to ensure `key` matches '<sku>_<type>'
+  cartItems.forEach(function (item) {
+    if (!item.key) item.key = item.sku_code + '_' + item.type;
+  });
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
   if (!cartItems.length) {
@@ -2365,7 +3160,9 @@ async function init() {
       }
     }
   } catch (_) { /* ignore */ }
-  console.log('[E4.3] effectiveRole =', effectiveRole, '(dealer.role:', dealer && dealer.role, ', adminDraft mode:', effectiveRole === 'admin' && (dealer && dealer.role) !== 'admin', ')');
+  console.log('[E4.3] effectiveRole =', effectiveRole,
+              '(dealer.role:', dealer && dealer.role,
+              ', adminDraft mode:', effectiveRole === 'admin' && (dealer && dealer.role) !== 'admin', ')');
 
   const mfCodes = ['MF01','MF02','MF03','MF04','MF05','MF06','MF07'];
   const missing = mfCodes.filter(function (c) {
@@ -2383,6 +3180,7 @@ async function init() {
   console.log('[E1.2] cartItems:', cartItems);
 
   logDoorStyleGroups(doorStyleGroups);
+  console.log('[E5] Multi sub-group split + delete + qty edit ready');
   console.log('[F3.1] Re-hydrate + Option B (read-only admin MF07, RLS-aware) ready');
 
   setInterval(async function () {
@@ -2399,3 +3197,5 @@ init();
 </script>
 </body>
 </html>
+
+
