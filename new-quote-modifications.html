@@ -410,7 +410,6 @@
       background: rgba(62,90,66,0.1);
       color: var(--green-dark);
     }
-    /* E3: Skipped badge — info-blue 灰藍色,跟 unprocessed 視覺分明 */
     .sku-status.skipped {
       background: rgba(90,122,149,0.1);
       color: var(--info-blue);
@@ -470,7 +469,6 @@
        ║  E3: Layer 2 Modal — Modification Configurator (CSS)        ║
        ═══════════════════════════════════════════════════════════════ */
 
-    /* Overlay (full-screen dim background) */
     .mf-modal-overlay {
       position: fixed; inset: 0;
       background: rgba(44, 58, 50, 0.55);
@@ -482,7 +480,6 @@
     }
     .mf-modal-overlay.show { display: flex; }
 
-    /* Container */
     .mf-modal-container {
       width: 90vw;
       max-width: 900px;
@@ -495,7 +492,6 @@
       overflow: hidden;
     }
 
-    /* Header */
     .mf-modal-header {
       flex-shrink: 0;
       padding: 14px 22px;
@@ -525,7 +521,6 @@
     }
     .mf-modal-close:hover { color: var(--text); }
 
-    /* Body (scrollable) */
     .mf-modal-body {
       flex: 1;
       overflow-y: auto;
@@ -534,7 +529,6 @@
     .mf-modal-body::-webkit-scrollbar { width: 6px; }
     .mf-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-    /* SKU info head */
     .mf-sku-head {
       background: #FAFAF8;
       border: 1px solid var(--border);
@@ -575,7 +569,6 @@
     .mf-pill.unknown    { background: rgba(122,140,130,0.12); color: var(--muted); }
     .mf-pill.assembled  { background: rgba(201,168,76,0.15);  color: #8B6914; }
 
-    /* Qty>1 hint (E3 advisory; will be removed in E5 when Split is implemented) */
     .mf-qty-hint {
       margin-top: 10px;
       padding: 8px 12px;
@@ -588,7 +581,6 @@
       line-height: 1.5;
     }
 
-    /* MF Group (E3 預埋 — E5 will make this splittable) */
     .mf-group {
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -619,9 +611,64 @@
     .mf-group-body {
       min-height: 80px;
     }
-    /* E3 placeholder — E4 will fill this with MF elements */
-    .mf-placeholder {
-      padding: 30px 20px;
+
+    /* ═══════════════════════════════════════════════════════════════
+       ║  E4.4: MF Row Styling — each rule rendered as one row       ║
+       ═══════════════════════════════════════════════════════════════ */
+    #mfElementsContainer {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .mf-row {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 14px;
+      background: var(--white);
+      transition: border-color 0.15s;
+    }
+    .mf-row:hover {
+      border-color: rgba(62,90,66,0.3);
+    }
+
+    .mf-row-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .mf-row-label-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--green-dark);
+      letter-spacing: 0.03em;
+    }
+    .mf-row-label-cost {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+    .mf-row-label-cost.admin-only {
+      background: rgba(201,168,76,0.15);
+      color: #8B6914;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .mf-row-element {
+      /* No padding here; MF elements provide their own spacing */
+    }
+
+    .mf-no-rules {
+      padding: 24px 16px;
       text-align: center;
       color: var(--muted);
       font-size: 12px;
@@ -630,13 +677,35 @@
       border-radius: 3px;
       background: var(--cream);
     }
-    .mf-placeholder-title {
+    .mf-no-rules-title {
       font-size: 11px;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       color: var(--muted);
       font-weight: 500;
       margin-bottom: 6px;
+    }
+
+    .mf-loading {
+      padding: 30px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .mf-loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green-dark);
+      border-radius: 50%;
+      animation: mf-spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes mf-spin {
+      to { transform: rotate(360deg); }
     }
 
     /* Footer */
@@ -694,14 +763,11 @@
       border-color: var(--green-mid);
     }
 
-    /* Body scroll lock when modal open */
     body.mf-modal-open {
       overflow: hidden;
     }
 
-    /* ═══════════════════════════════════════════════════════════════
-       ║  E3 Modal — Mobile RWD                                      ║
-       ═══════════════════════════════════════════════════════════════ */
+    /* Modal Mobile RWD */
     @media (max-width: 700px) {
       .mf-modal-overlay { padding: 10px; }
       .mf-modal-container { max-height: 92vh; }
@@ -725,6 +791,8 @@
         letter-spacing: 0.12em;
       }
       .mf-sku-head { padding: 12px 14px; }
+      .mf-row { padding: 10px 12px; }
+      .mf-row-label { flex-wrap: wrap; gap: 4px; }
     }
 
     /* ── Bottom Bar ── */
@@ -876,10 +944,7 @@
 
 <div class="page">
 
-  <!-- Returned Banner (Returned-revision mode) -->
   <div id="returnedBannerMount"></div>
-
-  <!-- No-Assembled Info Banner (all-RTA quote) -->
   <div id="noAssembledBannerMount"></div>
 
   <div class="page-heading">
@@ -913,7 +978,7 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     ║  E3: Layer 2 Modal — Modification Configurator (HTML)       ║
+     ║  E3+E4.4: Layer 2 Modal — Modification Configurator (HTML)  ║
      ═══════════════════════════════════════════════════════════════ -->
 <div class="mf-modal-overlay" id="mfModalOverlay">
   <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
@@ -923,33 +988,29 @@
     </div>
 
     <div class="mf-modal-body">
-      <!-- SKU info head (filled by openMfModal) -->
       <div class="mf-sku-head" id="mfSkuHead">
         <div class="mf-sku-head-row1">
           <span class="mf-sku-head-code" id="mfHeadCode">—</span>
           <span id="mfHeadDescSep"> </span>
           <span id="mfHeadDesc">—</span>
         </div>
-        <div class="mf-sku-head-row2" id="mfHeadMeta">
-          <!-- pills filled by openMfModal -->
-        </div>
-        <!-- Qty>1 hint (only shown when quantity > 1) -->
+        <div class="mf-sku-head-row2" id="mfHeadMeta"></div>
         <div class="mf-qty-hint" id="mfQtyHint" style="display:none;">
           All <span id="mfQtyHintNum">N</span> units will share the same modifications. Splitting per-unit configuration coming soon.
         </div>
       </div>
 
-      <!-- E3: Single Group placeholder (E5 will make this splittable into multiple groups) -->
       <div class="mf-group" data-group-no="1">
         <div class="mf-group-header">
           <span class="mf-group-label">Group 1</span>
           <span class="mf-group-qty" id="mfGroup1Qty">Qty: 0</span>
         </div>
         <div class="mf-group-body">
-          <!-- E3 placeholder — E4 will replace with real MF elements -->
-          <div class="mf-placeholder">
-            <div class="mf-placeholder-title">Modification Elements</div>
-            <div>This area will display the available modification options for this SKU.<br>Coming in E4.</div>
+          <!-- E4.4: dynamically rendered MF rows go here -->
+          <div id="mfElementsContainer">
+            <div class="mf-loading">
+              <span class="mf-loading-spinner"></span>Loading modifications...
+            </div>
           </div>
         </div>
       </div>
@@ -981,6 +1042,19 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="components/quote-flow-header.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ║  E4.4: Load 7 MF element factories                          ║
+     ║  Each .js registers itself on window.MF.MFXX                ║
+     ═══════════════════════════════════════════════════════════════ -->
+<script src="components/modifications/mf01-skin.js"></script>
+<script src="components/modifications/mf02-toggle-dropdown.js"></script>
+<script src="components/modifications/mf03-pure-toggle.js"></script>
+<script src="components/modifications/mf04-toggle-number.js"></script>
+<script src="components/modifications/mf05-pure-dropdown.js"></script>
+<script src="components/modifications/mf06-text-only.js"></script>
+<script src="components/modifications/mf07-super.js"></script>
+
 <script>
 const { createClient } = supabase;
 const _supabase = createClient(
@@ -997,20 +1071,18 @@ let draftId          = null;
 let isResumingReturned = false;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
 
-// E3: Modal state — key of cartItem currently open in modal
+// E3: Modal state
 let activeMfModalKey = null;
 
-// E4.3: Rules matched for the currently open SKU (after role filter).
-// Filled by openMfModal via match_modifications_for_sku RPC.
-// E4.4 will use this list to dynamically render MF elements.
+// E4.3: Rules matched for the currently open SKU (after role filter)
 let activeMfModalRules = [];
 
-
-// E4.3: Effective role for RPC filtering.
-// - Normal dealer flow → dealer.role
-// - Admin Draft Mode (Create for Dealer) → 'admin' (operator is admin)
-// Computed in init() after dealer + sessionStorage are loaded.
+// E4.3: Effective role for RPC filtering (handles Admin Draft Mode)
 let effectiveRole = 'dealer';
+
+// E4.4: MF instances currently rendered in modal.
+// Each entry: { rule_idx, mf_code, display_label, container, instance }
+let activeMfInstances = [];
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -1055,9 +1127,6 @@ function buildReturnedBannerSimple(roleMsg) {
     </div>`;
 }
 
-// ── Q3: No-Assembled Info Banner builder ──
-// Shown when the quote has no Assembled SKUs (all RTA). Reassures dealer
-// that nothing's wrong; they can proceed to Review directly.
 function buildNoAssembledBanner() {
   return `
     <div class="no-assembled-banner">
@@ -1159,9 +1228,6 @@ function logDoorStyleGroups(groups) {
   });
 }
 
-// E3: Progress now counts BOTH 'configured' AND 'skipped' as "done".
-// (skipped means dealer reviewed it and chose not to modify — a valid
-//  "done" state for purposes of unblocking the Review button.)
 function calculateProgress(groups) {
   let pageDone = 0;
   let pageTotal = 0;
@@ -1309,7 +1375,6 @@ function buildGroupProgressDisplay(group) {
     </div>`;
 }
 
-// E3: buildAssembledRow now supports 3 status states (unprocessed / configured / skipped).
 function buildAssembledRow(item, gIdx) {
   const status = item.modification_status;
   let statusClass, statusLabel;
@@ -1344,7 +1409,6 @@ function buildRtaRow(item) {
     </div>`;
 }
 
-// E3: clicking an Assembled row opens the modal (replaces the E1 stub toast).
 function onAssembledRowClick(key) {
   openMfModal(key);
 }
@@ -1377,68 +1441,169 @@ function renderBottomBar(progress) {
   btnNext.disabled = !isReady;
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E1.9: goReview()
-//
-// Triggered when dealer clicks the Review button. Workflow:
-//   1. Persist current cartItems back to sessionStorage (Step 3 reads this).
-//      In E1, cartItems is unchanged from init(). In E3/E4/E6,
-//      modification_status will have been mutated and this captures the
-//      latest state for Step 3 to receive.
-//   2. Navigate to step3.html, preserving ?draft=xxx if resuming.
-//
-// Note: Step 3's existing code does not yet read modification_status;
-// that integration happens in stage F (deferred per v1 scope).
-// ──────────────────────────────────────────────────────────────────
 function goReview() {
-  // Defensive guard — should not happen because button is disabled in this case
   const pendingAssembled = pageProgress.total - pageProgress.done;
   const isReady = (pageProgress.total === 0) || (pendingAssembled === 0);
   if (!isReady) {
     showToast('Please configure all assembled SKUs first');
     return;
   }
-
-  // Persist cartItems to sessionStorage for Step 3 to read
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-
-  // Navigate to Step 3, preserving draftId if resuming
   const nextUrl = draftId
     ? 'new-quote-step3.html?draft=' + draftId
     : 'new-quote-step3.html';
-
   window.location.href = nextUrl;
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // ║                                                                 ║
-// ║  E3: Layer 2 Modal — Modification Configurator (JavaScript)     ║
+// ║  E3 + E4.3 + E4.4: Layer 2 Modal — Modification Configurator    ║
 // ║                                                                 ║
-// ║  Scope (E3 only — see Stage_E_Handoff_v5.0.md Section 7):       ║
-// ║    • Modal shell: open, close, lock body scroll                 ║
-// ║    • SKU info head: code, desc, style, construction, qty pill   ║
-// ║    • Qty>1 hint: advisory text for multi-unit SKUs              ║
-// ║    • Group placeholder: <div.mf-group> ready, body empty (E4)   ║
-// ║    • Three button stubs: Skip / Cancel / Save                   ║
+// ║  Done in E4.4 (this stage — dynamic rendering):                 ║
+// ║    • Render one .mf-row per matched rule                        ║
+// ║    • Call window.MF[mf_code].create() with hydrated mf_params   ║
+// ║      (_base_cost injected as Number from rule.cost)             ║
+// ║      (_display_label injected for MF01)                         ║
+// ║    • Track instances in activeMfInstances for cleanup           ║
+// ║    • Destroy instances on Cancel/Save/Skip to avoid leaks       ║
 // ║                                                                 ║
-// ║  E4.3 additions:                                                ║
-// ║    • Call match_modifications_for_sku RPC on open               ║
-// ║    • Filter by dealer.role (case-insensitive)                   ║
-// ║    • Store matched rules in activeMfModalRules (for E4.4)       ║
-// ║    • console.log rules for inspection (no rendering yet)        ║
-// ║                                                                 ║
-// ║  NOT in E4.3 (deferred to E4.4+):                               ║
-// ║    • MF element rendering              → E4.4                   ║
+// ║  NOT in E4.4 (deferred):                                        ║
 // ║    • Collect MF values on Save         → E4.6                   ║
-// ║    • Re-hydrate on re-open             → E4.7                   ║
-// ║    • Quantity split into multi-group   → E5                     ║
-// ║                                                                 ║
-// ║  Closing rules (per design Q7):                                 ║
-// ║    • × button and Cancel button close                           ║
-// ║    • Background click does NOT close (avoid mis-click)          ║
-// ║    • ESC does NOT close (avoid mis-press)                       ║
+// ║    • Re-hydrate saved values on open   → E4.7                   ║
+// ║    • Validate on Save (required check) → E7                     ║
 // ║                                                                 ║
 // ═══════════════════════════════════════════════════════════════════
+
+// ──────────────────────────────────────────────────────────────────
+// E4.4: renderMfElements(rules)
+//
+// Replaces the loading state in #mfElementsContainer with one .mf-row
+// per matched rule. For each rule:
+//   1. Build label header (display_label + cost hint)
+//   2. Create empty element container
+//   3. Prepare hydrated mf_params:
+//        - _base_cost = Number(rule.cost) — REQUIRED. MF .js does
+//          `typeof === 'number'` so the value MUST be a Number.
+//        - _display_label = rule.display_label (used by MF01)
+//   4. Call window.MF[mf_code].create(elementContainer, params, null)
+//      (null = no saved value yet; E4.7 will pass real value)
+//   5. Push instance ref into activeMfInstances for later cleanup
+// ──────────────────────────────────────────────────────────────────
+function renderMfElements(rules) {
+  const wrap = document.getElementById('mfElementsContainer');
+
+  if (!rules || !rules.length) {
+    wrap.innerHTML = `
+      <div class="mf-no-rules">
+        <div class="mf-no-rules-title">No modifications available</div>
+        <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
+      </div>`;
+    return;
+  }
+
+  wrap.innerHTML = '';
+
+  let renderedCount = 0;
+  let skippedCount  = 0;
+
+  rules.forEach(function (rule, idx) {
+    const mfCode = rule.mf_code;
+
+    if (!window.MF || !window.MF[mfCode] || typeof window.MF[mfCode].create !== 'function') {
+      console.warn('[E4.4] window.MF.' + mfCode + ' not available; skipping rule', rule);
+      skippedCount++;
+      return;
+    }
+
+    // ── Build row DOM ──
+    const row = document.createElement('div');
+    row.className = 'mf-row';
+    row.setAttribute('data-mf-code', mfCode);
+    row.setAttribute('data-rule-idx', String(idx));
+
+    const baseCost = parseFloat(rule.cost) || 0;
+    const isAdminOnly = Array.isArray(rule.allowed_roles)
+      && !rule.allowed_roles.some(function (r) { return (r || '').toLowerCase() === 'dealer'; });
+
+    const costHtml = isAdminOnly
+      ? '<span class="mf-row-label-cost admin-only">Admin Only</span>'
+      : (baseCost > 0
+          ? '<span class="mf-row-label-cost">Base cost: +$' + baseCost.toFixed(2) + '</span>'
+          : '<span class="mf-row-label-cost">Included</span>');
+
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'mf-row-label';
+    labelDiv.innerHTML =
+      '<span class="mf-row-label-text">' + esc(rule.display_label || mfCode) + '</span>' +
+      costHtml;
+    row.appendChild(labelDiv);
+
+    const elementDiv = document.createElement('div');
+    elementDiv.className = 'mf-row-element';
+    row.appendChild(elementDiv);
+
+    wrap.appendChild(row);
+
+    // ── Hydrate mf_params ──
+    // _base_cost MUST be Number (MF .js checks typeof === 'number').
+    // rule.cost from Supabase numeric may come as string "10.0".
+    const params = Object.assign({}, rule.mf_params || {}, {
+      _base_cost: baseCost,
+      _display_label: rule.display_label || ''
+    });
+
+    // ── Create instance ──
+    let instance;
+    try {
+      instance = window.MF[mfCode].create(elementDiv, params, null);
+    } catch (err) {
+      console.error('[E4.4] Failed to create instance for', mfCode, err);
+      elementDiv.innerHTML = '<div style="font-size:11px;color:var(--error);padding:8px 0;">Failed to render this modification. Please contact support.</div>';
+      skippedCount++;
+      return;
+    }
+
+    activeMfInstances.push({
+      rule_idx:      idx,
+      mf_code:       mfCode,
+      display_label: rule.display_label || mfCode,
+      container:     elementDiv,
+      instance:      instance,
+    });
+
+    renderedCount++;
+  });
+
+  console.log('[E4.4]   Rendered ' + renderedCount + ' element(s)' +
+              (skippedCount ? ' (' + skippedCount + ' skipped due to errors)' : ''));
+}
+
+// ──────────────────────────────────────────────────────────────────
+// E4.4: destroyMfInstances()
+//
+// Tear down all currently-rendered MF instances. Called on every modal
+// close (Cancel / × / Save / Skip) so re-opens start clean.
+// ──────────────────────────────────────────────────────────────────
+function destroyMfInstances() {
+  activeMfInstances.forEach(function (rec) {
+    try {
+      if (rec.instance && typeof rec.instance.destroy === 'function') {
+        rec.instance.destroy();
+      }
+    } catch (err) {
+      console.warn('[E4.4] destroy() threw for', rec.mf_code, err);
+    }
+  });
+  activeMfInstances = [];
+
+  const wrap = document.getElementById('mfElementsContainer');
+  if (wrap) {
+    wrap.innerHTML = `
+      <div class="mf-loading">
+        <span class="mf-loading-spinner"></span>Loading modifications...
+      </div>`;
+  }
+}
 
 async function openMfModal(key) {
   const item = cartItems.find(function (i) { return i.key === key; });
@@ -1448,9 +1613,8 @@ async function openMfModal(key) {
   }
 
   activeMfModalKey = key;
-  activeMfModalRules = [];  // reset before RPC
+  activeMfModalRules = [];
 
-  // Look up door style for construction_type display + RPC param
   const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
   const ctype    = (styleRow && styleRow.construction_type) || 'unknown';
   const ctypeClass = ctype === 'framed' ? 'framed'
@@ -1479,8 +1643,13 @@ async function openMfModal(key) {
     qtyHint.style.display = 'none';
   }
 
-  // Group 1 qty (E5 will allow split — for now, group 1 holds entire qty)
   document.getElementById('mfGroup1Qty').textContent = 'Qty: ' + item.quantity;
+
+  // E4.4: Reset element container to loading state
+  document.getElementById('mfElementsContainer').innerHTML = `
+    <div class="mf-loading">
+      <span class="mf-loading-spinner"></span>Loading modifications...
+    </div>`;
 
   // Show modal + lock body scroll
   document.getElementById('mfModalOverlay').classList.add('show');
@@ -1489,16 +1658,14 @@ async function openMfModal(key) {
   console.log('[E3] openMfModal', key, '→ status was:', item.modification_status);
 
   // ── E4.3: Fetch matching modification rules via RPC ────────────
-  // Determine RPC `door` param (must be lowercase 'framed' or 'frameless')
   const doorParam = (ctype || '').toLowerCase();
   if (doorParam !== 'framed' && doorParam !== 'frameless') {
     console.warn('[E4.3] Unknown construction type for SKU', item.sku_code,
                  '— cannot match modifications. ctype was:', ctype);
-    // Modal stays open; user can still Skip/Cancel/Save. rules stay [].
+    renderMfElements([]);
     return;
   }
 
-  // E4.3: Use effectiveRole (handles Admin Draft Mode correctly)
   const role = effectiveRole;
   console.log('[E4.3]   door=' + doorParam +
               ', type=' + (item.skuType || '') +
@@ -1517,11 +1684,10 @@ async function openMfModal(key) {
     if (error) {
       console.error('[E4.3] RPC error:', error);
       showToast('Failed to load modifications — you can still Skip or Save');
-      // Modal stays open; rules stay [].
+      renderMfElements([]);
       return;
     }
 
-    // Defensive: ensure stale RPC response doesn't overwrite a newer modal
     if (activeMfModalKey !== key) {
       console.log('[E4.3] RPC response stale (modal switched); ignoring.');
       return;
@@ -1530,7 +1696,6 @@ async function openMfModal(key) {
     const rawRules = rules || [];
     console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
 
-    // Role filter — case-insensitive (works whether DB stores 'dealer' or 'Dealer')
     const filtered = rawRules.filter(function (r) {
       if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
       return r.allowed_roles.some(function (ar) {
@@ -1542,14 +1707,18 @@ async function openMfModal(key) {
 
     console.log('[E4.3]   After role filter: ' + filtered.length + ' rule(s)');
     console.log('[E4.3]   Rules:', filtered);
+
+    // E4.4: Render the MF elements
+    renderMfElements(filtered);
   } catch (e) {
     console.error('[E4.3] Unexpected error calling RPC:', e);
     showToast('Failed to load modifications — you can still Skip or Save');
-    // Modal stays open; rules stay [].
+    renderMfElements([]);
   }
 }
 
 function closeMfModal() {
+  destroyMfInstances();
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
   activeMfModalKey = null;
@@ -1557,17 +1726,14 @@ function closeMfModal() {
   console.log('[E3] closeMfModal (Cancel / × — no status change)');
 }
 
-// Internal: close modal without the "no status change" log line
-// (used by Save/Skip which already logged their own action).
 function closeMfModalSilent() {
+  destroyMfInstances();
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
   activeMfModalKey = null;
   activeMfModalRules = [];
 }
 
-// Internal helper: re-run progress calc + re-render main page after modal action.
-// Called by both handleMfSave and handleMfSkip.
 function refreshAfterModalAction() {
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
@@ -1582,8 +1748,7 @@ function handleMfSave() {
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  // E3 stub: just flip status to 'configured'.
-  // E4+ will also collect MF element values and persist them.
+  // E3/E4.4 stub: just flip status. E4.6 will collect MF values.
   item.modification_status = 'configured';
 
   console.log('[E3] handleMfSave', activeMfModalKey, '→ status: configured');
@@ -1674,9 +1839,6 @@ async function init() {
   const allSkusFramed    = framedRes.data    || [];
   const allSkusFrameless = framelessRes.data || [];
 
-  // ── Restore cart ─────────────────────────────────────────────
-  // Resume Draft 模式:sessionStorage 優先(保留 Step 2 加 SKU 等未存 DB 的修改),
-  // 沒東西才從 DB 讀。非 Resume Draft 照舊讀 sessionStorage。
   if (draftId) {
     const savedCart = sessionStorage.getItem('quoteStep2');
     if (savedCart) {
@@ -1707,26 +1869,20 @@ async function init() {
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
 
-  // Render
   renderProgressCard(pageProgress);
   renderDoorStyleList();
   renderBottomBar(pageProgress);
 
-  // ── Top-of-page banners ──
-  // Returned-revision banner (Returned mode)
   if (isResumingReturned) {
     document.getElementById('returnedBannerMount').innerHTML =
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
   }
 
-  // No-Assembled info banner (all-RTA quote — Q3)
   if (pageProgress.total === 0) {
     document.getElementById('noAssembledBannerMount').innerHTML = buildNoAssembledBanner();
   }
-  // ── E4.3: Compute effectiveRole for RPC modification filtering ──
-  // Admin Draft Mode (Create for Dealer) → operator is admin, so admin
-  // tools (e.g. MF07 SuperMod) should be available even though
-  // dealer.role == 'dealer' (because dealer object is the *target* dealer).
+
+  // ── E4.3: Compute effectiveRole ──
   effectiveRole = ((dealer && dealer.role) || 'dealer').toLowerCase();
   try {
     const s1 = sessionStorage.getItem('quoteStep1');
@@ -1738,6 +1894,19 @@ async function init() {
     }
   } catch (_) { /* ignore */ }
   console.log('[E4.3] effectiveRole =', effectiveRole, '(dealer.role:', dealer && dealer.role, ', adminDraft mode:', effectiveRole === 'admin' && (dealer && dealer.role) !== 'admin', ')');
+
+  // ── E4.4: Sanity check — verify all 7 MF factories loaded ──
+  const mfCodes = ['MF01','MF02','MF03','MF04','MF05','MF06','MF07'];
+  const missing = mfCodes.filter(function (c) {
+    return !window.MF || !window.MF[c] || typeof window.MF[c].create !== 'function';
+  });
+  if (missing.length) {
+    console.error('[E4.4] Missing MF factories:', missing,
+                  '— check <script> tags for components/modifications/*.js');
+  } else {
+    console.log('[E4.4] All 7 MF factories loaded (MF01-MF07)');
+  }
+
   console.log('[E1.2] init() complete');
   console.log('[E1.2] dealer:', dealer);
   console.log('[E1.2] dealer.role:', dealer && dealer.role);
@@ -1754,16 +1923,16 @@ async function init() {
   console.log('[E1.3] doorStyleGroups raw object (expand to inspect):', doorStyleGroups);
 
   console.log('[E1.4] page progress:', pageProgress);
-  console.log('[E1.4] per-group progress:');
   doorStyleGroups.forEach(function (g, i) {
     console.log('  #' + (i + 1) + '  ' + g.style_code + ': ' + g.progress.done + ' / ' + g.progress.total);
   });
 
-  console.log('[E1.5] door style list rendered (with zoom icon on image thumbs)');
+  console.log('[E1.5] door style list rendered');
   console.log('[E1.7] bottom bar rendered, Review button enabled:', !document.getElementById('btnNext').disabled);
   console.log('[E1.9] goReview() wired up');
-  console.log('[E3] Layer 2 modal shell ready (openMfModal / closeMfModal / handleMfSave / handleMfSkip)');
-  console.log('[E4.3] RPC integration ready — click an Assembled SKU to see matched rules in console');
+  console.log('[E3] Layer 2 modal shell ready');
+  console.log('[E4.3] RPC integration ready');
+  console.log('[E4.4] Dynamic MF rendering ready — modal will render real elements');
 
   setInterval(async function () {
     const { data: check } = await _supabase
