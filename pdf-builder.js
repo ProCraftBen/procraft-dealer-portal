@@ -6,6 +6,29 @@
 //   <script src="pdf-builder.js"></script>
 // 然後就可以呼叫 ProCraftPDF.buildPackingListPdf(...) 等函式。
 // ============================================================
+//
+// F4.2 changes (2026-05-11):
+//   • sub_groups support — items are expanded to N rows per sub-group,
+//     using sub.qty (not item.quantity) for each row.
+//   • Mods inline in Description column (NO fees in Description; fees
+//     go in dedicated "Mod Fee" column for invoice/draft-quote modes).
+//   • Notes table (MF06, MF07, long-value mods) rendered below items,
+//     before totals. Description column shows [See note №N below].
+//   • Packing List: mods shown in Description WITHOUT fees + Notes
+//     table at bottom (workers must read notes clearly).
+//   • Invoice / Draft Quote: 11-column layout (added Mod Fee col),
+//     mods inline in Description, Notes table below.
+//   • Totals: Modifications row inserted between Subtotal and Asm Fee.
+//   • Tax base = SKU + TAXABLE mods only (reads m.tax_status from
+//     snapshot written by step2.5 handleMfSave). Tax row in PDF
+//     does NOT disclose taxable base breakdown (per Ben's Q3 choice).
+//   • Markup applies only to Unit Price; Mods and Assembly never marked up.
+//   • Mod Fee column displays UN-marked-up cost.
+//
+// Notes table whitelist + fallback (mirrors step3):
+//   MF_USE_NOTES_TABLE = ['MF06', 'MF07']
+//   NOTES_TABLE_FALLBACK_LENGTH = 40
+// ============================================================
 
 (function (global) {
   'use strict';
@@ -23,6 +46,8 @@
     gold:      [201, 168, 76],
     white:     [255, 255, 255],
     pending:   [224, 123, 57],   // C1: orange for pending shipping (matches UI #E07B39)
+    note:      [224, 123, 57],   // F4.2: same orange for Note references
+    modText:   [62, 90, 66],     // F4.2: green-dark for inline mod lines
   };
 
   // PDF 版面常數
@@ -32,6 +57,10 @@
     margin:   14,
     headerH:  36,    // header 區塊高度（為了大標題加高 4mm）
   };
+
+  // F4.2: Notes table configuration (mirrors step3)
+  const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
+  const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
   // ----------------------------------------
   // Internal Helpers
@@ -102,14 +131,105 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // F4.2: sub_groups normalization
+  //
+  // Returns the item's sub_groups array as-is if it exists and is non-empty,
+  // otherwise constructs a single-sub fallback from legacy fields
+  // (item.modifications + item.modification_status + item.quantity).
+  // ─────────────────────────────────────────────────────────────────────────
+  function _getNormalizedSubGroups(item) {
+    if (Array.isArray(item.sub_groups) && item.sub_groups.length) {
+      return item.sub_groups;
+    }
+    const assembleStatus = item.assemble_status || item.type;
+    const legacyStatus = item.modification_status
+      || (assembleStatus === 'RTA' ? 'skipped' : 'unprocessed');
+    const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
+    return [{
+      sub_index:           1,
+      qty:                 item.quantity,
+      modifications:       legacyMods,
+      modification_status: legacyStatus,
+    }];
+  }
+
+  function _calcPerSubModCost(sub) {
+    const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+    return mods.reduce(function (s, m) {
+      const c = parseFloat(m && m.cost);
+      return s + (isNaN(c) ? 0 : c);
+    }, 0);
+  }
+
+  function _calcPerSubTaxableModCost(sub) {
+    const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+    return mods.reduce(function (s, m) {
+      if (!m || m.tax_status !== true) return s;
+      const c = parseFloat(m.cost);
+      return s + (isNaN(c) ? 0 : c);
+    }, 0);
+  }
+
+  function _calcTotalModsCost(items) {
+    let total = 0;
+    items.forEach(function (item) {
+      const subs = _getNormalizedSubGroups(item);
+      subs.forEach(function (sub) {
+        const perSub = _calcPerSubModCost(sub);
+        const qty    = parseInt(sub.qty, 10) || 0;
+        total += perSub * qty;
+      });
+    });
+    return total;
+  }
+
+  function _calcTaxableModsCost(items) {
+    let total = 0;
+    items.forEach(function (item) {
+      const subs = _getNormalizedSubGroups(item);
+      subs.forEach(function (sub) {
+        const perSub = _calcPerSubTaxableModCost(sub);
+        const qty    = parseInt(sub.qty, 10) || 0;
+        total += perSub * qty;
+      });
+    });
+    return total;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // F4.2: Format mod value (handles MF07 object, string, number, boolean)
+  // ─────────────────────────────────────────────────────────────────────────
+  function _formatModValue(v) {
+    if (v == null) return '';
+    if (typeof v === 'string')  return v;
+    if (typeof v === 'number')  return String(v);
+    if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+    if (typeof v === 'object') {
+      const parts = [];
+      if ('selected' in v && v.selected) parts.push(String(v.selected));
+      else if ('label' in v && v.label)  parts.push(String(v.label));
+      else if ('value' in v && v.value != null) parts.push(String(v.value));
+
+      if ('description' in v && v.description) parts.push(String(v.description));
+      else if ('note' in v && v.note)          parts.push(String(v.note));
+
+      if (parts.length) return parts.join(' — ');
+      try { return JSON.stringify(v); } catch (e) { return ''; }
+    }
+    return String(v);
+  }
+
+  function _shouldUseNotesTable(mod) {
+    if (!mod) return false;
+    const code = (mod.mf_code || '').toUpperCase();
+    if (MF_USE_NOTES_TABLE.indexOf(code) !== -1) return true;
+    const valStr = _formatModValue(mod.value);
+    if (valStr && valStr.length > NOTES_TABLE_FALLBACK_LENGTH) return true;
+    return false;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // C1: Pending shipping detection
-  //
-  // A quote has "pending shipping" when:
-  //   - logistic_type === 'shipping' AND
-  //   - shipping_cost is NULL/undefined (not yet confirmed by Sales)
-  //
-  // Caller may also explicitly pass quoteData._isPendingShipping = true
-  // (Step 3 sets this when the upcoming write would put NULL into DB).
   // ─────────────────────────────────────────────────────────────────────────
   function _isPendingShipping(quoteData) {
     if (!quoteData) return false;
@@ -122,14 +242,6 @@
   // PDF 區塊繪製函式
   // ----------------------------------------
 
-  /**
-   * 畫 PDF 頂部 header（每一頁都會用，包含跨頁時）
-   * Item 5: 加上文件類型大標題（PACKING LIST / INVOICE / DRAFT QUOTE）
-   *
-   * @param {Object} doc - jsPDF 實例
-   * @param {Object} context - { logoImg, poNumber, jobName, date, documentTitle }
-   *   - documentTitle: 'PACKING LIST' | 'INVOICE' | 'DRAFT QUOTE' | null
-   */
   function _drawHeader(doc, context) {
     const { pageW, margin, headerH } = LAYOUT;
     const { logoImg, poNumber, jobName, date, documentTitle } = context;
@@ -173,7 +285,7 @@
       infoY += 3.5;
     });
 
-    // ── Item 5: 文件類型大標題（右上方，PO# 上面）──
+    // 文件類型大標題
     if (documentTitle) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
@@ -181,7 +293,7 @@
       doc.text(documentTitle, pageW - margin, 9, { align: 'right' });
     }
 
-    // PO# / 日期 / 工作名（右上，往下挪）
+    // PO# / 日期 / 工作名
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric',
     });
@@ -197,9 +309,6 @@
     doc.text(jobName || '—', pageW - margin, 28, { align: 'right' });
   }
 
-  /**
-   * 畫 BILL TO / SHIP TO 兩欄地址區塊
-   */
   function _drawBillShipBlock(doc, context) {
     const { pageW, margin } = LAYOUT;
     const { dealer, shippingAddress, startY } = context;
@@ -254,9 +363,6 @@
     return addrY;
   }
 
-  /**
-   * 畫底部深綠色 footer bar
-   */
   function _drawFooterBar(doc) {
     const { pageW } = LAYOUT;
     doc.setFillColor(...COLORS.darkGreen);
@@ -272,9 +378,6 @@
     );
   }
 
-  /**
-   * 在所有頁面加「Page X / Y」(右上角)
-   */
   function _addPageNumbers(doc) {
     const { pageW, margin } = LAYOUT;
     const totalPages = doc.getNumberOfPages();
@@ -294,18 +397,83 @@
   }
 
   // ----------------------------------------
-  // Items 表格繪製
+  // F4.2: Items 表格繪製 — sub_groups + Mods inline + Notes
   // ----------------------------------------
 
   /**
-   * 畫 items 表格（jsPDF AutoTable）
+   * Build a Description cell string for a given sub.
+   * For each mod:
+   *   - If shouldUseNotesTable → render as "⚠ See Note №N — {label}"
+   *     and push the full detail into notesCollector.
+   *   - Else → render as "◆ {label}: {value}"
+   *
+   * @param {Object} ctx
+   * @param {Object} ctx.sub
+   * @param {Object} ctx.item              parent item (for sku_code + sub_total)
+   * @param {string} ctx.skuDesc           sku description (first line of cell)
+   * @param {number} ctx.totalSubs         sub_groups.length for this item
+   * @param {Object} ctx.notesIndex        { counter: number } shared counter
+   * @param {Array}  ctx.notesCollector    output array of note objects
+   * @returns {string}
+   */
+  function _buildDescriptionCellText(ctx) {
+    const { sub, item, skuDesc, totalSubs, notesIndex, notesCollector } = ctx;
+    const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+    const status = sub.modification_status || 'unprocessed';
+    const lines  = [];
+
+    // First line: sku_desc
+    if (skuDesc) lines.push(skuDesc);
+
+    // Empty mods handling (mirrors step3 B2 logic)
+    if (!mods.length) {
+      // skipped / configured + empty → no clutter
+      if (status === 'skipped' || status === 'configured') {
+        return lines.join('\n');
+      }
+      // unprocessed + empty → real warning
+      lines.push('⚠ Modifications pending');
+      return lines.join('\n');
+    }
+
+    // Mods present — render each line
+    mods.forEach(function (m) {
+      const label = m.display_label || m.mf_code || 'Modification';
+      const useNotes = _shouldUseNotesTable(m);
+
+      if (useNotes) {
+        notesIndex.counter += 1;
+        const noteNum = notesIndex.counter;
+        notesCollector.push({
+          num:        noteNum,
+          skuCode:    item.sku_code,
+          subIndex:   sub.sub_index || 1,
+          subTotal:   totalSubs,
+          mfCode:     m.mf_code || '',
+          label:      label,
+          content:    _formatModValue(m.value) || '(no detail)',
+        });
+        // Use plain ASCII markers (jsPDF default fonts may not render fancy glyphs)
+        lines.push(`! See Note No.${noteNum} — ${label}`);
+      } else {
+        const value = _formatModValue(m.value);
+        const valStr = value ? `: ${value}` : '';
+        lines.push(`• ${label}${valStr}`);
+      }
+    });
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 畫 items 表格（jsPDF AutoTable）— F4.2 multi-sub aware.
    *
    * mode 對應：
-   *   'packing-list' = Item 4 新欄位順序（7 欄、Style → SKU → Qty → Desc → Type → AsmStatus）
-   *   'invoice'      = 10 欄、舊順序（含價）
-   *   'draft-quote'  = 10 欄、舊順序（含價）
+   *   'packing-list' = 7 欄（Item# / Door / SKU / Qty / Description / Type / AsmStatus）
+   *   'invoice'      = 11 欄（含 Mod Fee col）
+   *   'draft-quote'  = 11 欄（含 Mod Fee col, markup applies to unit price only）
    *
-   * Item 3：所有 mode 都套用「同 style 第一行才顯示 style 名稱」
+   * Returns: { tableEndY, notes }  where notes is the collector for renderNotesTable.
    */
   function _drawItemTable(doc, context) {
     const { margin, headerH } = LAYOUT;
@@ -322,52 +490,89 @@
     // ── 組 table head（依 mode 決定欄位）──
     let head;
     if (mode === 'packing-list') {
-      // Item 4: Packing List 新欄位順序
       head = [['Item#', 'Door Style', 'SKU', 'Qty', 'Description', 'Type', 'Assemble Status']];
     } else {
-      // invoice / draft-quote：10 欄、舊順序
-      head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Assemble Status',
-               'Qty', 'Unit Price', 'Asm Fee', 'Total']];
+      // F4.2: invoice / draft-quote 改 11 欄，加 Mod Fee
+      head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Asm Status',
+               'Qty', 'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
     }
 
     // ── 組 table body ──
-    // Item 3：同 style 第一行才顯示 style name
     const body = [];
     let itemNum = 0;
     let lastStyle = null;
+    const notes = [];
+    const notesIndex = { counter: 0 };
 
     Object.entries(grouped).forEach(([styleName, styleItems]) => {
       styleItems.forEach(item => {
-        itemNum++;
-
-        // Item 3: 群組標題只顯示一次
-        const styleCell = (styleName !== lastStyle) ? styleName : '';
-        lastStyle = styleName;
-
-        const skuType        = item.sku_type || item.skuType || '—';
+        const subs = _getNormalizedSubGroups(item);
+        const isSplit = subs.length > 1;
+        const skuType        = (item.sku_type || item.skuType || '—');
         const skuDesc        = item.sku_desc || '';
         const assembleStatus = item.assemble_status || item.type || '—';
-        const qty            = item.quantity;
-        const markedPrice    = item.unit_price * (1 + markupPercent);
-        const lineTotal      = markedPrice * qty;
-        const asmFeeStr      = (item.assemble_fee > 0)
-          ? `$${(item.assemble_fee * qty).toFixed(2)}`
-          : '—';
+        const markedUnitPrice = item.unit_price * (1 + markupPercent);
 
-        if (mode === 'packing-list') {
-          body.push([
-            `#${itemNum}`, styleCell, item.sku_code, qty,
-            skuDesc, skuType, assembleStatus,
-          ]);
-        } else {
-          // invoice / draft-quote
-          body.push([
-            `#${itemNum}`, styleCell, skuType, item.sku_code,
-            skuDesc, assembleStatus, qty,
-            `$${markedPrice.toFixed(2)}`, asmFeeStr,
-            `$${lineTotal.toFixed(2)}`,
-          ]);
-        }
+        subs.forEach((sub, subIdx) => {
+          itemNum++;
+          const isFirstSub = subIdx === 0;
+
+          // Style col: show once per style (only on first sub of first item with new style)
+          const showStyle = isFirstSub && (styleName !== lastStyle);
+          if (isFirstSub) lastStyle = styleName;
+          const styleCell = showStyle ? styleName : '';
+
+          // SKU cell: code + Sub label when split
+          const subQty = parseInt(sub.qty, 10) || 0;
+          const subLabelLine = isSplit
+            ? `\nSub ${subIdx + 1} of ${subs.length}`
+            : '';
+          const skuCell = `${item.sku_code}${subLabelLine}`;
+
+          // Description cell: sku_desc + mods (or note refs)
+          const descCell = _buildDescriptionCellText({
+            sub: sub,
+            item: item,
+            skuDesc: skuDesc,
+            totalSubs: subs.length,
+            notesIndex: notesIndex,
+            notesCollector: notes,
+          });
+
+          if (mode === 'packing-list') {
+            // 7 cols, no fees
+            body.push([
+              `#${itemNum}`,
+              styleCell,
+              skuCell,
+              subQty,
+              descCell,
+              isFirstSub ? skuType : '',
+              isFirstSub ? assembleStatus : '',
+            ]);
+          } else {
+            // 11 cols, with Mod Fee column
+            const perSubModCost = _calcPerSubModCost(sub);
+            const modFeeTotal   = perSubModCost * subQty;  // F4.2 Confirm 4: NOT marked up
+            const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
+            const skuLineTotal  = markedUnitPrice * subQty;
+            const lineTotal     = skuLineTotal + modFeeTotal;
+
+            body.push([
+              `#${itemNum}`,
+              styleCell,
+              isFirstSub ? skuType : '',
+              skuCell,
+              descCell,
+              isFirstSub ? assembleStatus : '',
+              subQty,
+              `$${markedUnitPrice.toFixed(2)}`,
+              modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
+              asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
+              `$${lineTotal.toFixed(2)}`,
+            ]);
+          }
+        });
       });
     });
 
@@ -376,31 +581,49 @@
     if (mode === 'packing-list') {
       columnStyles = {
         0: { cellWidth: 11 },
-        1: { cellWidth: 40 },
+        1: { cellWidth: 38 },
         2: { cellWidth: 24 },
-        3: { halign: 'right', cellWidth: 12 },
-        4: { cellWidth: 57, overflow: 'linebreak' },
-        5: { cellWidth: 16 },
+        3: { halign: 'right', cellWidth: 11 },
+        4: { cellWidth: 60, overflow: 'linebreak' },
+        5: { cellWidth: 14 },
         6: { cellWidth: 22 },
       };
     } else {
+      // 11 cols — tighter widths to fit Mod Fee
       columnStyles = {
         0: { cellWidth: 9 },
-        1: { cellWidth: 24 },
-        2: { cellWidth: 11 },
-        3: { cellWidth: 14 },
-        4: { cellWidth: 35, overflow: 'linebreak' },
-        5: { cellWidth: 18 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 10 },
+        3: { cellWidth: 16 },
+        4: { cellWidth: 33, overflow: 'linebreak' },
+        5: { cellWidth: 14 },
         6: { halign: 'right', cellWidth: 8 },
-        7: { halign: 'right', cellWidth: 17 },
-        8: { halign: 'right', cellWidth: 15 },
-        9: { halign: 'right', fontStyle: 'bold', cellWidth: 18 },
+        7: { halign: 'right', cellWidth: 15 },
+        8: { halign: 'right', cellWidth: 13 },
+        9: { halign: 'right', cellWidth: 13 },
+        10: { halign: 'right', fontStyle: 'bold', cellWidth: 19 },
       };
     }
 
     const onDrawPage = (data) => {
       if (data.pageNumber > 1 && headerContext) {
         _drawHeader(doc, headerContext);
+      }
+    };
+
+    // didParseCell hook: colour note-reference lines & sub-continuation rows
+    const didParseCell = function (data) {
+      // Only style body cells
+      if (data.section !== 'body') return;
+
+      // Find which column index is "Description" depending on mode
+      const descColIdx = (mode === 'packing-list') ? 4 : 4;
+
+      if (data.column.index === descColIdx) {
+        // Description col — keep default styling (mixed content);
+        // jsPDF AutoTable doesn't support per-line colouring without breaking
+        // into multiple cells, so we rely on the "! See Note No.N —" prefix
+        // being visually distinct in plain text.
       }
     };
 
@@ -414,6 +637,7 @@
         cellPadding: 2,
         textColor: [30, 30, 30],
         overflow:  'linebreak',
+        valign:    'top',
       },
       headStyles: {
         fillColor: COLORS.darkGreen,
@@ -424,6 +648,95 @@
       columnStyles: columnStyles,
       alternateRowStyles: { fillColor: [250, 248, 244] },
       didDrawPage: onDrawPage,
+      didParseCell: didParseCell,
+    });
+
+    return {
+      tableEndY: doc.lastAutoTable.finalY,
+      notes:     notes,
+    };
+  }
+
+  // ----------------------------------------
+  // F4.2: Notes Table (MF06 / MF07 / long-value mods)
+  // ----------------------------------------
+
+  /**
+   * Draw the Notes Table below the items table.
+   * Skipped if notes array is empty.
+   *
+   * @returns {number} ending Y position (or startY if nothing drawn)
+   */
+  function _drawNotesTable(doc, context) {
+    const { margin, pageW, headerH } = LAYOUT;
+    const { notes, startY, headerContext } = context;
+
+    if (!notes || !notes.length) return startY;
+
+    let y = startY + 6;
+
+    // ── Title bar ──
+    // Page break check before drawing
+    if (y + 30 > 275) {
+      doc.addPage();
+      _drawHeader(doc, headerContext);
+      y = headerH + 8;
+    }
+
+    doc.setFillColor(255, 247, 235);   // very light orange bg
+    doc.setDrawColor(...COLORS.note);
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y - 4, pageW - margin * 2, 8, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.note);
+    doc.text('MODIFICATION NOTES & CUSTOM DETAILS', margin + 3, y + 1);
+
+    y += 7;
+
+    // ── Notes table ──
+    const body = notes.map(function (n) {
+      const subSuffix = (n.subTotal > 1) ? ` (Sub ${n.subIndex}/${n.subTotal})` : '';
+      const modCell = n.mfCode ? `${n.label}\n(${n.mfCode})` : n.label;
+      return [
+        `No.${n.num}`,
+        `${n.skuCode}${subSuffix}`,
+        modCell,
+        n.content,
+      ];
+    });
+
+    doc.autoTable({
+      startY: y,
+      head: [['No.', 'Item', 'Modification', 'Detail / Note']],
+      body: body,
+      margin: { left: margin, right: margin, top: headerH + 4 },
+      styles: {
+        fontSize: 7,
+        cellPadding: 2.5,
+        textColor: [30, 30, 30],
+        overflow: 'linebreak',
+        valign: 'top',
+      },
+      headStyles: {
+        fillColor: [255, 235, 215],
+        textColor: COLORS.note,
+        fontStyle: 'bold',
+        fontSize: 7,
+      },
+      columnStyles: {
+        0: { cellWidth: 14, fontStyle: 'bold', textColor: COLORS.note },
+        1: { cellWidth: 38, fontStyle: 'bold', textColor: COLORS.darkGreen },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 90, overflow: 'linebreak' },
+      },
+      alternateRowStyles: { fillColor: [253, 248, 240] },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1 && headerContext) {
+          _drawHeader(doc, headerContext);
+        }
+      },
     });
 
     return doc.lastAutoTable.finalY;
@@ -434,13 +747,16 @@
   // ----------------------------------------
 
   /**
-   * 畫 Totals 區塊（右下角）
+   * F4.2: Totals now includes a Modifications row between Subtotal and Asm Fee.
    *
-   * C1 changes:
-   *   - context.pendingShipping (boolean) — 若 true，Shipping 行顯示
-   *     "Contact Sales Team" (橘色) 而非數字；grand total 已由 caller
-   *     計算為「不含 shipping」。
-   *   - 在 Order Total 下方多印一行 footnote 提示。
+   * context.totals = {
+   *   subtotal:      number,   // SKU subtotal (markup applied to unit_price)
+   *   modsTotal:     number,   // F4.2: ALL mods (taxable + non-taxable), unmarked-up
+   *   assembleTotal: number,
+   *   shipping:      number,
+   *   tax:           number,   // F4.2: tax = taxBase × taxRate (taxBase = SKU + taxableMods)
+   *   grand:         number,   // F4.2: grand = SKU + ALL mods + assembly + shipping + tax
+   * }
    */
   function _drawTotals(doc, context) {
     const { pageW, margin } = LAYOUT;
@@ -449,7 +765,7 @@
       asmByType,
       taxExempt = false,
       freeShipping = false,
-      pendingShipping = false,    // C1
+      pendingShipping = false,
       showPrices = true,
       startY,
       items,
@@ -473,6 +789,17 @@
     );
     y += 6;
 
+    // ── F4.2: Modifications (only if > 0) ──
+    if (showPrices && totals.modsTotal > 0) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Modifications', totalsX, y);
+      doc.setTextColor(140, 100, 20);   // gold-ish to match step3 UI
+      doc.text(`+$${totals.modsTotal.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+    }
+
     // ── Assemble Fee ──
     if (totals.assembleTotal > 0) {
       doc.setFontSize(8);
@@ -490,7 +817,7 @@
         doc.setFontSize(6.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...COLORS.muted);
-        doc.text(`  ${t} ×${row.qty}`, totalsX, y);
+        doc.text(`  ${t} x${row.qty}`, totalsX, y);
         if (showPrices) {
           doc.setTextColor(140, 100, 20);
           doc.text(`+$${row.total.toFixed(2)}`, valX, y, { align: 'right' });
@@ -510,7 +837,6 @@
       doc.setTextColor(40, 40, 40);
       doc.text('—', valX, y, { align: 'right' });
     } else if (pendingShipping) {
-      // C1: pending → orange "Contact Sales Team"
       doc.setTextColor(...COLORS.pending);
       doc.setFont('helvetica', 'bold');
       doc.text('Contact Sales Team', valX, y, { align: 'right' });
@@ -524,7 +850,7 @@
     }
     y += 6;
 
-    // ── Tax ──
+    // ── Tax (F4.2 Q3: do NOT disclose taxable base breakdown) ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -552,7 +878,6 @@
     );
     y += 5;
 
-    // ── C1: pending-shipping footnote ──
     if (showPrices && pendingShipping) {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(6.5);
@@ -612,9 +937,6 @@
   const DEFAULT_LOGO_URL =
     'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png';
 
-  /**
-   * 建立 jsPDF 實例 + 載入 logo + 畫 header + Bill/Ship
-   */
   async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options, documentTitle) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -635,11 +957,10 @@
       poNumber:      quoteData.po_number || '—',
       jobName:       quoteData.job_name  || '—',
       date,
-      documentTitle: documentTitle,    // Item 5
+      documentTitle: documentTitle,
     };
     _drawHeader(doc, headerContext);
 
-    // Bill / Ship
     let y = LAYOUT.headerH + 10;
     y = _drawBillShipBlock(doc, {
       dealer,
@@ -651,61 +972,85 @@
   }
 
   /**
-   * 內部用：畫完 items table 後，處理 totals + T&C + footer + 頁碼
+   * F4.2: Finalize with totals — now factors in mods + taxable-only tax base.
    *
-   * C1: shipping resolution priority:
-   *   1) pending shipping (logistic=shipping && shipping_cost==null) → "Contact Sales Team",
-   *      grand total excludes shipping
-   *   2) explicit quoteData.shipping_cost (admin-set) → use as-is, no formula
-   *   3) fallback formula on marked subtotal (legacy / preview path)
+   * Reads from quoteData if provided:
+   *   - modifications_total          (all mods, unmarked-up)
+   *   - modifications_total_taxable  (taxable-only subset)
+   * Falls back to recomputing from items[].sub_groups[].modifications.
    */
   function _finalizeWithTotals(args) {
     const {
-      doc, quoteData, items, headerContext, tableEndY,
+      doc, quoteData, items, headerContext, tableEndY, notes,
       showPrices, markupPercent = 0,
     } = args;
     const { pageW, margin } = LAYOUT;
 
+    // ── SKU subtotal (markup applied to unit_price) ──
     const markedSubtotal = items.reduce(
       (s, i) => s + i.unit_price * (1 + markupPercent) * i.quantity, 0
     );
+
+    // ── Assembly total (no markup) ──
     const assembleTotal = items.reduce(
       (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
     );
+
+    // ── F4.2: Mods totals (no markup; read from quoteData if available) ──
+    let modsTotal;
+    if (typeof quoteData.modifications_total === 'number') {
+      modsTotal = quoteData.modifications_total;
+    } else if (typeof quoteData.modifications_total === 'string') {
+      modsTotal = parseFloat(quoteData.modifications_total) || 0;
+    } else {
+      modsTotal = _calcTotalModsCost(items);
+    }
+
+    let taxableModsTotal;
+    if (typeof quoteData.modifications_total_taxable === 'number') {
+      taxableModsTotal = quoteData.modifications_total_taxable;
+    } else if (typeof quoteData.modifications_total_taxable === 'string') {
+      taxableModsTotal = parseFloat(quoteData.modifications_total_taxable) || 0;
+    } else {
+      taxableModsTotal = _calcTaxableModsCost(items);
+    }
 
     const logisticType    = quoteData.logistic_type || 'pickup';
     const deliveryFee     = parseFloat(quoteData.delivery_fee || 0);
     const pendingShipping = _isPendingShipping(quoteData);
 
-    // ── C1: shipping resolution ──
+    // ── Shipping resolution (uses billingBase = SKU + ALL mods) ──
+    const billingBase = markedSubtotal + modsTotal;
     let shipping;
     if (pendingShipping) {
-      shipping = 0;  // not added to grand total
+      shipping = 0;
     } else if (quoteData.shipping_cost !== null && quoteData.shipping_cost !== undefined) {
-      // Use admin-confirmed / DB-stored value as-is (also covers pickup=0, delivery, computed shipping)
       shipping = parseFloat(quoteData.shipping_cost) || 0;
     } else {
-      // No shipping_cost provided (legacy preview path) — fall back to formula
       shipping = 0;
       if (logisticType === 'delivery') {
         shipping = deliveryFee;
       } else if (logisticType === 'shipping') {
-        if      (markedSubtotal <= 3000)  shipping = 0;  // would be NULL in new flow
-        else if (markedSubtotal <= 6000)  shipping = markedSubtotal * 0.15;
-        else if (markedSubtotal <= 9000)  shipping = markedSubtotal * 0.12;
-        else if (markedSubtotal <= 12000) shipping = markedSubtotal * 0.10;
-        else                              shipping = 0;
+        if      (billingBase <= 3000)  shipping = 0;
+        else if (billingBase <= 6000)  shipping = billingBase * 0.15;
+        else if (billingBase <= 9000)  shipping = billingBase * 0.12;
+        else if (billingBase <= 12000) shipping = billingBase * 0.10;
+        else                            shipping = 0;
       }
     }
 
+    // ── F4.2: Tax base = SKU + TAXABLE mods only ──
     const taxRate   = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
-    const tax       = taxExempt ? 0 : markedSubtotal * taxRate;
-    // C1: pending → exclude shipping from grand total
-    const grand     = markedSubtotal + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
+    const taxBase   = markedSubtotal + taxableModsTotal;
+    const tax       = taxExempt ? 0 : taxBase * taxRate;
+
+    // ── Grand total = billing base + assembly + shipping + tax ──
+    const grand = billingBase + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
 
     const totals = {
       subtotal:      markedSubtotal,
+      modsTotal:     modsTotal,
       assembleTotal: assembleTotal,
       shipping:      shipping,
       tax:           tax,
@@ -713,9 +1058,19 @@
     };
     const asmByType = _calcAsmByType(items);
 
-    let y = tableEndY + 8;
+    // ── Notes table (between items and T&C / totals) ──
+    let yAfterNotes = tableEndY;
+    if (notes && notes.length) {
+      yAfterNotes = _drawNotesTable(doc, {
+        notes:         notes,
+        startY:        tableEndY,
+        headerContext: headerContext,
+      });
+    }
+
+    let y = yAfterNotes + 8;
     const TC_BLOCK_H = 7 * 6 + 16;
-    const TOTALS_H   = assembleTotal > 0 ? 60 : 45;
+    const TOTALS_H   = (assembleTotal > 0 ? 60 : 45) + (modsTotal > 0 ? 6 : 0);
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
     if (y + NEEDED > 275) {
       doc.addPage();
@@ -732,11 +1087,10 @@
     _drawTermsAndConditions(doc, { startY: y });
 
     // Totals（右側）
-    // C1: freeShipping only when explicitly $0 and not pending
     const freeShipping = !pendingShipping && shipping === 0 && markedSubtotal > 0;
     _drawTotals(doc, {
       totals, asmByType, taxExempt, freeShipping,
-      pendingShipping,                  // C1
+      pendingShipping,
       showPrices, startY: y, items,
     });
 
@@ -745,14 +1099,23 @@
   }
 
   /**
-   * Item 6 (選項 C)：Packing List 加 T&C，但不加 Totals
-   * 給 buildPackingListPdf 用
+   * F4.2: Packing List finalize — Notes table + T&C, no totals.
    */
-  function _finalizePackingListWithTcOnly(args) {
-    const { doc, headerContext, tableEndY } = args;
+  function _finalizePackingListWithTcAndNotes(args) {
+    const { doc, headerContext, tableEndY, notes } = args;
     const { pageW, margin } = LAYOUT;
 
-    let y = tableEndY + 8;
+    // ── Notes table (between items and T&C) ──
+    let yAfterNotes = tableEndY;
+    if (notes && notes.length) {
+      yAfterNotes = _drawNotesTable(doc, {
+        notes:         notes,
+        startY:        tableEndY,
+        headerContext: headerContext,
+      });
+    }
+
+    let y = yAfterNotes + 8;
     const TC_BLOCK_H = 7 * 6 + 16;
     const NEEDED     = TC_BLOCK_H + 20;
 
@@ -768,7 +1131,7 @@
     doc.line(margin, y, pageW - margin, y);
     y += 6;
 
-    // 只畫 T&C，左半邊（用比較寬的 maxWidth 因為右邊沒東西）
+    // T&C 比較寬（右邊沒東西）
     _drawTermsAndConditions(doc, { startY: y, maxWidth: 180 });
 
     _drawFooterBar(doc);
@@ -777,41 +1140,41 @@
 
   /**
    * 建立 Packing List PDF（無價，給工廠用）
-   * Items 4, 5, 6 已套用
+   * F4.2: sub_groups support + mods (no fees) + Notes table at bottom
    */
   async function buildPackingListPdf(quoteData, dealer, shippingAddress, options = {}) {
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
-      'PACKING LIST'  // Item 5
+      'PACKING LIST'
     );
 
-    const tableEndY = _drawItemTable(doc, {
+    const { tableEndY, notes } = _drawItemTable(doc, {
       items:         quoteData.items,
-      mode:          'packing-list',  // Item 4: 新欄位順序
+      mode:          'packing-list',
       startY:        y,
       markupPercent: 0,
       headerContext: headerContext,
     });
 
-    // Item 6 (選項 C)：加 T&C，不加 Totals
-    _finalizePackingListWithTcOnly({ doc, headerContext, tableEndY });
+    _finalizePackingListWithTcAndNotes({ doc, headerContext, tableEndY, notes });
 
     return doc;
   }
 
   /**
    * 建立 Invoice PDF（含價，給 dealer / 客戶用）
+   * F4.2: sub_groups + Mod Fee col + Notes table + Modifications subtotal
    */
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
-      'INVOICE'  // Item 5
+      'INVOICE'
     );
 
-    const tableEndY = _drawItemTable(doc, {
+    const { tableEndY, notes } = _drawItemTable(doc, {
       items:         quoteData.items,
-      mode:          'invoice',  // 10 欄含價，啟用群組標題
+      mode:          'invoice',
       startY:        y,
       markupPercent: markupPercent,
       headerContext: headerContext,
@@ -819,7 +1182,7 @@
 
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
-      headerContext, tableEndY,
+      headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
     });
 
@@ -828,15 +1191,17 @@
 
   /**
    * 建立 Draft Quote PDF（Step 3 預覽用）
+   * F4.2: same as Invoice but mode='draft-quote'.
+   *   Q4: NO markup disclosure footer (dealer's choice — they print as-is).
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
-      'DRAFT QUOTE'  // Item 5
+      'DRAFT QUOTE'
     );
 
-    const tableEndY = _drawItemTable(doc, {
+    const { tableEndY, notes } = _drawItemTable(doc, {
       items:         quoteData.items,
       mode:          'draft-quote',
       startY:        y,
@@ -846,7 +1211,7 @@
 
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
-      headerContext, tableEndY,
+      headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
     });
 
@@ -857,9 +1222,6 @@
   // Filename 工具
   // ============================================================
 
-  /**
-   * 取得紐約時間的 YYYYMMDD 字串
-   */
   function _getNYDateString() {
     const fmt = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/New_York',
@@ -870,32 +1232,17 @@
     return fmt.format(new Date()).replace(/-/g, '');
   }
 
-  /**
-   * 統一管理 PDF filename 生成（Items 1, 2 已套用新規則）
-   *
-   * @param {string} type - 'packing-list' | 'invoice' | 'draft-quote'
-   * @param {Object} options - { poNumber, dealerUid, revisionNumber }
-   *
-   * 規則：
-   *   - Packing List: ProCraft DC - Packing List - {PO#}{ - vN}.pdf
-   *   - Invoice:      ProCraft DC - Invoice - {PO#}{ - vN}.pdf
-   *   - Draft Quote:  ProCraft DC - Draft Quote - {dealerUid} - {YYYYMMDD}.pdf
-   *   - v=1 不加後綴，v≥2 加 ` - v{N}`
-   */
   function getPdfFilename(type, options = {}) {
     const { poNumber, dealerUid, revisionNumber = 1 } = options;
     const versionSuffix = revisionNumber > 1 ? ` - v${revisionNumber}` : '';
 
     if (type === 'packing-list') {
-      // Item 2
       return `ProCraft DC - Packing List - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
     }
     if (type === 'invoice') {
-      // Item 2
       return `ProCraft DC - Invoice - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
     }
     if (type === 'draft-quote') {
-      // Item 1
       return `ProCraft DC - Draft Quote - ${dealerUid || 'Dealer'} - ${_getNYDateString()}.pdf`;
     }
 
@@ -906,28 +1253,35 @@
   // 對外暴露
   // ----------------------------------------
   global.ProCraftPDF = {
-    // ─── 常數（debug 用）───
     _TYPE_ORDER: TYPE_ORDER,
     _COLORS:     COLORS,
     _LAYOUT:     LAYOUT,
+    _MF_USE_NOTES_TABLE:           MF_USE_NOTES_TABLE,           // F4.2
+    _NOTES_TABLE_FALLBACK_LENGTH:  NOTES_TABLE_FALLBACK_LENGTH,  // F4.2
 
-    // ─── Internal Helpers ───
-    _typeRank:          _typeRank,
-    _groupAndSort:      _groupAndSort,
-    _calcAsmByType:     _calcAsmByType,
-    _loadImage:         _loadImage,
-    _isPendingShipping: _isPendingShipping,   // C1
+    _typeRank:                _typeRank,
+    _groupAndSort:            _groupAndSort,
+    _calcAsmByType:           _calcAsmByType,
+    _loadImage:               _loadImage,
+    _isPendingShipping:       _isPendingShipping,
+    _getNormalizedSubGroups:  _getNormalizedSubGroups,           // F4.2
+    _calcPerSubModCost:       _calcPerSubModCost,                // F4.2
+    _calcPerSubTaxableModCost: _calcPerSubTaxableModCost,        // F4.2
+    _calcTotalModsCost:       _calcTotalModsCost,                // F4.2
+    _calcTaxableModsCost:     _calcTaxableModsCost,              // F4.2
+    _formatModValue:          _formatModValue,                   // F4.2
+    _shouldUseNotesTable:     _shouldUseNotesTable,              // F4.2
+    _buildDescriptionCellText: _buildDescriptionCellText,        // F4.2
 
-    // ─── Internal Drawing Blocks ───
     _drawHeader:             _drawHeader,
     _drawBillShipBlock:      _drawBillShipBlock,
     _drawFooterBar:          _drawFooterBar,
     _addPageNumbers:         _addPageNumbers,
     _drawItemTable:          _drawItemTable,
+    _drawNotesTable:         _drawNotesTable,                    // F4.2
     _drawTotals:             _drawTotals,
     _drawTermsAndConditions: _drawTermsAndConditions,
 
-    // ─── 對外主函式（HTML 用這些）───
     buildPackingListPdf: buildPackingListPdf,
     buildInvoicePdf:     buildInvoicePdf,
     buildDraftQuotePdf:  buildDraftQuotePdf,
