@@ -569,12 +569,7 @@ let _existingSubtotal     = null;
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2 — Notes table configuration
 // ─────────────────────────────────────────────────────────────────────────────
-// MF codes that ALWAYS go to Notes table (free-text / complex schema mods).
-// Add new MF codes here as they are introduced.
 const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
-// Fallback safety net: if a mod's formatted value exceeds this length, send it
-// to the Notes table regardless of MF code, so an un-whitelisted long value
-// won't blow out the Items table layout.
 const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 function shouldUseNotesTable(mod) {
@@ -622,12 +617,42 @@ function calcPerSubModCost(sub) {
   }, 0);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F-TAX: per-sub TAXABLE mod cost (only mods where tax_status === true)
+// ─────────────────────────────────────────────────────────────────────────────
+function calcPerSubTaxableModCost(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  return mods.reduce(function (s, m) {
+    if (!m || m.tax_status !== true) return s;
+    var c = parseFloat(m.cost);
+    return s + (isNaN(c) ? 0 : c);
+  }, 0);
+}
+
 function calcTotalModsCost(items) {
   let total = 0;
   items.forEach(function (item) {
     const subs = getNormalizedSubGroups(item);
     subs.forEach(function (sub) {
       const perSub = calcPerSubModCost(sub);
+      const qty    = parseInt(sub.qty, 10) || 0;
+      total += perSub * qty;
+    });
+  });
+  return total;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F-TAX: Sum of all TAXABLE mods (× sub.qty) across the whole quote.
+// Used for tax base only. Mods without tax_status===true are excluded.
+// undefined / null / false are all treated as NOT taxable (conservative fallback).
+// ─────────────────────────────────────────────────────────────────────────────
+function calcTaxableModsCost(items) {
+  let total = 0;
+  items.forEach(function (item) {
+    const subs = getNormalizedSubGroups(item);
+    subs.forEach(function (sub) {
+      const perSub = calcPerSubTaxableModCost(sub);
       const qty    = parseInt(sub.qty, 10) || 0;
       total += perSub * qty;
     });
@@ -666,7 +691,15 @@ function escapeHtml(s) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F4.1 v2 — Render mods inside Description column (NO fees).
+// F4.1 v2.1 — Render mods inside Description column (NO fees).
+//
+// B2 bugfix (2026-05-11):
+//   - skipped + empty mods   → return '' (no visual noise)
+//   - configured + empty mods → return '' (no visual noise — shouldn't happen
+//     in practice since configured implies mods exist, but defensive)
+//   - unprocessed + empty mods → KEEP "⚠ Modifications pending" warning
+//     (this is a real problem state — dealer forgot to configure)
+//
 // Mods that match shouldUseNotesTable() are rendered as [See note №N below]
 // and collected into notesCollector for the Notes table.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -675,9 +708,11 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
   const status = sub.modification_status || 'unprocessed';
 
   if (!mods.length) {
+    // B2: skipped / configured + empty → no visual clutter
     if (status === 'skipped' || status === 'configured') {
-      return `<div class="mods-list"><span class="mod-status-skipped">— No modifications</span></div>`;
+      return '';
     }
+    // unprocessed + empty → real problem, keep warning
     return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
   }
 
@@ -957,7 +992,7 @@ function buildItemRowsHtml(markupPct) {
   let lastStyle = null;
   const rows = [];
   const notes = [];
-  const notesIndex = { counter: 0 };  // running note number across whole table
+  const notesIndex = { counter: 0 };
 
   Object.entries(grouped).forEach(function ([styleName, items]) {
     items.forEach(function (item) {
@@ -976,16 +1011,13 @@ function buildItemRowsHtml(markupPct) {
         const modFeeTotal   = perSubModCost * subQty;
         const skuLineTotal  = markedUnitPrice * subQty;
         const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
-        // F4.1 v2: Total INCLUDES Mod Fee (per spec — Q2 = A)
         const lineTotal     = skuLineTotal + modFeeTotal;
 
-        // SKU column: code + sub label (no description here)
         const subLabelHtml = isSplit
           ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
           : '';
         const skuCellHtml = `${escapeHtml(item.sku_code)}${subLabelHtml}`;
 
-        // Description column: desc + mods list (no fees)
         const itemContext = {
           sku_code:  item.sku_code,
           totalSubs: subs.length,
@@ -1035,21 +1067,36 @@ function buildItemRowsHtml(markupPct) {
   return { rowsHtml: rows.join(''), notes: notes };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F-TAX (2026-05-11): Tax base now uses ONLY taxable mods, not all mods.
+//   - taxBase     = skuSubtotal + taxableModsSubtotal  (for tax × rate)
+//   - billingBase = skuSubtotal + modsSubtotal         (for shipping bracket /
+//                                                       persisted "subtotal")
+//
+// Grand total still includes all mods (taxable or not), since non-taxable mods
+// are still real money charged to the customer — they just don't attract tax.
+//
+// Shipping bracket uses billingBase so shipping tier doesn't shift based on
+// whether mods are taxable (would be confusing and not aligned with the spec).
+// ─────────────────────────────────────────────────────────────────────────────
 function applyTotals(opts) {
-  const skuSubtotal   = opts.skuSubtotal;
-  const modsSubtotal  = opts.modsSubtotal;
-  const assembleTotal = opts.assembleTotal;
-  const showMarkupNote = !!opts.showMarkupNote;
-  const markupPct      = opts.markupPct || 0;
+  const skuSubtotal         = opts.skuSubtotal;
+  const modsSubtotal        = opts.modsSubtotal;
+  const taxableModsSubtotal = opts.taxableModsSubtotal || 0;
+  const assembleTotal       = opts.assembleTotal;
+  const showMarkupNote      = !!opts.showMarkupNote;
+  const markupPct           = opts.markupPct || 0;
 
-  const taxableBase = skuSubtotal + modsSubtotal;
-  const taxRate     = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+  const taxBase     = skuSubtotal + taxableModsSubtotal;  // F-TAX: only taxable mods
+  const billingBase = skuSubtotal + modsSubtotal;         // for shipping bracket
+
+  const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
   const logisticType = step1Data?.logisticType || 'pickup';
   const deliveryFee  = parseFloat(step1Data?.deliveryFee || 0);
 
   const previewShippingForDb = resolveShippingForDb({
     newLogistic:    logisticType,
-    newSubtotal:    taxableBase,
+    newSubtotal:    billingBase,   // F-TAX: shipping uses full billing base
     newDeliveryFee: deliveryFee,
     isResuming:     _isResumingReturned,
   });
@@ -1078,7 +1125,7 @@ function applyTotals(opts) {
       shippingForTotal  = 0;
       shippingLabel     = 'TBD';
       shippingNote      = '⚠ Contact Sales Team to confirm shipping fee';
-    } else if (previewShippingForDb === 0 && taxableBase > 12000) {
+    } else if (previewShippingForDb === 0 && billingBase > 12000) {
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
       shippingNote     = '✓ Free shipping on orders over $12,000';
@@ -1092,19 +1139,20 @@ function applyTotals(opts) {
       const isPreservedAdminValue = (
         _isResumingReturned &&
         _existingLogisticType === 'shipping' &&
-        getShippingBracket(_existingSubtotal) === getShippingBracket(taxableBase) &&
+        getShippingBracket(_existingSubtotal) === getShippingBracket(billingBase) &&
         _existingShippingCost === shippingForTotal
       );
       if (isPreservedAdminValue) {
         shippingNote = '✓ Sales-confirmed shipping fee';
-      } else if (taxableBase <= 6000)       shippingNote = '15% shipping rate';
-      else if (taxableBase <= 9000)         shippingNote = '12% shipping rate';
-      else if (taxableBase <= 12000)        shippingNote = '10% shipping rate';
+      } else if (billingBase <= 6000)       shippingNote = '15% shipping rate';
+      else if (billingBase <= 9000)         shippingNote = '12% shipping rate';
+      else if (billingBase <= 12000)        shippingNote = '10% shipping rate';
     }
   }
 
-  const tax   = taxableBase * taxRate;
-  const grand = taxableBase + assembleTotal + shippingForTotal + tax;
+  const tax   = taxBase * taxRate;
+  // F-TAX: grand total still uses billingBase (all mods are real money charged)
+  const grand = billingBase + assembleTotal + shippingForTotal + tax;
 
   document.getElementById('totalSubtotal').textContent = `$${skuSubtotal.toFixed(2)}`;
 
@@ -1137,7 +1185,17 @@ function applyTotals(opts) {
     document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
   } else {
     document.getElementById('totalTax').textContent = `$${tax.toFixed(2)}`;
-    document.getElementById('taxNote').textContent = `${(taxRate * 100).toFixed(2)}% tax rate`;
+    // F-TAX: note shows tax rate + taxable base hint when mods are partially taxable
+    const taxRateLabel = `${(taxRate * 100).toFixed(2)}% tax rate`;
+    if (modsSubtotal > 0 && taxableModsSubtotal !== modsSubtotal) {
+      const nonTaxableMods = modsSubtotal - taxableModsSubtotal;
+      document.getElementById('taxNote').innerHTML =
+        `${taxRateLabel}<br>` +
+        `<span style="color:#7A8C82;">Taxable base: $${taxBase.toFixed(2)} ` +
+        `(excludes $${nonTaxableMods.toFixed(2)} non-taxable mods)</span>`;
+    } else {
+      document.getElementById('taxNote').textContent = taxRateLabel;
+    }
   }
 
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
@@ -1184,20 +1242,31 @@ function renderReview() {
     document.getElementById('reviewNotes').textContent = step1Data.notes;
   }
 
-  const skuSubtotal   = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-  const modsSubtotal  = calcTotalModsCost(step2Data);
-  const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+  const skuSubtotal          = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  const modsSubtotal         = calcTotalModsCost(step2Data);
+  const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
+  const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+
+  // F-TAX: debug log for visibility
+  console.log('[F-TAX] renderReview totals:',
+    'sku=$' + skuSubtotal.toFixed(2),
+    'mods=$' + modsSubtotal.toFixed(2),
+    'taxableMods=$' + taxableModsSubtotal.toFixed(2),
+    'nonTaxableMods=$' + (modsSubtotal - taxableModsSubtotal).toFixed(2),
+    'assembly=$' + assembleTotal.toFixed(2)
+  );
 
   const result = buildItemRowsHtml(0);
   document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
   document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
 
   applyTotals({
-    skuSubtotal:    skuSubtotal,
-    modsSubtotal:   modsSubtotal,
-    assembleTotal:  assembleTotal,
-    showMarkupNote: false,
-    markupPct:      0,
+    skuSubtotal:          skuSubtotal,
+    modsSubtotal:         modsSubtotal,
+    taxableModsSubtotal:  taxableModsSubtotal,  // F-TAX
+    assembleTotal:        assembleTotal,
+    showMarkupNote:       false,
+    markupPct:            0,
   });
 }
 
@@ -1232,6 +1301,9 @@ function buildItemsPayload(quoteId) {
         unit_price:          item.unit_price,
         msrp:                item.msrp || null,
         assemble_fee:        item.assemble_fee || 0,
+        // F-TAX: modifications array now includes tax_status per mod entry
+        // (snapshot from step2.5 handleMfSave). Step3 doesn't touch this — it
+        // just persists what step2.5 wrote.
         modifications:       Array.isArray(g.modifications) ? g.modifications : [],
         modification_status: g.modification_status || 'unprocessed',
       });
@@ -1275,8 +1347,9 @@ function buildQuoteDataForPdf(opts) {
     };
   });
 
-  const skuSubtotalNow  = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-  const modsSubtotalNow = calcTotalModsCost(step2Data);
+  const skuSubtotalNow         = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  const modsSubtotalNow        = calcTotalModsCost(step2Data);
+  const taxableModsSubtotalNow = calcTaxableModsCost(step2Data);  // F-TAX
 
   const out = {
     po_number:     step1Data?.poNumber || _existingPoNumber || null,
@@ -1286,16 +1359,18 @@ function buildQuoteDataForPdf(opts) {
     items:         items,
     _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
     _taxExempt:  !!dealer?.tax_exempt,
-    modifications_total: parseFloat(modsSubtotalNow.toFixed(2)),
+    modifications_total:         parseFloat(modsSubtotalNow.toFixed(2)),
+    modifications_total_taxable: parseFloat(taxableModsSubtotalNow.toFixed(2)),  // F-TAX
   };
 
   if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
     out.shipping_cost = opts.shippingCostOverride;
   } else {
-    const taxableBaseNow = skuSubtotalNow + modsSubtotalNow;
+    // F-TAX: shipping uses full billing base, not tax base
+    const billingBaseNow = skuSubtotalNow + modsSubtotalNow;
     out.shipping_cost = resolveShippingForDb({
       newLogistic:    out.logistic_type,
-      newSubtotal:    taxableBaseNow,
+      newSubtotal:    billingBaseNow,
       newDeliveryFee: out.delivery_fee,
       isResuming:     _isResumingReturned,
     });
@@ -1315,24 +1390,39 @@ async function saveDraft() {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
 
-    const skuSubtotal   = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
-    const modsSubtotal  = calcTotalModsCost(step2Data);
-    const assembleTotal = step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0);
-    const taxableBase   = skuSubtotal + modsSubtotal;
+    const skuSubtotal          = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
+    const modsSubtotal         = calcTotalModsCost(step2Data);
+    const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
+    const assembleTotal        = step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0);
+
+    // F-TAX: tax base = SKU + taxable mods only; billing base = SKU + all mods
+    const taxBase     = skuSubtotal + taxableModsSubtotal;
+    const billingBase = skuSubtotal + modsSubtotal;
+
     const logisticType  = step1Data.logisticType || 'pickup';
     const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
 
     const shippingForDb = resolveShippingForDb({
       newLogistic:    logisticType,
-      newSubtotal:    taxableBase,
+      newSubtotal:    billingBase,    // F-TAX: shipping bracket uses billing base
       newDeliveryFee: deliveryFee,
       isResuming:     _isResumingReturned,
     });
     const shippingForTotal = shippingForDb || 0;
 
     const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-    const tax   = taxableBase * taxRate;
-    const grand = taxableBase + assembleTotal + shippingForTotal + tax;
+    const tax     = taxBase * taxRate;                           // F-TAX: tax × tax base
+    const grand   = billingBase + assembleTotal + shippingForTotal + tax;
+
+    console.log('[F-TAX] saveDraft:',
+      'sku=$' + skuSubtotal.toFixed(2),
+      'mods=$' + modsSubtotal.toFixed(2),
+      'taxableMods=$' + taxableModsSubtotal.toFixed(2),
+      'taxBase=$' + taxBase.toFixed(2),
+      'billingBase=$' + billingBase.toFixed(2),
+      'tax=$' + tax.toFixed(2),
+      'grand=$' + grand.toFixed(2)
+    );
 
     const targetStatus = _isResumingReturned ? 'Returned' : 'Draft';
 
@@ -1344,6 +1434,9 @@ async function saveDraft() {
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
       delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
+      // F-TAX: persist SKU subtotal (unchanged) — quotes.subtotal stays as
+      // skuSubtotal per existing spec; mods total is reconstructed from
+      // quote_items.modifications when needed downstream.
       subtotal:            parseFloat(skuSubtotal.toFixed(2)),
       assemble_total:      parseFloat(assembleTotal.toFixed(2)),
       shipping_cost:       (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2)),
@@ -1423,24 +1516,39 @@ async function submitQuote() {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
 
-    const skuSubtotal   = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-    const modsSubtotal  = calcTotalModsCost(step2Data);
-    const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
-    const taxableBase   = skuSubtotal + modsSubtotal;
+    const skuSubtotal          = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const modsSubtotal         = calcTotalModsCost(step2Data);
+    const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
+    const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+
+    // F-TAX: tax base = SKU + taxable mods; billing base = SKU + all mods
+    const taxBase     = skuSubtotal + taxableModsSubtotal;
+    const billingBase = skuSubtotal + modsSubtotal;
+
     const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const logisticType = step1Data.logisticType || 'pickup';
     const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
     const shippingForDb = resolveShippingForDb({
       newLogistic:    logisticType,
-      newSubtotal:    taxableBase,
+      newSubtotal:    billingBase,    // F-TAX: shipping uses billing base
       newDeliveryFee: deliveryFee,
       isResuming:     _isResumingReturned,
     });
     const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
 
-    const tax   = taxableBase * taxRate;
-    const grand = taxableBase + assembleTotal + shippingForTotal + tax;
+    const tax   = taxBase * taxRate;                              // F-TAX
+    const grand = billingBase + assembleTotal + shippingForTotal + tax;
+
+    console.log('[F-TAX] submitQuote:',
+      'sku=$' + skuSubtotal.toFixed(2),
+      'mods=$' + modsSubtotal.toFixed(2),
+      'taxableMods=$' + taxableModsSubtotal.toFixed(2),
+      'taxBase=$' + taxBase.toFixed(2),
+      'billingBase=$' + billingBase.toFixed(2),
+      'tax=$' + tax.toFixed(2),
+      'grand=$' + grand.toFixed(2)
+    );
 
     let poNumber;
     let quoteNum;
@@ -1604,21 +1712,23 @@ async function submitQuote() {
         },
         body: JSON.stringify({
           quote: {
-            id:                   quoteId,
-            quote_number:         quoteNum,
-            po_number:            poNumber,
-            job_name:             step1Data.jobName,
-            logistic_type:        logisticType,
-            shipping_address:     shippingAddressPayload,
-            assemble_total:       assembleTotal.toFixed(2),
-            subtotal:             skuSubtotal.toFixed(2),
-            modifications_total:  modsSubtotal.toFixed(2),
-            shipping_cost:        (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
-            shipping_pending:     (shippingCostWrite === null),
-            tax_amount:           tax.toFixed(2),
-            grand_total:          grand.toFixed(2),
-            revision_number:      pdfRevisionNumber,
-            is_resubmit:          _isResumingReturned,
+            id:                          quoteId,
+            quote_number:                quoteNum,
+            po_number:                   poNumber,
+            job_name:                    step1Data.jobName,
+            logistic_type:               logisticType,
+            shipping_address:            shippingAddressPayload,
+            assemble_total:              assembleTotal.toFixed(2),
+            subtotal:                    skuSubtotal.toFixed(2),
+            modifications_total:         modsSubtotal.toFixed(2),
+            modifications_total_taxable: taxableModsSubtotal.toFixed(2),  // F-TAX
+            tax_base:                    taxBase.toFixed(2),               // F-TAX
+            shipping_cost:               (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
+            shipping_pending:            (shippingCostWrite === null),
+            tax_amount:                  tax.toFixed(2),
+            grand_total:                 grand.toFixed(2),
+            revision_number:             pdfRevisionNumber,
+            is_resubmit:                 _isResumingReturned,
           },
           dealer: {
             company_name:           dealer.company_name,
@@ -1683,16 +1793,18 @@ function updateMarkupPreview() {
   document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
   document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
 
-  const markedSkuSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
-  const modsSubtotal      = calcTotalModsCost(step2Data);
-  const assembleTotal     = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
+  const markedSkuSubtotal    = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
+  const modsSubtotal         = calcTotalModsCost(step2Data);
+  const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
+  const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
 
   applyTotals({
-    skuSubtotal:    markedSkuSubtotal,
-    modsSubtotal:   modsSubtotal,
-    assembleTotal:  assembleTotal,
-    showMarkupNote: true,
-    markupPct:      markupPct,
+    skuSubtotal:          markedSkuSubtotal,
+    modsSubtotal:         modsSubtotal,
+    taxableModsSubtotal:  taxableModsSubtotal,  // F-TAX
+    assembleTotal:        assembleTotal,
+    showMarkupNote:       true,
+    markupPct:            markupPct,
   });
 }
 
