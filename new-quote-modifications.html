@@ -1248,7 +1248,7 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       msrp:                parseFloat(item.msrp || 0),
       assemble_fee:        parseFloat(item.assemble_fee || 0),
       modification_status: item.modification_status || null,
-      modifications:       [],
+      modifications:       Array.isArray(item.modifications) ? item.modifications : [],
     };
   });
 }
