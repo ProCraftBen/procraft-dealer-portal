@@ -1,12 +1,18 @@
 /**
- * MF07 — SuperModification (Admin Only Text + Custom Cost) v2  (E4.1: factory pattern)
+ * MF07 — SuperModification (Admin Only Text + Custom Cost + Taxable) v3
  * ============================================================
- * Modification 元件:admin 自訂收費備註(toggle + textarea + 自訂金額)
+ * Modification 元件:admin 自訂收費備註(toggle + textarea + 自訂金額 + 課稅 checkbox)
  * 業務範例:SuperModification(處理客製需求,沒預設模板的)
+ *
+ * v3 變更(2026-05-11):
+ *   ✅ 新增 `taxable` checkbox(per-instance 課稅判斷)
+ *   ✅ getValue() 回傳 `{enabled, description, cost, taxable}` 結構
+ *   ✅ taxable=true → 此筆 mod 進 tax base(MF1-6 從 rule 表 tax_status 決定,
+ *      MF07 改為從 admin 在 modal 內手動勾選)
  *
  * v2 變更:加 toggle 啟用控制(跟 MF02 / MF04 一致)
  *
- * 結構上 = MF03 (toggle) + MF06 (textarea) + 自訂 cost input + warn UI
+ * 結構上 = MF03 (toggle) + MF06 (textarea) + 自訂 cost input + warn UI + taxable checkbox
  *
  * E4.1 變更:
  *   ❌ 舊:window.MF.MF07.render(container, mf_params, value)  (單例)
@@ -19,14 +25,14 @@
  *   create(container, mf_params, current_value) → instance
  *
  *   instance:
- *     getValue()       → { enabled, description, cost }
+ *     getValue()       → { enabled, description, cost, taxable }
  *     validate()       → { valid, errors }
  *     calculateCost()  → number
  *     destroy()        → void
  *
  * mf_params 結構:
  *   {
- *     toggle_label: string,         // toggle 旁邊文字(可選,有預設值)
+ *     toggle_label: string,
  *     textarea_label: string,
  *     cost_label: string,
  *     placeholder: string,
@@ -37,12 +43,14 @@
  *   }
  *
  * current_value 結構:
- *   { enabled: boolean, description: string, cost: number }
- *   null → 等同 { enabled: false, description: '', cost: 0 }
+ *   { enabled: boolean, description: string, cost: number, taxable: boolean }
+ *   null → 等同 { enabled: false, description: '', cost: 0, taxable: false }
  *
- * 規格議題 6 已決議:
- *   - warn_threshold $1000:超過顯示警示,不擋 save
- *   - max_cost $99,999:超過 HTML number input 直接擋
+ * 規格議題 6 已決議(2026-05-11):
+ *   - MF1-6 的課稅:從 modification_assignments.tax_status 決定(rule 層級)
+ *   - MF07 的課稅:per-instance,admin 在 modal 內手動勾選 taxable checkbox
+ *   - handleMfSave 對 MF07 特殊處理:tax_status = value.taxable === true
+ *     (rule 表的 tax_status 對 MF07 一律設 false,被 modal value 覆蓋)
  *
  * 共通規則 1:toggle = false 時不寫 row
  *
@@ -54,7 +62,7 @@
  *   container.dispatchEvent(new CustomEvent('mf-change', {
  *     detail: { mf_code, value, cost }
  *   }))
- *   value 是 { enabled, description, cost } 物件
+ *   value 是 { enabled, description, cost, taxable } 物件
  * ============================================================
  */
 (function () {
@@ -71,7 +79,7 @@
    * Factory:建立一個 MF07 實例
    * @param {HTMLElement} container
    * @param {Object} mf_params
-   * @param {Object|null} current_value - { enabled, description, cost } or null
+   * @param {Object|null} current_value - { enabled, description, cost, taxable } or null
    * @returns {Object} instance
    */
   function create(container, mf_params, current_value) {
@@ -82,13 +90,15 @@
       enabled: false,
       description: '',
       cost: 0,
+      taxable: false,  // v3 新增
       max_length: DEFAULT_MAX_LENGTH,
       min_cost: DEFAULT_MIN_COST,
       max_cost: DEFAULT_MAX_COST,
       warn_threshold: DEFAULT_WARN_THRESHOLD,
       toggleEl: null,
       textareaEl: null,
-      costEl: null
+      costEl: null,
+      taxableEl: null  // v3 新增
     };
 
     // 解析 current_value
@@ -96,6 +106,7 @@
       state.enabled = current_value.enabled === true;
       state.description = (typeof current_value.description === 'string') ? current_value.description : '';
       state.cost = (typeof current_value.cost === 'number') ? current_value.cost : 0;
+      state.taxable = current_value.taxable === true;  // v3 新增
     }
 
     // 設定上下限
@@ -114,6 +125,9 @@
       }
       if (state.costEl) {
         state.costEl.removeEventListener('input', onCostInput);
+      }
+      if (state.taxableEl) {
+        state.taxableEl.removeEventListener('change', onTaxableChange);
       }
 
       const params = state.mf_params;
@@ -196,6 +210,41 @@
             ⚠ Cost exceeds typical $${state.warn_threshold.toFixed(2)} threshold. Please confirm before saving.
           </div>
         ` : '';
+
+        // v3 新增:Taxable checkbox 區塊
+        const taxableHTML = `
+          <div style="
+            margin-top:14px;
+            padding-top:12px;
+            border-top:1px dashed #e0d9c8;
+          ">
+            <label style="
+              display:inline-flex;
+              align-items:center;
+              cursor:pointer;
+              user-select:none;
+              font-family:'DM Sans',sans-serif;
+              font-size:13px;
+              color:#555;
+            ">
+              <input type="checkbox"
+                data-mf-taxable="MF07"
+                ${state.taxable ? 'checked' : ''}
+                style="
+                  margin-right:8px;
+                  width:16px;
+                  height:16px;
+                  cursor:pointer;
+                  accent-color:#3e5a42;
+                "
+              />
+              <span>
+                <strong style="color:#1b3022;">Taxable</strong>
+                <span style="color:#888;font-size:12px;margin-left:4px;">— Include this modification in tax base</span>
+              </span>
+            </label>
+          </div>
+        `;
 
         contentHTML = `
           <div style="
@@ -294,6 +343,9 @@
 
               ${warningHTML}
             </div>
+
+            <!-- v3: Taxable Checkbox -->
+            ${taxableHTML}
           </div>
         `;
       }
@@ -313,12 +365,17 @@
       if (state.enabled) {
         state.textareaEl = state.container.querySelector('textarea[data-mf-textarea="MF07"]');
         state.costEl = state.container.querySelector('input[data-mf-cost="MF07"]');
+        state.taxableEl = state.container.querySelector('input[data-mf-taxable="MF07"]');  // v3
 
         state.textareaEl.addEventListener('input', onTextareaInput);
         state.costEl.addEventListener('input', onCostInput);
+        if (state.taxableEl) {
+          state.taxableEl.addEventListener('change', onTaxableChange);  // v3
+        }
       } else {
         state.textareaEl = null;
         state.costEl = null;
+        state.taxableEl = null;
       }
     }
 
@@ -329,6 +386,7 @@
       if (!state.enabled) {
         state.description = '';
         state.cost = 0;
+        state.taxable = false;  // v3:同步清空
       }
 
       // 重繪 UI
@@ -362,6 +420,12 @@
       // 警示 UI 差異更新(不重繪整個元件,維持輸入焦點)
       updateWarningUI();
 
+      broadcast();
+    }
+
+    // v3 新增:taxable checkbox change handler
+    function onTaxableChange(e) {
+      state.taxable = e.target.checked;
       broadcast();
     }
 
@@ -403,7 +467,8 @@
       return {
         enabled: state.enabled,
         description: state.enabled ? state.description : '',
-        cost: state.enabled ? state.cost : 0
+        cost: state.enabled ? state.cost : 0,
+        taxable: state.enabled ? state.taxable : false  // v3 新增
       };
     }
 
@@ -455,6 +520,9 @@
       if (state.costEl) {
         state.costEl.removeEventListener('input', onCostInput);
       }
+      if (state.taxableEl) {
+        state.taxableEl.removeEventListener('change', onTaxableChange);  // v3
+      }
       if (state.container) {
         state.container.innerHTML = '';
       }
@@ -462,6 +530,7 @@
       state.toggleEl = null;
       state.textareaEl = null;
       state.costEl = null;
+      state.taxableEl = null;  // v3
     }
 
     // 初次渲染
