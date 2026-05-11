@@ -1000,6 +1000,11 @@ let pageProgress     = { done: 0, total: 0, percent: 0 };
 // E3: Modal state — key of cartItem currently open in modal
 let activeMfModalKey = null;
 
+// E4.3: Rules matched for the currently open SKU (after role filter).
+// Filled by openMfModal via match_modifications_for_sku RPC.
+// E4.4 will use this list to dynamically render MF elements.
+let activeMfModalRules = [];
+
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
   grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
@@ -1084,6 +1089,8 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       sku_code:             item.sku_code,
       sku_desc:            sku ? sku.description : item.sku_code,
       skuType:             item.sku_type || '',
+      category:            sku ? (sku.category    || '') : '',
+      subcategory:         sku ? (sku.subcategory || '') : '',
       type:                item.assemble_status,
       quantity:            item.quantity,
       unit_price:          parseFloat(item.unit_price),
@@ -1407,12 +1414,17 @@ function goReview() {
 // ║    • Group placeholder: <div.mf-group> ready, body empty (E4)   ║
 // ║    • Three button stubs: Skip / Cancel / Save                   ║
 // ║                                                                 ║
-// ║  NOT in E3 (deferred):                                          ║
-// ║    • MF element rendering              → E4                     ║
-// ║    • match_modifications_for_sku call  → E4                     ║
+// ║  E4.3 additions:                                                ║
+// ║    • Call match_modifications_for_sku RPC on open               ║
+// ║    • Filter by dealer.role (case-insensitive)                   ║
+// ║    • Store matched rules in activeMfModalRules (for E4.4)       ║
+// ║    • console.log rules for inspection (no rendering yet)        ║
+// ║                                                                 ║
+// ║  NOT in E4.3 (deferred to E4.4+):                               ║
+// ║    • MF element rendering              → E4.4                   ║
+// ║    • Collect MF values on Save         → E4.6                   ║
+// ║    • Re-hydrate on re-open             → E4.7                   ║
 // ║    • Quantity split into multi-group   → E5                     ║
-// ║    • Live merge / dirty tracking       → E6                     ║
-// ║    • Required-field enforcement        → E7                     ║
 // ║                                                                 ║
 // ║  Closing rules (per design Q7):                                 ║
 // ║    • × button and Cancel button close                           ║
@@ -1421,7 +1433,7 @@ function goReview() {
 // ║                                                                 ║
 // ═══════════════════════════════════════════════════════════════════
 
-function openMfModal(key) {
+async function openMfModal(key) {
   const item = cartItems.find(function (i) { return i.key === key; });
   if (!item) {
     console.warn('[E3] openMfModal: cartItem not found for key', key);
@@ -1429,8 +1441,9 @@ function openMfModal(key) {
   }
 
   activeMfModalKey = key;
+  activeMfModalRules = [];  // reset before RPC
 
-  // Look up door style for construction_type display
+  // Look up door style for construction_type display + RPC param
   const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
   const ctype    = (styleRow && styleRow.construction_type) || 'unknown';
   const ctypeClass = ctype === 'framed' ? 'framed'
@@ -1467,12 +1480,73 @@ function openMfModal(key) {
   document.body.classList.add('mf-modal-open');
 
   console.log('[E3] openMfModal', key, '→ status was:', item.modification_status);
+
+  // ── E4.3: Fetch matching modification rules via RPC ────────────
+  // Determine RPC `door` param (must be lowercase 'framed' or 'frameless')
+  const doorParam = (ctype || '').toLowerCase();
+  if (doorParam !== 'framed' && doorParam !== 'frameless') {
+    console.warn('[E4.3] Unknown construction type for SKU', item.sku_code,
+                 '— cannot match modifications. ctype was:', ctype);
+    // Modal stays open; user can still Skip/Cancel/Save. rules stay [].
+    return;
+  }
+
+  const roleRaw = (dealer && dealer.role) || '';
+  const role    = roleRaw.toLowerCase();
+  console.log('[E4.3]   door=' + doorParam +
+              ', type=' + (item.skuType || '') +
+              ', category=' + (item.category || '') +
+              ', subcategory=' + (item.subcategory || '') +
+              ', role=' + role);
+
+  try {
+    const { data: rules, error } = await _supabase.rpc('match_modifications_for_sku', {
+      p_door:        doorParam,
+      p_type:        item.skuType    || '',
+      p_category:    item.category   || '',
+      p_subcategory: item.subcategory || ''
+    });
+
+    if (error) {
+      console.error('[E4.3] RPC error:', error);
+      showToast('Failed to load modifications — you can still Skip or Save');
+      // Modal stays open; rules stay [].
+      return;
+    }
+
+    // Defensive: ensure stale RPC response doesn't overwrite a newer modal
+    if (activeMfModalKey !== key) {
+      console.log('[E4.3] RPC response stale (modal switched); ignoring.');
+      return;
+    }
+
+    const rawRules = rules || [];
+    console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
+
+    // Role filter — case-insensitive (works whether DB stores 'dealer' or 'Dealer')
+    const filtered = rawRules.filter(function (r) {
+      if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
+      return r.allowed_roles.some(function (ar) {
+        return (ar || '').toLowerCase() === role;
+      });
+    });
+
+    activeMfModalRules = filtered;
+
+    console.log('[E4.3]   After role filter: ' + filtered.length + ' rule(s)');
+    console.log('[E4.3]   Rules:', filtered);
+  } catch (e) {
+    console.error('[E4.3] Unexpected error calling RPC:', e);
+    showToast('Failed to load modifications — you can still Skip or Save');
+    // Modal stays open; rules stay [].
+  }
 }
 
 function closeMfModal() {
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
   activeMfModalKey = null;
+  activeMfModalRules = [];
   console.log('[E3] closeMfModal (Cancel / × — no status change)');
 }
 
@@ -1482,6 +1556,7 @@ function closeMfModalSilent() {
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
   activeMfModalKey = null;
+  activeMfModalRules = [];
 }
 
 // Internal helper: re-run progress calc + re-render main page after modal action.
@@ -1644,6 +1719,7 @@ async function init() {
 
   console.log('[E1.2] init() complete');
   console.log('[E1.2] dealer:', dealer);
+  console.log('[E1.2] dealer.role:', dealer && dealer.role);
   console.log('[E1.2] draftId:', draftId);
   console.log('[E1.2] isResumingReturned:', isResumingReturned);
   console.log('[E1.2] allDoorStyles count:', allDoorStyles.length);
@@ -1666,6 +1742,7 @@ async function init() {
   console.log('[E1.7] bottom bar rendered, Review button enabled:', !document.getElementById('btnNext').disabled);
   console.log('[E1.9] goReview() wired up');
   console.log('[E3] Layer 2 modal shell ready (openMfModal / closeMfModal / handleMfSave / handleMfSkip)');
+  console.log('[E4.3] RPC integration ready — click an Assembled SKU to see matched rules in console');
 
   setInterval(async function () {
     const { data: check } = await _supabase
