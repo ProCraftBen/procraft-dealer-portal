@@ -1533,9 +1533,21 @@ function goReview() {
 
 // ═══════════════════════════════════════════════════════════════════
 // ║                                                                 ║
-// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7: Layer 2 Modal           ║
+// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7 + F3.1: Layer 2 Modal    ║
 // ║                                                                 ║
-// ║  E4.7 (this stage — re-hydrate + Option B):                     ║
+// ║  F3.1 (this stage — bypass RLS to fetch admin-only rules):      ║
+// ║    • RLS on modification_assignments hides admin-only rules     ║
+// ║      from dealers. RPC match_modifications_for_sku respects     ║
+// ║      RLS, so dealers cannot see e.g. MF07 even when they have   ║
+// ║      saved data for it.                                         ║
+// ║    • Solution: after RPC returns, if dealer + saved data        ║
+// ║      references mf_codes NOT in the RPC result, fetch those     ║
+// ║      rules via the SECURITY DEFINER RPC                         ║
+// ║      get_modification_rules_by_codes (which bypasses RLS).      ║
+// ║    • Fetched rules are appended to `filtered` so Option B's     ║
+// ║      read-only render path can trigger.                         ║
+// ║                                                                 ║
+// ║  E4.7 (prior — re-hydrate + Option B):                          ║
 // ║    • openMfModal builds savedByIdx from item.modifications      ║
 // ║    • renderMfElements passes saved value as 3rd arg to create() ║
 // ║    • Pre-populates activeMfLiveValues so running total is       ║
@@ -1545,9 +1557,8 @@ function goReview() {
 // ║       preserves the value through Save)                         ║
 // ║    • Dealer Skip still clears ALL modifications (decided 5/10)  ║
 // ║                                                                 ║
-// ║  NOT in E4.7:                                                   ║
+// ║  NOT in F3.1:                                                   ║
 // ║    • Validate on Save (required check) → E7                     ║
-// ║    • DB persistence of modifications    → Stage F                ║
 // ║                                                                 ║
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1624,31 +1635,13 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry) {
   const savedValue = savedEntry.value;
   const savedCost  = (typeof savedEntry.cost === 'number') ? savedEntry.cost : 0;
 
-  // Q3 rule: If MF07 has no description, hide the row entirely
-  // (for MF07 specifically — other admin-only MF codes hypothetically
-  // could land here too but the rule was scoped to MF07 in design talk.
-  // For safety, apply the same "must have description" rule to any
-  // MF code with a `.description` field.)
+  // Q3 rule: If MF07 has no description, hide the row entirely but
+  // preserve the data via a virtual instance (no DOM, just registered).
   if (mfCode === 'MF07') {
     const desc = extractMf07Description(savedValue);
     if (!desc.trim()) {
       console.log('[E4.7] Skipping read-only ' + mfCode +
                   ' (rule_idx=' + idx + '): empty description');
-      // Still register virtual instance so Save preserves it — even
-      // hidden, admin's choice to add (even empty-description) stays.
-      // Wait — that would mean dealer can never see *why* it's there.
-      // Decision: if no description, drop the modification entirely
-      // on dealer re-save. Admin can see it in their own re-hydrate.
-      // → DO NOT register virtual instance.
-      // → Net effect: dealer's Save will silently drop this MF07.
-      //   That's actually a problem (silent data loss).
-      //
-      // Reconciling with Q3 ("if there's a description, show it"):
-      // The contrapositive isn't "if there's no description, lose it".
-      // We should preserve the data but just not display it.
-      //
-      // Final approach: register virtual instance (preserves data),
-      // do NOT render any DOM (hidden from dealer).
       activeMfInstances.push({
         rule_idx:      idx,
         mf_code:       mfCode,
@@ -2058,20 +2051,6 @@ async function openMfModal(key) {
 
       // E4.7: If dealer is viewing this SKU AND there's saved data
       // for this rule, keep it so we can render read-only.
-      // We don't know which index this rule will have after filter,
-      // so just check by rule equality via mf_code + display_label.
-      // Simpler approach: keep all rules whose mf_code+display_label
-      // match any saved entry. We'll rely on rule_idx in the rendered
-      // list to match savedByIdx (which uses the original saved
-      // rule_idx). Since savedByIdx is keyed by the ORIGINAL idx at
-      // save-time, and rule_idx in renderMfElements is the NEW idx
-      // in the filtered list, we need to keep the saved rule_idx
-      // semantics aligned.
-      //
-      // To keep this simple and correct, we use the saved entry's
-      // mf_code + display_label to identify "this is the admin rule
-      // dealer saved before". Then re-key savedByIdx on the fly so
-      // it lines up with the new filtered idx.
       if (role === 'dealer') {
         const matchedSaved = Object.values(savedByIdx).some(function (s) {
           return s.mf_code === r.mf_code
@@ -2083,11 +2062,68 @@ async function openMfModal(key) {
       return false;
     });
 
+    // ────────────────────────────────────────────────────────────────
+    // F3.1: Fetch admin-only rules dealer cannot see via RLS.
+    //
+    // RLS on modification_assignments blocks dealers from seeing rules
+    // where 'dealer' is not in allowed_roles. The main RPC
+    // (match_modifications_for_sku) respects RLS, so admin-only rules
+    // are missing from `rawRules` entirely for dealer callers.
+    //
+    // Use SECURITY DEFINER RPC get_modification_rules_by_codes to
+    // fetch by mf_code (bypasses RLS) ONLY for codes the dealer has
+    // saved data for. Append results to `filtered`.
+    // ────────────────────────────────────────────────────────────────
+    if (role === 'dealer' && savedCount > 0) {
+      const filteredMfCodes = new Set(filtered.map(function (r) { return r.mf_code; }));
+      const missingMfCodes = [];
+      Object.values(savedByIdx).forEach(function (s) {
+        if (s && s.mf_code && !filteredMfCodes.has(s.mf_code)
+            && missingMfCodes.indexOf(s.mf_code) === -1) {
+          missingMfCodes.push(s.mf_code);
+        }
+      });
+
+      if (missingMfCodes.length) {
+        console.log('[F3.1]   Fetching admin-only rules dealer cannot see via RLS:',
+                    missingMfCodes);
+        try {
+          const { data: extraRules, error: extraErr } = await _supabase.rpc(
+            'get_modification_rules_by_codes',
+            {
+              p_mf_codes:    missingMfCodes,
+              p_door:        doorParam,
+              p_type:        item.skuType    || '',
+              p_category:    item.category   || '',
+              p_subcategory: item.subcategory || ''
+            }
+          );
+
+          // Stale-response guard (modal switched while awaiting)
+          if (activeMfModalKey !== key) {
+            console.log('[F3.1]   Stale (modal switched); ignoring.');
+            return;
+          }
+
+          if (extraErr) {
+            console.warn('[F3.1]   Failed to fetch admin-only rules:', extraErr);
+          } else if (extraRules && extraRules.length) {
+            console.log('[F3.1]   Got ' + extraRules.length +
+                        ' admin-only rule(s):', extraRules);
+            extraRules.forEach(function (r) { filtered.push(r); });
+          } else {
+            console.log('[F3.1]   No admin-only rules returned.');
+          }
+        } catch (e) {
+          console.warn('[F3.1]   Unexpected error fetching admin-only rules:', e);
+        }
+      }
+    }
+
     // E4.7: Re-key savedByIdx so its keys match the rule_idx that
     // renderMfElements will assign (= position in filtered array).
     const reKeyed = {};
     filtered.forEach(function (r, newIdx) {
-      // Find a saved entry whose mf_code+display_label matches this rule
       const match = Object.values(savedByIdx).find(function (s) {
         return s.mf_code === r.mf_code
             && (s.display_label || '') === (r.display_label || '');
@@ -2347,7 +2383,7 @@ async function init() {
   console.log('[E1.2] cartItems:', cartItems);
 
   logDoorStyleGroups(doorStyleGroups);
-  console.log('[E4.7] Re-hydrate + Option B (read-only admin MF07) ready');
+  console.log('[F3.1] Re-hydrate + Option B (read-only admin MF07, RLS-aware) ready');
 
   setInterval(async function () {
     const { data: check } = await _supabase
