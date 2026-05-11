@@ -1,10 +1,26 @@
 /**
- * MF01 — Skin Dropdown  (E4.1: factory pattern)
+ * MF01 — Skin Dropdown  (E4.1: factory pattern; F6: No Skin option)
  * ============================================================
- * Modification 元件:三選一 dropdown(Left/Right/Both),Both 倍率 ×2
+ * Modification 元件:四選一 dropdown(No Skin / Left / Right / Both),Both 倍率 ×2
  * 業務範例:Attach Per Skin (Standard Cabinet / Tall Cabinet)
  *
  * 結構上 = MF05 (pure dropdown) + multiplier 倍率邏輯
+ *
+ * F6 變更 (2026/5/11):
+ *   ✅ 新增第四個選項 "No Skin" (value: "none", cost: 0)
+ *   ✅ "No Skin" 設為預設值 (open modal 即為 "none")
+ *   ✅ validate(): "none" 視為合法選擇 (不再 require 主動選擇)
+ *   ✅ calculateCost(): "none" 永遠回傳 0
+ *   ✅ 移除原本的 -- Please select -- placeholder
+ *
+ * 業務語意:
+ *   "none"       → dealer 主動決定不貼 skin (寫入 modifications array)
+ *   "left/right" → 單側貼,base_cost * 1
+ *   "both"       → 兩側貼,base_cost * 2 (預設)
+ *
+ *   "none" 與 modal Skip 的差別:
+ *     "none" = dealer 進入 modal 並決定不貼 (modification_status: configured)
+ *     Skip   = dealer 完全跳過該 SKU (modification_status: skipped, modifications: [])
  *
  * E4.1 變更:
  *   ❌ 舊:window.MF.MF01.render(container, mf_params, value)  (單例)
@@ -17,7 +33,7 @@
  *   create(container, mf_params, current_value) → instance
  *
  *   instance:
- *     getValue()       → "left" | "right" | "both" | null
+ *     getValue()       → "none" | "left" | "right" | "both"
  *     validate()       → { valid, errors }
  *     calculateCost()  → number
  *     destroy()        → void
@@ -33,26 +49,27 @@
  *     _base_cost: number,           // 主頁面注入的 base cost
  *     _display_label?: string       // 顯示在 dropdown 上方的標題(主頁面注入)
  *   }
+ *   (No Skin label 為前端 hardcode,不從 mf_params 讀)
  *
  * current_value 結構:
- *   "left" | "right" | "both" → 已選擇的選項代碼
- *   null → 未選擇(預設)
- *
- * 規格議題 3:強制主動選擇,不設預設值
- * 共通規則:未選擇時 validate 失敗
+ *   "none" | "left" | "right" | "both" → 已選擇的選項代碼
+ *   null / undefined / 其他 → 預設為 "none"
  *
  * 對外通知:
  *   container.dispatchEvent(new CustomEvent('mf-change', {
  *     detail: { mf_code, value, cost }
  *   }))
- *   value 是 "left" / "right" / "both" / null
+ *   value 是 "none" / "left" / "right" / "both"
  * ============================================================
  */
 (function () {
   'use strict';
 
-  // 內部選項代碼(穩定,不隨 label 變動)
-  const OPTION_CODES = ['left', 'right', 'both'];
+  // F6: 內部選項代碼,加入 "none"
+  const OPTION_CODES = ['none', 'left', 'right', 'both'];
+
+  // F6: No Skin 顯示文字 (前端 hardcode)
+  const NO_SKIN_LABEL = 'No Skin';
 
   // 預設 multiplier
   const DEFAULT_MULTIPLIER_LEFT = 1;
@@ -63,7 +80,7 @@
    * Factory:建立一個 MF01 實例
    * @param {HTMLElement} container
    * @param {Object} mf_params
-   * @param {string|null} current_value - "left" | "right" | "both" | null
+   * @param {string|null} current_value - "none" | "left" | "right" | "both" | null
    * @returns {Object} instance
    */
   function create(container, mf_params, current_value) {
@@ -71,15 +88,17 @@
     const state = {
       container: container,
       mf_params: mf_params || {},
-      current_value: null,
+      current_value: 'none', // F6: 預設 No Skin
       cost: 0,
       select: null
     };
 
-    // 解析 current_value
+    // F6: 解析 current_value
+    //   有效 value 直接使用;null/undefined/無效值都 fallback 到 "none"
     if (typeof current_value === 'string' && OPTION_CODES.includes(current_value)) {
       state.current_value = current_value;
     }
+    // 否則維持預設 "none"
 
     // base cost 由主頁面注入
     state.cost = (typeof state.mf_params._base_cost === 'number') ? state.mf_params._base_cost : 0;
@@ -112,10 +131,10 @@
       const costRight = state.cost * multRight;
       const costBoth = state.cost * multBoth;
 
-      // 組 dropdown options
-      const placeholderOption = `
-        <option value="" ${state.current_value === null ? 'selected' : ''} disabled>
-          -- Please select --
+      // F6: No Skin 選項 (預設,放第一個,永遠 cost=0)
+      const optionNoneHTML = `
+        <option value="none" ${state.current_value === 'none' ? 'selected' : ''}>
+          ${NO_SKIN_LABEL}
         </option>
       `;
 
@@ -168,7 +187,7 @@
             onfocus="this.style.borderColor='#3e5a42'"
             onblur="this.style.borderColor='#c5a059'"
           >
-            ${placeholderOption}
+            ${optionNoneHTML}
             ${optionLeftHTML}
             ${optionRightHTML}
             ${optionBothHTML}
@@ -182,7 +201,8 @@
 
     function onChange(e) {
       const value = e.target.value;
-      state.current_value = (value === '') ? null : value;
+      // F6: 不再可能是空字串 (placeholder 已移除),但保留 fallback 安全網
+      state.current_value = OPTION_CODES.includes(value) ? value : 'none';
 
       // 重繪 UI(因為上方 cost 標示要更新)
       drawUI();
@@ -201,12 +221,12 @@
       return state.current_value;
     }
 
+    // F6: "none" 視為合法,validate 永遠通過
+    //   (原本要求 dealer 主動選擇,現在 No Skin 是預設合法選項)
     function validate() {
       const errors = [];
 
-      if (state.current_value === null) {
-        errors.push('Please select a skin option.');
-      } else if (!OPTION_CODES.includes(state.current_value)) {
+      if (!OPTION_CODES.includes(state.current_value)) {
         errors.push(`Invalid skin selection: "${state.current_value}".`);
       }
 
@@ -217,7 +237,8 @@
     }
 
     function calculateCost() {
-      if (state.current_value === null) return 0;
+      // F6: "none" 永遠 cost=0
+      if (state.current_value === 'none') return 0;
 
       const params = state.mf_params;
       let multiplier;
