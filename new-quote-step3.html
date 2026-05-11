@@ -20,11 +20,9 @@
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
-    /* ── Page ── */
-    .page { max-width: 780px; margin: 0 auto; padding: 28px 20px 100px; }
+    .page { max-width: 920px; margin: 0 auto; padding: 28px 20px 100px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); margin-bottom: 24px; }
 
-    /* ── Returned Revising Banner ── */
     .returned-revising-banner {
       background: rgba(224,123,57,0.07);
       border: 1px solid rgba(224,123,57,0.3);
@@ -44,9 +42,7 @@
       display: flex; align-items: center; justify-content: center;
       margin-top: 2px;
     }
-    .returned-revising-banner .rrb-icon-wrap svg {
-      width: 16px; height: 16px; fill: #E07B39;
-    }
+    .returned-revising-banner .rrb-icon-wrap svg { width: 16px; height: 16px; fill: #E07B39; }
     .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
     .returned-revising-banner .rrb-title {
       font-size: 11px; font-weight: 600;
@@ -54,45 +50,35 @@
       color: #E07B39;
       margin-bottom: 4px;
     }
-    .returned-revising-banner .rrb-msg {
-      font-size: 13px;
-      color: #2C3A32;
-      line-height: 1.55;
-    }
+    .returned-revising-banner .rrb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
     .returned-revising-banner .rrb-msg strong { color: #E07B39; }
 
-    /* ── Card ── */
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .card-body { padding: 18px 20px; }
 
-    /* ── Info Grid ── */
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
-    .info-item {}
     .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .info-value { font-size: 13px; color: var(--text); line-height: 1.5; }
-    .info-value.empty { color: var(--muted); font-style: italic; }
 
-    /* ── Items Table ── */
     .items-table { width: 100%; border-collapse: collapse; }
-    .items-table thead th { padding: 9px 14px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; }
+    .items-table thead th { padding: 9px 10px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
     .items-table thead th.th-right { text-align: right; }
-    .items-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    .items-table tbody tr { border-bottom: 1px solid var(--border); }
     .items-table tbody tr:last-child { border-bottom: none; }
-    .items-table td { padding: 10px 14px; font-size: 13px; vertical-align: middle; }
+    .items-table td { padding: 10px 10px; font-size: 13px; vertical-align: top; }
     .td-style { font-weight: 500; color: var(--green-dark); }
-    .td-sku { color: var(--muted); font-size: 12px; }
-    .td-type { }
-    .td-type .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; letter-spacing: 0.05em; }
+    .td-sku { color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .td-desc { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .td-desc .desc-main { color: var(--text); font-size: 12px; margin-bottom: 4px; }
+    .td-type .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
     .td-type .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
     .td-type .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
     .td-right { text-align: right; }
     .td-total { font-weight: 500; }
 
-    /* ── E5: sub-group row styling ── */
-    /* Continuation rows (Sub 2+) get a subtle left rail to show grouping */
     .items-table tbody tr.sub-continuation {
       border-top: 1px dashed rgba(201,168,76,0.25);
     }
@@ -107,9 +93,9 @@
       background: rgba(201,168,76,0.10);
       padding: 1px 6px;
       border-radius: 2px;
-      margin-left: 4px;
-      vertical-align: middle;
+      margin-top: 4px;
     }
+
     .mods-list {
       margin-top: 6px;
       padding: 6px 0 0;
@@ -118,21 +104,14 @@
     .mods-list .mod-line {
       font-size: 11px;
       color: var(--green-dark);
-      line-height: 1.45;
+      line-height: 1.5;
       padding: 1px 0;
     }
-    .mods-list .mod-line .mod-bullet {
-      color: var(--gold);
-      margin-right: 4px;
-    }
-    .mods-list .mod-line .mod-cost {
-      color: #8B6914;
-      font-weight: 500;
-    }
-    .mods-list .mod-empty {
-      font-size: 11px;
-      color: var(--muted);
+    .mods-list .mod-line .mod-bullet { color: var(--gold); margin-right: 4px; }
+    .mods-list .mod-line .mod-note-ref {
+      color: #E07B39;
       font-style: italic;
+      font-size: 11px;
     }
     .mods-list .mod-status-skipped,
     .mods-list .mod-status-unprocessed {
@@ -141,7 +120,80 @@
       font-style: italic;
     }
 
-    /* ── Totals ── */
+    .td-modfee { color: #8B6914; font-weight: 500; }
+
+    /* Notes table for MF06 / MF07 / long values */
+    .notes-table-wrap {
+      margin: 14px 20px 0;
+      padding: 14px 16px;
+      background: rgba(224,123,57,0.04);
+      border: 1px solid rgba(224,123,57,0.2);
+      border-radius: 4px;
+    }
+    .notes-table-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notes-table-title svg { width: 14px; height: 14px; fill: #E07B39; }
+    .notes-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid rgba(224,123,57,0.25);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .notes-table thead th {
+      padding: 7px 10px;
+      background: rgba(224,123,57,0.08);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #8B6914;
+      text-align: left;
+      border-bottom: 1px solid rgba(224,123,57,0.2);
+    }
+    .notes-table tbody td {
+      padding: 9px 10px;
+      font-size: 12px;
+      color: var(--text);
+      vertical-align: top;
+      border-bottom: 1px solid rgba(224,123,57,0.12);
+      line-height: 1.5;
+    }
+    .notes-table tbody tr:last-child td { border-bottom: none; }
+    .notes-table .note-num {
+      font-weight: 600;
+      color: #E07B39;
+      white-space: nowrap;
+      width: 40px;
+    }
+    .notes-table .note-item {
+      color: var(--green-dark);
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .notes-table .note-mf {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .notes-table .note-content {
+      color: var(--text);
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .totals-section { padding: 0 20px 18px; }
     .total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
     .total-row:last-child { border-bottom: none; }
@@ -151,10 +203,8 @@
     .total-row.grand .total-label { font-size: 14px; font-weight: 500; color: var(--green-dark); }
     .total-row.grand .total-value { font-size: 16px; font-weight: 500; color: var(--green-dark); }
     .total-note { font-size: 10px; color: var(--muted); margin-top: 2px; }
-    .free-shipping { color: var(--green-mid); font-size: 11px; }
     .tax-exempt { color: var(--green-mid); font-size: 11px; }
 
-    /* C1: pending shipping highlight (TBD on Step 3) */
     .total-value.tbd { color: #E07B39; font-weight: 600; }
     .pending-grand-note {
       font-size: 11px;
@@ -164,11 +214,9 @@
       padding: 6px 0 0;
     }
 
-    /* ── Edit Button ── */
     .btn-edit { font-size: 11px; color: var(--gold); background: none; border: none; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.2s; text-decoration: none; }
     .btn-edit:hover { opacity: 0.7; }
 
-    /* ── Notes ── */
     .notes-display { font-size: 13px; color: var(--text); line-height: 1.6; font-style: italic; }
 
     .btn-back { background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; min-height: 40px; text-decoration: none; display: inline-flex; align-items: center; }
@@ -190,7 +238,6 @@
     .btn-submit.loading .btn-text { display: none; }
     .btn-submit.loading .spinner { display: block; }
 
-    /* ── Draft banner ── */
     .draft-banner {
       background: rgba(201,168,76,0.1);
       border: 1px solid rgba(201,168,76,0.35);
@@ -205,7 +252,6 @@
     }
     .draft-banner svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
 
-    /* ── Save Draft Button ── */
     .btn-draft {
       display: inline-flex; align-items: center; gap: 7px;
       background: transparent; color: var(--gold);
@@ -221,15 +267,12 @@
     .btn-draft.loading .draft-spinner { display: block; }
     .draft-spinner { width: 14px; height: 14px; border: 2px solid rgba(201,168,76,0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
 
-    /* ── Success overlay gold variant ── */
     .success-icon.gold { background: rgba(201,168,76,0.15); border: 2px solid var(--gold); }
     .success-icon.gold svg { stroke: var(--gold); }
 
-    /* ── Error ── */
     .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 12px 16px; font-size: 12px; color: var(--error); margin-bottom: 16px; display: none; }
     .error-msg.show { display: block; }
 
-    /* ── Success Overlay ── */
     .success-overlay {
       position: fixed; inset: 0; background: var(--cream);
       z-index: 500; display: none;
@@ -245,7 +288,6 @@
     .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
     .btn-dashboard:hover { background: var(--green-mid); }
 
-    /* ── Progress Overlay (during submit) ── */
     .progress-overlay {
       position: fixed; inset: 0;
       background: rgba(253, 251, 247, 0.97);
@@ -276,7 +318,6 @@
       letter-spacing: 0.06em;
       margin-bottom: 24px;
       min-height: 20px;
-      transition: opacity 0.2s;
     }
     .progress-msg {
       font-size: 12px;
@@ -284,20 +325,18 @@
       line-height: 1.7;
       max-width: 360px;
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
-<!-- Quote Flow Header -->
 <div id="pcd-quote-flow-header" data-step="4"></div>
 
 <div class="page">
   <div class="page-title">Review Your Quote</div>
 
-  <!-- Returned Banner mount point (populated by JS if applicable) -->
   <div id="returnedBannerMount"></div>
 
-  <!-- Draft banner -->
   <div class="draft-banner" id="draftBanner" style="display:none;">
     <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     <span id="draftBannerText">You are editing a saved draft. You can save again or submit when ready.</span>
@@ -305,7 +344,6 @@
 
   <div class="error-msg" id="errorMsg"></div>
 
-  <!-- Order Info -->
   <div class="card">
     <div class="card-header">
       <span class="card-title">Order Information</span>
@@ -333,7 +371,6 @@
     </div>
   </div>
 
-  <!-- Shipping Address -->
   <div class="card">
     <div class="card-header">
       <span class="card-title">Shipping Address</span>
@@ -344,15 +381,12 @@
     </div>
   </div>
 
-  <!-- Items -->
   <div class="card">
     <div class="card-header">
       <span class="card-title">Items</span>
-      <!-- F4.1: Edit ✎ now points to Step 2.5 (Modifications) instead of Step 2 -->
       <a id="editStep2Link" href="new-quote-modifications.html" class="btn-edit">Edit ✎</a>
     </div>
 
-    <!-- Markup Feature -->
     <div style="background:#FAFAF8;border:1px solid var(--border);border-radius:4px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
       <div>
         <div style="font-size:9px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">PDF Markup</div>
@@ -376,10 +410,12 @@
             <th>#</th>
             <th>Door Style</th>
             <th>SKU</th>
+            <th>Description</th>
             <th>Type</th>
             <th>Assemble Status</th>
             <th class="th-right">Qty</th>
             <th class="th-right">Unit Price</th>
+            <th class="th-right">Mod Fee</th>
             <th class="th-right">Assemble Fee</th>
             <th class="th-right">Total</th>
           </tr>
@@ -387,13 +423,14 @@
         <tbody id="itemsTableBody"></tbody>
       </table>
     </div>
-    <!-- Totals -->
+
+    <div id="notesTableMount"></div>
+
     <div class="totals-section">
       <div class="total-row">
         <span class="total-label">Subtotal</span>
         <span class="total-value" id="totalSubtotal">$0.00</span>
       </div>
-      <!-- F4.1: Modifications subtotal row -->
       <div class="total-row" id="modsRow" style="display:none;">
         <span class="total-label">Modifications</span>
         <span class="total-value" id="totalMods" style="color:#8B6914;">+$0.00</span>
@@ -423,14 +460,12 @@
         <span class="total-label">Order Total</span>
         <span class="total-value" id="totalGrand">$0.00</span>
       </div>
-      <!-- C1: pending shipping note shown only when shipping is TBD -->
       <div class="pending-grand-note" id="pendingGrandNote" style="display:none;">
         * Shipping fee pending — final total will be confirmed by Sales
       </div>
     </div>
   </div>
 
-  <!-- Notes -->
   <div class="card" id="notesCard" style="display:none;">
     <div class="card-header"><span class="card-title">Notes</span></div>
     <div class="card-body">
@@ -438,7 +473,6 @@
     </div>
   </div>
 
-  <!-- Submit -->
   <div class="submit-card">
     <div class="submit-note" id="submitNote">
       Please review your quote carefully before submitting.<br>
@@ -460,12 +494,10 @@
 
 </div>
 
-<!-- Bottom Bar -->
 <div class="bottom-bar">
   <a id="backToStep2" href="new-quote-modifications.html" class="btn-back">← Back to Modifications</a>
 </div>
 
-<!-- Progress Overlay — During Submit -->
 <div class="progress-overlay" id="progressOverlay">
   <div class="progress-spinner"></div>
   <div class="progress-title" id="progressTitle">Submitting Your Quote</div>
@@ -476,7 +508,6 @@
   </div>
 </div>
 
-<!-- Success Overlay — Submit -->
 <div class="success-overlay" id="successOverlay">
   <div class="success-icon">
     <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
@@ -493,7 +524,6 @@
   </button>
 </div>
 
-<!-- Success Overlay — Save Draft -->
 <div class="success-overlay" id="draftOverlay">
   <div class="success-icon gold">
     <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -527,18 +557,35 @@ let step2Data = null;
 let shippingAddress = null;
 let draftId   = null;
 
-// ── 5.4-C: Returned-revision state ──
 let _isResumingReturned     = false;
 let _currentRevisionNumber  = 1;
-let _existingPoNumber       = null;     // for resubmit: keep original PO#
-let _isAdminContext         = false;    // adminDraft OR isResumingReturned + admin role
+let _existingPoNumber       = null;
+let _isAdminContext         = false;
 
-// ── C1: Existing quote shipping snapshot (for resubmit decision tree) ──
 let _existingLogisticType = null;
 let _existingShippingCost = null;
 let _existingSubtotal     = null;
 
-// ── Returned Banner builder (Step 3, with role-specific message) ──
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2 — Notes table configuration
+// ─────────────────────────────────────────────────────────────────────────────
+// MF codes that ALWAYS go to Notes table (free-text / complex schema mods).
+// Add new MF codes here as they are introduced.
+const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
+// Fallback safety net: if a mod's formatted value exceeds this length, send it
+// to the Notes table regardless of MF code, so an un-whitelisted long value
+// won't blow out the Items table layout.
+const NOTES_TABLE_FALLBACK_LENGTH = 40;
+
+function shouldUseNotesTable(mod) {
+  if (!mod) return false;
+  const code = (mod.mf_code || '').toUpperCase();
+  if (MF_USE_NOTES_TABLE.indexOf(code) !== -1) return true;
+  const valStr = formatModValue(mod.value);
+  if (valStr && valStr.length > NOTES_TABLE_FALLBACK_LENGTH) return true;
+  return false;
+}
+
 function buildReturnedBannerStep3(roleMsg) {
   return `
     <div class="returned-revising-banner">
@@ -552,14 +599,6 @@ function buildReturnedBannerStep3(roleMsg) {
     </div>`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// F4.1 — sub_groups helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Normalize an item's sub_groups. Legacy fallback synthesizes a single sub-group
- * from item-level fields (matches buildItemsPayload's behavior).
- */
 function getNormalizedSubGroups(item) {
   if (Array.isArray(item.sub_groups) && item.sub_groups.length) {
     return item.sub_groups;
@@ -575,10 +614,6 @@ function getNormalizedSubGroups(item) {
   }];
 }
 
-/**
- * Per-sub modification cost (sum of mod.cost for that sub-group).
- * This is per-unit-of-sub; line cost = perSubCost × sub.qty.
- */
 function calcPerSubModCost(sub) {
   const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
   return mods.reduce(function (s, m) {
@@ -587,11 +622,6 @@ function calcPerSubModCost(sub) {
   }, 0);
 }
 
-/**
- * Total Modifications cost across all items.
- * Formula: Σ over items, Σ over sub_groups of (perSubModCost × sub.qty)
- * NOT affected by markup.
- */
 function calcTotalModsCost(items) {
   let total = 0;
   items.forEach(function (item) {
@@ -605,51 +635,22 @@ function calcTotalModsCost(items) {
   return total;
 }
 
-/**
- * Render the per-sub modifications block inside the SKU description cell.
- * Shows: ◆ <Label>: <value> ($cost/ea × qty = +$total)
- * For sub-groups with no mods, shows a status hint (Skipped / Pending).
- */
-function renderModsBlock(sub) {
-  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
-  const status = sub.modification_status || 'unprocessed';
-  const subQty = parseInt(sub.qty, 10) || 0;
-
-  if (!mods.length) {
-    if (status === 'skipped') {
-      return `<div class="mods-list"><span class="mod-status-skipped">— No modifications</span></div>`;
-    }
-    if (status === 'configured') {
-      return `<div class="mods-list"><span class="mod-status-skipped">— No modifications</span></div>`;
-    }
-    return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
-  }
-
-  const lines = mods.map(function (m) {
-    const label = m.display_label || m.mf_code || 'Modification';
-    const value = formatModValue(m.value);
-    const cost  = parseFloat(m.cost) || 0;
-    const line  = cost * subQty;
-    const costStr = cost > 0
-      ? `<span class="mod-cost">($${cost.toFixed(2)}/ea × ${subQty} = +$${line.toFixed(2)})</span>`
-      : '<span class="mod-cost">(no charge)</span>';
-    const valStr = value ? `: ${escapeHtml(value)}` : '';
-    return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}${valStr} ${costStr}</div>`;
-  });
-
-  return `<div class="mods-list">${lines.join('')}</div>`;
-}
-
+// Format mod value: handles MF01 (string), MF07 ({selected, description, ...}), MF06 (free text), etc.
 function formatModValue(v) {
   if (v == null) return '';
   if (typeof v === 'string')  return v;
   if (typeof v === 'number')  return String(v);
   if (typeof v === 'boolean') return v ? 'Yes' : 'No';
   if (typeof v === 'object') {
-    // MF04/MF07-style: { enabled, description, ... }
-    if ('description' in v && v.description) return String(v.description);
-    if ('label' in v && v.label)             return String(v.label);
-    if ('value' in v && v.value != null)     return String(v.value);
+    const parts = [];
+    if ('selected' in v && v.selected) parts.push(String(v.selected));
+    else if ('label' in v && v.label)  parts.push(String(v.label));
+    else if ('value' in v && v.value != null) parts.push(String(v.value));
+
+    if ('description' in v && v.description) parts.push(String(v.description));
+    else if ('note' in v && v.note)          parts.push(String(v.note));
+
+    if (parts.length) return parts.join(' — ');
     try { return JSON.stringify(v); } catch (e) { return ''; }
   }
   return String(v);
@@ -665,9 +666,81 @@ function escapeHtml(s) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C1 — Shipping decision logic (unchanged from prior version)
+// F4.1 v2 — Render mods inside Description column (NO fees).
+// Mods that match shouldUseNotesTable() are rendered as [See note №N below]
+// and collected into notesCollector for the Notes table.
 // ─────────────────────────────────────────────────────────────────────────────
+function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  const status = sub.modification_status || 'unprocessed';
 
+  if (!mods.length) {
+    if (status === 'skipped' || status === 'configured') {
+      return `<div class="mods-list"><span class="mod-status-skipped">— No modifications</span></div>`;
+    }
+    return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
+  }
+
+  const lines = mods.map(function (m) {
+    const label = m.display_label || m.mf_code || 'Modification';
+    const useNotes = shouldUseNotesTable(m);
+
+    if (useNotes) {
+      notesIndex.counter += 1;
+      const noteNum = notesIndex.counter;
+      notesCollector.push({
+        num:        noteNum,
+        skuCode:    itemContext.sku_code,
+        subIndex:   sub.sub_index || 1,
+        subTotal:   itemContext.totalSubs,
+        mfCode:     m.mf_code || '',
+        label:      label,
+        content:    formatModValue(m.value) || '(no detail)',
+      });
+      return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
+    }
+
+    const value = formatModValue(m.value);
+    const valStr = value ? `: ${escapeHtml(value)}` : '';
+    return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}${valStr}</div>`;
+  });
+
+  return `<div class="mods-list">${lines.join('')}</div>`;
+}
+
+function renderNotesTable(notes) {
+  if (!notes.length) return '';
+  const rows = notes.map(function (n) {
+    const subSuffix = (n.subTotal > 1) ? ` (Sub ${n.subIndex}/${n.subTotal})` : '';
+    return `
+      <tr>
+        <td class="note-num">№${n.num}</td>
+        <td class="note-item">${escapeHtml(n.skuCode)}${escapeHtml(subSuffix)}</td>
+        <td class="note-mf">${escapeHtml(n.label)}${n.mfCode ? ` <span style="color:#bbb;">(${escapeHtml(n.mfCode)})</span>` : ''}</td>
+        <td class="note-content">${escapeHtml(n.content)}</td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="notes-table-wrap">
+      <div class="notes-table-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+        Modification Notes &amp; Custom Details
+      </div>
+      <table class="notes-table">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Item</th>
+            <th>Modification</th>
+            <th>Detail / Note</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// Shipping logic (unchanged)
 function getShippingBracket(subtotal) {
   if (subtotal == null) return null;
   if (subtotal <= 3000)  return 'tier1';
@@ -793,7 +866,6 @@ async function init() {
   if (draftId) {
     document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
     document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
-    // F4.1: Items Edit ✎ → Step 2.5 (Modifications)
     document.getElementById('editStep2Link').href     = 'new-quote-modifications.html?draft=' + draftId;
     document.getElementById('backToStep2').href       = 'new-quote-modifications.html?draft=' + draftId;
   }
@@ -848,7 +920,7 @@ function groupAndSort(data) {
   return grouped;
 }
 
-function calcAsmByType(data, markupPct = 0) {
+function calcAsmByType(data) {
   const byType = {};
   data.forEach(item => {
     if (item.type?.toLowerCase() !== 'assembled' || !item.assemble_fee) return;
@@ -874,8 +946,8 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F4.1 — Build item rows (shared by renderReview + updateMarkupPreview)
-// Each sub_group → 1 table row.
+// F4.1 v2 — Build item rows + collect notes for Notes table.
+// Returns { rowsHtml, notes } so caller can render the Notes table after.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemRowsHtml(markupPct) {
   markupPct = markupPct || 0;
@@ -884,6 +956,8 @@ function buildItemRowsHtml(markupPct) {
   let itemNum = 0;
   let lastStyle = null;
   const rows = [];
+  const notes = [];
+  const notesIndex = { counter: 0 };  // running note number across whole table
 
   Object.entries(grouped).forEach(function ([styleName, items]) {
     items.forEach(function (item) {
@@ -898,64 +972,72 @@ function buildItemRowsHtml(markupPct) {
         if (isFirstSub) lastStyle = styleName;
 
         const subQty = parseInt(sub.qty, 10) || 0;
-        const lineSkuTotal = markedUnitPrice * subQty;
-        const asmFeeTotal  = (item.assemble_fee || 0) * subQty;
+        const perSubModCost = calcPerSubModCost(sub);
+        const modFeeTotal   = perSubModCost * subQty;
+        const skuLineTotal  = markedUnitPrice * subQty;
+        const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
+        // F4.1 v2: Total INCLUDES Mod Fee (per spec — Q2 = A)
+        const lineTotal     = skuLineTotal + modFeeTotal;
 
-        // SKU cell content
-        let skuCellHtml;
-        if (isFirstSub) {
-          const splitTag = isSplit
-            ? `<span class="sub-label">Sub 1 of ${subs.length}</span>`
-            : '';
-          skuCellHtml = `
-            ${escapeHtml(item.sku_code)}${splitTag}
-            <br><span style="font-size:11px;color:var(--muted);">${escapeHtml(item.sku_desc || '')}</span>
-            ${renderModsBlock(sub)}
-          `;
-        } else {
-          skuCellHtml = `
-            ${escapeHtml(item.sku_code)}<span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>
-            ${renderModsBlock(sub)}
-          `;
-        }
+        // SKU column: code + sub label (no description here)
+        const subLabelHtml = isSplit
+          ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
+          : '';
+        const skuCellHtml = `${escapeHtml(item.sku_code)}${subLabelHtml}`;
 
-        // Type badge (only first sub shows the SKU type tag; continuation rows leave blank for visual grouping)
+        // Description column: desc + mods list (no fees)
+        const itemContext = {
+          sku_code:  item.sku_code,
+          totalSubs: subs.length,
+        };
+        const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
+        const descMainHtml  = item.sku_desc
+          ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>`
+          : '';
+        const descCellHtml = `${descMainHtml}${modsBlockHtml}`;
+
         const typeColHtml = isFirstSub && item.skuType
-          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${escapeHtml(item.skuType.toUpperCase())}</span>`
+          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(item.skuType.toUpperCase())}</span>`
           : '';
 
-        // Assemble status badge (only first sub)
         const assembleStatusHtml = isFirstSub
           ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(item.type)}</span>`
           : '';
 
         const trClass = isFirstSub ? '' : 'sub-continuation';
 
+        const modFeeCellHtml = modFeeTotal > 0
+          ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
+          : '<span style="color:var(--muted);">—</span>';
+
+        const asmFeeCellHtml = asmFeeTotal > 0
+          ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
+          : '<span style="color:var(--muted);">—</span>';
+
         rows.push(`
           <tr class="${trClass}">
             <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
             <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
             <td class="td-sku">${skuCellHtml}</td>
+            <td class="td-desc">${descCellHtml}</td>
             <td style="font-size:11px;">${typeColHtml}</td>
             <td class="td-type">${assembleStatusHtml}</td>
             <td class="td-right">${subQty}</td>
             <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
-            <td class="td-right" style="color:var(--muted);">${asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—'}</td>
-            <td class="td-right td-total">$${lineSkuTotal.toFixed(2)}</td>
+            <td class="td-right">${modFeeCellHtml}</td>
+            <td class="td-right">${asmFeeCellHtml}</td>
+            <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
           </tr>`);
       });
     });
   });
 
-  return rows.join('');
+  return { rowsHtml: rows.join(''), notes: notes };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// F4.1 — Apply totals to DOM (shared by renderReview + updateMarkupPreview)
-// ─────────────────────────────────────────────────────────────────────────────
 function applyTotals(opts) {
-  const skuSubtotal   = opts.skuSubtotal;        // Σ(unit_price × qty), may include markup
-  const modsSubtotal  = opts.modsSubtotal;       // Σ mods cost, no markup
+  const skuSubtotal   = opts.skuSubtotal;
+  const modsSubtotal  = opts.modsSubtotal;
   const assembleTotal = opts.assembleTotal;
   const showMarkupNote = !!opts.showMarkupNote;
   const markupPct      = opts.markupPct || 0;
@@ -965,7 +1047,6 @@ function applyTotals(opts) {
   const logisticType = step1Data?.logisticType || 'pickup';
   const deliveryFee  = parseFloat(step1Data?.deliveryFee || 0);
 
-  // Shipping is computed off taxableBase (SKU + Mods), since mods now count toward subtotal economics
   const previewShippingForDb = resolveShippingForDb({
     newLogistic:    logisticType,
     newSubtotal:    taxableBase,
@@ -1025,10 +1106,8 @@ function applyTotals(opts) {
   const tax   = taxableBase * taxRate;
   const grand = taxableBase + assembleTotal + shippingForTotal + tax;
 
-  // DOM updates
   document.getElementById('totalSubtotal').textContent = `$${skuSubtotal.toFixed(2)}`;
 
-  // Modifications row
   const modsRow = document.getElementById('modsRow');
   if (modsSubtotal > 0) {
     modsRow.style.display = 'flex';
@@ -1037,7 +1116,6 @@ function applyTotals(opts) {
     modsRow.style.display = 'none';
   }
 
-  // Assembly row
   if (assembleTotal > 0) {
     document.getElementById('assembleRow').style.display = 'block';
     document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
@@ -1047,7 +1125,6 @@ function applyTotals(opts) {
     document.getElementById('assembleRow').style.display = 'none';
   }
 
-  // Shipping
   const shipEl = document.getElementById('totalShipping');
   shipEl.textContent = shippingLabel;
   shipEl.classList.toggle('tbd', isPendingShipping);
@@ -1055,7 +1132,6 @@ function applyTotals(opts) {
     ? `<span style="color:#E07B39;font-size:11px;">${shippingNote}</span>`
     : `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
 
-  // Tax
   if (dealer?.tax_exempt) {
     document.getElementById('totalTax').textContent = '$0.00';
     document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
@@ -1067,7 +1143,6 @@ function applyTotals(opts) {
   document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
   document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
 
-  // Markup note
   let noteEl = document.getElementById('markupNote');
   if (showMarkupNote && markupPct > 0) {
     if (!noteEl) {
@@ -1113,10 +1188,10 @@ function renderReview() {
   const modsSubtotal  = calcTotalModsCost(step2Data);
   const assembleTotal = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
 
-  // Rows
-  document.getElementById('itemsTableBody').innerHTML = buildItemRowsHtml(0);
+  const result = buildItemRowsHtml(0);
+  document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
+  document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
 
-  // Totals
   applyTotals({
     skuSubtotal:    skuSubtotal,
     modsSubtotal:   modsSubtotal,
@@ -1126,9 +1201,6 @@ function renderReview() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// F2 + E5: buildItemsPayload — UNCHANGED (write-side, already correct)
-// ─────────────────────────────────────────────────────────────────────────────
 function buildItemsPayload(quoteId) {
   const rows = [];
 
@@ -1185,10 +1257,6 @@ async function resolveDealerId(session) {
   return session.user.id;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// F4.1 — buildQuoteDataForPdf now passes sub_groups + mods totals to PDF builder.
-// F4.2 will consume these in pdf-builder.js. For now they're already in the payload.
-// ─────────────────────────────────────────────────────────────────────────────
 function buildQuoteDataForPdf(opts) {
   opts = opts || {};
   const items = step2Data.map(function(i) {
@@ -1203,7 +1271,6 @@ function buildQuoteDataForPdf(opts) {
       unit_price:      i.unit_price,
       msrp:            i.msrp || null,
       assemble_fee:    i.assemble_fee || 0,
-      // F4.1: pass sub_groups through so pdf-builder.js (F4.2) can render mods
       sub_groups:      getNormalizedSubGroups(i),
     };
   });
@@ -1219,14 +1286,12 @@ function buildQuoteDataForPdf(opts) {
     items:         items,
     _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
     _taxExempt:  !!dealer?.tax_exempt,
-    // F4.1: mods subtotal exposed for PDF totals block
     modifications_total: parseFloat(modsSubtotalNow.toFixed(2)),
   };
 
   if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
     out.shipping_cost = opts.shippingCostOverride;
   } else {
-    // Shipping uses (SKU + Mods) as the basis, matching applyTotals
     const taxableBaseNow = skuSubtotalNow + modsSubtotalNow;
     out.shipping_cost = resolveShippingForDb({
       newLogistic:    out.logistic_type,
@@ -1539,22 +1604,21 @@ async function submitQuote() {
         },
         body: JSON.stringify({
           quote: {
-            id:               quoteId,
-            quote_number:     quoteNum,
-            po_number:        poNumber,
-            job_name:         step1Data.jobName,
-            logistic_type:    logisticType,
-            shipping_address: shippingAddressPayload,
-            assemble_total:   assembleTotal.toFixed(2),
-            subtotal:         skuSubtotal.toFixed(2),
-            // F4.1: mods totals exposed for email (F4.3 will render)
-            modifications_total: modsSubtotal.toFixed(2),
-            shipping_cost:    (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
-            shipping_pending: (shippingCostWrite === null),
-            tax_amount:       tax.toFixed(2),
-            grand_total:      grand.toFixed(2),
-            revision_number:  pdfRevisionNumber,
-            is_resubmit:      _isResumingReturned,
+            id:                   quoteId,
+            quote_number:         quoteNum,
+            po_number:            poNumber,
+            job_name:             step1Data.jobName,
+            logistic_type:        logisticType,
+            shipping_address:     shippingAddressPayload,
+            assemble_total:       assembleTotal.toFixed(2),
+            subtotal:             skuSubtotal.toFixed(2),
+            modifications_total:  modsSubtotal.toFixed(2),
+            shipping_cost:        (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
+            shipping_pending:     (shippingCostWrite === null),
+            tax_amount:           tax.toFixed(2),
+            grand_total:          grand.toFixed(2),
+            revision_number:      pdfRevisionNumber,
+            is_resubmit:          _isResumingReturned,
           },
           dealer: {
             company_name:           dealer.company_name,
@@ -1565,7 +1629,6 @@ async function submitQuote() {
             optional_email_2:       dealer.optional_email_2 || null,
             optional_email_2_notify: dealer.optional_email_2_notify || false,
           },
-          // F4.1: items payload now includes sub_groups for F4.3 email rendering
           items: step2Data.map(i => ({
             style_code:   i.style_code,
             style_name:   i.style_name || null,
@@ -1612,19 +1675,16 @@ async function submitQuote() {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// F4.1 — Markup preview now correctly handles sub_groups and excludes mods from markup
-// ─────────────────────────────────────────────────────────────────────────────
 function updateMarkupPreview() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
   if (!step2Data || !step2Data.length) return;
 
-  // Re-render rows with markup applied (unit price only)
-  document.getElementById('itemsTableBody').innerHTML = buildItemRowsHtml(markupPct);
+  const result = buildItemRowsHtml(markupPct);
+  document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
+  document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
 
-  // Recalculate totals
   const markedSkuSubtotal = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
-  const modsSubtotal      = calcTotalModsCost(step2Data);   // mods NOT marked up
+  const modsSubtotal      = calcTotalModsCost(step2Data);
   const assembleTotal     = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
 
   applyTotals({
