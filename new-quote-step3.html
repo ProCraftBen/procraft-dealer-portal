@@ -854,35 +854,55 @@ function renderReview() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F2: buildItemsPayload — now persists modifications + modification_status
+// F2 + E5: buildItemsPayload — flatten sub_groups into multiple DB rows
 // ─────────────────────────────────────────────────────────────────────────────
-// Both Save Draft and Submit flow through this function, so persisting
-// modifications here fixes the bug where Step 2.5 work was silently dropped
-// when writing to the DB.
+// Both Save Draft and Submit flow through this function. Each cart item carries
+// `sub_groups` (the Stage 2.5 split structure); a SKU split into N sub-groups
+// becomes N rows in `quote_items`, each with its own `sub_index`, `quantity`,
+// `modifications`, and `modification_status`.
 //
-// `modifications` is the array collected by Stage E's handleMfSave() in
-// new-quote-modifications.html. It can be empty (skipped, or no mods needed).
-// `modification_status` is one of: 'unprocessed' | 'configured' | 'skipped'.
-// For RTA items, Stage E normalizes status to 'skipped' (decided 2026/5/11).
+// Legacy fallback: if `sub_groups` is missing (older session data), synthesize
+// a single sub-group from `item.modifications` / `item.modification_status`
+// or sensible defaults (RTA = 'skipped', else 'unprocessed').
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemsPayload(quoteId) {
-  return step2Data.map(function(item) {
-    return {
-      quote_id:            quoteId,
-      style_code:          item.style_code,
-      style_name:          item.style_name || null,
-      sku_code:            item.sku_code,
-      sku_desc:            item.sku_desc || null,
-      sku_type:            item.skuType || null,
-      assemble_status:     item.type,
-      quantity:            item.quantity,
-      unit_price:          item.unit_price,
-      msrp:                item.msrp || null,
-      assemble_fee:        item.assemble_fee || 0,
-      modifications:       Array.isArray(item.modifications) ? item.modifications : [],
-      modification_status: item.modification_status || 'unprocessed',
-    };
+  const rows = [];
+
+  step2Data.forEach(function (item) {
+    let subs = item.sub_groups;
+    if (!Array.isArray(subs) || !subs.length) {
+      const legacyStatus = item.modification_status
+        || (item.type === 'RTA' ? 'skipped' : 'unprocessed');
+      const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
+      subs = [{
+        sub_index:           1,
+        qty:                 item.quantity,
+        modifications:       legacyMods,
+        modification_status: legacyStatus,
+      }];
+    }
+
+    subs.forEach(function (g, i) {
+      rows.push({
+        quote_id:            quoteId,
+        style_code:          item.style_code,
+        style_name:          item.style_name || null,
+        sku_code:            item.sku_code,
+        sku_desc:            item.sku_desc || null,
+        sku_type:            item.skuType || null,
+        assemble_status:     item.type,
+        sub_index:           g.sub_index || (i + 1),
+        quantity:            g.qty,
+        unit_price:          item.unit_price,
+        msrp:                item.msrp || null,
+        assemble_fee:        item.assemble_fee || 0,
+        modifications:       Array.isArray(g.modifications) ? g.modifications : [],
+        modification_status: g.modification_status || 'unprocessed',
+      });
+    });
   });
+
+  return rows;
 }
 
 async function resolveDealerId(session) {
