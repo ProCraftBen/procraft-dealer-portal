@@ -18,7 +18,7 @@
       --error:#C0392B;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
-    .page { max-width: 860px; margin: 0 auto; padding: 32px 20px 80px; }
+    .page { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
 
     /* Back link */
     .back-link {
@@ -147,10 +147,6 @@
       padding: 16px 20px 20px;
     }
     .return-history.open .return-history-body { display: block; }
-    .return-history-empty {
-      font-size: 12px; color: var(--muted); font-style: italic;
-      padding: 8px 0;
-    }
     .return-event {
       position: relative;
       padding: 14px 14px 14px 18px;
@@ -198,20 +194,146 @@
     @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
     .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .info-value { font-size: 13px; color: var(--text); line-height: 1.6; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
-    thead th.r { text-align: right; }
-    tbody tr { border-bottom: 1px solid var(--border); }
-    tbody tr:last-child { border-bottom: none; }
-    tbody td { padding: 12px 16px; font-size: 13px; vertical-align: middle; }
-    tbody td.r { text-align: right; }
-    .td-num { font-size: 11px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+
+    /* ────────────────────────────────────────────────────────────────
+       Items table — aligned with new-quote-step3.html (F4.1 v2)
+       11 columns including Mod Fee, sub-group support, mods inline
+    ──────────────────────────────────────────────────────────────── */
+    .items-table { width: 100%; border-collapse: collapse; }
+    .items-table thead th { padding: 9px 10px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    .items-table thead th.th-right { text-align: right; }
+    .items-table tbody tr { border-bottom: 1px solid var(--border); }
+    .items-table tbody tr:last-child { border-bottom: none; }
+    .items-table td { padding: 10px 10px; font-size: 13px; vertical-align: top; }
     .td-style { font-weight: 500; color: var(--green-dark); }
-    .td-sku { color: var(--muted); font-size: 11px; }
-    .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; }
-    .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
-    .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
+    .td-sku { color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .td-desc { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .td-desc .desc-main { color: var(--text); font-size: 12px; margin-bottom: 4px; }
+    .td-type .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
+    .td-type .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
+    .td-type .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
+    .td-right { text-align: right; }
+    .td-total { font-weight: 500; }
+
+    .items-table tbody tr.sub-continuation {
+      border-top: 1px dashed rgba(201,168,76,0.25);
+    }
+    .items-table tbody tr.sub-continuation td:first-child {
+      border-left: 2px solid rgba(201,168,76,0.35);
+    }
+    .sub-label {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      color: #8B6914;
+      background: rgba(201,168,76,0.10);
+      padding: 1px 6px;
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+
+    .mods-list {
+      margin-top: 6px;
+      padding: 6px 0 0;
+      border-top: 1px dotted rgba(125,140,130,0.25);
+    }
+    .mods-list .mod-line {
+      font-size: 11px;
+      color: var(--green-dark);
+      line-height: 1.5;
+      padding: 1px 0;
+    }
+    .mods-list .mod-line .mod-bullet { color: var(--gold); margin-right: 4px; }
+    .mods-list .mod-line .mod-note-ref {
+      color: #E07B39;
+      font-style: italic;
+      font-size: 11px;
+    }
+    .mods-list .mod-status-skipped,
+    .mods-list .mod-status-unprocessed {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .td-modfee { color: #8B6914; font-weight: 500; }
+
+    /* ────────────────────────────────────────────────────────────────
+       Notes table for MF06 / MF07 / long values
+       (aligned with new-quote-step3.html)
+    ──────────────────────────────────────────────────────────────── */
+    .notes-table-wrap {
+      margin: 14px 20px 0;
+      padding: 14px 16px;
+      background: rgba(224,123,57,0.04);
+      border: 1px solid rgba(224,123,57,0.2);
+      border-radius: 4px;
+    }
+    .notes-table-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notes-table-title svg { width: 14px; height: 14px; fill: #E07B39; }
+    .notes-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid rgba(224,123,57,0.25);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .notes-table thead th {
+      padding: 7px 10px;
+      background: rgba(224,123,57,0.08);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #8B6914;
+      text-align: left;
+      border-bottom: 1px solid rgba(224,123,57,0.2);
+    }
+    .notes-table tbody td {
+      padding: 9px 10px;
+      font-size: 12px;
+      color: var(--text);
+      vertical-align: top;
+      border-bottom: 1px solid rgba(224,123,57,0.12);
+      line-height: 1.5;
+    }
+    .notes-table tbody tr:last-child td { border-bottom: none; }
+    .notes-table .note-num {
+      font-weight: 600;
+      color: #E07B39;
+      white-space: nowrap;
+      width: 40px;
+    }
+    .notes-table .note-item {
+      color: var(--green-dark);
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .notes-table .note-mf {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .notes-table .note-content {
+      color: var(--text);
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Totals */
     .totals { padding: 4px 20px 20px; }
     .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
     .total-row:last-child { border-bottom: none; }
@@ -224,6 +346,11 @@
     .asm-breakdown-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 2px 0; }
     .free-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
     .exempt-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
+    .tax-note-detail {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
 
     /* ── C1: Pending Shipping styles ── */
     .pending-tag {
@@ -379,12 +506,18 @@ const statusClass = {
 };
 
 // ── C1: which statuses allow admin to edit shipping_cost ──
-// (Pending / Returned only — already-completed quotes shouldn't be touched)
 const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2 — Notes table configuration (aligned with new-quote-step3.html)
+// ─────────────────────────────────────────────────────────────────────────────
+const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
+const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false;
 let _returnHistory = [];
+let _groupedItems = null; // F4.1 v2: items reconstructed into per-SKU sub_groups
 
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
@@ -412,6 +545,326 @@ function isPendingShipping(quote) {
   return (quote.shipping_cost === null || quote.shipping_cost === undefined);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2 — Helpers ported from new-quote-step3.html
+// ─────────────────────────────────────────────────────────────────────────────
+
+function shouldUseNotesTable(mod) {
+  if (!mod) return false;
+  const code = (mod.mf_code || '').toUpperCase();
+  if (MF_USE_NOTES_TABLE.indexOf(code) !== -1) return true;
+  const valStr = formatModValue(mod.value);
+  if (valStr && valStr.length > NOTES_TABLE_FALLBACK_LENGTH) return true;
+  return false;
+}
+
+// Format mod value: handles MF01 (string), MF07 ({selected, description, ...}), MF06 (free text), etc.
+function formatModValue(v) {
+  if (v == null) return '';
+  if (typeof v === 'string')  return v;
+  if (typeof v === 'number')  return String(v);
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (typeof v === 'object') {
+    const parts = [];
+    if ('selected' in v && v.selected) parts.push(String(v.selected));
+    else if ('label' in v && v.label)  parts.push(String(v.label));
+    else if ('value' in v && v.value != null) parts.push(String(v.value));
+
+    if ('description' in v && v.description) parts.push(String(v.description));
+    else if ('note' in v && v.note)          parts.push(String(v.note));
+
+    if (parts.length) return parts.join(' — ');
+    try { return JSON.stringify(v); } catch (e) { return ''; }
+  }
+  return String(v);
+}
+
+function calcPerSubModCost(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  return mods.reduce(function (s, m) {
+    var c = parseFloat(m && m.cost);
+    return s + (isNaN(c) ? 0 : c);
+  }, 0);
+}
+
+function calcPerSubTaxableModCost(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  return mods.reduce(function (s, m) {
+    if (!m || m.tax_status !== true) return s;
+    var c = parseFloat(m.cost);
+    return s + (isNaN(c) ? 0 : c);
+  }, 0);
+}
+
+// Calculate total mod cost across all grouped items
+function calcTotalModsCost(groupedItems) {
+  let total = 0;
+  groupedItems.forEach(function (item) {
+    item.sub_groups.forEach(function (sub) {
+      const perSub = calcPerSubModCost(sub);
+      const qty    = parseInt(sub.qty, 10) || 0;
+      total += perSub * qty;
+    });
+  });
+  return total;
+}
+
+function calcTaxableModsCost(groupedItems) {
+  let total = 0;
+  groupedItems.forEach(function (item) {
+    item.sub_groups.forEach(function (sub) {
+      const perSub = calcPerSubTaxableModCost(sub);
+      const qty    = parseInt(sub.qty, 10) || 0;
+      total += perSub * qty;
+    });
+  });
+  return total;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2 — Reconstruct sub_groups from flat quote_items rows.
+//
+// In v1.1, each quote_items row is ONE sub-group. Multiple rows with the same
+// sku_code (+ other stable fields) belong to the same logical item.
+//
+// We group by sku_code + style_code + unit_price + assemble_status to identify
+// items that should be merged back. sub_index is preserved for stable ordering.
+// ─────────────────────────────────────────────────────────────────────────────
+function reconstructGroupedItems(rawItems) {
+  const itemMap = new Map();
+  const itemOrder = [];
+
+  rawItems.forEach(function (row) {
+    // Key combines sku_code + style_code + unit_price + assemble_status
+    // (mirror of step3 grouping — these stable fields define "same item")
+    const key = [
+      row.sku_code || '',
+      row.style_code || '',
+      row.style_name || '',
+      String(row.unit_price || 0),
+      row.assemble_status || '',
+    ].join('||');
+
+    if (!itemMap.has(key)) {
+      itemMap.set(key, {
+        sku_code:        row.sku_code,
+        style_code:      row.style_code,
+        style_name:      row.style_name || row.style_code || '—',
+        sku_desc:        row.sku_desc || '',
+        sku_type:        row.sku_type || null,
+        assemble_status: row.assemble_status || 'RTA',
+        unit_price:      parseFloat(row.unit_price || 0),
+        msrp:            row.msrp || null,
+        assemble_fee:    parseFloat(row.assemble_fee || 0),
+        sub_groups:      [],
+      });
+      itemOrder.push(key);
+    }
+
+    const item = itemMap.get(key);
+    item.sub_groups.push({
+      sub_index:           row.sub_index || 1,
+      qty:                 parseInt(row.quantity, 10) || 0,
+      modifications:       Array.isArray(row.modifications) ? row.modifications : [],
+      modification_status: row.modification_status || 'unprocessed',
+    });
+  });
+
+  // Sort sub_groups by sub_index within each item (defensive)
+  itemMap.forEach(function (item) {
+    item.sub_groups.sort(function (a, b) { return (a.sub_index || 1) - (b.sub_index || 1); });
+  });
+
+  return itemOrder.map(function (key) { return itemMap.get(key); });
+}
+
+// Group items by style_name, sort within group by sku_type rank.
+function groupAndSortByStyle(groupedItems) {
+  const byStyle = {};
+  groupedItems.forEach(function (item) {
+    const k = item.style_name || item.style_code || '—';
+    if (!byStyle[k]) byStyle[k] = [];
+    byStyle[k].push(item);
+  });
+  Object.keys(byStyle).forEach(function (k) {
+    byStyle[k].sort(function (a, b) {
+      const ra = TYPE_ORDER.indexOf((a.sku_type || '').toUpperCase());
+      const rb = TYPE_ORDER.indexOf((b.sku_type || '').toUpperCase());
+      return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+    });
+  });
+  return byStyle;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2.1 — Render mods inside Description column (NO fees).
+//
+// B2 logic (from step3):
+//   - skipped + empty mods   → return '' (no visual noise)
+//   - configured + empty mods → return '' (defensive, shouldn't happen)
+//   - unprocessed + empty mods → KEEP "⚠ Modifications pending" warning
+//
+// Mods that match shouldUseNotesTable() are rendered as [See note №N below]
+// and collected into notesCollector for the Notes table.
+// ─────────────────────────────────────────────────────────────────────────────
+function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  const status = sub.modification_status || 'unprocessed';
+
+  if (!mods.length) {
+    if (status === 'skipped' || status === 'configured') {
+      return '';
+    }
+    return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
+  }
+
+  const lines = mods.map(function (m) {
+    const label = m.display_label || m.mf_code || 'Modification';
+    const useNotes = shouldUseNotesTable(m);
+
+    if (useNotes) {
+      notesIndex.counter += 1;
+      const noteNum = notesIndex.counter;
+      notesCollector.push({
+        num:        noteNum,
+        skuCode:    itemContext.sku_code,
+        subIndex:   sub.sub_index || 1,
+        subTotal:   itemContext.totalSubs,
+        mfCode:     m.mf_code || '',
+        label:      label,
+        content:    formatModValue(m.value) || '(no detail)',
+      });
+      return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
+    }
+
+    const value = formatModValue(m.value);
+    const valStr = value ? `: ${escapeHtml(value)}` : '';
+    return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}${valStr}</div>`;
+  });
+
+  return `<div class="mods-list">${lines.join('')}</div>`;
+}
+
+function renderNotesTable(notes) {
+  if (!notes.length) return '';
+  const rows = notes.map(function (n) {
+    const subSuffix = (n.subTotal > 1) ? ` (Sub ${n.subIndex}/${n.subTotal})` : '';
+    return `
+      <tr>
+        <td class="note-num">№${n.num}</td>
+        <td class="note-item">${escapeHtml(n.skuCode)}${escapeHtml(subSuffix)}</td>
+        <td class="note-mf">${escapeHtml(n.label)}${n.mfCode ? ` <span style="color:#bbb;">(${escapeHtml(n.mfCode)})</span>` : ''}</td>
+        <td class="note-content">${escapeHtml(n.content)}</td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="notes-table-wrap">
+      <div class="notes-table-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+        Modification Notes &amp; Custom Details
+      </div>
+      <table class="notes-table">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Item</th>
+            <th>Modification</th>
+            <th>Detail / Note</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build the full items table HTML + collect notes.
+// Returns { rowsHtml, notes }
+// ─────────────────────────────────────────────────────────────────────────────
+function buildItemRowsHtml(groupedItems) {
+  const byStyle = groupAndSortByStyle(groupedItems);
+
+  let itemNum = 0;
+  let lastStyle = null;
+  const rows = [];
+  const notes = [];
+  const notesIndex = { counter: 0 };
+
+  Object.entries(byStyle).forEach(function ([styleName, items]) {
+    items.forEach(function (item) {
+      const subs = item.sub_groups;
+      const isSplit = subs.length > 1;
+
+      subs.forEach(function (sub, subIdx) {
+        itemNum++;
+        const isFirstSub  = subIdx === 0;
+        const showStyle   = isFirstSub && (styleName !== lastStyle);
+        if (isFirstSub) lastStyle = styleName;
+
+        const subQty = parseInt(sub.qty, 10) || 0;
+        const perSubModCost = calcPerSubModCost(sub);
+        const modFeeTotal   = perSubModCost * subQty;
+        const skuLineTotal  = item.unit_price * subQty;
+        const asmFeeTotal   = item.assemble_fee * subQty;
+        const lineTotal     = skuLineTotal + modFeeTotal;
+
+        const subLabelHtml = isSplit
+          ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
+          : '';
+        const skuCellHtml = `${escapeHtml(item.sku_code)}${subLabelHtml}`;
+
+        const itemContext = {
+          sku_code:  item.sku_code,
+          totalSubs: subs.length,
+        };
+        const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
+        const descMainHtml  = item.sku_desc
+          ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>`
+          : '';
+        const descCellHtml = `${descMainHtml}${modsBlockHtml}`;
+
+        const typeColHtml = isFirstSub && item.sku_type
+          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(item.sku_type.toUpperCase())}</span>`
+          : '';
+
+        const assembleStatusHtml = isFirstSub
+          ? `<span class="type-badge ${(item.assemble_status||'').toLowerCase()}">${escapeHtml(item.assemble_status)}</span>`
+          : '';
+
+        const trClass = isFirstSub ? '' : 'sub-continuation';
+
+        const modFeeCellHtml = modFeeTotal > 0
+          ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
+          : '<span style="color:var(--muted);">—</span>';
+
+        const asmFeeCellHtml = asmFeeTotal > 0
+          ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
+          : '<span style="color:var(--muted);">—</span>';
+
+        rows.push(`
+          <tr class="${trClass}">
+            <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
+            <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
+            <td class="td-sku">${skuCellHtml}</td>
+            <td class="td-desc">${descCellHtml}</td>
+            <td style="font-size:11px;">${typeColHtml}</td>
+            <td class="td-type">${assembleStatusHtml}</td>
+            <td class="td-right">${subQty}</td>
+            <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+            <td class="td-right">${modFeeCellHtml}</td>
+            <td class="td-right">${asmFeeCellHtml}</td>
+            <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+          </tr>`);
+      });
+    });
+  });
+
+  return { rowsHtml: rows.join(''), notes: notes };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// init / load
+// ─────────────────────────────────────────────────────────────────────────────
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -465,12 +918,15 @@ async function init() {
     }
   }
 
+  // F4.1 v2: reconstruct sub_groups from flat quote_items rows
+  _groupedItems = reconstructGroupedItems(quote.quote_items || []);
+
   // Store for PDF
   _quote = quote; _dealer = dealer; _addr = shippingAddr;
   renderQuote(quote, dealer, shippingAddr);
 }
 
-// ── 產生 Return History 區塊 HTML（只有 admin 看得到）──
+// ── Return History 區塊 HTML(admin only)──
 function buildReturnHistoryHtml() {
   if (!_isAdmin) return '';
   if (!_returnHistory || _returnHistory.length === 0) return '';
@@ -525,7 +981,6 @@ function toggleReturnHistory() {
 }
 
 function renderQuote(quote, dealer, addr) {
-  const items = quote.quote_items || [];
   const sc    = statusClass[quote.status] || 'pending';
   const isReturned = quote.status === 'Returned';
 
@@ -537,9 +992,7 @@ function renderQuote(quote, dealer, addr) {
   // C1: detect pending shipping for display logic
   const pendingShipping = isPendingShipping(quote);
 
-  // C1: admin edit shipping permission
-  // Pickup quotes are excluded — pickup is always FREE by definition (customer self-pickup),
-  // so admin should not be able to add a shipping fee even if status allows editing.
+  // C1: admin edit shipping permission (pickup excluded)
   const canAdminEditShipping = _isAdmin
     && SHIPPING_EDIT_ALLOWED_STATUSES.includes(quote.status)
     && quote.logistic_type !== 'pickup';
@@ -548,74 +1001,78 @@ function renderQuote(quote, dealer, addr) {
     ? `<strong>${escapeHtml(addr.recipient_name || dealer?.company_name)}</strong><br>${escapeHtml(addr.address_line)}<br>${addr.address_line2 ? escapeHtml(addr.address_line2)+'<br>' : ''}${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} ${escapeHtml(addr.zip_code)}`
     : `<strong>${escapeHtml(dealer?.company_name || '—')}</strong><br>${escapeHtml(dealer?.address_line1 || '')}<br>${dealer?.address_line2 ? escapeHtml(dealer.address_line2)+'<br>' : ''}${escapeHtml(dealer?.city || '')}, ${escapeHtml(dealer?.state || '')} ${escapeHtml(dealer?.zip_code || '')}`;
 
-  // Group & sort
-  const grouped = {};
-  items.forEach(i => {
-    const k = i.style_name || i.style_code || '—';
-    if(!grouped[k]) grouped[k] = [];
-    grouped[k].push(i);
-  });
-  Object.keys(grouped).forEach(k => {
-    grouped[k].sort((a,b) => {
-      const ra=TYPE_ORDER.indexOf((a.sku_type||'').toUpperCase());
-      const rb=TYPE_ORDER.indexOf((b.sku_type||'').toUpperCase());
-      return (ra===-1?99:ra)-(rb===-1?99:rb);
-    });
-  });
+  // ─────────────────────────────────────────────────────────────────────
+  // F4.1 v2: Build items table (11-col) + Notes table from grouped items
+  // ─────────────────────────────────────────────────────────────────────
+  let itemsTableHtml;
+  let notesTableHtml = '';
+  if (_groupedItems && _groupedItems.length) {
+    const result = buildItemRowsHtml(_groupedItems);
+    itemsTableHtml = result.rowsHtml;
+    notesTableHtml = renderNotesTable(result.notes);
+  } else {
+    itemsTableHtml = `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+  }
 
-  let itemNum=0, lastStyle=null;
-  const itemsHtml = items.length
-    ? Object.entries(grouped).map(([styleName, styleItems]) =>
-        styleItems.map(i => {
-          itemNum++;
-          const showStyle = styleName !== lastStyle; lastStyle = styleName;
-          const skuLine = `${escapeHtml(i.sku_code||'—')}${i.sku_desc ? `<br><span style="font-size:10px;color:var(--muted);">${escapeHtml(i.sku_desc)}</span>` : ''}`;
-          return `<tr>
-            <td class="td-num">#${itemNum}</td>
-            <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
-            <td class="td-sku">${skuLine}</td>
-            <td>${i.sku_type ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${escapeHtml(i.sku_type.toUpperCase())}</span>` : '—'}</td>
-            <td><span class="type-badge ${(i.assemble_status||'').toLowerCase()}">${escapeHtml(i.assemble_status||'—')}</span></td>
-            <td class="r">${i.quantity}</td>
-            <td class="r">${fmt(i.unit_price)}</td>
-            <td class="r" style="color:var(--muted);">${parseFloat(i.assemble_fee||0)>0 ? `+${fmt(i.assemble_fee*i.quantity)}` : '—'}</td>
-            <td class="r">${fmt(i.unit_price*i.quantity)}</td>
-          </tr>`;
-        }).join('')).join('')
-    : `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+  // ─────────────────────────────────────────────────────────────────────
+  // F-TAX: Calculate totals
+  //   - skuSubtotal     = quote.subtotal (already SKU-only per spec)
+  //   - modsSubtotal    = sum of all mod costs (taxable + non-taxable)
+  //   - taxableMods     = sum of mods with tax_status === true
+  //   - assembleTotal   = quote.assemble_total
+  //   - shipping        = quote.shipping_cost (may be null = pending)
+  //   - tax             = quote.tax_amount (already calculated by step3, snapshot)
+  //   - grand           = quote.grand_total
+  //
+  // We don't recompute tax/grand — those are snapshotted at save time. We only
+  // recompute mod totals for DISPLAY (since the source of truth is the
+  // modifications jsonb on quote_items rows).
+  // ─────────────────────────────────────────────────────────────────────
+  const skuSubtotal       = parseFloat(quote.subtotal || 0);
+  const modsSubtotal      = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
+  const taxableMods       = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
+  const nonTaxableMods    = modsSubtotal - taxableMods;
 
-  // Assemble breakdown
-  const byType={};
-  items.forEach(i => {
-    if((i.assemble_status||'').toLowerCase()!=='assembled'||!i.assemble_fee) return;
-    const t=(i.sku_type||'OTHER').toUpperCase();
-    if(!byType[t]) byType[t]={qty:0,total:0};
-    byType[t].qty+=i.quantity; byType[t].total+=parseFloat(i.assemble_fee)*i.quantity;
+  // Assemble breakdown by type
+  const byType = {};
+  (quote.quote_items || []).forEach(i => {
+    if ((i.assemble_status || '').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
+    const t = (i.sku_type || 'OTHER').toUpperCase();
+    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
+    byType[t].qty   += i.quantity;
+    byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
   });
-  const assembleTotal=items.reduce((s,i)=>s+parseFloat(i.assemble_fee||0)*i.quantity,0);
-  const asmBreakdown=assembleTotal>0
+  const assembleTotal = parseFloat(quote.assemble_total || 0);
+  const asmBreakdownHtml = assembleTotal > 0
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
-          <span class="total-label">Assemble Fee</span><span class="total-val">${fmt(assembleTotal)}</span>
+          <span class="total-label">Assemble Fee</span><span class="total-val" style="color:#8B6914;">+${fmt(assembleTotal)}</span>
         </div>
         <div class="asm-breakdown">
           ${TYPE_ORDER.filter(t=>byType[t]).map(t=>
             `<div class="asm-breakdown-row"><span>${t} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
           ).join('')}
         </div>
-      </div>` : '';
+      </div>`
+    : '';
+
+  // F4.1 v2: Modifications row (only show if > 0)
+  const modsRowHtml = modsSubtotal > 0
+    ? `<div class="total-row">
+        <span class="total-label">Modifications</span>
+        <span class="total-val" style="color:#8B6914;">+${fmt(modsSubtotal)}</span>
+      </div>`
+    : '';
 
   // C1: Shipping row — handle pending case + admin edit link
   const freeShip  = !pendingShipping && parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
-  const taxExempt = parseFloat(quote.tax_amount) === 0;
+  const taxExempt = parseFloat(quote.tax_amount) === 0 && !!(dealer && dealer.tax_exempt);
 
-  // Admin edit link (only if admin + status allows)
   const editLinkLabel = pendingShipping ? 'Set Fee' : 'Edit Fee';
   const adminEditLink = canAdminEditShipping
     ? `<span class="admin-edit-link" onclick="openShippingEditor()">✎ ${editLinkLabel}</span>`
     : '';
 
-  // Pre-filled value: existing shipping_cost (or empty if NULL)
   const existingShippingValue = (quote.shipping_cost === null || quote.shipping_cost === undefined)
     ? ''
     : parseFloat(quote.shipping_cost).toFixed(2);
@@ -642,7 +1099,6 @@ function renderQuote(quote, dealer, addr) {
       </div>`;
   }
 
-  // C1: admin shipping editor (hidden by default; shown via openShippingEditor())
   const shippingEditorHtml = canAdminEditShipping ? `
     <div class="admin-shipping-editor" id="shippingEditor">
       <span class="editor-label">Set Shipping</span>
@@ -656,6 +1112,31 @@ function renderQuote(quote, dealer, addr) {
       </div>
       <div class="editor-error" id="shippingEditorError" style="display:none;"></div>
     </div>` : '';
+
+  // F-TAX: Tax row with taxable base detail (if partially taxable)
+  let taxRowHtml;
+  if (taxExempt) {
+    taxRowHtml = `
+      <div class="total-row">
+        <span class="total-label">Tax <span class="exempt-tag">✓ Exempt</span></span>
+        <span class="total-val">${fmt(quote.tax_amount)}</span>
+      </div>`;
+  } else {
+    // Build tax detail note (if mods are partially taxable)
+    let taxDetailHtml = '';
+    if (modsSubtotal > 0 && nonTaxableMods > 0.005) {  // 0.005 = penny tolerance
+      const taxBase = skuSubtotal + taxableMods;
+      taxDetailHtml = `<div class="tax-note-detail">Taxable base: ${fmt(taxBase)} (excludes ${fmt(nonTaxableMods)} non-taxable mods)</div>`;
+    }
+    taxRowHtml = `
+      <div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div style="display:flex;justify-content:space-between;">
+          <span class="total-label">Tax</span>
+          <span class="total-val">${fmt(quote.tax_amount)}</span>
+        </div>
+        ${taxDetailHtml}
+      </div>`;
+  }
 
   // C1: Pending grand total footnote
   const pendingFootnote = pendingShipping
@@ -715,7 +1196,7 @@ function renderQuote(quote, dealer, addr) {
       </div>`;
   }
 
-  // ── Return History（admin only，放最上方）──
+  // ── Return History（admin only）──
   const returnHistoryHtml = buildReturnHistoryHtml();
 
   document.getElementById('pageContent').innerHTML = `
@@ -756,24 +1237,36 @@ function renderQuote(quote, dealer, addr) {
 
     <div class="card">
       <div class="card-header"><span class="card-title">Items</span></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>#</th><th>Door Style</th><th>SKU</th><th>Type</th><th>Assemble Status</th>
-            <th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Asm Fee</th><th class="r">Total</th>
-          </tr></thead>
-          <tbody>${itemsHtml}</tbody>
+      <div style="overflow-x:auto;">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Door Style</th>
+              <th>SKU</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th>Assemble Status</th>
+              <th class="th-right">Qty</th>
+              <th class="th-right">Unit Price</th>
+              <th class="th-right">Mod Fee</th>
+              <th class="th-right">Assemble Fee</th>
+              <th class="th-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>${itemsTableHtml}</tbody>
         </table>
       </div>
+
+      ${notesTableHtml}
+
       <div class="totals">
-        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(quote.subtotal)}</span></div>
-        ${asmBreakdown}
+        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(skuSubtotal)}</span></div>
+        ${modsRowHtml}
+        ${asmBreakdownHtml}
         ${shippingRowHtml}
         ${shippingEditorHtml}
-        <div class="total-row">
-          <span class="total-label">Tax${taxExempt?' <span class="exempt-tag">✓ Exempt</span>':''}</span>
-          <span class="total-val">${fmt(quote.tax_amount)}</span>
-        </div>
+        ${taxRowHtml}
         <div class="total-row grand">
           <span class="total-label">Order Total</span><span class="total-val">${fmt(quote.grand_total)}</span>
         </div>
@@ -810,7 +1303,6 @@ function closeShippingEditor() {
 async function saveShipping() {
   if (!_isAdmin || !_quote) return;
   if (!SHIPPING_EDIT_ALLOWED_STATUSES.includes(_quote.status)) return;
-  // C1: pickup quotes can never have a shipping fee (defense-in-depth — UI hides the link too)
   if (_quote.logistic_type === 'pickup') return;
 
   const input  = document.getElementById('shippingInput');
@@ -836,7 +1328,6 @@ async function saveShipping() {
   }
 
   // Recompute grand_total = subtotal + assemble_total + new_shipping + tax
-  // (We use existing DB values; admin only edits shipping_cost.)
   const subtotal      = parseFloat(_quote.subtotal       || 0);
   const assembleTotal = parseFloat(_quote.assemble_total || 0);
   const taxAmount     = parseFloat(_quote.tax_amount     || 0);
@@ -857,7 +1348,6 @@ async function saveShipping() {
 
     if (error) throw error;
 
-    // Refresh in-memory + re-render
     _quote.shipping_cost = newShippingRounded;
     _quote.grand_total   = newGrand;
     renderQuote(_quote, _dealer, _addr);
@@ -871,29 +1361,44 @@ async function saveShipping() {
 
 // ─────────────────────────────────────────────────────────────────────────
 // PDF download functions
+// F4.1 v2: pass sub_groups + modifications so PDF builder can render correctly
 // ─────────────────────────────────────────────────────────────────────────
 
 function buildQuoteDataForPdf() {
-  const items = (_quote.quote_items || []).map(function(i) {
+  // Build per-item structure with sub_groups, mirroring step3
+  const items = (_groupedItems || []).map(function(item) {
     return {
-      style_name:      i.style_name || i.style_code || '—',
-      style_code:      i.style_code,
-      sku_code:        i.sku_code,
-      sku_desc:        i.sku_desc || '',
-      sku_type:        i.sku_type || null,
-      assemble_status: i.assemble_status,
-      quantity:        i.quantity,
-      unit_price:      parseFloat(i.unit_price || 0),
-      msrp:            i.msrp || null,
-      assemble_fee:    parseFloat(i.assemble_fee || 0),
+      style_name:      item.style_name,
+      style_code:      item.style_code,
+      sku_code:        item.sku_code,
+      sku_desc:        item.sku_desc || '',
+      sku_type:        item.sku_type || null,
+      assemble_status: item.assemble_status,
+      // For PDF builder backward compat: also include quantity as total of subs
+      quantity:        item.sub_groups.reduce((s, g) => s + (parseInt(g.qty, 10) || 0), 0),
+      unit_price:      item.unit_price,
+      msrp:            item.msrp || null,
+      assemble_fee:    item.assemble_fee,
+      sub_groups:      item.sub_groups,
     };
   });
 
-  // C1: pass shipping_cost (may be null) so pdf-builder can render
-  // "Contact Sales Team" + exclude shipping from grand total.
   const shippingCost = (_quote.shipping_cost === null || _quote.shipping_cost === undefined)
     ? null
     : parseFloat(_quote.shipping_cost);
+
+  // F-TAX: compute mod totals from grouped items (live read from quote_items.modifications)
+  const modsTotal        = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
+  const taxableModsTotal = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
+
+  // Tax rate: derive from snapshot if possible. quote.subtotal is SKU-only;
+  // taxable base was skuSubtotal + taxableModsTotal at save time.
+  // tax_amount / taxable_base = effective rate.
+  const skuSubtotal = parseFloat(_quote.subtotal || 0);
+  const taxableBase = skuSubtotal + taxableModsTotal;
+  const taxAmount   = parseFloat(_quote.tax_amount || 0);
+  const _taxRate    = (taxableBase > 0 && taxAmount > 0) ? (taxAmount / taxableBase) : 0;
+  const _taxExempt  = taxAmount === 0 && !!(_dealer && _dealer.tax_exempt);
 
   return {
     po_number:     _quote.po_number || null,
@@ -902,12 +1407,13 @@ function buildQuoteDataForPdf() {
     created_at:    _quote.created_at,
     logistic_type: _quote.logistic_type || 'pickup',
     delivery_fee:  parseFloat(_quote.delivery_fee || 0),
-    shipping_cost: shippingCost,                         // C1
+    shipping_cost: shippingCost,
     items:         items,
-    _taxRate:    parseFloat(_quote.subtotal || 0) > 0
-                  ? parseFloat(_quote.tax_amount || 0) / parseFloat(_quote.subtotal || 1)
-                  : 0,
-    _taxExempt:  parseFloat(_quote.tax_amount || 0) === 0,
+    modifications_total:         parseFloat(modsTotal.toFixed(2)),
+    modifications_total_taxable: parseFloat(taxableModsTotal.toFixed(2)),
+    _taxRate:      _taxRate,
+    _taxExempt:    _taxExempt,
+    _isPendingShipping: (_quote.logistic_type === 'shipping' && shippingCost === null),
   };
 }
 
