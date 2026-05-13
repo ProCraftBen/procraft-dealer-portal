@@ -1680,8 +1680,8 @@ async function submitQuote() {
       shippingAddressPayload = {
         mode:           'same',
         recipient_name: dealer.company_name,
-        address_line:   dealer.address || '',
-        address_line2:  null,
+        address_line:   dealer.address_line1 || '',    
+        address_line2:  dealer.address_line2 || null,  
         city:           dealer.city || '',
         state:          dealer.state || '',
         zip_code:       dealer.zip_code || dealer.zip || '',
