@@ -668,24 +668,48 @@ async function init() {
     openSubcats.add(key);
   });
 
-  // ── Restore cart ─────────────────────────────────────────────
-  // Resume Draft 模式:sessionStorage 優先(保留未存 DB 的修改),沒東西才從 DB 讀
-  // 非 Resume Draft:照舊讀 sessionStorage
+  // ════════════════════════════════════════════════════════════════
+  // D14b fix: Restore cart from sessionStorage, distinguishing
+  // "key never written" (null) from "key written as empty []".
+  //
+  // Before:
+  //   if (parsed && parsed.length) cartItems = parsed;
+  //   if (!cartItems.length) await loadDraftItems();
+  //
+  // Bug: when Step 2.5 deleted the last SKU and wrote "[]" back,
+  // returning to Step 2 saw parsed.length === 0, skipped the assign,
+  // then fell through to loadDraftItems() which re-fetched the
+  // already-deleted SKU from DB. The deleted SKU reappeared.
+  //
+  // After:
+  //   - savedCart === null → key was never written → fallback to DB
+  //   - savedCart !== null → respect it even if it's "[]"
+  //     (user intentionally cleared)
+  // ════════════════════════════════════════════════════════════════
   if (draftId) {
     const savedCart = sessionStorage.getItem('quoteStep2');
-    if (savedCart) {
+    if (savedCart !== null) {
+      // sessionStorage has a value (even if empty array) → respect it
       try {
-        const parsed = JSON.parse(savedCart);
-        if (parsed && parsed.length) cartItems = parsed;
-      } catch (e) {}
-    }
-    if (!cartItems.length) {
+        cartItems = JSON.parse(savedCart) || [];
+      } catch (e) {
+        console.warn('[D14b] Failed to parse quoteStep2, falling back to DB', e);
+        cartItems = [];
+        await loadDraftItems();
+      }
+      console.log('[D14b] Step 2 restored cart from sessionStorage:',
+                  cartItems.length, 'item(s) (key existed)');
+    } else {
+      // First entry to Step 2 in this session → load from DB
       await loadDraftItems();
+      console.log('[D14b] Step 2 first load — fetched from DB:',
+                  cartItems.length, 'item(s)');
     }
   } else {
     const savedCart = sessionStorage.getItem('quoteStep2');
-    if (savedCart) {
-      try { cartItems = JSON.parse(savedCart); } catch(e) {}
+    if (savedCart !== null) {
+      try { cartItems = JSON.parse(savedCart) || []; }
+      catch(e) { cartItems = []; }
     }
   }
 
