@@ -3101,21 +3101,34 @@ async function init() {
   const allSkusFramed    = framedRes.data    || [];
   const allSkusFrameless = framelessRes.data || [];
 
+  // ════════════════════════════════════════════════════════════════
+  // D14b fix: Same bug as Step 2 — distinguish "key never written"
+  // (null) from "key written as empty []". Without this, deleting
+  // the last SKU here, then navigating away & back, would silently
+  // re-fetch the deleted SKU from DB.
+  // ════════════════════════════════════════════════════════════════
   if (draftId) {
     const savedCart = sessionStorage.getItem('quoteStep2');
-    if (savedCart) {
+    if (savedCart !== null) {
       try {
-        const parsed = JSON.parse(savedCart);
-        if (parsed && parsed.length) cartItems = parsed;
-      } catch (e) {}
-    }
-    if (!cartItems.length) {
+        cartItems = JSON.parse(savedCart) || [];
+      } catch (e) {
+        console.warn('[D14b] Failed to parse quoteStep2, falling back to DB', e);
+        cartItems = [];
+        cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
+      }
+      console.log('[D14b] Step 2.5 restored cart from sessionStorage:',
+                  cartItems.length, 'item(s) (key existed)');
+    } else {
       cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
+      console.log('[D14b] Step 2.5 first load — fetched from DB:',
+                  cartItems.length, 'item(s)');
     }
   } else {
     const savedCart = sessionStorage.getItem('quoteStep2');
-    if (savedCart) {
-      try { cartItems = JSON.parse(savedCart); } catch (e) { cartItems = []; }
+    if (savedCart !== null) {
+      try { cartItems = JSON.parse(savedCart) || []; }
+      catch (e) { cartItems = []; }
     }
   }
 
