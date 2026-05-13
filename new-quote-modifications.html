@@ -892,6 +892,26 @@
       border-color: rgba(201,168,76,0.5);
     }
 
+    /* D17: Invalid row variant — failed validate() on Save */
+    .mf-row.invalid {
+      background: rgba(192,57,43,0.04);
+      border-color: var(--error);
+      box-shadow: 0 0 0 1px rgba(192,57,43,0.15);
+    }
+    .mf-row.invalid:hover {
+      border-color: var(--error);
+    }
+    .mf-row-error-msg {
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: rgba(192,57,43,0.08);
+      border-left: 3px solid var(--error);
+      color: var(--error);
+      font-size: 11px;
+      line-height: 1.4;
+      border-radius: 2px;
+    }
+
     .mf-row-label {
       display: flex;
       align-items: center;
@@ -2873,6 +2893,39 @@ function refreshAfterModalAction() {
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 }
 
+// D17: helper — apply .invalid class + inline error message to the
+// row whose rule_idx matches. Scrolls into view for visibility.
+function markInvalidRow(ruleIdx, errors) {
+  const row = document.querySelector(
+    '#mfElementsContainer .mf-row[data-rule-idx="' + ruleIdx + '"]'
+  );
+  if (!row) {
+    console.warn('[D17] markInvalidRow: row not found for rule_idx=', ruleIdx);
+    return;
+  }
+  row.classList.add('invalid');
+  // Strip any prior error message before adding a new one
+  const prior = row.querySelector('.mf-row-error-msg');
+  if (prior) prior.remove();
+  const errDiv = document.createElement('div');
+  errDiv.className = 'mf-row-error-msg';
+  errDiv.textContent = (errors && errors[0]) || 'Invalid value';
+  row.appendChild(errDiv);
+  // Scroll into view, but only if it's not already visible
+  try {
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (_) { /* old browsers */ }
+
+  // Auto-clear the invalid state once the user edits the row
+  const onceClear = function () {
+    row.classList.remove('invalid');
+    const e = row.querySelector('.mf-row-error-msg');
+    if (e) e.remove();
+    row.removeEventListener('mf-change', onceClear);
+  };
+  row.addEventListener('mf-change', onceClear);
+}
+
 /**
  * E5 + F-TAX: Save collects from ALL sub-groups.
  *   - Active tab: read from live instances
@@ -2886,11 +2939,138 @@ function refreshAfterModalAction() {
  *   - MF07: from value.taxable (per-instance admin toggle)
  *   - MF01-MF06: from the matching rule's tax_status (DB column)
  *   - step3 reads this to compute taxableBase.
+ *
+ * D17 (2026-05-13):
+ *   - Before save, run instance.validate() on every active MF element
+ *     in the currently visible tab. If anything fails (e.g. MF04
+ *     toggle ON but value empty), block save with:
+ *       · toast (with the first error message)
+ *       · red border (.mf-row.invalid) on the offending row(s)
+ *       · inline error message below the row
+ *     Other tabs' frozen snapshots are NOT re-validated — they were
+ *     already validated when the user switched away from them (the
+ *     tab switch path freezes valid snapshots; invalid state can't
+ *     reach frozenValues because save is gated here).
+ *   - Note: a user who toggles ON, leaves value empty, then switches
+ *     to another tab WILL bypass validation for that tab. We re-check
+ *     by also validating frozenValues defensively below (cheap, since
+ *     MF04 is the only MF that can produce invalid frozen state).
  */
 function handleMfSave() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
+
+  // ── D17: Clear any prior invalid markings before re-validating ──
+  document.querySelectorAll('#mfElementsContainer .mf-row.invalid').forEach(function (row) {
+    row.classList.remove('invalid');
+    const errMsg = row.querySelector('.mf-row-error-msg');
+    if (errMsg) errMsg.remove();
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // D17: Validate gate — run before any other save logic.
+  //
+  // Pass 1: validate active tab's live instances (most common case)
+  // Pass 2: defensively check other tabs' frozenValues for MF04
+  //         enabled-but-null state (in case user toggled ON, left
+  //         value blank, then switched tabs)
+  //
+  // If anything fails: toast + red border + switch to bad tab + abort.
+  // ════════════════════════════════════════════════════════════════
+  const activeSub = activeSubGroups[activeSubGroupIdx];
+  let firstFailure = null;  // { subIdx, ruleIdx, mfCode, label, errors }
+
+  // ── Pass 1: validate active tab's live instances ──
+  if (activeSub && Array.isArray(activeSub.instances)) {
+    for (let i = 0; i < activeSub.instances.length; i++) {
+      const rec = activeSub.instances[i];
+      if (rec.isReadOnly || rec.isVirtual) continue;
+      if (typeof rec.instance.validate !== 'function') continue;
+
+      let result;
+      try {
+        result = rec.instance.validate();
+      } catch (err) {
+        console.warn('[D17] validate() threw for', rec.mf_code, err);
+        continue;
+      }
+
+      if (result && result.valid === false) {
+        firstFailure = {
+          subIdx: activeSubGroupIdx,
+          ruleIdx: rec.rule_idx,
+          mfCode: rec.mf_code,
+          label: rec.display_label,
+          errors: Array.isArray(result.errors) ? result.errors : ['Invalid value'],
+          isActiveTab: true,
+        };
+        break;
+      }
+    }
+  }
+
+  // ── Pass 2: defensively check OTHER tabs' frozenValues ──
+  // Re-validate by checking the snapshot shape. For MF04 the bad
+  // state is `{enabled: true, value: null}`. We check that pattern
+  // rather than calling validate() because the instances are gone.
+  if (!firstFailure) {
+    for (let s = 0; s < activeSubGroups.length; s++) {
+      if (s === activeSubGroupIdx) continue;  // active tab handled above
+      const sub = activeSubGroups[s];
+      const snapshot = sub.frozenValues || [];
+      for (let i = 0; i < snapshot.length; i++) {
+        const entry = snapshot[i];
+        // MF04 invalid pattern
+        if (entry.mf_code === 'MF04'
+            && entry.value
+            && typeof entry.value === 'object'
+            && entry.value.enabled === true
+            && (entry.value.value === null
+                || entry.value.value === undefined
+                || isNaN(entry.value.value))) {
+          firstFailure = {
+            subIdx: s,
+            ruleIdx: entry.rule_idx,
+            mfCode: entry.mf_code,
+            label: entry.display_label,
+            errors: ['Please enter a value.'],
+            isActiveTab: false,
+          };
+          break;
+        }
+      }
+      if (firstFailure) break;
+    }
+  }
+
+  if (firstFailure) {
+    console.log('[D17] Save blocked — validation failed:', firstFailure);
+
+    // Build a friendly toast message
+    const subLabel = activeSubGroups.length > 1
+      ? ('Sub ' + (firstFailure.subIdx + 1) + ' — ')
+      : '';
+    const errText = firstFailure.errors[0] || 'Invalid value';
+    showToast(subLabel + (firstFailure.label || firstFailure.mfCode) + ': ' + errText, true);
+
+    // If failure is on a non-active tab, switch to it so user can fix
+    if (!firstFailure.isActiveTab) {
+      freezeActiveSub();
+      destroyActiveSubInstances();
+      activeSubGroupIdx = firstFailure.subIdx;
+      renderTabs();
+      renderActiveSubTab();
+      // After re-render the row exists, then mark it. Use setTimeout
+      // to wait for renderMfElements to finish painting.
+      setTimeout(function () {
+        markInvalidRow(firstFailure.ruleIdx, firstFailure.errors);
+      }, 0);
+    } else {
+      markInvalidRow(firstFailure.ruleIdx, firstFailure.errors);
+    }
+    return;
+  }
 
   // ── Validate split sum ──
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
@@ -3234,6 +3414,7 @@ async function init() {
   console.log('[F3.1] Re-hydrate + Option B (read-only admin MF07, RLS-aware) ready');
   console.log('[F-TAX] tax_status snapshot active (MF07 per-instance, MF1-6 per-rule)');
   console.log('[D09] Role-aware effectiveRole resolution active');
+  console.log('[D17] MF validate() gate active on Save (toggle-on-with-empty-value blocked)');
 
   setInterval(async function () {
     const { data: check } = await _supabase
