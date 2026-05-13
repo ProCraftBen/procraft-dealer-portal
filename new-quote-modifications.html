@@ -3025,8 +3025,10 @@ async function init() {
     return;
   }
 
+  // D09 fix: pull role alongside is_active so we can do role-aware
+  // effectiveRole logic for the Return→Edit / Draft-edit paths below.
   const { data: meRow } = await _supabase
-    .from('dealers').select('is_active').eq('id', session.user.id).single();
+    .from('dealers').select('is_active, role').eq('id', session.user.id).single();
   if (!meRow?.is_active) {
     await _supabase.auth.signOut();
     window.location.href = 'login.html';
@@ -3045,6 +3047,22 @@ async function init() {
       }
     }
   } catch (_) { /* ignore */ }
+
+  // D09 fix: fetch the quote status (for ?draft=<uuid> paths) so admin
+  // viewing a Returned-or-Draft quote can be promoted to admin context
+  // even when sessionStorage.quoteStep1.adminDraft isn't set (e.g. the
+  // Return→Edit path doesn't go through the "Create as dealer" flow).
+  let quoteStatus = null;
+  if (draftId) {
+    const { data: q } = await _supabase
+      .from('quotes')
+      .select('dealer_id, status')
+      .eq('id', draftId)
+      .single();
+    if (q) {
+      quoteStatus = q.status || null;
+    }
+  }
 
   let dealerIdToLoad = session.user.id;
   if (draftId) {
@@ -3129,19 +3147,59 @@ async function init() {
     document.getElementById('noAssembledBannerMount').innerHTML = buildNoAssembledBanner();
   }
 
-  effectiveRole = ((dealer && dealer.role) || 'dealer').toLowerCase();
+  // ════════════════════════════════════════════════════════════════
+  // D09 fix: role-aware effectiveRole resolution.
+  //
+  // Three ways to be in "admin context":
+  //   1. sessionStorage.quoteStep1.adminDraft === true
+  //        (legacy: admin creates a new draft for a dealer via the
+  //         "Create as dealer" flow)
+  //   2. The logged-in user's DB role is admin OR super_admin AND
+  //      the quote being edited is in Draft or Returned status
+  //        (this covers: admin clicks Return→Edit, admin opens any
+  //         dealer's draft, admin resumes their own draft)
+  //   3. No draftId at all AND user is admin/super_admin
+  //        (defensive: admin starting a fresh quote — treat as admin)
+  //
+  // Outside Draft/Returned (Pending, Approved, etc.), admin still
+  // only gets read views elsewhere; this page should only be
+  // reachable in editable states anyway.
+  // ════════════════════════════════════════════════════════════════
+  const dbRole = (meRow.role || '').toLowerCase();
+  const isAdminRole = dbRole === 'admin' || dbRole === 'super_admin';
+
+  let isAdminContext = false;
+  let adminContextReason = '';
+
   try {
     const s1 = sessionStorage.getItem('quoteStep1');
     if (s1) {
       const parsed = JSON.parse(s1);
       if (parsed?.adminDraft === true) {
-        effectiveRole = 'admin';
+        isAdminContext = true;
+        adminContextReason = 'sessionStorage.adminDraft=true';
       }
     }
   } catch (_) { /* ignore */ }
-  console.log('[E4.3] effectiveRole =', effectiveRole,
-              '(dealer.role:', dealer && dealer.role,
-              ', adminDraft mode:', effectiveRole === 'admin' && (dealer && dealer.role) !== 'admin', ')');
+
+  if (!isAdminContext && isAdminRole) {
+    if (draftId && (quoteStatus === 'Draft' || quoteStatus === 'Returned')) {
+      isAdminContext = true;
+      adminContextReason = 'admin editing ' + quoteStatus + ' quote';
+    } else if (!draftId) {
+      isAdminContext = true;
+      adminContextReason = 'admin role, no draftId';
+    }
+  }
+
+  effectiveRole = isAdminContext ? 'admin' : 'dealer';
+
+  console.log('[D09] effectiveRole =', effectiveRole,
+              '(dbRole=' + dbRole +
+              ', isAdminRole=' + isAdminRole +
+              ', draftId=' + (draftId || 'null') +
+              ', quoteStatus=' + (quoteStatus || 'null') +
+              ', reason: ' + (adminContextReason || 'no admin trigger') + ')');
 
   const mfCodes = ['MF01','MF02','MF03','MF04','MF05','MF06','MF07'];
   const missing = mfCodes.filter(function (c) {
@@ -3162,6 +3220,7 @@ async function init() {
   console.log('[E5] Multi sub-group split + delete + qty edit ready');
   console.log('[F3.1] Re-hydrate + Option B (read-only admin MF07, RLS-aware) ready');
   console.log('[F-TAX] tax_status snapshot active (MF07 per-instance, MF1-6 per-rule)');
+  console.log('[D09] Role-aware effectiveRole resolution active');
 
   setInterval(async function () {
     const { data: check } = await _supabase
