@@ -28,6 +28,20 @@
 // Notes table whitelist + fallback (mirrors step3):
 //   MF_USE_NOTES_TABLE = ['MF06', 'MF07']
 //   NOTES_TABLE_FALLBACK_LENGTH = 40
+//
+// F-CUSTOM (Phase 6, 2026-05-14):
+//   • TYPE_ORDER now includes 'OTHER' between ACCESSORIES and MODIFICATION
+//     so Custom Other items sort consistently with step3 / quote-detail.
+//   • All three PDFs (packing-list / invoice / draft-quote) suffix the SKU
+//     cell with " [CUSTOM]" for rows where item.is_custom === true. Plain
+//     ASCII suffix is used because jsPDF AutoTable cells are plain text;
+//     coloured/highlighted styling is not supported per-cell without
+//     hacky workarounds.
+//   • [CUSTOM] tag appears only on the first sub-row of split items to
+//     avoid visual noise (consistent with step3 / quote-detail UI).
+//   • MSRP is NOT shown in any PDF mode (already true before Phase 6),
+//     so the "don't show MSRP for custom items" handover requirement is
+//     auto-satisfied.
 // ============================================================
 
 (function (global) {
@@ -36,7 +50,9 @@
   // ----------------------------------------
   // 常數
   // ----------------------------------------
-  const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ACCESSORIES', 'MODIFICATION'];
+  // F-CUSTOM (Phase 6): Added 'OTHER' between ACCESSORIES and MODIFICATION,
+  // aligned with new-quote-step3.html and quote-detail.html.
+  const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ACCESSORIES', 'OTHER', 'MODIFICATION'];
 
   // PDF 顏色（RGB 陣列，給 jsPDF 用）
   const COLORS = {
@@ -61,6 +77,9 @@
   // F4.2: Notes table configuration (mirrors step3)
   const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
   const NOTES_TABLE_FALLBACK_LENGTH = 40;
+
+  // F-CUSTOM (Phase 6): suffix appended to SKU cell for custom rows
+  const CUSTOM_SUFFIX = ' [CUSTOM]';
 
   // ----------------------------------------
   // Internal Helpers
@@ -473,6 +492,9 @@
    *   'invoice'      = 11 欄（含 Mod Fee col）
    *   'draft-quote'  = 11 欄（含 Mod Fee col, markup applies to unit price only）
    *
+   * F-CUSTOM (Phase 6): SKU cell suffixed with " [CUSTOM]" when item.is_custom.
+   * Suffix appears on the first sub-row only (mirrors step3 / quote-detail UI).
+   *
    * Returns: { tableEndY, notes }  where notes is the collector for renderNotesTable.
    */
   function _drawItemTable(doc, context) {
@@ -508,6 +530,7 @@
       styleItems.forEach(item => {
         const subs = _getNormalizedSubGroups(item);
         const isSplit = subs.length > 1;
+        const isCustom = !!item.is_custom;  // F-CUSTOM (Phase 6)
         const skuType        = (item.sku_type || item.skuType || '—');
         const skuDesc        = item.sku_desc || '';
         const assembleStatus = item.assemble_status || item.type || '—';
@@ -522,12 +545,14 @@
           if (isFirstSub) lastStyle = styleName;
           const styleCell = showStyle ? styleName : '';
 
-          // SKU cell: code + Sub label when split
+          // SKU cell: code + [CUSTOM] suffix (first sub only) + Sub label when split
+          // F-CUSTOM (Phase 6): plain-ASCII " [CUSTOM]" suffix marks custom rows
           const subQty = parseInt(sub.qty, 10) || 0;
+          const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
           const subLabelLine = isSplit
             ? `\nSub ${subIdx + 1} of ${subs.length}`
             : '';
-          const skuCell = `${item.sku_code}${subLabelLine}`;
+          const skuCell = `${item.sku_code}${customSuffix}${subLabelLine}`;
 
           // Description cell: sku_desc + mods (or note refs)
           const descCell = _buildDescriptionCellText({
@@ -968,6 +993,14 @@
       startY: y - 4,
     });
 
+    // F-CUSTOM (Phase 6): debug log for custom item count in PDF
+    if (Array.isArray(quoteData.items)) {
+      const customCount = quoteData.items.filter(i => i.is_custom).length;
+      if (customCount > 0) {
+        console.log('[F-CUSTOM] ' + documentTitle + ' PDF: ' + customCount + ' custom item(s)');
+      }
+    }
+
     return { doc, logoImg, y, headerContext };
   }
 
@@ -1258,6 +1291,7 @@
     _LAYOUT:     LAYOUT,
     _MF_USE_NOTES_TABLE:           MF_USE_NOTES_TABLE,           // F4.2
     _NOTES_TABLE_FALLBACK_LENGTH:  NOTES_TABLE_FALLBACK_LENGTH,  // F4.2
+    _CUSTOM_SUFFIX:                CUSTOM_SUFFIX,                // F-CUSTOM (Phase 6)
 
     _typeRank:                _typeRank,
     _groupAndSort:            _groupAndSort,
