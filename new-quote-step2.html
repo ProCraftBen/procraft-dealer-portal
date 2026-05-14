@@ -779,6 +779,195 @@
       transition: color 0.15s;
     }
     .cart-item-edit-btn:hover { color: var(--green-dark); }
+
+    /* ═══════════════════════════════════════════════════════════════
+       F-CUSTOM v1.1 (2026-05-14): Custom Items section at SKU panel bottom
+       ═══════════════════════════════════════════════════════════════ */
+    .custom-items-section {
+      border-top: 2px solid var(--gold);
+      background: rgba(201,168,76,0.04);
+    }
+    .custom-items-header {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(201,168,76,0.08);
+    }
+    .custom-items-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .custom-items-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8B6914;
+    }
+    .custom-items-hint {
+      font-size: 10px;
+      color: var(--muted);
+      font-style: italic;
+    }
+    .custom-items-list {
+      padding: 0;
+    }
+    .custom-items-empty {
+      padding: 18px 16px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .custom-item-row {
+      display: grid;
+      grid-template-columns: 1.5fr 2fr auto auto auto auto auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      background: var(--white);
+    }
+    .custom-item-row:last-child { border-bottom: none; }
+    @media (max-width: 700px) {
+      .custom-item-row {
+        grid-template-columns: 1fr auto auto;
+        grid-template-areas:
+          "code   line  actions"
+          "desc   desc  desc"
+          "meta   meta  meta";
+        gap: 4px 10px;
+      }
+      .custom-item-row .ci-code    { grid-area: code; }
+      .custom-item-row .ci-desc    { grid-area: desc; }
+      .custom-item-row .ci-meta    { grid-area: meta; display: flex; gap: 10px; flex-wrap: wrap; }
+      .custom-item-row .ci-line    { grid-area: line; }
+      .custom-item-row .ci-actions { grid-area: actions; }
+    }
+    .ci-code {
+      font-weight: 600;
+      color: var(--green-dark);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .ci-desc {
+      color: var(--text);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ci-meta {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    .ci-qty {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .ci-price {
+      color: var(--text);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .ci-line {
+      font-weight: 600;
+      color: var(--green-dark);
+      white-space: nowrap;
+      min-width: 70px;
+      text-align: right;
+    }
+    .ci-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .ci-action-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--muted);
+      width: 26px;
+      height: 26px;
+      font-size: 12px;
+      padding: 0;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ci-action-btn:hover { color: var(--green-dark); border-color: var(--green-dark); }
+    .ci-action-btn.del:hover { color: var(--error); border-color: var(--error); }
+
+    /* Type label badges shown next to SKU code */
+    .ci-type-badge {
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-weight: 700;
+    }
+    .ci-type-badge.cabinet   { background: rgba(62,90,66,0.1);    color: var(--green-dark); }
+    .ci-type-badge.accessory { background: rgba(90,122,149,0.12); color: var(--info-blue, #5A7A95); }
+    .ci-type-badge.other     { background: rgba(122,140,130,0.15); color: var(--muted); }
+
+    /* Construction toggle in modal (Framed/Frameless) */
+    .custom-construction-group {
+      display: flex;
+      gap: 8px;
+    }
+    .custom-construction-btn {
+      flex: 1;
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      padding: 9px 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--white);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .custom-construction-btn:hover { color: var(--green-dark); }
+    .custom-construction-btn.active {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.1);
+      color: #8B6914;
+      font-weight: 600;
+      border-width: 2px;
+      padding: 8px 9px;
+    }
+
+    /* Small help note shown beneath Unit Price + Asm Fee */
+    .custom-form-help {
+      font-size: 10px;
+      color: var(--muted);
+      font-style: italic;
+      margin-top: 4px;
+      line-height: 1.4;
+      display: flex;
+      gap: 4px;
+      align-items: flex-start;
+    }
+    .custom-form-help::before {
+      content: 'ⓘ';
+      font-style: normal;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -846,13 +1035,6 @@
       <span class="sku-panel-title">Items</span>
       <span class="sku-style-tag" id="skuStyleTag">— select a style above —</span>
       <div class="cat-tabs" id="catTabs"></div>
-      <!-- F-CUSTOM: admin-only "+ Add Custom Item" button (hidden by default,
-           shown only when dealer.role is admin or super_admin) -->
-      <button id="btnAddCustomItem" class="btn-add-custom" type="button"
-        style="display:none;" onclick="openCustomModal()" title="Add a custom item not in catalog">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
-        Add Custom Item
-      </button>
       <div class="sku-search-wrap" id="skuSearchWrap" style="display:none;">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
         <input type="text" id="skuSearch" placeholder="Search SKU / description..." oninput="renderSkuTable()"/>
@@ -860,6 +1042,27 @@
     </div>
     <div class="sku-table-wrap" id="skuTableWrap">
       <div class="sku-placeholder">Select a door style and click "Select This Style" to view available items.</div>
+    </div>
+
+    <!-- F-CUSTOM v1.1: Custom Items section at the bottom of SKU panel.
+         Always visible to admin (regardless of selected style).
+         Contains a button to add new custom items + a list of all
+         custom items already in cart. -->
+    <div class="custom-items-section" id="customItemsSection" style="display:none;">
+      <div class="custom-items-header">
+        <div class="custom-items-title-wrap">
+          <span class="custom-items-title">Custom Items</span>
+          <span class="custom-items-hint">Hand-entered items not in catalog (admin only)</span>
+        </div>
+        <button id="btnAddCustomItem" class="btn-add-custom" type="button"
+          onclick="openCustomModal()" title="Add a custom item not in catalog">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
+          Add Custom Item
+        </button>
+      </div>
+      <div class="custom-items-list" id="customItemsList">
+        <!-- populated by renderCustomItemsList() -->
+      </div>
     </div>
   </div>
 
@@ -872,7 +1075,7 @@
   <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
 </div>
 
-<!-- F-CUSTOM: Add Custom Item modal -->
+<!-- F-CUSTOM v1.1: Add Custom Item modal -->
 <div class="custom-modal-overlay" id="customModalOverlay">
   <div class="custom-modal-container" role="dialog" aria-modal="true" aria-labelledby="customModalTitle">
     <div class="custom-modal-header">
@@ -898,60 +1101,35 @@
         </div>
       </div>
 
-      <!-- Common fields -->
-      <div class="custom-form-row">
-        <label class="custom-form-label required">SKU Code</label>
-        <input type="text" id="customSkuCode" class="custom-form-input"
-          placeholder="e.g. CUST-001, PROMO-DENT-12"
-          maxlength="60"/>
-      </div>
-
-      <div class="custom-form-row">
-        <label class="custom-form-label required">Description</label>
-        <input type="text" id="customSkuDesc" class="custom-form-input"
-          placeholder="e.g. Custom Birch Cabinet 9in W x 30in H"
-          maxlength="200"/>
-      </div>
-
-      <div class="custom-form-row row-flex">
-        <div>
-          <label class="custom-form-label required">Quantity</label>
-          <input type="number" id="customQty" class="custom-form-input"
-            min="1" step="1" value="1"/>
-        </div>
-        <div>
-          <label class="custom-form-label required">Unit Price</label>
-          <div class="custom-form-input-prefix">
-            <span class="prefix">$</span>
-            <input type="number" id="customUnitPrice" class="custom-form-input"
-              min="0" step="0.01" placeholder="0.00"/>
-          </div>
-        </div>
-      </div>
-
-      <!-- Cabinet-only fields -->
+      <!-- ════════════════════════════════════════════════
+           CABINET section (shown only when type === 'Cabinet')
+           ════════════════════════════════════════════════ -->
       <div class="custom-cabinet-section" id="customCabinetSection" style="display:none;">
         <div class="custom-cabinet-section-title">Cabinet Details</div>
 
         <div class="custom-form-row">
+          <label class="custom-form-label required">Construction Type</label>
+          <div class="custom-construction-group" id="customConstructionGroup">
+            <button type="button" class="custom-construction-btn" data-value="framed"
+              onclick="setCustomConstruction('framed')">Framed</button>
+            <button type="button" class="custom-construction-btn" data-value="frameless"
+              onclick="setCustomConstruction('frameless')">Frameless</button>
+          </div>
+        </div>
+
+        <div class="custom-form-row">
           <label class="custom-form-label required">Door Style</label>
-          <select id="customDoorStyle" class="custom-form-select" onchange="onCustomDoorStyleChange()">
-            <option value="">— Select door style —</option>
-            <option value="__CUSTOM__">+ Type your own...</option>
-          </select>
-          <input type="text" id="customDoorStyleManual" class="custom-form-input"
-            placeholder="Type door style name"
-            style="display:none; margin-top:6px;"
+          <input type="text" id="customDoorStyleCabinet" class="custom-form-input"
+            placeholder="Type door style name (e.g. Custom Walnut)"
             maxlength="80"/>
         </div>
 
         <div class="custom-form-row">
           <label class="custom-form-label required">Cabinet Type</label>
-          <div class="custom-radio-group" id="customCabinetTypeGroup">
-            <button type="button" class="custom-radio-btn" data-value="BASE" onclick="setCustomCabinetType('BASE')">BASE</button>
-            <button type="button" class="custom-radio-btn" data-value="WALL" onclick="setCustomCabinetType('WALL')">WALL</button>
-            <button type="button" class="custom-radio-btn" data-value="TALL" onclick="setCustomCabinetType('TALL')">TALL</button>
-          </div>
+          <select id="customCabinetTypeSelect" class="custom-form-select"
+            onchange="onCustomCabinetTypeChange()">
+            <option value="">— Select cabinet type —</option>
+          </select>
         </div>
 
         <div class="custom-form-row">
@@ -969,6 +1147,66 @@
             <input type="number" id="customAsmFee" class="custom-form-input"
               min="0" step="0.01" placeholder="0.00" disabled/>
           </div>
+          <div class="custom-form-help">Auto-calculated from dealer settings (read-only).</div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════
+           ACCESSORY section (shown only when type === 'Accessory')
+           ════════════════════════════════════════════════ -->
+      <div class="custom-cabinet-section" id="customAccessorySection" style="display:none;">
+        <div class="custom-cabinet-section-title">Accessory Details</div>
+        <div class="custom-form-row">
+          <label class="custom-form-label">Door Style</label>
+          <input type="text" class="custom-form-input" value="Accessories" disabled
+            id="customAccessoryDoorStyle"/>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════
+           OTHER section (shown only when type === 'Other')
+           ════════════════════════════════════════════════ -->
+      <div class="custom-cabinet-section" id="customOtherSection" style="display:none;">
+        <div class="custom-cabinet-section-title">Other Details</div>
+        <div class="custom-form-row">
+          <label class="custom-form-label">Door Style (optional)</label>
+          <input type="text" id="customDoorStyleOther" class="custom-form-input"
+            placeholder="Leave blank or type any reference"
+            maxlength="80"/>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════
+           Common fields — always shown after type is selected
+           ════════════════════════════════════════════════ -->
+      <div class="custom-form-row" id="customCommonFieldsRow1" style="display:none;">
+        <label class="custom-form-label required">SKU Code</label>
+        <input type="text" id="customSkuCode" class="custom-form-input"
+          placeholder="e.g. CUST-001, PROMO-DENT-12"
+          maxlength="60"/>
+      </div>
+
+      <div class="custom-form-row" id="customCommonFieldsRow2" style="display:none;">
+        <label class="custom-form-label required">Description</label>
+        <input type="text" id="customSkuDesc" class="custom-form-input"
+          placeholder="e.g. Custom Birch Cabinet 9in W x 30in H"
+          maxlength="200"/>
+      </div>
+
+      <div class="custom-form-row row-flex" id="customCommonFieldsRow3" style="display:none;">
+        <div>
+          <label class="custom-form-label required">Quantity</label>
+          <input type="number" id="customQty" class="custom-form-input"
+            min="1" step="1" value="1"/>
+        </div>
+        <div>
+          <label class="custom-form-label required">Unit Price</label>
+          <div class="custom-form-input-prefix">
+            <span class="prefix">$</span>
+            <input type="number" id="customUnitPrice" class="custom-form-input"
+              min="0" step="0.01" placeholder="0.00"/>
+          </div>
+          <div class="custom-form-help">This price does not participate in MSRP calculation. Enter the final amount you want to charge.</div>
         </div>
       </div>
 
@@ -1207,11 +1445,12 @@ async function init() {
   renderStyleList();
   renderCart(); // renders badge + cart drawer correctly
 
-  // F-CUSTOM: show "+ Add Custom Item" button for admin / super_admin
+  // F-CUSTOM v1.1: show entire Custom Items section for admin / super_admin
   if (isAdminRole()) {
-    const btn = document.getElementById('btnAddCustomItem');
-    if (btn) btn.style.display = 'inline-flex';
-    console.log('[F-CUSTOM] Admin role detected (' + currentUserRole + ') — Add Custom Item enabled');
+    const section = document.getElementById('customItemsSection');
+    if (section) section.style.display = 'block';
+    renderCustomItemsList();
+    console.log('[F-CUSTOM] Admin role detected (' + currentUserRole + ') — Custom Items section enabled');
   }
 
   // Poll is_active every 60s
@@ -1654,20 +1893,38 @@ function removeFromCart(key) {
   cartItems=cartItems.filter(i=>i.key!==key);
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
+  // F-CUSTOM v1.1: also refresh custom items list (in case removed item was custom)
+  if (typeof renderCustomItemsList === 'function') renderCustomItemsList();
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// F-CUSTOM v1.0 (2026-05-14): Admin "+ Add Custom Item"
-//   - Admin/super_admin can hand-enter SKUs not in catalog
-//   - 3 types: Cabinet (with door style + assemble fee),
-//              Accessory (no extras), Other (no extras)
-//   - Writes to cart with is_custom: true
-//   - Modal supports both ADD and EDIT (editingCustomKey != null)
+// F-CUSTOM v1.1 (2026-05-14): Admin "+ Add Custom Item"
+//
+//   v1.1 changes vs v1.0:
+//     • Button moved from sku-panel-header to a new "Custom Items"
+//       section at the bottom of the SKU panel.
+//     • Modal field order reorganized per Ben's request:
+//         Cabinet: Type → Construction → Door Style (manual) → SKU
+//                  → Desc → Cabinet Type (dynamic from product table)
+//                  → Asm Status → Asm Fee (auto, read-only)
+//                  → Qty → Unit Price (with help note)
+//         Accessory: Type → (locked "Accessories" label) → SKU → Desc
+//                    → Qty → Unit Price (with help note)
+//         Other: Type → Door Style (free text, optional) → SKU → Desc
+//                → Qty → Unit Price (with help note)
+//     • Asm Fee is now read-only, auto-calculated from
+//       dealer.asm_fee_<ctype>_<cabinet_type>.
+//     • Cabinet Type dropdown is dynamically populated from the
+//       product table's distinct `type` column (per construction).
+//     • Unit Price has an "MSRP not applied" help note.
+//     • A "Custom Items" list section at SKU panel bottom shows
+//       all custom items already added (regardless of selected style).
 // ═══════════════════════════════════════════════════════════════════
 
 let customModalState = {
   type:           null,    // 'Cabinet' | 'Accessory' | 'Other'
-  cabinetType:    null,    // 'BASE' | 'WALL' | 'TALL'
+  construction:   null,    // 'framed' | 'frameless' (Cabinet only)
+  cabinetType:    null,    // BASE / WALL / TALL / VANITY / ROLL OUT TRAY etc.
   asmStatus:      'RTA',   // 'RTA' | 'Assembled'
   editingKey:     null,    // cart key of item being edited; null = ADD mode
 };
@@ -1679,27 +1936,98 @@ function isAdminRole() {
   return currentUserRole === 'admin' || currentUserRole === 'super_admin';
 }
 
+// Distinct cabinet types per construction, derived from product tables
+// (lazy populated on first openCustomModal()).
+let _customCabinetTypes = { framed: null, frameless: null };
+
+function getDistinctCabinetTypes(construction) {
+  // Read from already-loaded allSkusFramed / allSkusFrameless
+  const source = (construction === 'frameless') ? allSkusFrameless : allSkusFramed;
+  const types = new Set();
+  source.forEach(function (s) {
+    if (s.type) types.add(s.type);
+  });
+  // Preferred order; unknown types appended at the end
+  const preferred = ['BASE', 'WALL', 'TALL', 'VANITY', 'ROLL OUT TRAY'];
+  const sorted = [];
+  preferred.forEach(function (t) { if (types.has(t)) { sorted.push(t); types.delete(t); } });
+  Array.from(types).sort().forEach(function (t) { sorted.push(t); });
+  return sorted;
+}
+
+function populateCabinetTypeSelect(construction) {
+  const sel = document.getElementById('customCabinetTypeSelect');
+  if (!sel) return;
+  const types = getDistinctCabinetTypes(construction);
+  sel.innerHTML = '<option value="">— Select cabinet type —</option>' +
+    types.map(function (t) {
+      return '<option value="' + t + '">' + t + '</option>';
+    }).join('');
+  sel.value = '';
+  // Reset state — they must re-pick after construction change
+  customModalState.cabinetType = null;
+  recomputeCustomAsmFee();
+}
+
+// Compute Asm Fee = dealer's asm_fee_<ctype>_<cabinet_type>
+function recomputeCustomAsmFee() {
+  const feeEl = document.getElementById('customAsmFee');
+  if (!feeEl) return;
+
+  if (customModalState.asmStatus !== 'Assembled') {
+    feeEl.value = '';
+    return;
+  }
+  if (!customModalState.construction || !customModalState.cabinetType) {
+    feeEl.value = '';
+    return;
+  }
+  const fee = getAsmFee(customModalState.cabinetType, customModalState.construction);
+  feeEl.value = (fee > 0) ? fee.toFixed(2) : '0.00';
+}
+
 function openCustomModal(editKey) {
   // Reset state
   customModalState = {
-    type:        null,
-    cabinetType: null,
-    asmStatus:   'RTA',
-    editingKey:  editKey || null,
+    type:         null,
+    construction: null,
+    cabinetType:  null,
+    asmStatus:    'RTA',
+    editingKey:   editKey || null,
   };
 
-  // Populate door style dropdown (Cabinet section)
-  const sel = document.getElementById('customDoorStyle');
-  // Clear all but the first 2 options (placeholder + "+ Type your own")
-  while (sel.options.length > 2) sel.remove(2);
-  allStyles.forEach(function (s) {
-    if (s.is_coming_soon) return;
-    const opt = document.createElement('option');
-    opt.value = s.style_code;
-    opt.textContent = s.style_name + ' (' + s.style_code + ')';
-    opt.setAttribute('data-construction', (s.construction_type || '').toLowerCase());
-    sel.appendChild(opt);
+  // Reset all visual states
+  document.querySelectorAll('#customTypeGrid .custom-type-card').forEach(function (c) {
+    c.classList.remove('selected');
   });
+  document.querySelectorAll('#customConstructionGroup .custom-construction-btn').forEach(function (b) {
+    b.classList.remove('active');
+  });
+  document.getElementById('customCabinetSection').style.display    = 'none';
+  document.getElementById('customAccessorySection').style.display  = 'none';
+  document.getElementById('customOtherSection').style.display      = 'none';
+  document.getElementById('customCommonFieldsRow1').style.display  = 'none';
+  document.getElementById('customCommonFieldsRow2').style.display  = 'none';
+  document.getElementById('customCommonFieldsRow3').style.display  = 'none';
+
+  // Clear field values
+  document.getElementById('customDoorStyleCabinet').value = '';
+  document.getElementById('customDoorStyleOther').value   = '';
+  document.getElementById('customCabinetTypeSelect').innerHTML = '<option value="">— Select cabinet type —</option>';
+  document.getElementById('customAsmFee').value           = '';
+  document.getElementById('customSkuCode').value          = '';
+  document.getElementById('customSkuDesc').value          = '';
+  document.getElementById('customQty').value              = 1;
+  document.getElementById('customUnitPrice').value        = '';
+  setCustomAsmStatus('RTA');
+
+  // Clear any prior invalid markings
+  ['customSkuCode','customSkuDesc','customQty','customUnitPrice',
+   'customDoorStyleCabinet','customDoorStyleOther','customCabinetTypeSelect']
+    .forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('invalid');
+    });
 
   if (editKey) {
     // EDIT mode — prefill from existing cart item
@@ -1710,65 +2038,40 @@ function openCustomModal(editKey) {
     }
 
     document.getElementById('customModalTitle').textContent = 'Edit Custom Item';
-    document.getElementById('customSaveBtn').textContent = 'Save Changes';
-    document.getElementById('customSkuCode').value     = item.sku_code || '';
-    document.getElementById('customSkuDesc').value     = item.sku_desc || '';
-    document.getElementById('customQty').value         = item.quantity || 1;
-    document.getElementById('customUnitPrice').value   = (item.unit_price || 0).toFixed(2);
+    document.getElementById('customSaveBtn').textContent    = 'Save Changes';
 
     // Infer type from sku_type
     let inferredType;
     if (item.skuType === 'ACCESSORIES') inferredType = 'Accessory';
     else if (item.skuType === 'OTHER')  inferredType = 'Other';
     else inferredType = 'Cabinet';
-    onCustomTypeSelect(inferredType);
+    onCustomTypeSelect(inferredType);  // shows section + common fields
+
+    document.getElementById('customSkuCode').value   = item.sku_code   || '';
+    document.getElementById('customSkuDesc').value   = item.sku_desc   || '';
+    document.getElementById('customQty').value       = item.quantity   || 1;
+    document.getElementById('customUnitPrice').value = (item.unit_price || 0).toFixed(2);
 
     if (inferredType === 'Cabinet') {
-      // Door style: try to match existing style_code
-      const matchedStyle = item.style_code && allStyles.find(function (s) { return s.style_code === item.style_code; });
-      if (matchedStyle) {
-        sel.value = item.style_code;
-        document.getElementById('customDoorStyleManual').style.display = 'none';
-      } else if (item.style_name) {
-        sel.value = '__CUSTOM__';
-        document.getElementById('customDoorStyleManual').style.display = 'block';
-        document.getElementById('customDoorStyleManual').value = item.style_name;
+      const ctype = (item.construction_type || 'framed').toLowerCase();
+      setCustomConstruction(ctype);
+      document.getElementById('customDoorStyleCabinet').value = item.style_name || '';
+      // Cabinet type — wait for populate to finish then set
+      const sel = document.getElementById('customCabinetTypeSelect');
+      if (item.skuType && sel) {
+        sel.value = item.skuType;
+        customModalState.cabinetType = item.skuType;
       }
-
-      setCustomCabinetType(item.skuType || 'BASE');
       setCustomAsmStatus(item.type || 'RTA');
-      document.getElementById('customAsmFee').value = (item.assemble_fee || 0).toFixed(2);
+      recomputeCustomAsmFee();
+    } else if (inferredType === 'Other') {
+      document.getElementById('customDoorStyleOther').value = item.style_name || '';
     }
   } else {
     // ADD mode — fresh form
     document.getElementById('customModalTitle').textContent = 'Add Custom Item';
-    document.getElementById('customSaveBtn').textContent = 'Add to Cart';
-    document.getElementById('customSkuCode').value   = '';
-    document.getElementById('customSkuDesc').value   = '';
-    document.getElementById('customQty').value       = 1;
-    document.getElementById('customUnitPrice').value = '';
-    document.getElementById('customAsmFee').value    = '';
-    sel.value = '';
-    document.getElementById('customDoorStyleManual').style.display = 'none';
-    document.getElementById('customDoorStyleManual').value = '';
-
-    // Reset visual selections
-    document.querySelectorAll('#customTypeGrid .custom-type-card').forEach(function (c) {
-      c.classList.remove('selected');
-    });
-    document.querySelectorAll('#customCabinetTypeGroup .custom-radio-btn').forEach(function (b) {
-      b.classList.remove('active');
-    });
-    document.getElementById('customCabinetSection').style.display = 'none';
-    setCustomAsmStatus('RTA');
+    document.getElementById('customSaveBtn').textContent    = 'Add to Cart';
   }
-
-  // Clear any prior invalid markings
-  ['customSkuCode','customSkuDesc','customQty','customUnitPrice','customDoorStyle','customDoorStyleManual']
-    .forEach(function (id) {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove('invalid');
-    });
 
   document.getElementById('customModalOverlay').classList.add('show');
   document.body.classList.add('modal-open');
@@ -1786,28 +2089,30 @@ function onCustomTypeSelect(type) {
   document.querySelectorAll('#customTypeGrid .custom-type-card').forEach(function (c) {
     c.classList.toggle('selected', c.getAttribute('data-type') === type);
   });
-  // Show/hide Cabinet-only section
-  document.getElementById('customCabinetSection').style.display =
-    (type === 'Cabinet') ? 'block' : 'none';
+  // Show the type-specific section
+  document.getElementById('customCabinetSection').style.display    = (type === 'Cabinet')   ? 'block' : 'none';
+  document.getElementById('customAccessorySection').style.display  = (type === 'Accessory') ? 'block' : 'none';
+  document.getElementById('customOtherSection').style.display      = (type === 'Other')     ? 'block' : 'none';
+  // Show the common fields (SKU/Desc/Qty/Price) after type is selected
+  document.getElementById('customCommonFieldsRow1').style.display  = 'block';
+  document.getElementById('customCommonFieldsRow2').style.display  = 'block';
+  document.getElementById('customCommonFieldsRow3').style.display  = 'flex';
 }
 
-function onCustomDoorStyleChange() {
-  const sel = document.getElementById('customDoorStyle');
-  const manual = document.getElementById('customDoorStyleManual');
-  if (sel.value === '__CUSTOM__') {
-    manual.style.display = 'block';
-    manual.focus();
-  } else {
-    manual.style.display = 'none';
-    manual.value = '';
-  }
-}
-
-function setCustomCabinetType(t) {
-  customModalState.cabinetType = t;
-  document.querySelectorAll('#customCabinetTypeGroup .custom-radio-btn').forEach(function (b) {
-    b.classList.toggle('active', b.getAttribute('data-value') === t);
+function setCustomConstruction(ctype) {
+  customModalState.construction = ctype;
+  document.querySelectorAll('#customConstructionGroup .custom-construction-btn').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-value') === ctype);
   });
+  // Populate cabinet type dropdown from product table
+  populateCabinetTypeSelect(ctype);
+  recomputeCustomAsmFee();
+}
+
+function onCustomCabinetTypeChange() {
+  const sel = document.getElementById('customCabinetTypeSelect');
+  customModalState.cabinetType = sel.value || null;
+  recomputeCustomAsmFee();
 }
 
 function setCustomAsmStatus(s) {
@@ -1815,14 +2120,7 @@ function setCustomAsmStatus(s) {
   document.querySelectorAll('#customAsmStatusGroup .custom-radio-btn').forEach(function (b) {
     b.classList.toggle('active', b.getAttribute('data-value') === s);
   });
-  // Disable/enable assemble fee based on RTA/Assembled
-  const feeEl = document.getElementById('customAsmFee');
-  if (s === 'RTA') {
-    feeEl.value = '';
-    feeEl.disabled = true;
-  } else {
-    feeEl.disabled = false;
-  }
+  recomputeCustomAsmFee();
 }
 
 function saveCustomItem() {
@@ -1837,7 +2135,8 @@ function saveCustomItem() {
   let firstInvalid = null;
 
   // Clear prior markings
-  ['customSkuCode','customSkuDesc','customQty','customUnitPrice','customDoorStyle','customDoorStyleManual']
+  ['customSkuCode','customSkuDesc','customQty','customUnitPrice',
+   'customDoorStyleCabinet','customDoorStyleOther','customCabinetTypeSelect']
     .forEach(function (id) {
       const el = document.getElementById(id);
       if (el) el.classList.remove('invalid');
@@ -1864,56 +2163,61 @@ function saveCustomItem() {
     firstInvalid = firstInvalid || 'Unit price must be 0 or greater';
   }
 
-  // ── Cabinet-specific validation ──
-  let styleCode = null;
-  let styleName = null;
+  // ── Type-specific validation + field gathering ──
+  let styleCode   = null;
+  let styleName   = null;
   let cabinetType = null;
-  let asmStatus = 'RTA';
-  let asmFee = 0;
+  let asmStatus   = 'RTA';
+  let asmFee      = 0;
+  let construction = null;
 
   if (customModalState.type === 'Cabinet') {
-    const sel = document.getElementById('customDoorStyle');
-    const manualEl = document.getElementById('customDoorStyleManual');
-
-    if (!sel.value) {
-      sel.classList.add('invalid');
-      firstInvalid = firstInvalid || 'Door style is required';
-    } else if (sel.value === '__CUSTOM__') {
-      const typed = manualEl.value.trim();
-      if (!typed) {
-        manualEl.classList.add('invalid');
-        firstInvalid = firstInvalid || 'Please type a door style name';
-      } else {
-        styleCode = null;        // No catalog code — admin typed their own
-        styleName = typed;
-      }
+    if (!customModalState.construction) {
+      firstInvalid = firstInvalid || 'Construction type is required';
     } else {
-      const match = allStyles.find(function (s) { return s.style_code === sel.value; });
-      if (match) {
-        styleCode = match.style_code;
-        styleName = match.style_name;
-      }
+      construction = customModalState.construction;
     }
 
-    if (!customModalState.cabinetType) {
-      firstInvalid = firstInvalid || 'Cabinet type is required';
-      // Visually flag the cabinet type group
-      document.querySelectorAll('#customCabinetTypeGroup .custom-radio-btn').forEach(function (b) {
-        b.style.borderColor = 'var(--error)';
-        setTimeout(function () { b.style.borderColor = ''; }, 2200);
-      });
+    const doorStyleInput = document.getElementById('customDoorStyleCabinet');
+    const typed = doorStyleInput.value.trim();
+    if (!typed) {
+      doorStyleInput.classList.add('invalid');
+      firstInvalid = firstInvalid || 'Door style is required';
     } else {
-      cabinetType = customModalState.cabinetType;
+      styleCode = null;   // Custom — no catalog match
+      styleName = typed;
+    }
+
+    const ctSel = document.getElementById('customCabinetTypeSelect');
+    if (!ctSel.value) {
+      ctSel.classList.add('invalid');
+      firstInvalid = firstInvalid || 'Cabinet type is required';
+    } else {
+      cabinetType = ctSel.value;
     }
 
     asmStatus = customModalState.asmStatus || 'RTA';
-    if (asmStatus === 'Assembled') {
-      const feeRaw = document.getElementById('customAsmFee').value;
-      const feeNum = parseFloat(feeRaw);
-      asmFee = (isFinite(feeNum) && feeNum >= 0) ? feeNum : 0;
+    if (asmStatus === 'Assembled' && construction && cabinetType) {
+      asmFee = getAsmFee(cabinetType, construction);
     } else {
       asmFee = 0;
     }
+  } else if (customModalState.type === 'Accessory') {
+    styleCode    = null;
+    styleName    = 'Accessories';
+    cabinetType  = null;
+    asmStatus    = 'RTA';
+    asmFee       = 0;
+    construction = null;
+  } else if (customModalState.type === 'Other') {
+    const doorStyleInput = document.getElementById('customDoorStyleOther');
+    const typed = doorStyleInput.value.trim();
+    styleCode    = null;
+    styleName    = typed || null;   // optional
+    cabinetType  = null;
+    asmStatus    = 'RTA';
+    asmFee       = 0;
+    construction = null;
   }
 
   if (firstInvalid) {
@@ -1921,11 +2225,11 @@ function saveCustomItem() {
     return;
   }
 
-  // ── Build cart item ──
+  // ── Resolve final fields per type ──
   let skuType, finalAsmStatus, finalAsmFee, finalStyleCode, finalStyleName;
   switch (customModalState.type) {
     case 'Cabinet':
-      skuType        = cabinetType;
+      skuType        = cabinetType;       // BASE / WALL / TALL / VANITY / ...
       finalAsmStatus = asmStatus;
       finalAsmFee    = asmFee;
       finalStyleCode = styleCode;
@@ -1936,41 +2240,39 @@ function saveCustomItem() {
       finalAsmStatus = 'RTA';
       finalAsmFee    = 0;
       finalStyleCode = null;
-      finalStyleName = null;
+      finalStyleName = 'Accessories';
       break;
     case 'Other':
       skuType        = 'OTHER';
       finalAsmStatus = 'RTA';
       finalAsmFee    = 0;
       finalStyleCode = null;
-      finalStyleName = null;
+      finalStyleName = styleName;   // optional, may be null
       break;
   }
 
-  // Build key. For custom items, key includes "CUSTOM" + ms timestamp
-  // (or preserve edit key when editing) to avoid collisions with catalog
-  // SKUs that may share the same sku_code.
+  // Build / preserve key
   const isEditing = !!customModalState.editingKey;
   const key = isEditing
     ? customModalState.editingKey
     : 'CUSTOM-' + Date.now() + '-' + skuCode + '-' + finalAsmStatus;
 
   const newItem = {
-    key:          key,
-    is_custom:    true,
-    style_code:   finalStyleCode,
-    style_name:   finalStyleName,
-    sku_code:     skuCode,
-    sku_desc:     skuDesc,
-    type:         finalAsmStatus,         // RTA / Assembled (legacy field name)
-    skuType:      skuType,                // BASE / WALL / TALL / ACCESSORIES / OTHER
-    category:     '',
-    subcategory:  '',
-    quantity:     qty,
-    unit_price:   unitPrice,
-    msrp:         0,                      // Custom items don't carry MSRP
-    assemble_fee: finalAsmFee,
-    // Custom items skip the Step 2.5 modal — sub_groups auto-skipped
+    key:                key,
+    is_custom:          true,
+    style_code:         finalStyleCode,
+    style_name:         finalStyleName,
+    construction_type:  construction,    // 'framed' / 'frameless' / null
+    sku_code:           skuCode,
+    sku_desc:           skuDesc,
+    type:               finalAsmStatus,  // RTA / Assembled
+    skuType:            skuType,
+    category:           '',
+    subcategory:        '',
+    quantity:           qty,
+    unit_price:         unitPrice,
+    msrp:               0,
+    assemble_fee:       finalAsmFee,
     sub_groups: [{
       sub_index:           1,
       qty:                 qty,
@@ -1992,10 +2294,72 @@ function saveCustomItem() {
 
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
+  renderCustomItemsList();
   closeCustomModal();
-  showToast(isEditing
-    ? skuCode + ' updated'
-    : skuCode + ' added to cart');
+  showToast(isEditing ? (skuCode + ' updated') : (skuCode + ' added to cart'));
+}
+
+// ──────────────────────────────────────────────────────────────────
+// F-CUSTOM v1.1: render the "Custom Items" list at SKU panel bottom
+// ──────────────────────────────────────────────────────────────────
+function renderCustomItemsList() {
+  const listEl = document.getElementById('customItemsList');
+  if (!listEl) return;
+  const customs = cartItems.filter(function (i) { return i.is_custom; });
+
+  if (!customs.length) {
+    listEl.innerHTML = '<div class="custom-items-empty">' +
+      'No custom items yet. Click "+ Add Custom Item" above to add one.' +
+      '</div>';
+    return;
+  }
+
+  listEl.innerHTML = customs.map(function (item) {
+    let typeBadge, typeClass;
+    if (item.skuType === 'ACCESSORIES') {
+      typeBadge = 'ACCESSORY';
+      typeClass = 'accessory';
+    } else if (item.skuType === 'OTHER') {
+      typeBadge = 'OTHER';
+      typeClass = 'other';
+    } else {
+      typeBadge = 'CABINET';
+      typeClass = 'cabinet';
+    }
+
+    // Build meta line: style name + cabinet type + asm + construction
+    const metaParts = [];
+    if (item.style_name) metaParts.push(item.style_name);
+    if (item.construction_type) metaParts.push(item.construction_type);
+    if (item.skuType && item.skuType !== 'ACCESSORIES' && item.skuType !== 'OTHER') {
+      metaParts.push(item.skuType);
+    }
+    metaParts.push(item.type); // RTA / Assembled
+    if ((item.assemble_fee || 0) > 0) metaParts.push('Asm +$' + item.assemble_fee.toFixed(2));
+
+    const lineTotal = (item.unit_price * item.quantity);
+
+    return '' +
+      '<div class="custom-item-row" data-key="' + item.key + '">' +
+        '<div class="ci-code">' +
+          item.sku_code +
+          ' <span class="ci-type-badge ' + typeClass + '">' + typeBadge + '</span>' +
+        '</div>' +
+        '<div class="ci-desc" title="' + (item.sku_desc || '') + '">' + (item.sku_desc || '') + '</div>' +
+        '<div class="ci-meta">' + metaParts.join(' · ') + '</div>' +
+        '<div class="ci-qty">Qty ' + item.quantity + '</div>' +
+        '<div class="ci-price">$' + item.unit_price.toFixed(2) + '/ea</div>' +
+        '<div class="ci-line">$' + lineTotal.toFixed(2) + '</div>' +
+        '<div class="ci-actions">' +
+          '<button class="ci-action-btn edit" type="button" ' +
+            'onclick="openCustomModal(\'' + item.key + '\')" ' +
+            'title="Edit">✏</button>' +
+          '<button class="ci-action-btn del" type="button" ' +
+            'onclick="removeFromCart(\'' + item.key + '\'); renderCustomItemsList();" ' +
+            'title="Remove">×</button>' +
+        '</div>' +
+      '</div>';
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2106,6 +2470,8 @@ function onCartQtyChange(key, newValRaw) {
 
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
+  // F-CUSTOM v1.1: refresh custom list (in case qty change was on a custom item)
+  if (typeof renderCustomItemsList === 'function') renderCustomItemsList();
 
   if (result.deletedCount > 0) {
     console.log('[CART-QTY] item', item.sku_code, '→ qty', q,
