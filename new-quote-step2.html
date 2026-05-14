@@ -1038,6 +1038,11 @@ let cartItems    = [];
 let draftId      = null; // set if resuming a draft
 let isResumingReturned = false;
 
+// F-CUSTOM: role of the LOGGED-IN user (not the target dealer).
+// In admin "create as dealer" flow, `dealer` is the TARGET dealer
+// (for pricing), but `currentUserRole` stays as the admin's role.
+let currentUserRole = 'dealer';
+
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
   grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
@@ -1068,14 +1073,19 @@ async function init() {
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
 
-  // ── Step 1: Verify the logged-in user is active (security gate) ──
+  // ── Step 1: Verify the logged-in user is active + capture role ──
+  // F-CUSTOM: also pull `role` so we can show admin-only UI even when
+  // the loaded `dealer` object is a DIFFERENT user (admin creating
+  // a draft for a dealer).
   const { data: meRow } = await _supabase
-    .from('dealers').select('is_active').eq('id', session.user.id).single();
+    .from('dealers').select('is_active, role').eq('id', session.user.id).single();
   if (!meRow?.is_active) {
     await _supabase.auth.signOut();
     window.location.href = 'login.html';
     return;
   }
+  currentUserRole = (meRow.role || 'dealer').toLowerCase();
+  console.log('[F-CUSTOM] currentUserRole =', currentUserRole);
 
   // ── Step 2: Resolve which dealer's data to load (for pricing/fees/multipliers) ──
   // Priority: Resume Draft (DB) > Admin Draft (sessionStorage hint) > current session
@@ -1201,7 +1211,7 @@ async function init() {
   if (isAdminRole()) {
     const btn = document.getElementById('btnAddCustomItem');
     if (btn) btn.style.display = 'inline-flex';
-    console.log('[F-CUSTOM] Admin role detected (' + dealer.role + ') — Add Custom Item enabled');
+    console.log('[F-CUSTOM] Admin role detected (' + currentUserRole + ') — Add Custom Item enabled');
   }
 
   // Poll is_active every 60s
@@ -1663,9 +1673,10 @@ let customModalState = {
 };
 
 function isAdminRole() {
-  if (!dealer) return false;
-  const r = (dealer.role || '').toLowerCase();
-  return r === 'admin' || r === 'super_admin';
+  // F-CUSTOM: check the LOGGED-IN user's role, not the loaded `dealer`
+  // object. In admin "create as dealer" flow, `dealer` is the target
+  // dealer (for pricing); admin permissions come from currentUserRole.
+  return currentUserRole === 'admin' || currentUserRole === 'super_admin';
 }
 
 function openCustomModal(editKey) {
