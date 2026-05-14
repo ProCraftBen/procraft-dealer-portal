@@ -413,6 +413,372 @@
     }
     .lightbox-close:hover { opacity: 1; }
     .preview-img-wrap { cursor: zoom-in; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       F-CUSTOM v1.0 (2026-05-14): Admin "+ Add Custom Item" feature
+       ═══════════════════════════════════════════════════════════════ */
+
+    /* "+ Add Custom Item" button (admin only) in sku-panel-header */
+    .btn-add-custom {
+      background: var(--gold);
+      color: var(--green-dark);
+      border: none;
+      border-radius: 3px;
+      padding: 6px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .btn-add-custom:hover {
+      background: #B8932A;
+    }
+    .btn-add-custom svg {
+      width: 11px; height: 11px;
+      fill: currentColor;
+    }
+
+    /* [CUSTOM] gold badge — used in cart & throughout */
+    .custom-badge {
+      display: inline-block;
+      background: var(--gold);
+      color: var(--green-dark);
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-weight: 700;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* Custom Item Modal */
+    .custom-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(44, 58, 50, 0.55);
+      z-index: 800;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .custom-modal-overlay.show { display: flex; }
+    .custom-modal-container {
+      width: 92vw;
+      max-width: 560px;
+      max-height: 90vh;
+      background: var(--white);
+      border-radius: 6px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .custom-modal-header {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .custom-modal-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    .custom-modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 24px;
+      line-height: 1;
+      padding: 0 4px;
+      transition: color 0.15s;
+    }
+    .custom-modal-close:hover { color: var(--text); }
+    .custom-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 22px;
+    }
+    .custom-modal-body::-webkit-scrollbar { width: 6px; }
+    .custom-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Type selector — radio cards */
+    .custom-type-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .custom-type-card {
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--white);
+    }
+    .custom-type-card:hover {
+      border-color: var(--gold);
+    }
+    .custom-type-card.selected {
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.04);
+      border-width: 2px;
+      padding: 11.5px 7.5px;
+    }
+    .custom-type-card-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+      margin-bottom: 2px;
+    }
+    .custom-type-card-hint {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Form fields */
+    .custom-form-row {
+      margin-bottom: 12px;
+    }
+    .custom-form-row.row-flex {
+      display: flex;
+      gap: 10px;
+    }
+    .custom-form-row.row-flex > * { flex: 1; }
+    .custom-form-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .custom-form-label.required::after {
+      content: ' *';
+      color: var(--error);
+    }
+    .custom-form-input,
+    .custom-form-select {
+      width: 100%;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 8px 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .custom-form-input:focus,
+    .custom-form-select:focus {
+      border-color: var(--green-dark);
+    }
+    .custom-form-input.invalid,
+    .custom-form-select.invalid {
+      border-color: var(--error);
+      background: rgba(192,57,43,0.04);
+    }
+    .custom-form-input:disabled {
+      background: #F0EDE6;
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .custom-form-input-prefix {
+      position: relative;
+    }
+    .custom-form-input-prefix .prefix {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .custom-form-input-prefix input {
+      padding-left: 22px;
+    }
+
+    /* Radio groups (Assemble Status, Cabinet Type) */
+    .custom-radio-group {
+      display: flex;
+      gap: 8px;
+    }
+    .custom-radio-btn {
+      flex: 1;
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      padding: 7px 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--white);
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .custom-radio-btn:hover { color: var(--green-dark); }
+    .custom-radio-btn.active {
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.06);
+      color: var(--green-dark);
+      font-weight: 600;
+    }
+
+    .custom-cabinet-section {
+      background: #FAFAF8;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px;
+      margin-top: 8px;
+    }
+    .custom-cabinet-section-title {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .custom-modal-footer {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .custom-btn {
+      padding: 9px 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.15s;
+      min-height: 38px;
+      border: 1px solid transparent;
+    }
+    .custom-btn-cancel {
+      background: transparent;
+      color: var(--muted);
+      border-color: var(--border);
+    }
+    .custom-btn-cancel:hover {
+      color: var(--text);
+      border-color: var(--text);
+    }
+    .custom-btn-save {
+      background: var(--green-dark);
+      color: #fff;
+    }
+    .custom-btn-save:hover { background: var(--green-mid); }
+    .custom-btn-save:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    body.modal-open { overflow: hidden; }
+
+    @media (max-width: 700px) {
+      .custom-modal-overlay { padding: 10px; }
+      .custom-modal-container { max-height: 95vh; }
+      .custom-modal-header { padding: 12px 16px; }
+      .custom-modal-body { padding: 14px 16px; }
+      .custom-modal-footer { padding: 12px 16px; flex-direction: column; }
+      .custom-btn { width: 100%; }
+      .custom-form-row.row-flex { flex-direction: column; gap: 12px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       Cart qty inline editor (2026-05-14)
+       ═══════════════════════════════════════════════════════════════ */
+    .cart-item-qty-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .cart-qty-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: all 0.15s;
+    }
+    .cart-qty-btn:hover {
+      border-color: var(--green-dark);
+      color: var(--green-dark);
+    }
+    .cart-qty-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .cart-qty-input {
+      width: 40px;
+      height: 22px;
+      text-align: center;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 4px;
+      font-size: 12px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+    }
+    .cart-qty-input:focus {
+      outline: none;
+      border-color: var(--green-mid);
+    }
+    .cart-item-edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 2px 4px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .cart-item-edit-btn:hover { color: var(--green-dark); }
   </style>
 </head>
 <body>
@@ -480,6 +846,13 @@
       <span class="sku-panel-title">Items</span>
       <span class="sku-style-tag" id="skuStyleTag">— select a style above —</span>
       <div class="cat-tabs" id="catTabs"></div>
+      <!-- F-CUSTOM: admin-only "+ Add Custom Item" button (hidden by default,
+           shown only when dealer.role is admin or super_admin) -->
+      <button id="btnAddCustomItem" class="btn-add-custom" type="button"
+        style="display:none;" onclick="openCustomModal()" title="Add a custom item not in catalog">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
+        Add Custom Item
+      </button>
       <div class="sku-search-wrap" id="skuSearchWrap" style="display:none;">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
         <input type="text" id="skuSearch" placeholder="Search SKU / description..." oninput="renderSkuTable()"/>
@@ -497,6 +870,114 @@
 <div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">×</button>
   <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
+</div>
+
+<!-- F-CUSTOM: Add Custom Item modal -->
+<div class="custom-modal-overlay" id="customModalOverlay">
+  <div class="custom-modal-container" role="dialog" aria-modal="true" aria-labelledby="customModalTitle">
+    <div class="custom-modal-header">
+      <span class="custom-modal-title" id="customModalTitle">Add Custom Item</span>
+      <button class="custom-modal-close" type="button" onclick="closeCustomModal()" aria-label="Close">×</button>
+    </div>
+    <div class="custom-modal-body">
+
+      <!-- Type selector -->
+      <div class="custom-form-label required">Item Type</div>
+      <div class="custom-type-grid" id="customTypeGrid">
+        <div class="custom-type-card" data-type="Cabinet" onclick="onCustomTypeSelect('Cabinet')">
+          <div class="custom-type-card-label">Cabinet</div>
+          <div class="custom-type-card-hint">New door style or custom size</div>
+        </div>
+        <div class="custom-type-card" data-type="Accessory" onclick="onCustomTypeSelect('Accessory')">
+          <div class="custom-type-card-label">Accessory</div>
+          <div class="custom-type-card-hint">Toe Kick, Filler, Molding...</div>
+        </div>
+        <div class="custom-type-card" data-type="Other" onclick="onCustomTypeSelect('Other')">
+          <div class="custom-type-card-label">Other</div>
+          <div class="custom-type-card-hint">Anything else</div>
+        </div>
+      </div>
+
+      <!-- Common fields -->
+      <div class="custom-form-row">
+        <label class="custom-form-label required">SKU Code</label>
+        <input type="text" id="customSkuCode" class="custom-form-input"
+          placeholder="e.g. CUST-001, PROMO-DENT-12"
+          maxlength="60"/>
+      </div>
+
+      <div class="custom-form-row">
+        <label class="custom-form-label required">Description</label>
+        <input type="text" id="customSkuDesc" class="custom-form-input"
+          placeholder="e.g. Custom Birch Cabinet 9in W x 30in H"
+          maxlength="200"/>
+      </div>
+
+      <div class="custom-form-row row-flex">
+        <div>
+          <label class="custom-form-label required">Quantity</label>
+          <input type="number" id="customQty" class="custom-form-input"
+            min="1" step="1" value="1"/>
+        </div>
+        <div>
+          <label class="custom-form-label required">Unit Price</label>
+          <div class="custom-form-input-prefix">
+            <span class="prefix">$</span>
+            <input type="number" id="customUnitPrice" class="custom-form-input"
+              min="0" step="0.01" placeholder="0.00"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cabinet-only fields -->
+      <div class="custom-cabinet-section" id="customCabinetSection" style="display:none;">
+        <div class="custom-cabinet-section-title">Cabinet Details</div>
+
+        <div class="custom-form-row">
+          <label class="custom-form-label required">Door Style</label>
+          <select id="customDoorStyle" class="custom-form-select" onchange="onCustomDoorStyleChange()">
+            <option value="">— Select door style —</option>
+            <option value="__CUSTOM__">+ Type your own...</option>
+          </select>
+          <input type="text" id="customDoorStyleManual" class="custom-form-input"
+            placeholder="Type door style name"
+            style="display:none; margin-top:6px;"
+            maxlength="80"/>
+        </div>
+
+        <div class="custom-form-row">
+          <label class="custom-form-label required">Cabinet Type</label>
+          <div class="custom-radio-group" id="customCabinetTypeGroup">
+            <button type="button" class="custom-radio-btn" data-value="BASE" onclick="setCustomCabinetType('BASE')">BASE</button>
+            <button type="button" class="custom-radio-btn" data-value="WALL" onclick="setCustomCabinetType('WALL')">WALL</button>
+            <button type="button" class="custom-radio-btn" data-value="TALL" onclick="setCustomCabinetType('TALL')">TALL</button>
+          </div>
+        </div>
+
+        <div class="custom-form-row">
+          <label class="custom-form-label required">Assemble Status</label>
+          <div class="custom-radio-group" id="customAsmStatusGroup">
+            <button type="button" class="custom-radio-btn active" data-value="RTA" onclick="setCustomAsmStatus('RTA')">RTA</button>
+            <button type="button" class="custom-radio-btn" data-value="Assembled" onclick="setCustomAsmStatus('Assembled')">Assembled</button>
+          </div>
+        </div>
+
+        <div class="custom-form-row">
+          <label class="custom-form-label">Assemble Fee (per unit)</label>
+          <div class="custom-form-input-prefix">
+            <span class="prefix">$</span>
+            <input type="number" id="customAsmFee" class="custom-form-input"
+              min="0" step="0.01" placeholder="0.00" disabled/>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="custom-modal-footer">
+      <button class="custom-btn custom-btn-cancel" type="button" onclick="closeCustomModal()">Cancel</button>
+      <button class="custom-btn custom-btn-save" type="button" id="customSaveBtn" onclick="saveCustomItem()">Add to Cart</button>
+    </div>
+  </div>
 </div>
 
 <!-- Floating Cart Button -->
@@ -715,6 +1196,13 @@ async function init() {
 
   renderStyleList();
   renderCart(); // renders badge + cart drawer correctly
+
+  // F-CUSTOM: show "+ Add Custom Item" button for admin / super_admin
+  if (isAdminRole()) {
+    const btn = document.getElementById('btnAddCustomItem');
+    if (btn) btn.style.display = 'inline-flex';
+    console.log('[F-CUSTOM] Admin role detected (' + dealer.role + ') — Add Custom Item enabled');
+  }
 
   // Poll is_active every 60s
   setInterval(async () => {
@@ -1158,6 +1646,471 @@ function removeFromCart(key) {
   renderCart();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// F-CUSTOM v1.0 (2026-05-14): Admin "+ Add Custom Item"
+//   - Admin/super_admin can hand-enter SKUs not in catalog
+//   - 3 types: Cabinet (with door style + assemble fee),
+//              Accessory (no extras), Other (no extras)
+//   - Writes to cart with is_custom: true
+//   - Modal supports both ADD and EDIT (editingCustomKey != null)
+// ═══════════════════════════════════════════════════════════════════
+
+let customModalState = {
+  type:           null,    // 'Cabinet' | 'Accessory' | 'Other'
+  cabinetType:    null,    // 'BASE' | 'WALL' | 'TALL'
+  asmStatus:      'RTA',   // 'RTA' | 'Assembled'
+  editingKey:     null,    // cart key of item being edited; null = ADD mode
+};
+
+function isAdminRole() {
+  if (!dealer) return false;
+  const r = (dealer.role || '').toLowerCase();
+  return r === 'admin' || r === 'super_admin';
+}
+
+function openCustomModal(editKey) {
+  // Reset state
+  customModalState = {
+    type:        null,
+    cabinetType: null,
+    asmStatus:   'RTA',
+    editingKey:  editKey || null,
+  };
+
+  // Populate door style dropdown (Cabinet section)
+  const sel = document.getElementById('customDoorStyle');
+  // Clear all but the first 2 options (placeholder + "+ Type your own")
+  while (sel.options.length > 2) sel.remove(2);
+  allStyles.forEach(function (s) {
+    if (s.is_coming_soon) return;
+    const opt = document.createElement('option');
+    opt.value = s.style_code;
+    opt.textContent = s.style_name + ' (' + s.style_code + ')';
+    opt.setAttribute('data-construction', (s.construction_type || '').toLowerCase());
+    sel.appendChild(opt);
+  });
+
+  if (editKey) {
+    // EDIT mode — prefill from existing cart item
+    const item = cartItems.find(function (i) { return i.key === editKey; });
+    if (!item || !item.is_custom) {
+      showToast('Item not found or not editable');
+      return;
+    }
+
+    document.getElementById('customModalTitle').textContent = 'Edit Custom Item';
+    document.getElementById('customSaveBtn').textContent = 'Save Changes';
+    document.getElementById('customSkuCode').value     = item.sku_code || '';
+    document.getElementById('customSkuDesc').value     = item.sku_desc || '';
+    document.getElementById('customQty').value         = item.quantity || 1;
+    document.getElementById('customUnitPrice').value   = (item.unit_price || 0).toFixed(2);
+
+    // Infer type from sku_type
+    let inferredType;
+    if (item.skuType === 'ACCESSORIES') inferredType = 'Accessory';
+    else if (item.skuType === 'OTHER')  inferredType = 'Other';
+    else inferredType = 'Cabinet';
+    onCustomTypeSelect(inferredType);
+
+    if (inferredType === 'Cabinet') {
+      // Door style: try to match existing style_code
+      const matchedStyle = item.style_code && allStyles.find(function (s) { return s.style_code === item.style_code; });
+      if (matchedStyle) {
+        sel.value = item.style_code;
+        document.getElementById('customDoorStyleManual').style.display = 'none';
+      } else if (item.style_name) {
+        sel.value = '__CUSTOM__';
+        document.getElementById('customDoorStyleManual').style.display = 'block';
+        document.getElementById('customDoorStyleManual').value = item.style_name;
+      }
+
+      setCustomCabinetType(item.skuType || 'BASE');
+      setCustomAsmStatus(item.type || 'RTA');
+      document.getElementById('customAsmFee').value = (item.assemble_fee || 0).toFixed(2);
+    }
+  } else {
+    // ADD mode — fresh form
+    document.getElementById('customModalTitle').textContent = 'Add Custom Item';
+    document.getElementById('customSaveBtn').textContent = 'Add to Cart';
+    document.getElementById('customSkuCode').value   = '';
+    document.getElementById('customSkuDesc').value   = '';
+    document.getElementById('customQty').value       = 1;
+    document.getElementById('customUnitPrice').value = '';
+    document.getElementById('customAsmFee').value    = '';
+    sel.value = '';
+    document.getElementById('customDoorStyleManual').style.display = 'none';
+    document.getElementById('customDoorStyleManual').value = '';
+
+    // Reset visual selections
+    document.querySelectorAll('#customTypeGrid .custom-type-card').forEach(function (c) {
+      c.classList.remove('selected');
+    });
+    document.querySelectorAll('#customCabinetTypeGroup .custom-radio-btn').forEach(function (b) {
+      b.classList.remove('active');
+    });
+    document.getElementById('customCabinetSection').style.display = 'none';
+    setCustomAsmStatus('RTA');
+  }
+
+  // Clear any prior invalid markings
+  ['customSkuCode','customSkuDesc','customQty','customUnitPrice','customDoorStyle','customDoorStyleManual']
+    .forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('invalid');
+    });
+
+  document.getElementById('customModalOverlay').classList.add('show');
+  document.body.classList.add('modal-open');
+}
+
+function closeCustomModal() {
+  document.getElementById('customModalOverlay').classList.remove('show');
+  document.body.classList.remove('modal-open');
+  customModalState.editingKey = null;
+}
+
+function onCustomTypeSelect(type) {
+  customModalState.type = type;
+  // Visual toggle
+  document.querySelectorAll('#customTypeGrid .custom-type-card').forEach(function (c) {
+    c.classList.toggle('selected', c.getAttribute('data-type') === type);
+  });
+  // Show/hide Cabinet-only section
+  document.getElementById('customCabinetSection').style.display =
+    (type === 'Cabinet') ? 'block' : 'none';
+}
+
+function onCustomDoorStyleChange() {
+  const sel = document.getElementById('customDoorStyle');
+  const manual = document.getElementById('customDoorStyleManual');
+  if (sel.value === '__CUSTOM__') {
+    manual.style.display = 'block';
+    manual.focus();
+  } else {
+    manual.style.display = 'none';
+    manual.value = '';
+  }
+}
+
+function setCustomCabinetType(t) {
+  customModalState.cabinetType = t;
+  document.querySelectorAll('#customCabinetTypeGroup .custom-radio-btn').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-value') === t);
+  });
+}
+
+function setCustomAsmStatus(s) {
+  customModalState.asmStatus = s;
+  document.querySelectorAll('#customAsmStatusGroup .custom-radio-btn').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-value') === s);
+  });
+  // Disable/enable assemble fee based on RTA/Assembled
+  const feeEl = document.getElementById('customAsmFee');
+  if (s === 'RTA') {
+    feeEl.value = '';
+    feeEl.disabled = true;
+  } else {
+    feeEl.disabled = false;
+  }
+}
+
+function saveCustomItem() {
+  // ── Validate common fields ──
+  const skuCode    = document.getElementById('customSkuCode').value.trim();
+  const skuDesc    = document.getElementById('customSkuDesc').value.trim();
+  const qtyRaw     = document.getElementById('customQty').value;
+  const priceRaw   = document.getElementById('customUnitPrice').value;
+  const qty        = parseInt(qtyRaw, 10);
+  const unitPrice  = parseFloat(priceRaw);
+
+  let firstInvalid = null;
+
+  // Clear prior markings
+  ['customSkuCode','customSkuDesc','customQty','customUnitPrice','customDoorStyle','customDoorStyleManual']
+    .forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('invalid');
+    });
+
+  if (!customModalState.type) {
+    showToast('Please select an item type', true);
+    return;
+  }
+  if (!skuCode) {
+    document.getElementById('customSkuCode').classList.add('invalid');
+    firstInvalid = firstInvalid || 'SKU code is required';
+  }
+  if (!skuDesc) {
+    document.getElementById('customSkuDesc').classList.add('invalid');
+    firstInvalid = firstInvalid || 'Description is required';
+  }
+  if (!isFinite(qty) || qty < 1) {
+    document.getElementById('customQty').classList.add('invalid');
+    firstInvalid = firstInvalid || 'Quantity must be at least 1';
+  }
+  if (!isFinite(unitPrice) || unitPrice < 0) {
+    document.getElementById('customUnitPrice').classList.add('invalid');
+    firstInvalid = firstInvalid || 'Unit price must be 0 or greater';
+  }
+
+  // ── Cabinet-specific validation ──
+  let styleCode = null;
+  let styleName = null;
+  let cabinetType = null;
+  let asmStatus = 'RTA';
+  let asmFee = 0;
+
+  if (customModalState.type === 'Cabinet') {
+    const sel = document.getElementById('customDoorStyle');
+    const manualEl = document.getElementById('customDoorStyleManual');
+
+    if (!sel.value) {
+      sel.classList.add('invalid');
+      firstInvalid = firstInvalid || 'Door style is required';
+    } else if (sel.value === '__CUSTOM__') {
+      const typed = manualEl.value.trim();
+      if (!typed) {
+        manualEl.classList.add('invalid');
+        firstInvalid = firstInvalid || 'Please type a door style name';
+      } else {
+        styleCode = null;        // No catalog code — admin typed their own
+        styleName = typed;
+      }
+    } else {
+      const match = allStyles.find(function (s) { return s.style_code === sel.value; });
+      if (match) {
+        styleCode = match.style_code;
+        styleName = match.style_name;
+      }
+    }
+
+    if (!customModalState.cabinetType) {
+      firstInvalid = firstInvalid || 'Cabinet type is required';
+      // Visually flag the cabinet type group
+      document.querySelectorAll('#customCabinetTypeGroup .custom-radio-btn').forEach(function (b) {
+        b.style.borderColor = 'var(--error)';
+        setTimeout(function () { b.style.borderColor = ''; }, 2200);
+      });
+    } else {
+      cabinetType = customModalState.cabinetType;
+    }
+
+    asmStatus = customModalState.asmStatus || 'RTA';
+    if (asmStatus === 'Assembled') {
+      const feeRaw = document.getElementById('customAsmFee').value;
+      const feeNum = parseFloat(feeRaw);
+      asmFee = (isFinite(feeNum) && feeNum >= 0) ? feeNum : 0;
+    } else {
+      asmFee = 0;
+    }
+  }
+
+  if (firstInvalid) {
+    showToast(firstInvalid, true);
+    return;
+  }
+
+  // ── Build cart item ──
+  let skuType, finalAsmStatus, finalAsmFee, finalStyleCode, finalStyleName;
+  switch (customModalState.type) {
+    case 'Cabinet':
+      skuType        = cabinetType;
+      finalAsmStatus = asmStatus;
+      finalAsmFee    = asmFee;
+      finalStyleCode = styleCode;
+      finalStyleName = styleName;
+      break;
+    case 'Accessory':
+      skuType        = 'ACCESSORIES';
+      finalAsmStatus = 'RTA';
+      finalAsmFee    = 0;
+      finalStyleCode = null;
+      finalStyleName = null;
+      break;
+    case 'Other':
+      skuType        = 'OTHER';
+      finalAsmStatus = 'RTA';
+      finalAsmFee    = 0;
+      finalStyleCode = null;
+      finalStyleName = null;
+      break;
+  }
+
+  // Build key. For custom items, key includes "CUSTOM" + ms timestamp
+  // (or preserve edit key when editing) to avoid collisions with catalog
+  // SKUs that may share the same sku_code.
+  const isEditing = !!customModalState.editingKey;
+  const key = isEditing
+    ? customModalState.editingKey
+    : 'CUSTOM-' + Date.now() + '-' + skuCode + '-' + finalAsmStatus;
+
+  const newItem = {
+    key:          key,
+    is_custom:    true,
+    style_code:   finalStyleCode,
+    style_name:   finalStyleName,
+    sku_code:     skuCode,
+    sku_desc:     skuDesc,
+    type:         finalAsmStatus,         // RTA / Assembled (legacy field name)
+    skuType:      skuType,                // BASE / WALL / TALL / ACCESSORIES / OTHER
+    category:     '',
+    subcategory:  '',
+    quantity:     qty,
+    unit_price:   unitPrice,
+    msrp:         0,                      // Custom items don't carry MSRP
+    assemble_fee: finalAsmFee,
+    // Custom items skip the Step 2.5 modal — sub_groups auto-skipped
+    sub_groups: [{
+      sub_index:           1,
+      qty:                 qty,
+      modifications:       [],
+      modification_status: 'skipped',
+    }],
+  };
+
+  if (isEditing) {
+    const idx = cartItems.findIndex(function (i) { return i.key === customModalState.editingKey; });
+    if (idx >= 0) {
+      cartItems[idx] = newItem;
+      console.log('[F-CUSTOM] Edited custom item:', newItem);
+    }
+  } else {
+    cartItems.push(newItem);
+    console.log('[F-CUSTOM] Added custom item:', newItem);
+  }
+
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+  renderCart();
+  closeCustomModal();
+  showToast(isEditing
+    ? skuCode + ' updated'
+    : skuCode + ' added to cart');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Cart qty inline edit (2026-05-14)
+//
+// Hybrid sync rule for cart qty change vs sub_groups:
+//   Case 1: sub_groups.length === 1 → 直接同步 sub_groups[0].qty
+//   Case 2: 加總 → 多的加到 sub_groups[0]
+//   Case 3: 減總且 ≥ 現有 sub 數量 → 從 sub_groups[last] 開始扣
+//   Case 4: 減到某 sub 要被刪 → confirm dialog 警告
+// ═══════════════════════════════════════════════════════════════════
+
+function syncCartQtyToSubGroups(item, newQty) {
+  // Defensive: ensure sub_groups exists
+  if (!Array.isArray(item.sub_groups) || !item.sub_groups.length) {
+    item.sub_groups = [{
+      sub_index: 1,
+      qty: newQty,
+      modifications: [],
+      modification_status: item.type === 'RTA' ? 'skipped' : 'unprocessed',
+    }];
+    item.quantity = newQty;
+    return { ok: true, deletedCount: 0 };
+  }
+
+  const subCount = item.sub_groups.length;
+  const currentSum = item.sub_groups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
+
+  // Case 1: single sub_group — direct sync
+  if (subCount === 1) {
+    item.sub_groups[0].qty = newQty;
+    item.quantity = newQty;
+    return { ok: true, deletedCount: 0 };
+  }
+
+  // Case 2: increasing — add diff to first sub
+  if (newQty > currentSum) {
+    item.sub_groups[0].qty += (newQty - currentSum);
+    item.quantity = newQty;
+    return { ok: true, deletedCount: 0 };
+  }
+
+  // Case 3 & 4: decreasing
+  // Walk from last sub toward first, deducting until we reach newQty
+  // If a sub reaches 0, it must be deleted (Case 4 — needs confirm)
+  // Compute hypothetically first to know how many would be deleted
+  let remaining = newQty;
+  const sims = item.sub_groups.map(function (g) {
+    return { sub_index: g.sub_index, qty: g.qty || 0, modifications: g.modifications || [] };
+  });
+  // Greedy from first to last: keep filling each sub up to its current qty
+  const newSubs = [];
+  for (let i = 0; i < sims.length; i++) {
+    if (remaining <= 0) break;
+    const take = Math.min(sims[i].qty, remaining);
+    if (take > 0) {
+      newSubs.push({
+        sub_index:           newSubs.length + 1,
+        qty:                 take,
+        modifications:       sims[i].modifications,
+        modification_status: item.sub_groups[i].modification_status,
+      });
+      remaining -= take;
+    }
+  }
+
+  const deletedCount = subCount - newSubs.length;
+
+  // Case 4: at least one sub would be removed → ask confirm
+  if (deletedCount > 0) {
+    // Build a friendly message listing what gets lost
+    const lostSubs = item.sub_groups.slice(newSubs.length);
+    const lostModSummary = lostSubs.map(function (g) {
+      const modCount = (g.modifications || []).length;
+      return 'Sub ' + g.sub_index + ' (qty ' + g.qty + ', ' + modCount + ' mod' +
+             (modCount !== 1 ? 's' : '') + ')';
+    }).join(', ');
+    const confirmed = confirm(
+      'Reducing qty to ' + newQty + ' will delete ' + deletedCount +
+      ' sub-group(s):\n\n' + lostSubs.map(function (g) {
+        return '• Sub ' + g.sub_index + ' (qty ' + g.qty + ', ' +
+               (g.modifications || []).length + ' modification(s))';
+      }).join('\n') +
+      '\n\nThe modifications on those sub-groups will be LOST. Continue?'
+    );
+    if (!confirmed) return { ok: false, deletedCount: 0 };
+  }
+
+  item.sub_groups = newSubs;
+  item.quantity = newQty;
+  return { ok: true, deletedCount: deletedCount };
+}
+
+function onCartQtyChange(key, newValRaw) {
+  const item = cartItems.find(function (i) { return i.key === key; });
+  if (!item) return;
+  let q = parseInt(newValRaw, 10);
+  if (!isFinite(q) || q < 1) q = 1;
+
+  if (q === item.quantity) return;  // no-op
+
+  const result = syncCartQtyToSubGroups(item, q);
+  if (!result.ok) {
+    // User cancelled — re-render to restore the old qty in the input
+    renderCart();
+    return;
+  }
+
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+  renderCart();
+
+  if (result.deletedCount > 0) {
+    console.log('[CART-QTY] item', item.sku_code, '→ qty', q,
+                '(deleted', result.deletedCount, 'sub-group(s))');
+  } else {
+    console.log('[CART-QTY] item', item.sku_code, '→ qty', q);
+  }
+}
+
+function bumpCartQty(key, delta) {
+  const item = cartItems.find(function (i) { return i.key === key; });
+  if (!item) return;
+  const newQty = Math.max(1, (item.quantity || 1) + delta);
+  onCartQtyChange(key, newQty);
+}
+
 function renderCart() {
   const subtotal     = cartItems.reduce((s,i)=>s+i.unit_price*i.quantity,0);
   const assembleTotal = cartItems.reduce((s,i)=>s+(i.assemble_fee||0)*i.quantity,0);
@@ -1174,19 +2127,56 @@ function renderCart() {
     return;
   }
 
-  document.getElementById('cartBody').innerHTML = cartItems.map(item=>`
+  document.getElementById('cartBody').innerHTML = cartItems.map(function (item) {
+    // F-CUSTOM: gold [CUSTOM] badge for hand-entered items
+    const customBadge = item.is_custom
+      ? '<span class="custom-badge">CUSTOM</span>'
+      : '';
+
+    // F-CUSTOM: edit pencil (custom items only — admin can re-open modal)
+    const editBtn = item.is_custom
+      ? `<button class="cart-item-edit-btn" type="button"
+            onclick="openCustomModal('${item.key}')"
+            title="Edit custom item">✏</button>`
+      : '';
+
+    // Cart qty inline: − [input] + (always editable per Ben's spec)
+    const qtyControls = `
+      <div class="cart-item-qty-controls">
+        <button class="cart-qty-btn" type="button"
+          onclick="bumpCartQty('${item.key}', -1)"
+          ${item.quantity <= 1 ? 'disabled' : ''}>−</button>
+        <input class="cart-qty-input" type="number" min="1" step="1"
+          value="${item.quantity}"
+          onchange="onCartQtyChange('${item.key}', this.value)"/>
+        <button class="cart-qty-btn" type="button"
+          onclick="bumpCartQty('${item.key}', 1)">+</button>
+      </div>`;
+
+    // Style/SKU display — for custom items without a style_code, just show "(custom)"
+    const styleLabel = item.style_name
+      ? item.style_name
+      : (item.is_custom ? '(custom)' : '');
+    const nameLine = styleLabel
+      ? `${styleLabel} · ${item.sku_code}${customBadge}`
+      : `${item.sku_code}${customBadge}`;
+
+    return `
     <div class="cart-item">
       <div class="cart-item-top">
-        <div>
-          <div class="cart-item-name">${item.style_name} · ${item.sku_code}</div>
-          <div class="cart-item-detail">${item.type} · Qty: ${item.quantity} · $${item.unit_price.toFixed(2)}/ea${item.assemble_fee>0 ? ` · Assemble: +$${item.assemble_fee.toFixed(2)}/ea` : ''}</div>
+        <div style="flex:1; min-width:0;">
+          <div class="cart-item-name">${nameLine}</div>
+          <div class="cart-item-detail">${item.type} · $${item.unit_price.toFixed(2)}/ea${item.assemble_fee > 0 ? ` · Assemble: +$${item.assemble_fee.toFixed(2)}/ea` : ''}</div>
+          ${qtyControls}
         </div>
         <div class="cart-item-right">
-          <div class="cart-item-price">$${(item.unit_price*item.quantity).toFixed(2)}</div>
+          <div class="cart-item-price">$${(item.unit_price * item.quantity).toFixed(2)}</div>
+          ${editBtn}
           <button class="btn-remove" onclick="removeFromCart('${item.key}')">×</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   // Show subtotal + assemble fee breakdown
   const footerEl = document.getElementById('cartFooter');
