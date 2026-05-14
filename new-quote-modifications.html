@@ -463,6 +463,52 @@
       font-weight: 600;
     }
 
+    /* F-CUSTOM Phase 3: [CUSTOM] gold badge on SKU rows */
+    .sku-custom-badge {
+      flex-shrink: 0;
+      font-size: 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      background: var(--gold);
+      color: var(--green-dark);
+      font-weight: 700;
+    }
+
+    /* F-CUSTOM Phase 3: "No mods" hint for non-cabinet custom items */
+    .sku-row.custom-no-mod {
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+    .sku-row.custom-no-mod:hover {
+      background: rgba(201,168,76,0.04);
+      margin: 0 -10px;
+      padding: 10px;
+      border-radius: 3px;
+    }
+    .sku-no-mod-label {
+      flex-shrink: 0;
+      font-size: 10px;
+      color: var(--muted);
+      font-style: italic;
+      letter-spacing: 0.03em;
+    }
+
+    /* F-CUSTOM Phase 3: standalone "Custom Items" group card (for
+       Accessory + Other types that don't fit under a door style) */
+    .ds-card.custom-standalone {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.04);
+    }
+    .ds-card.custom-standalone .ds-card-header {
+      background: rgba(201,168,76,0.1);
+      border-bottom-color: rgba(201,168,76,0.3);
+    }
+    .ds-card.custom-standalone .ds-name {
+      color: #8B6914;
+    }
+
     /* ── Empty State ── */
     .empty-state {
       background: var(--white);
@@ -2061,20 +2107,41 @@ function buildDoorStyleGroups(items, doorStyles) {
   const groups = [];
   const indexByCode = new Map();
 
+  // F-CUSTOM Phase 3: collect custom Accessory/Other into a separate
+  // "Custom Items" pseudo-group at the end. Custom Cabinets fall into
+  // their normal door style group (or create one if style is admin-typed).
+  const customExtras = []; // accessory + other custom items
+
   items.forEach(function (item) {
-    const code = item.style_code;
+    // F-CUSTOM: route non-cabinet custom items to the standalone group
+    if (item.is_custom &&
+        (item.skuType === 'ACCESSORIES' || item.skuType === 'OTHER')) {
+      customExtras.push(item);
+      return;
+    }
+
+    // F-CUSTOM: Custom Cabinet with no style_code (admin typed style) —
+    // use style_name as the group key so multiple custom cabinets with
+    // the same typed style name get grouped together.
+    const code = item.style_code || ('__CUSTOM_' + (item.style_name || 'NO_STYLE') + '__');
     let idx = indexByCode.get(code);
 
     if (idx === undefined) {
-      const styleRow = doorStyles.find(function (s) { return s.style_code === code; });
+      const styleRow = item.style_code
+        ? doorStyles.find(function (s) { return s.style_code === item.style_code; })
+        : null;
+      const isCustomGroup = !!item.is_custom && !item.style_code;
       const group = {
-        style_code:        code,
+        style_code:        item.style_code || code,
         style_name:        (styleRow && styleRow.style_name) || item.style_name || code,
-        construction_type: (styleRow && styleRow.construction_type) || 'unknown',
+        construction_type: (styleRow && styleRow.construction_type)
+                            || item.construction_type
+                            || 'unknown',
         image_url:         (styleRow && styleRow.image_url) || null,
         color:             (styleRow && styleRow.color) || null,
         subcategory:       (styleRow && styleRow.subcategory) || null,
-        is_discontinued:   !styleRow,
+        is_discontinued:   !styleRow && !isCustomGroup,  // custom style isn't "discontinued"
+        is_custom_style:   isCustomGroup,
         assembledItems:    [],
         rtaItems:          [],
         progress:          { done: 0, total: 0 },
@@ -2090,6 +2157,24 @@ function buildDoorStyleGroups(items, doorStyles) {
       groups[idx].rtaItems.push(item);
     }
   });
+
+  // Append the "Custom Items" pseudo-group at the end (only if non-empty)
+  if (customExtras.length) {
+    groups.push({
+      style_code:        '__CUSTOM_EXTRAS__',
+      style_name:        'Custom Items',
+      construction_type: 'custom',
+      image_url:         null,
+      color:             null,
+      subcategory:       null,
+      is_discontinued:   false,
+      is_custom_extras:  true,
+      assembledItems:    [],   // not used — these items can't have mods
+      rtaItems:          [],
+      customExtras:      customExtras,   // Accessory + Other custom items
+      progress:          { done: 0, total: 0 },
+    });
+  }
 
   return groups;
 }
@@ -2169,6 +2254,12 @@ function renderDoorStyleList() {
 }
 
 function buildDoorStyleCard(group, gIdx) {
+  // F-CUSTOM Phase 3: special card for the "Custom Items" standalone group
+  // (holds Accessory + Other custom items that can't have modifications)
+  if (group.is_custom_extras) {
+    return buildCustomExtrasCard(group);
+  }
+
   const hasImage = !!group.image_url;
 
   const thumbInner = hasImage
@@ -2187,6 +2278,11 @@ function buildDoorStyleCard(group, gIdx) {
 
   const discTag = group.is_discontinued
     ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
+    : '';
+
+  // F-CUSTOM Phase 3: tag for admin-typed custom styles
+  const customStyleTag = group.is_custom_style
+    ? `<span class="sku-custom-badge">CUSTOM STYLE</span>`
     : '';
 
   const progressHtml = buildGroupProgressDisplay(group);
@@ -2213,6 +2309,17 @@ function buildDoorStyleCard(group, gIdx) {
       ${group.rtaItems.map(function (item) { return buildRtaRow(item); }).join('')}
     </div>` : '';
 
+  // F-CUSTOM Phase 3: Swap Style button hidden for custom-style groups
+  // (they have no catalog code to swap from/to in a meaningful way)
+  const swapBtnHtml = group.is_custom_style
+    ? ''
+    : `<button class="ds-swap-btn" type="button"
+          onclick="openSwapModal('${esc(group.style_code)}')"
+          title="Replace this door style with another (same construction type)">
+          <svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>
+          Swap Style
+        </button>`;
+
   return `
     <div class="ds-card" data-style-code="${esc(group.style_code)}">
       <div class="ds-card-header">
@@ -2220,7 +2327,7 @@ function buildDoorStyleCard(group, gIdx) {
           ${thumbInner}
         </div>
         <div class="ds-info">
-          <div class="ds-name">${esc(group.style_name)}</div>
+          <div class="ds-name">${esc(group.style_name)} ${customStyleTag}</div>
           <div class="ds-meta">
             <span class="ds-code">${esc(group.style_code)}</span>
             <span class="ds-construction-tag ${ctypeClass}">${esc(ctypeLabel)}</span>
@@ -2228,17 +2335,61 @@ function buildDoorStyleCard(group, gIdx) {
           </div>
         </div>
         ${progressHtml}
-        <button class="ds-swap-btn" type="button"
-          onclick="openSwapModal('${esc(group.style_code)}')"
-          title="Replace this door style with another (same construction type)">
-          <svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>
-          Swap Style
-        </button>
+        ${swapBtnHtml}
       </div>
       ${discBanner}
       ${assembledGroupHtml}
       ${rtaGroupHtml}
     </div>`;
+}
+
+// F-CUSTOM Phase 3: standalone card for Accessory + Other custom items
+function buildCustomExtrasCard(group) {
+  const items = group.customExtras || [];
+
+  return `
+    <div class="ds-card custom-standalone" data-style-code="__CUSTOM_EXTRAS__">
+      <div class="ds-card-header">
+        <div class="ds-thumb">
+          <div class="ds-thumb-fallback" style="background: var(--gold);"></div>
+        </div>
+        <div class="ds-info">
+          <div class="ds-name">${esc(group.style_name)} <span class="sku-custom-badge">CUSTOM</span></div>
+          <div class="ds-meta">
+            <span class="ds-construction-tag unknown">Accessory / Other</span>
+          </div>
+        </div>
+        <div class="ds-progress">
+          <div class="ds-progress-count no-assembled">—</div>
+          <div class="ds-progress-label">No mods</div>
+        </div>
+      </div>
+      <div class="ds-group">
+        <div class="ds-group-label">Custom items (no modifications)</div>
+        ${items.map(function (item) { return buildCustomExtraRow(item); }).join('')}
+      </div>
+    </div>`;
+}
+
+function buildCustomExtraRow(item) {
+  return `
+    <div class="sku-row custom-no-mod" onclick="onCustomNoModClick(event, '${esc(item.key)}')">
+      <span class="sku-code">${esc(item.sku_code)}</span>
+      <span class="sku-custom-badge">CUSTOM</span>
+      <span class="sku-desc">${esc(item.sku_desc)}</span>
+      <span class="sku-qty">Qty ${item.quantity}</span>
+      <span class="sku-no-mod-label">No modifications available</span>
+      <button class="sku-delete-btn" type="button"
+        onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
+        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
+    </div>`;
+}
+
+function onCustomNoModClick(evt, key) {
+  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) {
+    return;
+  }
+  showToast('No modifications available for custom Accessory / Other items');
 }
 
 function buildGroupProgressDisplay(group) {
@@ -2282,9 +2433,15 @@ function buildAssembledRow(item, gIdx) {
     ? `<span class="sku-split-badge">Split × ${subCount}</span>`
     : '';
 
+  // F-CUSTOM Phase 3: gold [CUSTOM] badge for hand-entered items
+  const customBadge = item.is_custom
+    ? `<span class="sku-custom-badge">CUSTOM</span>`
+    : '';
+
   return `
     <div class="sku-row assembled" onclick="onAssembledRowClick(event, '${esc(item.key)}')">
       <span class="sku-code">${esc(item.sku_code)}</span>
+      ${customBadge}
       <span class="sku-desc">${esc(item.sku_desc)}</span>
       <span class="sku-qty">Qty ${item.quantity}</span>
       ${splitBadge}
@@ -2297,9 +2454,15 @@ function buildAssembledRow(item, gIdx) {
 }
 
 function buildRtaRow(item) {
+  // F-CUSTOM Phase 3: gold [CUSTOM] badge for hand-entered items
+  const customBadge = item.is_custom
+    ? `<span class="sku-custom-badge">CUSTOM</span>`
+    : '';
+
   return `
     <div class="sku-row rta">
       <span class="sku-code">${esc(item.sku_code)}</span>
+      ${customBadge}
       <span class="sku-desc">${esc(item.sku_desc)}</span>
       <span class="sku-qty">Qty ${item.quantity}</span>
       <button class="sku-delete-btn" type="button"
@@ -3076,7 +3239,12 @@ async function openMfModal(key) {
   activeSkuQty      = item.quantity;
 
   const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
-  const ctype    = (styleRow && styleRow.construction_type) || 'unknown';
+  // F-CUSTOM Phase 3: for custom items, styleRow may not exist (admin
+  // typed a free-text style name). Fall back to item.construction_type
+  // which was captured at create-time in Step 2.
+  const ctype    = (styleRow && styleRow.construction_type)
+                || item.construction_type
+                || 'unknown';
   const ctypeClass = ctype === 'framed' ? 'framed'
                   : ctype === 'frameless' ? 'frameless'
                   : 'unknown';
@@ -3231,11 +3399,26 @@ async function openMfModal(key) {
     }
 
     activeMfModalRules = filtered;
-    console.log('[E4.3]   After role filter + F3.1: ' + filtered.length + ' rule(s)');
-    console.log('[E4.3]   Rules:', filtered);
+
+    // F-CUSTOM Phase 3 (path A): for custom items, restrict to MF07 only.
+    // Rationale: custom items are "escape hatch" by design — they pair
+    // naturally with MF07 (admin SuperModification, free-text). Other
+    // mod rules (MF01-MF06) target catalog SKUs with specific category/
+    // subcategory and don't fit custom items semantically.
+    if (item.is_custom) {
+      const beforeFilter = activeMfModalRules.length;
+      activeMfModalRules = activeMfModalRules.filter(function (r) {
+        return r.mf_code === 'MF07';
+      });
+      console.log('[F-CUSTOM] Custom item — filtered to MF07 only: ' +
+                  beforeFilter + ' → ' + activeMfModalRules.length + ' rule(s)');
+    }
+
+    console.log('[E4.3]   After role filter + F3.1: ' + activeMfModalRules.length + ' rule(s)');
+    console.log('[E4.3]   Rules:', activeMfModalRules);
     // F-TAX: log per-rule tax_status for visibility
     console.log('[F-TAX]   Rule tax_status map:',
-      filtered.map(function (r) {
+      activeMfModalRules.map(function (r) {
         return r.mf_code + ' "' + (r.display_label || '') + '" → tax_status=' + r.tax_status;
       })
     );
@@ -4244,6 +4427,7 @@ async function init() {
   console.log('[D17] MF validate() gate active on Save (toggle-on-with-empty-value blocked)');
   console.log('[F-SWAP] Door style swap ready (same construction type only)');
   console.log('[F-MODS-TOTAL] Modifications total bar ready');
+  console.log('[F-CUSTOM] Phase 3 ready — custom Cabinet+Assembled can mod, Accessory/Other cannot');
 
   setInterval(async function () {
     const { data: check } = await _supabase
