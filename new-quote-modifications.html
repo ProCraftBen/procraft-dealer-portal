@@ -1162,6 +1162,355 @@
       height: 56px;
       gap: 12px;
     }
+
+    /* F-MODS-TOTAL: bar that sits ABOVE the bottom-bar showing the
+       total $ of all modifications saved across the cart. */
+    .mods-total-bar {
+      position: fixed;
+      bottom: 56px;  /* sits directly above .bottom-bar */
+      left: 0; right: 0;
+      background: #FAFAF8;
+      border-top: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      z-index: 150;
+      font-size: 12px;
+      gap: 10px;
+    }
+    .mods-total-bar-label {
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      font-weight: 500;
+    }
+    .mods-total-bar-value {
+      color: var(--green-dark);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .mods-total-bar-value.zero {
+      color: var(--muted);
+      font-weight: 400;
+    }
+    @media (max-width: 700px) {
+      .mods-total-bar {
+        bottom: 88px;  /* bottom-bar grows on mobile (flex-wrap), give more headroom */
+        padding: 6px 14px;
+        font-size: 11px;
+      }
+    }
+
+    /* F-SWAP: ↻ Swap Style button in ds-card-header */
+    .ds-swap-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 6px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    .ds-swap-btn:hover {
+      color: var(--green-dark);
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.04);
+    }
+    .ds-swap-btn svg {
+      width: 11px; height: 11px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* F-SWAP: Swap modal (shares overlay/container with mf modal pattern) */
+    .swap-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(44, 58, 50, 0.55);
+      z-index: 810;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .swap-modal-overlay.show { display: flex; }
+    .swap-modal-container {
+      width: 92vw;
+      max-width: 920px;
+      max-height: 88vh;
+      background: var(--white);
+      border-radius: 6px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .swap-modal-header {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .swap-modal-title {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    .swap-modal-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 24px;
+      line-height: 1;
+      padding: 0 4px;
+      transition: color 0.15s;
+    }
+    .swap-modal-close:hover { color: var(--text); }
+
+    .swap-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 22px;
+    }
+    .swap-modal-body::-webkit-scrollbar { width: 6px; }
+    .swap-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .swap-current-card {
+      background: #FAFAF8;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .swap-current-thumb {
+      width: 48px;
+      flex-shrink: 0;
+      aspect-ratio: 355 / 601;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .swap-current-thumb img {
+      width: 100%; height: 100%;
+      object-fit: contain; display: block;
+    }
+    .swap-current-info { flex: 1; min-width: 0; }
+    .swap-current-label {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .swap-current-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      color: var(--green-dark);
+      line-height: 1.2;
+    }
+    .swap-current-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .swap-section-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 10px 0 8px;
+    }
+
+    .swap-style-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 700px) {
+      .swap-style-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 460px) {
+      .swap-style-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .swap-style-card {
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--white);
+    }
+    .swap-style-card:hover {
+      border-color: var(--gold);
+      transform: translateY(-1px);
+    }
+    .swap-style-card.selected {
+      border-color: var(--green-dark);
+      border-width: 2px;
+    }
+    .swap-style-card.current {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .swap-style-card.current:hover {
+      border-color: var(--border);
+      transform: none;
+    }
+    .swap-style-img-wrap {
+      width: 100%;
+      aspect-ratio: 355 / 601;
+      overflow: hidden;
+      background: var(--cream);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .swap-style-img-wrap img {
+      width: 100%; height: 100%;
+      object-fit: contain; display: block;
+    }
+    .swap-style-info {
+      padding: 6px 8px;
+      border-top: 1px solid var(--border);
+    }
+    .swap-style-name {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--green-dark);
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .swap-style-code {
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .swap-preview-empty {
+      padding: 30px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      border: 1px dashed var(--border);
+      border-radius: 4px;
+      background: var(--cream);
+    }
+
+    .swap-preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .swap-preview-table thead th {
+      background: #F5F3EF;
+      border-bottom: 1px solid var(--border);
+      padding: 6px 10px;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+    }
+    .swap-preview-table thead th.th-right { text-align: right; }
+    .swap-preview-table tbody td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .swap-preview-table tbody tr:last-child td { border-bottom: none; }
+    .swap-preview-table .td-right { text-align: right; }
+    .swap-preview-table .price-delta-pos { color: var(--error); }
+    .swap-preview-table .price-delta-neg { color: var(--green-mid); }
+    .swap-preview-table .price-delta-zero { color: var(--muted); }
+    .swap-preview-table .td-sku {
+      font-weight: 500;
+      color: var(--green-dark);
+      white-space: nowrap;
+    }
+    .swap-preview-table .td-desc {
+      color: var(--text);
+    }
+
+    .swap-preview-summary {
+      margin-top: 12px;
+      padding: 12px 16px;
+      background: #FAFAF8;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .swap-preview-summary-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .swap-preview-summary-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--green-dark);
+    }
+    .swap-preview-summary-value.pos { color: var(--error); }
+    .swap-preview-summary-value.neg { color: var(--green-mid); }
+
+    .swap-modal-footer {
+      flex-shrink: 0;
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+      background: #FAFAF8;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+    }
+    @media (max-width: 700px) {
+      .swap-modal-overlay { padding: 10px; }
+      .swap-modal-container { max-height: 92vh; }
+      .swap-modal-header { padding: 12px 16px; }
+      .swap-modal-body { padding: 14px 16px; }
+      .swap-modal-footer {
+        padding: 12px 16px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .swap-modal-footer .mf-btn {
+        flex: 1;
+      }
+    }
     .bottom-left {
       font-size: 12px;
       color: var(--muted);
@@ -1401,6 +1750,44 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- F-MODS-TOTAL: 一行總金額 bar,顯示在 bottom-bar 上方 -->
+<div class="mods-total-bar" id="modsTotalBar">
+  <span class="mods-total-bar-label">Modifications Total:</span>
+  <span class="mods-total-bar-value zero" id="modsTotalBarValue">$0.00</span>
+</div>
+
+<!-- F-SWAP: Swap Door Style modal -->
+<div class="swap-modal-overlay" id="swapModalOverlay">
+  <div class="swap-modal-container" role="dialog" aria-modal="true" aria-labelledby="swapModalTitle">
+    <div class="swap-modal-header">
+      <span class="swap-modal-title" id="swapModalTitle">Swap Door Style</span>
+      <button class="swap-modal-close" type="button" onclick="closeSwapModal()" aria-label="Close">×</button>
+    </div>
+    <div class="swap-modal-body">
+      <div class="swap-current-card" id="swapCurrentCard">
+        <div class="swap-current-thumb" id="swapCurrentThumb"></div>
+        <div class="swap-current-info">
+          <div class="swap-current-label">Current Style</div>
+          <div class="swap-current-name" id="swapCurrentName">—</div>
+          <div class="swap-current-meta" id="swapCurrentMeta">—</div>
+        </div>
+      </div>
+
+      <div class="swap-section-label" id="swapPickLabel">Pick a replacement style (same construction type)</div>
+      <div class="swap-style-grid" id="swapStyleGrid"></div>
+
+      <div class="swap-section-label">Price Preview</div>
+      <div id="swapPreviewMount">
+        <div class="swap-preview-empty">Select a style above to see the price changes.</div>
+      </div>
+    </div>
+    <div class="swap-modal-footer">
+      <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapModal()">Cancel</button>
+      <button class="mf-btn mf-btn-save" type="button" id="swapConfirmBtn" onclick="confirmSwap()" disabled>Confirm Swap</button>
+    </div>
+  </div>
+</div>
 
 <div class="bottom-bar">
   <div class="bottom-left" id="bottomStatus">
@@ -1841,6 +2228,12 @@ function buildDoorStyleCard(group, gIdx) {
           </div>
         </div>
         ${progressHtml}
+        <button class="ds-swap-btn" type="button"
+          onclick="openSwapModal('${esc(group.style_code)}')"
+          title="Replace this door style with another (same construction type)">
+          <svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>
+          Swap Style
+        </button>
       </div>
       ${discBanner}
       ${assembledGroupHtml}
@@ -1936,6 +2329,7 @@ function onDeleteSkuClick(key) {
   renderProgressCard(pageProgress);
   renderDoorStyleList();
   renderBottomBar(pageProgress);
+  renderModsTotalBar();  // F-MODS-TOTAL
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
   console.log('[E5] Removed SKU', key, 'from cart. Remaining items:', cartItems.length);
@@ -2890,6 +3284,7 @@ function refreshAfterModalAction() {
   renderProgressCard(pageProgress);
   renderDoorStyleList();
   renderBottomBar(pageProgress);
+  renderModsTotalBar();  // F-MODS-TOTAL
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 }
 
@@ -3195,6 +3590,437 @@ function handleMfSkip() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// F-MODS-TOTAL: 一行總金額 bar(2026-05-13)
+//   遍歷所有 cartItems 的所有 sub_groups 的所有 modifications,
+//   Σ(mod.cost × sub.qty)
+//   在 refreshAfterModalAction / onDeleteSkuClick 後呼叫
+// ═══════════════════════════════════════════════════════════════════
+function calculateAllModificationsTotal() {
+  let total = 0;
+  cartItems.forEach(function (item) {
+    if (!Array.isArray(item.sub_groups)) return;
+    item.sub_groups.forEach(function (sub) {
+      const subQty = (typeof sub.qty === 'number') ? sub.qty : 0;
+      if (!Array.isArray(sub.modifications)) return;
+      sub.modifications.forEach(function (m) {
+        const cost = (typeof m.cost === 'number' && isFinite(m.cost)) ? m.cost : 0;
+        total += cost * subQty;
+      });
+    });
+  });
+  return total;
+}
+
+function renderModsTotalBar() {
+  const valueEl = document.getElementById('modsTotalBarValue');
+  if (!valueEl) return;
+  const total = calculateAllModificationsTotal();
+  valueEl.textContent = '$' + total.toFixed(2);
+  if (total > 0) valueEl.classList.remove('zero');
+  else valueEl.classList.add('zero');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// F-SWAP: Swap Door Style (2026-05-13)
+//
+//   Scope: same construction type only (Framed↔Framed, Frameless↔Frameless).
+//   Granularity: per door style group (replace ALL SKUs of that group).
+//   Preserved: sku_code, modifications, sub_groups, modification_status,
+//              assemble_fee (依 dealer × cabinet_type,不依 style).
+//   Recomputed: unit_price (用新 style 的 grp × dealer multiplier).
+//   Audit: console.log only, no DB column.
+//
+//   State while swap modal is open:
+//     swapState.currentStyleCode = 當前要換掉的 group code
+//     swapState.selectedNewStyleCode = user 在 modal 內選的新 style code
+// ═══════════════════════════════════════════════════════════════════
+
+let swapState = {
+  currentStyleCode: null,
+  selectedNewStyleCode: null,
+};
+
+function getMultiplierForStyle(style) {
+  // 跟 new-quote-step2.html 的 renderSkuTable 同邏輯
+  if (!dealer || !style) return 1;
+  const isFrameless = (style.construction_type || '').toLowerCase() === 'frameless';
+  const isStock = !!style.is_stock;
+  if (isFrameless) {
+    return parseFloat(dealer.frameless_multiplier || 1) || 1;
+  }
+  return isStock
+    ? (parseFloat(dealer.stock_multiplier     || 1) || 1)
+    : (parseFloat(dealer.non_stock_multiplier || 1) || 1);
+}
+
+function getMsrpForStyleGroup(sku, grp) {
+  // 跟 new-quote-step2.html 的 getMsrpForGroup 同邏輯
+  const g = (grp || 'GROUP A').toUpperCase();
+  const v = g === 'GROUP D' ? sku.msrp_group_d
+          : g === 'GROUP C' ? sku.msrp_group_c
+          : g === 'GROUP B' ? sku.msrp_group_b
+          : sku.msrp_group_a;
+  if (v === null || v === undefined || v === '') return null;
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
+// Cache for SKU master tables — lazily populated on first openSwapModal()
+let _swapSkuCache = { framed: null, frameless: null };
+async function ensureSwapSkuCache() {
+  if (_swapSkuCache.framed && _swapSkuCache.frameless) return;
+  const [framedRes, framelessRes] = await Promise.all([
+    _supabase.from('skus_framed').select('*').eq('active', true),
+    _supabase.from('skus_frameless').select('*').eq('active', true),
+  ]);
+  _swapSkuCache.framed    = framedRes.data    || [];
+  _swapSkuCache.frameless = framelessRes.data || [];
+  console.log('[F-SWAP] SKU master cached:',
+              _swapSkuCache.framed.length, 'framed,',
+              _swapSkuCache.frameless.length, 'frameless');
+}
+
+async function openSwapModal(currentStyleCode) {
+  const currentStyle = allDoorStyles.find(function (s) {
+    return s.style_code === currentStyleCode;
+  });
+  if (!currentStyle) {
+    showToast('Current style not found', true);
+    return;
+  }
+
+  // Lazy-load SKU master if not already
+  try { await ensureSwapSkuCache(); }
+  catch (e) {
+    console.warn('[F-SWAP] Failed to load SKU cache:', e);
+    showToast('Failed to load product data', true);
+    return;
+  }
+
+  swapState.currentStyleCode = currentStyleCode;
+  swapState.selectedNewStyleCode = null;
+
+  // ── Current card ──
+  const thumbEl = document.getElementById('swapCurrentThumb');
+  if (currentStyle.image_url) {
+    thumbEl.innerHTML = '<img src="' + esc(currentStyle.image_url) + '" alt=""/>';
+  } else {
+    thumbEl.innerHTML = '<div style="width:100%;height:100%;background:' +
+      esc(colorMap[currentStyle.color] || '#8A8A8A') + ';"></div>';
+  }
+  document.getElementById('swapCurrentName').textContent = currentStyle.style_name;
+  document.getElementById('swapCurrentMeta').textContent =
+    currentStyle.style_code + ' · ' +
+    (currentStyle.construction_type || '—') +
+    (currentStyle.grp ? ' · ' + currentStyle.grp : '');
+
+  // ── Update section label ──
+  const ctype = (currentStyle.construction_type || '').toLowerCase();
+  const ctypeLabel = ctype === 'framed' ? 'Framed'
+                  : ctype === 'frameless' ? 'Frameless'
+                  : 'same construction type';
+  document.getElementById('swapPickLabel').textContent =
+    'Pick a replacement style (' + ctypeLabel + ' only)';
+
+  // ── Style grid (same construction type, exclude current) ──
+  renderSwapStyleGrid(currentStyle);
+
+  // ── Reset preview ──
+  document.getElementById('swapPreviewMount').innerHTML =
+    '<div class="swap-preview-empty">Select a style above to see the price changes.</div>';
+  document.getElementById('swapConfirmBtn').disabled = true;
+
+  document.getElementById('swapModalOverlay').classList.add('show');
+  document.body.classList.add('mf-modal-open');
+
+  console.log('[F-SWAP] openSwapModal — current:', currentStyleCode,
+              '(' + currentStyle.style_name + '),',
+              'construction:', ctype);
+}
+
+function renderSwapStyleGrid(currentStyle) {
+  const ctype = (currentStyle.construction_type || '').toLowerCase();
+  const candidates = allDoorStyles.filter(function (s) {
+    if (!s) return false;
+    const sCtype = (s.construction_type || '').toLowerCase();
+    if (sCtype !== ctype) return false;
+    if (s.is_coming_soon) return false;  // 沿用 step2 的規則
+    return true;
+  });
+
+  // Sort: same brand first, then by subcategory, then by name
+  candidates.sort(function (a, b) {
+    const aBrand = a.brand === currentStyle.brand ? 0 : 1;
+    const bBrand = b.brand === currentStyle.brand ? 0 : 1;
+    if (aBrand !== bBrand) return aBrand - bBrand;
+    const aSub = (a.subcategory || '');
+    const bSub = (b.subcategory || '');
+    if (aSub !== bSub) return aSub.localeCompare(bSub);
+    return (a.style_name || '').localeCompare(b.style_name || '');
+  });
+
+  const gridEl = document.getElementById('swapStyleGrid');
+  if (!candidates.length) {
+    gridEl.innerHTML =
+      '<div style="grid-column:1/-1;padding:20px;text-align:center;font-size:12px;color:var(--muted);">' +
+      'No other styles available for ' + esc(ctype) + ' construction.</div>';
+    return;
+  }
+
+  gridEl.innerHTML = candidates.map(function (s) {
+    const isCurrent = s.style_code === currentStyle.style_code;
+    const cardClass = 'swap-style-card' + (isCurrent ? ' current' : '');
+    const onClick = isCurrent ? '' :
+      ' onclick="onSwapStyleSelect(\'' + esc(s.style_code) + '\')"';
+    const img = s.image_url
+      ? '<img src="' + esc(s.image_url) + '" alt="" loading="lazy"/>'
+      : '<div style="width:100%;height:100%;background:' +
+        esc(colorMap[s.color] || '#8A8A8A') + ';"></div>';
+    return '' +
+      '<div class="' + cardClass + '" data-style-code="' + esc(s.style_code) + '"' + onClick + '>' +
+        '<div class="swap-style-img-wrap">' + img + '</div>' +
+        '<div class="swap-style-info">' +
+          '<div class="swap-style-name">' + esc(s.style_name) +
+            (isCurrent ? ' <span style="color:var(--muted);font-weight:400;font-size:9px;">(current)</span>' : '') +
+          '</div>' +
+          '<div class="swap-style-code">' + esc(s.style_code) +
+            (s.grp ? ' · ' + esc(s.grp) : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function onSwapStyleSelect(newStyleCode) {
+  if (newStyleCode === swapState.currentStyleCode) return;
+  swapState.selectedNewStyleCode = newStyleCode;
+
+  // Highlight selected card
+  document.querySelectorAll('#swapStyleGrid .swap-style-card').forEach(function (card) {
+    const code = card.getAttribute('data-style-code');
+    card.classList.toggle('selected', code === newStyleCode);
+  });
+
+  renderSwapPreview(newStyleCode);
+  document.getElementById('swapConfirmBtn').disabled = false;
+}
+
+function renderSwapPreview(newStyleCode) {
+  const currentStyle = allDoorStyles.find(function (s) {
+    return s.style_code === swapState.currentStyleCode;
+  });
+  const newStyle = allDoorStyles.find(function (s) {
+    return s.style_code === newStyleCode;
+  });
+  if (!currentStyle || !newStyle) return;
+
+  // 取得這個 group 內所有 cart items
+  const groupItems = cartItems.filter(function (item) {
+    return item.style_code === swapState.currentStyleCode;
+  });
+
+  if (!groupItems.length) {
+    document.getElementById('swapPreviewMount').innerHTML =
+      '<div class="swap-preview-empty">No items in this group.</div>';
+    return;
+  }
+
+  const ctype = (newStyle.construction_type || '').toLowerCase();
+  const skuMaster = ctype === 'frameless'
+    ? _swapSkuCache.frameless
+    : _swapSkuCache.framed;
+  const newMultiplier = getMultiplierForStyle(newStyle);
+  const newGrp = newStyle.grp || 'GROUP A';
+
+  let totalDelta = 0;
+  const rows = [];
+  let unpriced = 0;
+
+  groupItems.forEach(function (item) {
+    const sku = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
+    let newUnitPrice = null;
+    if (sku) {
+      const newMsrp = getMsrpForStyleGroup(sku, newGrp);
+      if (newMsrp !== null) {
+        newUnitPrice = newMsrp * newMultiplier;
+      }
+    }
+
+    const oldUnitPrice = item.unit_price || 0;
+    const qty = item.quantity || 0;
+    const oldLine = oldUnitPrice * qty;
+    const newLine = (newUnitPrice !== null) ? newUnitPrice * qty : null;
+    const delta = (newLine !== null) ? newLine - oldLine : 0;
+
+    if (newUnitPrice === null) unpriced++;
+    if (newUnitPrice !== null) totalDelta += delta;
+
+    rows.push({
+      sku_code:   item.sku_code,
+      sku_desc:   item.sku_desc,
+      qty:        qty,
+      oldPrice:   oldUnitPrice,
+      newPrice:   newUnitPrice,
+      delta:      delta,
+      unpriced:   newUnitPrice === null,
+    });
+  });
+
+  const deltaClass = totalDelta > 0 ? 'pos' : (totalDelta < 0 ? 'neg' : '');
+  const deltaSign  = totalDelta > 0 ? '+' : '';
+
+  let html = '<table class="swap-preview-table"><thead><tr>' +
+    '<th>SKU</th><th>Description</th>' +
+    '<th class="th-right">Qty</th>' +
+    '<th class="th-right">Old Unit</th>' +
+    '<th class="th-right">New Unit</th>' +
+    '<th class="th-right">Δ Line Total</th>' +
+    '</tr></thead><tbody>';
+
+  rows.forEach(function (r) {
+    let newCell, deltaCell;
+    if (r.unpriced) {
+      newCell = '<span style="color:var(--error);font-size:11px;">N/A</span>';
+      deltaCell = '<span style="color:var(--error);font-size:11px;">—</span>';
+    } else {
+      newCell = '$' + r.newPrice.toFixed(2);
+      const dClass = r.delta > 0 ? 'price-delta-pos'
+                   : r.delta < 0 ? 'price-delta-neg'
+                   : 'price-delta-zero';
+      const dSign = r.delta > 0 ? '+' : '';
+      deltaCell = '<span class="' + dClass + '">' + dSign + '$' + r.delta.toFixed(2) + '</span>';
+    }
+    html += '<tr>' +
+      '<td class="td-sku">' + esc(r.sku_code) + '</td>' +
+      '<td class="td-desc">' + esc(r.sku_desc || '') + '</td>' +
+      '<td class="td-right">' + r.qty + '</td>' +
+      '<td class="td-right">$' + r.oldPrice.toFixed(2) + '</td>' +
+      '<td class="td-right">' + newCell + '</td>' +
+      '<td class="td-right">' + deltaCell + '</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table>';
+
+  html += '<div class="swap-preview-summary">' +
+    '<span class="swap-preview-summary-label">Total Change</span>' +
+    '<span class="swap-preview-summary-value ' + deltaClass + '">' +
+      deltaSign + '$' + totalDelta.toFixed(2) +
+    '</span>' +
+  '</div>';
+
+  if (unpriced > 0) {
+    html += '<div style="margin-top:10px;padding:10px 14px;background:rgba(192,57,43,0.06);' +
+      'border-left:3px solid var(--error);border-radius:3px;font-size:11px;line-height:1.5;' +
+      'color:var(--text);">' +
+      '⚠ ' + unpriced + ' SKU(s) have no price for ' + esc(newStyle.style_name) + '\'s ' +
+      esc(newGrp) + '. Their unit prices will be set to $0.00 after swap — ' +
+      'please review carefully.</div>';
+  }
+
+  document.getElementById('swapPreviewMount').innerHTML = html;
+}
+
+function closeSwapModal() {
+  document.getElementById('swapModalOverlay').classList.remove('show');
+  document.body.classList.remove('mf-modal-open');
+  swapState.currentStyleCode = null;
+  swapState.selectedNewStyleCode = null;
+}
+
+function confirmSwap() {
+  if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
+    showToast('Please select a replacement style', true);
+    return;
+  }
+
+  const newStyle = allDoorStyles.find(function (s) {
+    return s.style_code === swapState.selectedNewStyleCode;
+  });
+  const oldStyle = allDoorStyles.find(function (s) {
+    return s.style_code === swapState.currentStyleCode;
+  });
+  if (!newStyle || !oldStyle) {
+    showToast('Style not found', true);
+    return;
+  }
+
+  // ── Final guard: same construction type ──
+  const oldCtype = (oldStyle.construction_type || '').toLowerCase();
+  const newCtype = (newStyle.construction_type || '').toLowerCase();
+  if (oldCtype !== newCtype) {
+    showToast('Cannot swap across construction types (Framed ↔ Frameless not supported)', true);
+    return;
+  }
+
+  // ── Recompute unit_price for every cart item in this group ──
+  const skuMaster = newCtype === 'frameless'
+    ? _swapSkuCache.frameless
+    : _swapSkuCache.framed;
+  const newMultiplier = getMultiplierForStyle(newStyle);
+  const newGrp = newStyle.grp || 'GROUP A';
+
+  let swappedCount = 0;
+  let unpriced = 0;
+  cartItems.forEach(function (item) {
+    if (item.style_code !== swapState.currentStyleCode) return;
+
+    const sku = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
+    let newUnitPrice = 0;
+    let newMsrp = 0;
+    if (sku) {
+      const msrp = getMsrpForStyleGroup(sku, newGrp);
+      if (msrp !== null) {
+        newMsrp = msrp;
+        newUnitPrice = msrp * newMultiplier;
+      } else {
+        unpriced++;
+      }
+    } else {
+      unpriced++;
+    }
+
+    const oldUnitPrice = item.unit_price;
+    item.style_code = newStyle.style_code;
+    item.style_name = newStyle.style_name;
+    item.unit_price = newUnitPrice;
+    item.msrp       = newMsrp;
+    // assemble_fee 不變(依 dealer × cabinet_type)
+    // sub_groups, modifications, modification_status, quantity 全部保留
+    // key 不變(它的格式是 sku_code_assemble_status,跟 style 無關)
+    swappedCount++;
+
+    // Audit log
+    console.log('[F-SWAP]   item:', item.sku_code,
+                'unit_price:', oldUnitPrice.toFixed(2), '→', newUnitPrice.toFixed(2),
+                (newUnitPrice === 0 && oldUnitPrice !== 0 ? ' ⚠ N/A in new style' : ''));
+  });
+
+  // ── Audit log ──
+  console.log('[F-SWAP] CONFIRM:',
+              oldStyle.style_code, '(' + oldStyle.style_name + ')',
+              '→',
+              newStyle.style_code, '(' + newStyle.style_name + ')',
+              '·', swappedCount, 'item(s) re-priced',
+              '·', new Date().toISOString());
+  if (unpriced > 0) {
+    console.warn('[F-SWAP] ⚠', unpriced, 'item(s) had no price in new style — unit_price set to 0');
+  }
+
+  // ── Refresh UI ──
+  doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
+  pageProgress    = calculateProgress(doorStyleGroups);
+  renderProgressCard(pageProgress);
+  renderDoorStyleList();
+  renderBottomBar(pageProgress);
+  renderModsTotalBar();
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
+
+  closeSwapModal();
+  showToast('Swapped to ' + newStyle.style_name +
+            (unpriced > 0 ? ' (' + unpriced + ' unpriced — please review)' : ''));
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // init()
 // ═══════════════════════════════════════════════════════════════════
 
@@ -3330,6 +4156,7 @@ async function init() {
   renderProgressCard(pageProgress);
   renderDoorStyleList();
   renderBottomBar(pageProgress);
+  renderModsTotalBar();  // F-MODS-TOTAL: 初次渲染
 
   if (isResumingReturned) {
     document.getElementById('returnedBannerMount').innerHTML =
@@ -3415,6 +4242,8 @@ async function init() {
   console.log('[F-TAX] tax_status snapshot active (MF07 per-instance, MF1-6 per-rule)');
   console.log('[D09] Role-aware effectiveRole resolution active');
   console.log('[D17] MF validate() gate active on Save (toggle-on-with-empty-value blocked)');
+  console.log('[F-SWAP] Door style swap ready (same construction type only)');
+  console.log('[F-MODS-TOTAL] Modifications total bar ready');
 
   setInterval(async function () {
     const { data: check } = await _supabase
