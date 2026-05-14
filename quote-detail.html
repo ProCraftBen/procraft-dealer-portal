@@ -215,6 +215,20 @@
     .td-right { text-align: right; }
     .td-total { font-weight: 500; }
 
+    /* F-CUSTOM: [CUSTOM] badge — gold bg + gold text, consistent with step2/2.5/3 */
+    .custom-badge {
+      display: inline-block;
+      background: rgba(201,168,76,0.18);
+      color: #8B6914;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
     .items-table tbody tr.sub-continuation {
       border-top: 1px dashed rgba(201,168,76,0.25);
     }
@@ -495,7 +509,10 @@ const _supabase = createClient(
   'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
 );
 
-const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
+// F-CUSTOM (Phase 5): Added 'OTHER' between ACCESSORIES and MODIFICATION,
+// aligned with new-quote-step3.html. Custom Other items get sku_type='OTHER'
+// and need a defined sort rank.
+const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
 const statusClass = {
   Draft:'draft',
   Pending:'pending',
@@ -629,20 +646,24 @@ function calcTaxableModsCost(groupedItems) {
 //
 // We group by sku_code + style_code + unit_price + assemble_status to identify
 // items that should be merged back. sub_index is preserved for stable ordering.
+//
+// F-CUSTOM (Phase 5): grouping key now includes is_custom to prevent custom
+// items from ever being merged with regular catalog SKUs (defensive — sku_code
+// should already differ, but this protects against future edge cases).
 // ─────────────────────────────────────────────────────────────────────────────
 function reconstructGroupedItems(rawItems) {
   const itemMap = new Map();
   const itemOrder = [];
 
   rawItems.forEach(function (row) {
-    // Key combines sku_code + style_code + unit_price + assemble_status
-    // (mirror of step3 grouping — these stable fields define "same item")
+    // F-CUSTOM: include is_custom in key for safety
     const key = [
       row.sku_code || '',
       row.style_code || '',
       row.style_name || '',
       String(row.unit_price || 0),
       row.assemble_status || '',
+      row.is_custom ? '1' : '0',
     ].join('||');
 
     if (!itemMap.has(key)) {
@@ -656,6 +677,7 @@ function reconstructGroupedItems(rawItems) {
         unit_price:      parseFloat(row.unit_price || 0),
         msrp:            row.msrp || null,
         assemble_fee:    parseFloat(row.assemble_fee || 0),
+        is_custom:       !!row.is_custom,  // F-CUSTOM (Phase 5)
         sub_groups:      [],
       });
       itemOrder.push(key);
@@ -780,6 +802,9 @@ function renderNotesTable(notes) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Build the full items table HTML + collect notes.
 // Returns { rowsHtml, notes }
+//
+// F-CUSTOM (Phase 5): Custom items get a gold [CUSTOM] badge next to SKU code.
+// Detected via item.is_custom === true (set in reconstructGroupedItems).
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemRowsHtml(groupedItems) {
   const byStyle = groupAndSortByStyle(groupedItems);
@@ -794,6 +819,7 @@ function buildItemRowsHtml(groupedItems) {
     items.forEach(function (item) {
       const subs = item.sub_groups;
       const isSplit = subs.length > 1;
+      const isCustom = !!item.is_custom;  // F-CUSTOM
 
       subs.forEach(function (sub, subIdx) {
         itemNum++;
@@ -811,7 +837,11 @@ function buildItemRowsHtml(groupedItems) {
         const subLabelHtml = isSplit
           ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
           : '';
-        const skuCellHtml = `${escapeHtml(item.sku_code)}${subLabelHtml}`;
+        // F-CUSTOM: gold [CUSTOM] badge on first sub only (avoids visual noise on split subs)
+        const customBadgeHtml = (isCustom && isFirstSub)
+          ? `<span class="custom-badge">CUSTOM</span>`
+          : '';
+        const skuCellHtml = `${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}`;
 
         const itemContext = {
           sku_code:  item.sku_code,
@@ -920,6 +950,12 @@ async function init() {
 
   // F4.1 v2: reconstruct sub_groups from flat quote_items rows
   _groupedItems = reconstructGroupedItems(quote.quote_items || []);
+
+  // F-CUSTOM (Phase 5): debug log for custom item count
+  const customCount = _groupedItems.filter(i => i.is_custom).length;
+  if (customCount > 0) {
+    console.log('[F-CUSTOM] quote-detail: ' + customCount + ' custom item(s) in this quote');
+  }
 
   // Store for PDF
   _quote = quote; _dealer = dealer; _addr = shippingAddr;
@@ -1362,6 +1398,10 @@ async function saveShipping() {
 // ─────────────────────────────────────────────────────────────────────────
 // PDF download functions
 // F4.1 v2: pass sub_groups + modifications so PDF builder can render correctly
+//
+// F-CUSTOM (Phase 5): items.map now includes is_custom so the PDF builder
+// (Phase 6) renders [CUSTOM] badge and skips MSRP display for custom rows.
+// Mirrors step3.html buildQuoteDataForPdf shape exactly.
 // ─────────────────────────────────────────────────────────────────────────
 
 function buildQuoteDataForPdf() {
@@ -1380,6 +1420,7 @@ function buildQuoteDataForPdf() {
       msrp:            item.msrp || null,
       assemble_fee:    item.assemble_fee,
       sub_groups:      item.sub_groups,
+      is_custom:       !!item.is_custom,  // F-CUSTOM (Phase 5)
     };
   });
 
