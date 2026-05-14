@@ -79,6 +79,20 @@
     .td-right { text-align: right; }
     .td-total { font-weight: 500; }
 
+    /* F-CUSTOM: [CUSTOM] badge — gold bg + gold text, consistent with step2/2.5 */
+    .custom-badge {
+      display: inline-block;
+      background: rgba(201,168,76,0.18);
+      color: #8B6914;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
     .items-table tbody tr.sub-continuation {
       border-top: 1px dashed rgba(201,168,76,0.25);
     }
@@ -936,7 +950,10 @@ async function init() {
   renderReview();
 }
 
-const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
+// F-CUSTOM (Phase 4): Added 'OTHER' between ACCESSORIES and MODIFICATION.
+// Custom Other items get sku_type='OTHER' from step2; this ensures they sort
+// after accessories but before MODIFICATION group (mods are always last per spec).
+const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
 
 function typeRank(type) {
   const idx = TYPE_ORDER.indexOf((type||'').toUpperCase());
@@ -983,6 +1000,9 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2 — Build item rows + collect notes for Notes table.
 // Returns { rowsHtml, notes } so caller can render the Notes table after.
+//
+// F-CUSTOM (Phase 4): Custom items get a gold [CUSTOM] badge next to SKU code.
+// Detected via item.is_custom === true (snapshot from step2 cartItems).
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemRowsHtml(markupPct) {
   markupPct = markupPct || 0;
@@ -999,6 +1019,7 @@ function buildItemRowsHtml(markupPct) {
       const subs = getNormalizedSubGroups(item);
       const isSplit = subs.length > 1;
       const markedUnitPrice = item.unit_price * (1 + markupPct);
+      const isCustom = !!item.is_custom;  // F-CUSTOM
 
       subs.forEach(function (sub, subIdx) {
         itemNum++;
@@ -1016,7 +1037,11 @@ function buildItemRowsHtml(markupPct) {
         const subLabelHtml = isSplit
           ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
           : '';
-        const skuCellHtml = `${escapeHtml(item.sku_code)}${subLabelHtml}`;
+        // F-CUSTOM: gold [CUSTOM] badge on first sub only (avoids visual noise on split subs)
+        const customBadgeHtml = (isCustom && isFirstSub)
+          ? `<span class="custom-badge">CUSTOM</span>`
+          : '';
+        const skuCellHtml = `${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}`;
 
         const itemContext = {
           sku_code:  item.sku_code,
@@ -1256,6 +1281,12 @@ function renderReview() {
     'assembly=$' + assembleTotal.toFixed(2)
   );
 
+  // F-CUSTOM: debug log for custom item count
+  const customCount = step2Data.filter(i => i.is_custom).length;
+  if (customCount > 0) {
+    console.log('[F-CUSTOM] renderReview: ' + customCount + ' custom item(s) in this quote');
+  }
+
   const result = buildItemRowsHtml(0);
   document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
   document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
@@ -1270,6 +1301,11 @@ function renderReview() {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F-CUSTOM (Phase 4): buildItemsPayload now writes is_custom column to
+// quote_items so the DB knows which rows are admin-added custom items.
+// Schema: quote_items.is_custom BOOLEAN NOT NULL DEFAULT false (Phase 1)
+// ─────────────────────────────────────────────────────────────────────────────
 function buildItemsPayload(quoteId) {
   const rows = [];
 
@@ -1306,6 +1342,8 @@ function buildItemsPayload(quoteId) {
         // just persists what step2.5 wrote.
         modifications:       Array.isArray(g.modifications) ? g.modifications : [],
         modification_status: g.modification_status || 'unprocessed',
+        // F-CUSTOM (Phase 4): all sub_groups of a custom item inherit is_custom
+        is_custom:           !!item.is_custom,
       });
     });
   });
@@ -1329,6 +1367,10 @@ async function resolveDealerId(session) {
   return session.user.id;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F-CUSTOM (Phase 4): items.map now includes is_custom so the PDF builder
+// (Phase 6) can render the [CUSTOM] badge and skip MSRP display for custom rows.
+// ─────────────────────────────────────────────────────────────────────────────
 function buildQuoteDataForPdf(opts) {
   opts = opts || {};
   const items = step2Data.map(function(i) {
@@ -1344,6 +1386,7 @@ function buildQuoteDataForPdf(opts) {
       msrp:            i.msrp || null,
       assemble_fee:    i.assemble_fee || 0,
       sub_groups:      getNormalizedSubGroups(i),
+      is_custom:       !!i.is_custom,  // F-CUSTOM
     };
   });
 
@@ -1739,6 +1782,9 @@ async function submitQuote() {
             optional_email_2:       dealer.optional_email_2 || null,
             optional_email_2_notify: dealer.optional_email_2_notify || false,
           },
+          // F-CUSTOM (Phase 4): is_custom flag synced to email payload so the
+          // Edge Function / email template can render [CUSTOM] badge and skip
+          // MSRP display for custom items.
           items: step2Data.map(i => ({
             style_code:   i.style_code,
             style_name:   i.style_name || null,
@@ -1750,6 +1796,7 @@ async function submitQuote() {
             unit_price:   i.unit_price,
             assemble_fee: i.assemble_fee || 0,
             sub_groups:   getNormalizedSubGroups(i),
+            is_custom:    !!i.is_custom,  // F-CUSTOM
           })),
           attachments: [
             { filename: packingFilename, content: pdfA, type: 'application/pdf' },
