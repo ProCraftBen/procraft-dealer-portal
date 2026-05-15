@@ -3303,14 +3303,18 @@ async function openMfModal(key) {
               ', type=' + (item.skuType || '') +
               ', category=' + (item.category || '') +
               ', subcategory=' + (item.subcategory || '') +
+              ', sku_code=' + (item.sku_code || '') +
               ', role=' + role);
 
   try {
+    // F-EXCLUDE-SKU: pass p_sku_code so backend can skip rules whose
+    // exclude_sku_code list contains this SKU.
     const { data: rules, error } = await _supabase.rpc('match_modifications_for_sku', {
       p_door:        doorParam,
       p_type:        item.skuType    || '',
       p_category:    item.category   || '',
-      p_subcategory: item.subcategory || ''
+      p_subcategory: item.subcategory || '',
+      p_sku_code:    item.sku_code   || null
     });
 
     if (error) {
@@ -3369,6 +3373,8 @@ async function openMfModal(key) {
         console.log('[F3.1]   Fetching admin-only rules dealer cannot see via RLS:',
                     missingMfCodes);
         try {
+          // F-EXCLUDE-SKU: also pass p_sku_code on the fallback fetch
+          // so exclusion logic stays consistent for re-hydrated rules.
           const { data: extraRules, error: extraErr } = await _supabase.rpc(
             'get_modification_rules_by_codes',
             {
@@ -3376,7 +3382,8 @@ async function openMfModal(key) {
               p_door:        doorParam,
               p_type:        item.skuType    || '',
               p_category:    item.category   || '',
-              p_subcategory: item.subcategory || ''
+              p_subcategory: item.subcategory || '',
+              p_sku_code:    item.sku_code   || null
             }
           );
           if (activeMfModalKey !== key) {
@@ -3416,6 +3423,12 @@ async function openMfModal(key) {
 
     console.log('[E4.3]   After role filter + F3.1: ' + activeMfModalRules.length + ' rule(s)');
     console.log('[E4.3]   Rules:', activeMfModalRules);
+    // F-EXCLUDE-SKU: log per-rule exclude_sku_code for visibility
+    console.log('[F-EXCLUDE-SKU]   Rule exclude_sku_code map:',
+      activeMfModalRules.map(function (r) {
+        return r.mf_code + ' "' + (r.display_label || '') + '" → exclude_sku_code=' + (r.exclude_sku_code || 'null');
+      })
+    );
     // F-TAX: log per-rule tax_status for visibility
     console.log('[F-TAX]   Rule tax_status map:',
       activeMfModalRules.map(function (r) {
