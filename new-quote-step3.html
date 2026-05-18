@@ -595,6 +595,24 @@ function shouldUseNotesTable(mod) {
   return false;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// F-HIDDEN-MODS (2026-05-18) — Display-layer filter for mods that should be
+// recorded in DB but NOT shown to user/PDF/admin.
+//
+// Currently filters:
+//   • MF01 value='none' (No Skin) — dealer actively chose "no skin", cost=0;
+//     showing "Skin: No Skin" in description is noise. Keeps F6 semantic
+//     distinction at DB level (configured vs skipped) but hides from display.
+//
+// Add more cases here if/when other mods need hide-on-display behavior.
+// Mirror this function in pdf-builder.js and quote-detail.html.
+// ─────────────────────────────────────────────────────────────────────────────
+function isHiddenMod(mod) {
+  if (!mod) return false;
+  if (mod.mf_code === 'MF01' && mod.value === 'none') return true;
+  return false;
+}
+
 function buildReturnedBannerStep3(roleMsg) {
   return `
     <div class="returned-revising-banner">
@@ -714,23 +732,35 @@ function escapeHtml(s) {
 //   - unprocessed + empty mods → KEEP "⚠ Modifications pending" warning
 //     (this is a real problem state — dealer forgot to configure)
 //
+// F-HIDDEN-MODS (2026-05-18):
+//   Filter mods via isHiddenMod() BEFORE the empty-check. If MF01 No Skin was
+//   the only mod, the visibleMods array becomes empty → same treatment as
+//   "skipped + empty" → return '' (no visual noise). This is intentional even
+//   for status='unprocessed' since the dealer DID make an active choice
+//   (entered modal, picked No Skin); we just don't surface it in description.
+//
 // Mods that match shouldUseNotesTable() are rendered as [See note №N below]
 // and collected into notesCollector for the Notes table.
 // ─────────────────────────────────────────────────────────────────────────────
 function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
-  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  const rawMods    = Array.isArray(sub.modifications) ? sub.modifications : [];
+  const visibleMods = rawMods.filter(function (m) { return !isHiddenMod(m); });  // F-HIDDEN-MODS
   const status = sub.modification_status || 'unprocessed';
 
-  if (!mods.length) {
-    // B2: skipped / configured + empty → no visual clutter
+  if (!visibleMods.length) {
+    // F-HIDDEN-MODS: if user-chosen route A is in effect, all-hidden-mods is
+    // treated the same as skipped/configured + empty (no visual noise).
+    if (rawMods.length > 0) {
+      return '';  // had mods but all hidden → suppress
+    }
+    // raw was already empty:
     if (status === 'skipped' || status === 'configured') {
       return '';
     }
-    // unprocessed + empty → real problem, keep warning
     return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
   }
 
-  const lines = mods.map(function (m) {
+  const lines = visibleMods.map(function (m) {
     const label = m.display_label || m.mf_code || 'Modification';
     const useNotes = shouldUseNotesTable(m);
 
@@ -1340,6 +1370,10 @@ function buildItemsPayload(quoteId) {
         // F-TAX: modifications array now includes tax_status per mod entry
         // (snapshot from step2.5 handleMfSave). Step3 doesn't touch this — it
         // just persists what step2.5 wrote.
+        //
+        // F-HIDDEN-MODS: We INTENTIONALLY do NOT filter MF01 No Skin here.
+        // The display-layer filter only suppresses visual rendering; DB still
+        // records "dealer actively chose No Skin" for audit/analytics.
         modifications:       Array.isArray(g.modifications) ? g.modifications : [],
         modification_status: g.modification_status || 'unprocessed',
         // F-CUSTOM (Phase 4): all sub_groups of a custom item inherit is_custom
