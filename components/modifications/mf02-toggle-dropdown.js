@@ -13,6 +13,26 @@
  *
  * 同一頁面可建立多個獨立實例,state 不共享。
  *
+ * F-GLASS-MULTIPLIER (2026-05-18):
+ *   • 新增 optional mf_params:
+ *       _unit_price: number   單片價(例如 Single Door $25)
+ *       _multiplier: number   倍率(例如 Double Door = 2)
+ *   • 兩個都有且 _multiplier > 1 時,toggle 旁顯示「$25 × 2 = $50.00」
+ *     而不是單純「+$50.00」。
+ *   • 沒有這兩個 param → 跟以前一模一樣,顯示 +$base_cost。
+ *   • 不影響 calculateCost() / getValue() / validate()(那些都用
+ *     _base_cost,跟以前一樣)。
+ *
+ * F-BINDING-GROUP (2026-05-18):
+ *   • 新增 optional mf_params:
+ *       _binding_group: string   綁定群組名(例如 "GLASS")
+ *       _binding_role: 'primary' | 'dependent'
+ *   • broadcast 的 mf-change event detail 多帶 _binding_group +
+ *     _binding_role,讓協調者(new-quote-modifications.html)能
+ *     依此聯動同 group 的其他元件(例如 MF02 Glass 勾 →
+ *     觸發 MF03 Prep For Glass 自動勾 + 鎖住)。
+ *   • MF02 本身不處理鎖定邏輯(它總是 primary,不會被鎖)。
+ *
  * 介面:
  *   create(container, mf_params, current_value) → instance
  *
@@ -27,7 +47,11 @@
  *     toggle_label: string,         // toggle 旁邊文字
  *     dropdown_label: string,       // dropdown 上方 label
  *     dropdown_options: string[],   // 選項列表(注意是 dropdown_options 不是 options)
- *     _base_cost: number            // 主頁面注入的 base cost
+ *     _base_cost: number,           // 主頁面注入的 base cost
+ *     _unit_price?: number,         // F-GLASS-MULTIPLIER: 單片價
+ *     _multiplier?: number,         // F-GLASS-MULTIPLIER: 倍率
+ *     _binding_group?: string,      // F-BINDING-GROUP: 綁定群組
+ *     _binding_role?: string,       // F-BINDING-GROUP: 'primary' | 'dependent'
  *   }
  *
  * current_value 結構:
@@ -39,7 +63,10 @@
  *
  * 對外通知:
  *   container.dispatchEvent(new CustomEvent('mf-change', {
- *     detail: { mf_code, value, cost }
+ *     detail: {
+ *       mf_code, value, cost,
+ *       _binding_group?, _binding_role?    // F-BINDING-GROUP
+ *     }
  *   }))
  *   value 是 { enabled, selected } 物件
  * ============================================================
@@ -77,6 +104,28 @@
     // base cost 由主頁面注入
     state.cost = (typeof state.mf_params._base_cost === 'number') ? state.mf_params._base_cost : 0;
 
+    // ──────────────────────────────────────────────────────────
+    // F-GLASS-MULTIPLIER: 決定 cost display 字串
+    //   有 _unit_price + _multiplier 且 multiplier > 1
+    //     → "$25 × 2 = $50.00"
+    //   否則 → "+$50.00"  (舊行為)
+    //   cost=0 → "" (不顯示)
+    // ──────────────────────────────────────────────────────────
+    function buildCostDisplayHTML() {
+      if (state.cost <= 0) return '';
+
+      const unitPrice = state.mf_params._unit_price;
+      const multiplier = state.mf_params._multiplier;
+      const hasMultiplierBreakdown =
+        typeof unitPrice === 'number' && unitPrice > 0 &&
+        typeof multiplier === 'number' && multiplier > 1;
+
+      if (hasMultiplierBreakdown) {
+        return `<span style="margin-left:8px;color:#666;font-size:13px;">$${unitPrice.toFixed(2)} × ${multiplier} = $${state.cost.toFixed(2)}</span>`;
+      }
+      return `<span style="margin-left:8px;color:#666;font-size:13px;">+$${state.cost.toFixed(2)}</span>`;
+    }
+
     function drawUI() {
       // 重繪前先解綁舊 listener(避免 memory leak)
       if (state.toggleEl) {
@@ -91,10 +140,8 @@
       const dropdownLabel = escapeHTML(params.dropdown_label || 'Please select');
       const options = Array.isArray(params.dropdown_options) ? params.dropdown_options : [];
 
-      // 顯示用 cost
-      const costDisplay = state.cost > 0
-        ? `<span style="margin-left:8px;color:#666;font-size:13px;">+$${state.cost.toFixed(2)}</span>`
-        : '';
+      // F-GLASS-MULTIPLIER: 顯示用 cost (可能是 "$25 × 2 = $50" 或 "+$50")
+      const costDisplay = buildCostDisplayHTML();
 
       // toggle 區
       const toggleHTML = `
@@ -219,14 +266,28 @@
       broadcast();
     }
 
+    // ──────────────────────────────────────────────────────────
+    // F-BINDING-GROUP: broadcast 時帶上 binding info(只在 mf_params
+    // 有設 _binding_group 時才帶)
+    // ──────────────────────────────────────────────────────────
     function broadcast() {
+      const detail = {
+        mf_code: 'MF02',
+        value: getValue(),
+        cost: calculateCost()
+      };
+
+      // F-BINDING-GROUP: 把 binding info 附加到 event detail
+      const bindingGroup = state.mf_params._binding_group;
+      const bindingRole  = state.mf_params._binding_role;
+      if (typeof bindingGroup === 'string' && bindingGroup) {
+        detail._binding_group = bindingGroup;
+        detail._binding_role  = (typeof bindingRole === 'string' && bindingRole) ? bindingRole : null;
+      }
+
       state.container.dispatchEvent(new CustomEvent('mf-change', {
         bubbles: true,
-        detail: {
-          mf_code: 'MF02',
-          value: getValue(),
-          cost: calculateCost()
-        }
+        detail: detail
       }));
     }
 
