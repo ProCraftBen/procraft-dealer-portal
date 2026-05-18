@@ -42,6 +42,14 @@
 //   • MSRP is NOT shown in any PDF mode (already true before Phase 6),
 //     so the "don't show MSRP for custom items" handover requirement is
 //     auto-satisfied.
+//
+// F-HIDDEN-MODS (2026-05-18):
+//   • _isHiddenMod() filters mods that are recorded in DB but should NOT
+//     appear in PDF output. Currently filters MF01 value='none' (No Skin).
+//   • _buildDescriptionCellText() applies this filter via .filter() BEFORE
+//     processing mods. If all mods get filtered out, the cell is treated
+//     same as "skipped + empty" (no clutter), matching step3 behavior.
+//   • Mirror this in new-quote-step3.html and quote-detail.html.
 // ============================================================
 
 (function (global) {
@@ -248,6 +256,24 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // F-HIDDEN-MODS (2026-05-18) — Display-layer filter for mods that should be
+  // recorded in DB but NOT shown in PDF output.
+  //
+  // Currently filters:
+  //   • MF01 value='none' (No Skin) — dealer actively chose "no skin", cost=0;
+  //     showing "Skin: No Skin" in PDF description is noise.
+  //
+  // Mirror this function in new-quote-step3.html and quote-detail.html so all
+  // surfaces apply the same filter. To add more cases, just extend this
+  // function — callers (_buildDescriptionCellText) already use it.
+  // ─────────────────────────────────────────────────────────────────────────
+  function _isHiddenMod(mod) {
+    if (!mod) return false;
+    if (mod.mf_code === 'MF01' && mod.value === 'none') return true;
+    return false;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // C1: Pending shipping detection
   // ─────────────────────────────────────────────────────────────────────────
   function _isPendingShipping(quoteData) {
@@ -426,6 +452,11 @@
    *     and push the full detail into notesCollector.
    *   - Else → render as "◆ {label}: {value}"
    *
+   * F-HIDDEN-MODS (2026-05-18):
+   *   Filter mods via _isHiddenMod() BEFORE the empty-check. If MF01 No Skin
+   *   was the only mod, the visibleMods array becomes empty → same treatment
+   *   as "skipped + empty" → no warning, no clutter. Matches step3 behavior.
+   *
    * @param {Object} ctx
    * @param {Object} ctx.sub
    * @param {Object} ctx.item              parent item (for sku_code + sub_total)
@@ -437,15 +468,21 @@
    */
   function _buildDescriptionCellText(ctx) {
     const { sub, item, skuDesc, totalSubs, notesIndex, notesCollector } = ctx;
-    const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+    const rawMods     = Array.isArray(sub.modifications) ? sub.modifications : [];
+    const visibleMods = rawMods.filter(function (m) { return !_isHiddenMod(m); });  // F-HIDDEN-MODS
     const status = sub.modification_status || 'unprocessed';
     const lines  = [];
 
     // First line: sku_desc
     if (skuDesc) lines.push(skuDesc);
 
-    // Empty mods handling (mirrors step3 B2 logic)
-    if (!mods.length) {
+    // Empty mods handling (mirrors step3 B2 logic + F-HIDDEN-MODS route A)
+    if (!visibleMods.length) {
+      // F-HIDDEN-MODS: if all mods were hidden, same as skipped/configured + empty
+      if (rawMods.length > 0) {
+        return lines.join('\n');
+      }
+      // raw was already empty:
       // skipped / configured + empty → no clutter
       if (status === 'skipped' || status === 'configured') {
         return lines.join('\n');
@@ -456,7 +493,7 @@
     }
 
     // Mods present — render each line
-    mods.forEach(function (m) {
+    visibleMods.forEach(function (m) {
       const label = m.display_label || m.mf_code || 'Modification';
       const useNotes = _shouldUseNotesTable(m);
 
@@ -1298,6 +1335,7 @@
     _calcAsmByType:           _calcAsmByType,
     _loadImage:               _loadImage,
     _isPendingShipping:       _isPendingShipping,
+    _isHiddenMod:             _isHiddenMod,                      // F-HIDDEN-MODS
     _getNormalizedSubGroups:  _getNormalizedSubGroups,           // F4.2
     _calcPerSubModCost:       _calcPerSubModCost,                // F4.2
     _calcPerSubTaxableModCost: _calcPerSubTaxableModCost,        // F4.2
