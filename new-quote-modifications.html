@@ -22,10 +22,8 @@
     }
     html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
-    /* ── Page ── */
     .page { max-width: 1100px; margin: 0 auto; padding: 20px 20px 80px; }
 
-    /* ── Returned Revising Banner ── */
     .returned-revising-banner {
       background: rgba(224,123,57,0.07);
       border: 1px solid rgba(224,123,57,0.3);
@@ -45,9 +43,7 @@
       display: flex; align-items: center; justify-content: center;
       margin-top: 2px;
     }
-    .returned-revising-banner .rrb-icon-wrap svg {
-      width: 16px; height: 16px; fill: var(--warn-orange);
-    }
+    .returned-revising-banner .rrb-icon-wrap svg { width: 16px; height: 16px; fill: var(--warn-orange); }
     .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
     .returned-revising-banner .rrb-title {
       font-size: 11px; font-weight: 600;
@@ -55,13 +51,8 @@
       color: var(--warn-orange);
       margin-bottom: 4px;
     }
-    .returned-revising-banner .rrb-msg {
-      font-size: 13px;
-      color: #2C3A32;
-      line-height: 1.55;
-    }
+    .returned-revising-banner .rrb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
 
-    /* ── No-Assembled Info Banner ── */
     .no-assembled-banner {
       background: rgba(90,122,149,0.06);
       border: 1px solid rgba(90,122,149,0.25);
@@ -81,9 +72,7 @@
       display: flex; align-items: center; justify-content: center;
       margin-top: 1px;
     }
-    .no-assembled-banner .nab-icon-wrap svg {
-      width: 14px; height: 14px; fill: var(--info-blue);
-    }
+    .no-assembled-banner .nab-icon-wrap svg { width: 14px; height: 14px; fill: var(--info-blue); }
     .no-assembled-banner .nab-body { flex: 1; min-width: 0; }
     .no-assembled-banner .nab-title {
       font-size: 11px; font-weight: 600;
@@ -91,13 +80,8 @@
       color: var(--info-blue);
       margin-bottom: 3px;
     }
-    .no-assembled-banner .nab-msg {
-      font-size: 13px;
-      color: var(--text);
-      line-height: 1.55;
-    }
+    .no-assembled-banner .nab-msg { font-size: 13px; color: var(--text); line-height: 1.55; }
 
-    /* ── Page Heading ── */
     .page-heading { margin-bottom: 24px; }
     .page-heading h1 {
       font-family: 'Cormorant Garamond', serif;
@@ -107,13 +91,8 @@
       letter-spacing: 0.03em;
       margin-bottom: 4px;
     }
-    .page-heading .subtitle {
-      font-size: 13px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
+    .page-heading .subtitle { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-    /* ── Progress Card ── */
     .progress-card {
       background: var(--white);
       border: 1px solid var(--border);
@@ -121,51 +100,19 @@
       padding: 14px 18px;
       margin-bottom: 20px;
     }
-    .progress-card-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
+    .progress-card-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
     .progress-label {
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--muted);
     }
-    .progress-count {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--green-dark);
-    }
-    .progress-count .progress-percent {
-      color: var(--muted);
-      margin-left: 6px;
-      font-weight: 400;
-    }
-    .progress-bar {
-      width: 100%;
-      height: 6px;
-      background: var(--cream);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: var(--green-dark);
-      transition: width 0.3s ease;
-      border-radius: 3px;
-    }
-    .progress-bar-fill.complete {
-      background: var(--gold);
-    }
-    .progress-card.no-assembled .progress-count {
-      color: var(--muted);
-      font-weight: 400;
-    }
+    .progress-count { font-size: 12px; font-weight: 500; color: var(--green-dark); }
+    .progress-count .progress-percent { color: var(--muted); margin-left: 6px; font-weight: 400; }
+    .progress-bar { width: 100%; height: 6px; background: var(--cream); border-radius: 3px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--green-dark); transition: width 0.3s ease; border-radius: 3px; }
+    .progress-bar-fill.complete { background: var(--gold); }
+    .progress-card.no-assembled .progress-count { color: var(--muted); font-weight: 400; }
 
-    /* ── Door Style Card ── */
     .ds-card {
       background: var(--white);
       border: 1px solid var(--border);
@@ -197,44 +144,22 @@
     }
     .ds-thumb.zoomable { cursor: zoom-in; }
     .ds-thumb.zoomable:hover { border-color: var(--gold); }
-    .ds-thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: block;
-    }
-    .ds-thumb-fallback {
-      width: 100%;
-      height: 100%;
-    }
+    .ds-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .ds-thumb-fallback { width: 100%; height: 100%; }
     .ds-thumb-zoom-icon {
       position: absolute;
-      right: 4px;
-      bottom: 4px;
-      width: 18px;
-      height: 18px;
+      right: 4px; bottom: 4px;
+      width: 18px; height: 18px;
       border-radius: 50%;
       background: rgba(255,255,255,0.85);
       backdrop-filter: blur(2px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       pointer-events: none;
       box-shadow: 0 1px 3px rgba(0,0,0,0.15);
       transition: background 0.15s, transform 0.15s;
     }
-    .ds-thumb.zoomable:hover .ds-thumb-zoom-icon {
-      background: rgba(255,255,255,1);
-      transform: scale(1.08);
-    }
-    .ds-thumb-zoom-icon svg {
-      width: 10px;
-      height: 10px;
-      fill: none;
-      stroke: var(--green-dark);
-      stroke-width: 2.5;
-      stroke-linecap: round;
-    }
+    .ds-thumb.zoomable:hover .ds-thumb-zoom-icon { background: rgba(255,255,255,1); transform: scale(1.08); }
+    .ds-thumb-zoom-icon svg { width: 10px; height: 10px; fill: none; stroke: var(--green-dark); stroke-width: 2.5; stroke-linecap: round; }
 
     .ds-info { flex: 1; min-width: 0; }
     .ds-name {
@@ -245,14 +170,7 @@
       line-height: 1.2;
       margin-bottom: 4px;
     }
-    .ds-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      font-size: 11px;
-      color: var(--muted);
-    }
+    .ds-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
     .ds-code { font-weight: 500; }
     .ds-construction-tag {
       font-size: 9px;
@@ -262,18 +180,9 @@
       border-radius: 2px;
       font-weight: 500;
     }
-    .ds-construction-tag.framed {
-      background: rgba(62,90,66,0.08);
-      color: var(--green-dark);
-    }
-    .ds-construction-tag.frameless {
-      background: rgba(201,168,76,0.12);
-      color: #8B6914;
-    }
-    .ds-construction-tag.unknown {
-      background: rgba(122,140,130,0.12);
-      color: var(--muted);
-    }
+    .ds-construction-tag.framed    { background: rgba(62,90,66,0.08);    color: var(--green-dark); }
+    .ds-construction-tag.frameless { background: rgba(201,168,76,0.12);  color: #8B6914; }
+    .ds-construction-tag.unknown   { background: rgba(122,140,130,0.12); color: var(--muted); }
     .ds-discontinued-tag {
       font-size: 9px;
       letter-spacing: 0.1em;
@@ -284,39 +193,17 @@
       background: rgba(224,123,57,0.12);
       color: var(--warn-orange);
     }
-    .ds-progress {
-      flex-shrink: 0;
-      text-align: right;
-    }
-    .ds-progress-count {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--green-dark);
-    }
-    .ds-progress-count.complete::after {
-      content: ' ✓';
-      color: var(--gold);
-      font-weight: 700;
-    }
-    .ds-progress-count.no-assembled {
-      color: var(--muted);
-      font-weight: 400;
-    }
-    .ds-progress-label {
-      font-size: 9px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-top: 2px;
-    }
+    .ds-progress { flex-shrink: 0; text-align: right; }
+    .ds-progress-count { font-size: 14px; font-weight: 500; color: var(--green-dark); }
+    .ds-progress-count.complete::after { content: ' ✓'; color: var(--gold); font-weight: 700; }
+    .ds-progress-count.no-assembled { color: var(--muted); font-weight: 400; }
+    .ds-progress-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 
     .ds-discontinued-banner {
       background: rgba(224,123,57,0.06);
       border-bottom: 1px solid rgba(224,123,57,0.25);
       padding: 10px 18px;
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
+      display: flex; gap: 10px; align-items: flex-start;
     }
     .ds-discontinued-banner-icon {
       flex-shrink: 0;
@@ -324,17 +211,9 @@
       display: flex; align-items: center; justify-content: center;
       margin-top: 1px;
     }
-    .ds-discontinued-banner-icon svg {
-      width: 14px; height: 14px; fill: var(--warn-orange);
-    }
-    .ds-discontinued-banner-msg {
-      font-size: 12px;
-      color: #2C3A32;
-      line-height: 1.5;
-      flex: 1;
-    }
+    .ds-discontinued-banner-icon svg { width: 14px; height: 14px; fill: var(--warn-orange); }
+    .ds-discontinued-banner-msg { font-size: 12px; color: #2C3A32; line-height: 1.5; flex: 1; }
 
-    /* ── Group ── */
     .ds-group { padding: 12px 18px; }
     .ds-group + .ds-group { border-top: 1px solid var(--border); }
     .ds-group-label {
@@ -347,7 +226,6 @@
     }
     .ds-group.rta { background: #FAFAF8; }
 
-    /* ── SKU Row ── */
     .sku-row {
       display: flex;
       align-items: center;
@@ -357,38 +235,25 @@
       font-size: 12px;
     }
     .sku-row:last-child { border-bottom: none; }
-    .sku-row.assembled {
-      cursor: pointer;
-      transition: background 0.1s;
-    }
+    .sku-row.assembled { cursor: pointer; transition: background 0.1s; }
     .sku-row.assembled:hover {
       background: rgba(62,90,66,0.04);
       margin: 0 -10px;
       padding: 10px;
       border-radius: 3px;
     }
-    .sku-row.rta { cursor: default; }
-    .sku-code {
-      font-weight: 500;
-      color: var(--green-dark);
-      white-space: nowrap;
-      flex-shrink: 0;
-      min-width: 110px;
+    .sku-row.rta { cursor: pointer; transition: background 0.1s; }
+    .sku-row.rta:hover {
+      background: rgba(62,90,66,0.04);
+      margin: 0 -10px;
+      padding: 10px;
+      border-radius: 3px;
     }
+    .sku-code { font-weight: 500; color: var(--green-dark); white-space: nowrap; flex-shrink: 0; min-width: 110px; }
     .sku-row.rta .sku-code { color: var(--muted); }
-    .sku-desc {
-      flex: 1;
-      color: var(--text);
-      min-width: 0;
-    }
+    .sku-desc { flex: 1; color: var(--text); min-width: 0; }
     .sku-row.rta .sku-desc { color: var(--muted); }
-    .sku-qty {
-      flex-shrink: 0;
-      font-size: 11px;
-      color: var(--muted);
-      min-width: 50px;
-      text-align: right;
-    }
+    .sku-qty { flex-shrink: 0; font-size: 11px; color: var(--muted); min-width: 50px; text-align: right; }
     .sku-status {
       flex-shrink: 0;
       display: flex;
@@ -402,18 +267,9 @@
       justify-content: center;
       font-weight: 500;
     }
-    .sku-status.unprocessed {
-      background: rgba(122,140,130,0.12);
-      color: var(--muted);
-    }
-    .sku-status.configured {
-      background: rgba(62,90,66,0.1);
-      color: var(--green-dark);
-    }
-    .sku-status.skipped {
-      background: rgba(90,122,149,0.1);
-      color: var(--info-blue);
-    }
+    .sku-status.unprocessed { background: rgba(122,140,130,0.12); color: var(--muted); }
+    .sku-status.configured  { background: rgba(62,90,66,0.1);    color: var(--green-dark); }
+    .sku-status.skipped     { background: rgba(90,122,149,0.1);  color: var(--info-blue); }
     .sku-row .sku-arrow {
       flex-shrink: 0;
       color: var(--muted);
@@ -423,34 +279,23 @@
       transition: color 0.15s;
     }
     .sku-row.assembled:hover .sku-arrow { color: var(--green-dark); }
+    .sku-row.rta:hover .sku-arrow { color: var(--green-dark); }
 
-    /* E5: Delete button on SKU row */
     .sku-delete-btn {
       flex-shrink: 0;
       background: none;
       border: none;
       cursor: pointer;
       color: var(--muted);
-      width: 22px;
-      height: 22px;
+      width: 22px; height: 22px;
       border-radius: 3px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       padding: 0;
       transition: all 0.15s;
     }
-    .sku-delete-btn:hover {
-      color: var(--error);
-      background: rgba(192,57,43,0.08);
-    }
-    .sku-delete-btn svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
-    }
+    .sku-delete-btn:hover { color: var(--error); background: rgba(192,57,43,0.08); }
+    .sku-delete-btn svg { width: 14px; height: 14px; fill: currentColor; }
 
-    /* E5: Sub-group badge on SKU row (when split into 2+) */
     .sku-split-badge {
       flex-shrink: 0;
       font-size: 9px;
@@ -463,7 +308,6 @@
       font-weight: 600;
     }
 
-    /* F-CUSTOM Phase 3: [CUSTOM] gold badge on SKU rows */
     .sku-custom-badge {
       flex-shrink: 0;
       font-size: 8px;
@@ -476,11 +320,7 @@
       font-weight: 700;
     }
 
-    /* F-CUSTOM Phase 3: "No mods" hint for non-cabinet custom items */
-    .sku-row.custom-no-mod {
-      cursor: not-allowed;
-      opacity: 0.85;
-    }
+    .sku-row.custom-no-mod { cursor: not-allowed; opacity: 0.85; }
     .sku-row.custom-no-mod:hover {
       background: rgba(201,168,76,0.04);
       margin: 0 -10px;
@@ -495,21 +335,13 @@
       letter-spacing: 0.03em;
     }
 
-    /* F-CUSTOM Phase 3: standalone "Custom Items" group card (for
-       Accessory + Other types that don't fit under a door style) */
-    .ds-card.custom-standalone {
-      border-color: var(--gold);
-      background: rgba(201,168,76,0.04);
-    }
+    .ds-card.custom-standalone { border-color: var(--gold); background: rgba(201,168,76,0.04); }
     .ds-card.custom-standalone .ds-card-header {
       background: rgba(201,168,76,0.1);
       border-bottom-color: rgba(201,168,76,0.3);
     }
-    .ds-card.custom-standalone .ds-name {
-      color: #8B6914;
-    }
+    .ds-card.custom-standalone .ds-name { color: #8B6914; }
 
-    /* ── Empty State ── */
     .empty-state {
       background: var(--white);
       border: 1px dashed var(--border);
@@ -521,21 +353,18 @@
       line-height: 1.6;
     }
 
-    /* ── Lightbox ── */
     .lightbox-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.85);
       z-index: 1000;
       display: none;
-      align-items: center;
-      justify-content: center;
+      align-items: center; justify-content: center;
       padding: 20px;
       cursor: zoom-out;
     }
     .lightbox-overlay.show { display: flex; }
     .lightbox-img {
-      max-width: 90vw;
-      max-height: 90vh;
+      max-width: 90vw; max-height: 90vh;
       object-fit: contain;
       border-radius: 4px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -550,21 +379,16 @@
     }
     .lightbox-close:hover { opacity: 1; }
 
-    /* ═══════════════════════════════════════════════════════════════
-       ║  E3+E4.4+E4.6+E4.7+E5: Layer 2 Modal (CSS)                  ║
-       ═══════════════════════════════════════════════════════════════ */
-
+    /* Modal */
     .mf-modal-overlay {
       position: fixed; inset: 0;
       background: rgba(44, 58, 50, 0.55);
       z-index: 800;
       display: none;
-      align-items: center;
-      justify-content: center;
+      align-items: center; justify-content: center;
       padding: 20px;
     }
     .mf-modal-overlay.show { display: flex; }
-
     .mf-modal-container {
       width: 90vw;
       max-width: 900px;
@@ -576,7 +400,6 @@
       flex-direction: column;
       overflow: hidden;
     }
-
     .mf-modal-header {
       flex-shrink: 0;
       padding: 14px 22px;
@@ -588,29 +411,19 @@
       gap: 12px;
     }
     .mf-modal-title {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--green-dark);
     }
     .mf-modal-close {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--muted);
-      font-size: 24px;
-      line-height: 1;
-      padding: 0 4px;
-      transition: color 0.15s;
+      background: none; border: none;
+      cursor: pointer; color: var(--muted);
+      font-size: 24px; line-height: 1;
+      padding: 0 4px; transition: color 0.15s;
     }
     .mf-modal-close:hover { color: var(--text); }
 
-    .mf-modal-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px 22px;
-    }
+    .mf-modal-body { flex: 1; overflow-y: auto; padding: 20px 22px; }
     .mf-modal-body::-webkit-scrollbar { width: 6px; }
     .mf-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -622,24 +435,17 @@
       margin-bottom: 18px;
     }
     .mf-sku-head-row1 {
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 13px; font-weight: 500;
       color: var(--green-dark);
       line-height: 1.4;
       margin-bottom: 4px;
     }
-    .mf-sku-head-code {
-      font-family: 'DM Sans', sans-serif;
-      font-weight: 500;
-      letter-spacing: 0.04em;
-    }
+    .mf-sku-head-code { font-family: 'DM Sans', sans-serif; font-weight: 500; letter-spacing: 0.04em; }
     .mf-sku-head-row2 {
       font-size: 11px;
       color: var(--muted);
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
+      display: flex; gap: 8px;
+      flex-wrap: wrap; align-items: center;
     }
     .mf-sku-head-row2 .mf-pill {
       padding: 2px 8px;
@@ -653,21 +459,12 @@
     .mf-pill.frameless  { background: rgba(201,168,76,0.12);  color: #8B6914; }
     .mf-pill.unknown    { background: rgba(122,140,130,0.12); color: var(--muted); }
     .mf-pill.assembled  { background: rgba(201,168,76,0.15);  color: #8B6914; }
+    .mf-pill.rta        { background: rgba(90,122,149,0.12);  color: var(--info-blue); }
 
-    /* E5: Editable SKU qty in modal header */
-    .mf-sku-head-qty {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 8px;
-    }
-    .mf-sku-head-qty-label {
-      font-size: 11px;
-      color: var(--muted);
-    }
+    .mf-sku-head-qty { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
+    .mf-sku-head-qty-label { font-size: 11px; color: var(--muted); }
     .mf-sku-head-qty-input {
-      width: 56px;
-      height: 26px;
+      width: 56px; height: 26px;
       border: 1px solid var(--border);
       border-radius: 3px;
       padding: 0 8px;
@@ -677,16 +474,87 @@
       color: var(--text);
       background: var(--white);
     }
-    .mf-sku-head-qty-input:focus {
-      outline: none;
-      border-color: var(--green-dark);
+    .mf-sku-head-qty-input:focus { outline: none; border-color: var(--green-dark); }
+    .mf-sku-head-qty-input.invalid { border-color: var(--error); background: rgba(192,57,43,0.04); }
+
+    /* F-RTA-SWITCH: segmented control in modal header */
+    .mf-asm-switch-wrap {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
     }
-    .mf-sku-head-qty-input.invalid {
-      border-color: var(--error);
-      background: rgba(192,57,43,0.04);
+    .mf-asm-switch-label {
+      font-size: 10px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .mf-asm-switch {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      background: var(--white);
+    }
+    .mf-asm-switch-btn {
+      background: transparent;
+      border: none;
+      padding: 6px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      min-width: 86px;
+    }
+    .mf-asm-switch-btn + .mf-asm-switch-btn { border-left: 1px solid var(--border); }
+    .mf-asm-switch-btn:hover:not(.active):not(:disabled) {
+      background: rgba(62,90,66,0.05);
+      color: var(--green-dark);
+    }
+    .mf-asm-switch-btn.active { background: var(--green-dark); color: #fff; cursor: default; }
+    .mf-asm-switch-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+    .mf-asm-fee-note { font-size: 11px; color: var(--muted); font-style: italic; }
+    .mf-asm-fee-note strong { color: var(--green-dark); font-style: normal; font-weight: 500; }
+
+    /* F-RTA-SWITCH: RTA mode grey-out */
+    .mf-modal-body.rta-mode .mf-split-panel,
+    .mf-modal-body.rta-mode .mf-tabs,
+    .mf-modal-body.rta-mode .mf-group {
+      opacity: 0.45;
+      pointer-events: none;
+      user-select: none;
+    }
+    .mf-rta-info-banner {
+      display: none;
+      background: rgba(90,122,149,0.06);
+      border: 1px solid rgba(90,122,149,0.25);
+      border-left: 4px solid var(--info-blue);
+      border-radius: 3px;
+      padding: 12px 16px;
+      margin-bottom: 14px;
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .mf-modal-body.rta-mode .mf-rta-info-banner { display: block; }
+    .mf-rta-info-banner strong {
+      color: var(--info-blue);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 3px;
     }
 
-    /* E5: Split panel */
+    /* Split panel */
     .mf-split-panel {
       border: 1px solid var(--border);
       border-radius: 4px;
@@ -703,29 +571,14 @@
       border-bottom: 1px solid var(--border);
     }
     .mf-split-title {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.15em; text-transform: uppercase;
       color: var(--green-dark);
     }
-    .mf-split-summary {
-      font-size: 11px;
-      color: var(--muted);
-    }
-    .mf-split-summary.invalid {
-      color: var(--error);
-      font-weight: 500;
-    }
-    .mf-split-summary.valid {
-      color: var(--green-mid);
-    }
-    .mf-split-rows {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
+    .mf-split-summary { font-size: 11px; color: var(--muted); }
+    .mf-split-summary.invalid { color: var(--error); font-weight: 500; }
+    .mf-split-summary.valid { color: var(--green-mid); }
+    .mf-split-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
     .mf-split-row {
       display: flex;
       align-items: center;
@@ -734,19 +587,10 @@
       border-radius: 3px;
       background: #FAFAF8;
     }
-    .mf-split-row-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--green-dark);
-      min-width: 50px;
-    }
-    .mf-split-row-qty-label {
-      font-size: 11px;
-      color: var(--muted);
-    }
+    .mf-split-row-label { font-size: 12px; font-weight: 500; color: var(--green-dark); min-width: 50px; }
+    .mf-split-row-qty-label { font-size: 11px; color: var(--muted); }
     .mf-split-row-qty-input {
-      width: 52px;
-      height: 26px;
+      width: 52px; height: 26px;
       border: 1px solid var(--border);
       border-radius: 3px;
       padding: 0 8px;
@@ -756,10 +600,7 @@
       color: var(--text);
       background: var(--white);
     }
-    .mf-split-row-qty-input:focus {
-      outline: none;
-      border-color: var(--green-dark);
-    }
+    .mf-split-row-qty-input:focus { outline: none; border-color: var(--green-dark); }
     .mf-split-row-status {
       flex: 1;
       font-size: 10px;
@@ -770,44 +611,20 @@
       max-width: 110px;
       font-weight: 500;
     }
-    .mf-split-row-status.unprocessed {
-      background: rgba(122,140,130,0.12);
-      color: var(--muted);
-    }
-    .mf-split-row-status.configured {
-      background: rgba(62,90,66,0.1);
-      color: var(--green-dark);
-    }
-    .mf-split-row-status.skipped {
-      background: rgba(90,122,149,0.1);
-      color: var(--info-blue);
-    }
+    .mf-split-row-status.unprocessed { background: rgba(122,140,130,0.12); color: var(--muted); }
+    .mf-split-row-status.configured  { background: rgba(62,90,66,0.1);    color: var(--green-dark); }
+    .mf-split-row-status.skipped     { background: rgba(90,122,149,0.1);  color: var(--info-blue); }
     .mf-split-row-delete {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--muted);
-      width: 24px;
-      height: 24px;
+      background: none; border: none;
+      cursor: pointer; color: var(--muted);
+      width: 24px; height: 24px;
       border-radius: 3px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       transition: all 0.15s;
     }
-    .mf-split-row-delete:hover {
-      color: var(--error);
-      background: rgba(192,57,43,0.08);
-    }
-    .mf-split-row-delete:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
-    .mf-split-row-delete svg {
-      width: 12px;
-      height: 12px;
-      fill: currentColor;
-    }
+    .mf-split-row-delete:hover { color: var(--error); background: rgba(192,57,43,0.08); }
+    .mf-split-row-delete:disabled { opacity: 0.3; cursor: not-allowed; }
+    .mf-split-row-delete svg { width: 12px; height: 12px; fill: currentColor; }
     .mf-split-add {
       background: transparent;
       border: 1px dashed var(--border);
@@ -823,20 +640,9 @@
       transition: all 0.15s;
       width: 100%;
     }
-    .mf-split-add:hover {
-      color: var(--green-dark);
-      border-color: var(--green-dark);
-      background: rgba(62,90,66,0.04);
-    }
-    .mf-split-hint {
-      font-size: 11px;
-      color: var(--muted);
-      font-style: italic;
-      margin-top: 8px;
-      line-height: 1.5;
-    }
+    .mf-split-add:hover { color: var(--green-dark); border-color: var(--green-dark); background: rgba(62,90,66,0.04); }
+    .mf-split-hint { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 8px; line-height: 1.5; }
 
-    /* E5: Tabs */
     .mf-tabs {
       display: flex;
       gap: 4px;
@@ -861,24 +667,15 @@
       position: relative;
       bottom: -1px;
     }
-    .mf-tab:hover {
-      color: var(--green-dark);
-    }
+    .mf-tab:hover { color: var(--green-dark); }
     .mf-tab.active {
       background: var(--white);
       color: var(--green-dark);
       border-bottom: 1px solid var(--white);
       font-weight: 600;
     }
-    .mf-tab-qty {
-      font-size: 9px;
-      color: var(--muted);
-      margin-left: 4px;
-      font-weight: 400;
-    }
-    .mf-tab.active .mf-tab-qty {
-      color: var(--green-mid);
-    }
+    .mf-tab-qty { font-size: 9px; color: var(--muted); margin-left: 4px; font-weight: 400; }
+    .mf-tab.active .mf-tab-qty { color: var(--green-mid); }
 
     .mf-group {
       border: 1px solid var(--border);
@@ -896,27 +693,14 @@
       border-bottom: 1px solid var(--border);
     }
     .mf-group-label {
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--muted);
     }
-    .mf-group-qty {
-      font-size: 11px;
-      color: var(--green-dark);
-      font-weight: 500;
-    }
-    .mf-group-body {
-      min-height: 80px;
-    }
+    .mf-group-qty { font-size: 11px; color: var(--green-dark); font-weight: 500; }
+    .mf-group-body { min-height: 80px; }
 
-    /* MF Row */
-    #mfElementsContainer {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
+    #mfElementsContainer { display: flex; flex-direction: column; gap: 14px; }
 
     .mf-row {
       border: 1px solid var(--border);
@@ -925,28 +709,15 @@
       background: var(--white);
       transition: border-color 0.15s;
     }
-    .mf-row:hover {
-      border-color: rgba(62,90,66,0.3);
-    }
-
-    /* E4.7: Read-only row variant (Dealer viewing admin-added MF07) */
-    .mf-row.readonly {
-      background: rgba(201,168,76,0.04);
-      border-color: rgba(201,168,76,0.3);
-    }
-    .mf-row.readonly:hover {
-      border-color: rgba(201,168,76,0.5);
-    }
-
-    /* D17: Invalid row variant — failed validate() on Save */
+    .mf-row:hover { border-color: rgba(62,90,66,0.3); }
+    .mf-row.readonly { background: rgba(201,168,76,0.04); border-color: rgba(201,168,76,0.3); }
+    .mf-row.readonly:hover { border-color: rgba(201,168,76,0.5); }
     .mf-row.invalid {
       background: rgba(192,57,43,0.04);
       border-color: var(--error);
       box-shadow: 0 0 0 1px rgba(192,57,43,0.15);
     }
-    .mf-row.invalid:hover {
-      border-color: var(--error);
-    }
+    .mf-row.invalid:hover { border-color: var(--error); }
     .mf-row-error-msg {
       margin-top: 8px;
       padding: 6px 10px;
@@ -957,7 +728,6 @@
       line-height: 1.4;
       border-radius: 2px;
     }
-
     .mf-row-label {
       display: flex;
       align-items: center;
@@ -976,11 +746,7 @@
       align-items: center;
       gap: 6px;
     }
-    .mf-row-label-cost {
-      font-size: 11px;
-      color: var(--muted);
-      font-weight: 400;
-    }
+    .mf-row-label-cost { font-size: 11px; color: var(--muted); font-weight: 400; }
     .mf-row-label-cost.admin-only {
       background: rgba(201,168,76,0.15);
       color: #8B6914;
@@ -991,7 +757,6 @@
       text-transform: uppercase;
       font-weight: 600;
     }
-
     .mf-row-admin-badge {
       display: inline-flex;
       align-items: center;
@@ -1005,24 +770,10 @@
       text-transform: uppercase;
       font-weight: 600;
     }
-    .mf-row-admin-badge svg {
-      width: 10px;
-      height: 10px;
-      fill: currentColor;
-    }
-
+    .mf-row-admin-badge svg { width: 10px; height: 10px; fill: currentColor; }
     .mf-row-element { /* no padding */ }
-
-    .mf-readonly-body {
-      padding: 4px 0;
-      font-size: 13px;
-      color: var(--text);
-      line-height: 1.5;
-    }
-    .mf-readonly-body .mf-readonly-desc {
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
+    .mf-readonly-body { padding: 4px 0; font-size: 13px; color: var(--text); line-height: 1.5; }
+    .mf-readonly-body .mf-readonly-desc { white-space: pre-wrap; word-break: break-word; }
     .mf-readonly-body .mf-readonly-cost {
       display: inline-block;
       margin-top: 6px;
@@ -1033,7 +784,6 @@
       font-size: 11px;
       font-weight: 500;
     }
-
     .mf-no-rules {
       padding: 24px 16px;
       text-align: center;
@@ -1052,18 +802,10 @@
       font-weight: 500;
       margin-bottom: 6px;
     }
-
-    .mf-loading {
-      padding: 30px 20px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.6;
-    }
+    .mf-loading { padding: 30px 20px; text-align: center; color: var(--muted); font-size: 12px; line-height: 1.6; }
     .mf-loading-spinner {
       display: inline-block;
-      width: 16px;
-      height: 16px;
+      width: 16px; height: 16px;
       border: 2px solid var(--border);
       border-top-color: var(--green-dark);
       border-radius: 50%;
@@ -1071,11 +813,8 @@
       margin-right: 8px;
       vertical-align: middle;
     }
-    @keyframes mf-spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes mf-spin { to { transform: rotate(360deg); } }
 
-    /* Running total bar */
     .mf-running-total {
       flex-shrink: 0;
       padding: 10px 22px;
@@ -1086,21 +825,10 @@
       align-items: center;
       font-size: 12px;
     }
-    .mf-running-total-label {
-      color: var(--muted);
-      letter-spacing: 0.05em;
-    }
-    .mf-running-total-value {
-      font-weight: 600;
-      color: var(--green-dark);
-      font-size: 14px;
-    }
-    .mf-running-total-value.zero {
-      color: var(--muted);
-      font-weight: 400;
-    }
+    .mf-running-total-label { color: var(--muted); letter-spacing: 0.05em; }
+    .mf-running-total-value { font-weight: 600; color: var(--green-dark); font-size: 14px; }
+    .mf-running-total-value.zero { color: var(--muted); font-weight: 400; }
 
-    /* Footer */
     .mf-modal-footer {
       flex-shrink: 0;
       padding: 14px 22px;
@@ -1127,74 +855,30 @@
       min-height: 38px;
       border: 1px solid transparent;
     }
-    .mf-btn-skip {
-      background: transparent;
-      color: var(--info-blue);
-      border-color: rgba(90,122,149,0.4);
-    }
-    .mf-btn-skip:hover {
-      background: rgba(90,122,149,0.08);
-      border-color: var(--info-blue);
-    }
-    .mf-btn-cancel {
-      background: transparent;
-      color: var(--muted);
-      border-color: var(--border);
-    }
-    .mf-btn-cancel:hover {
-      color: var(--text);
-      border-color: var(--text);
-    }
-    .mf-btn-save {
-      background: var(--green-dark);
-      color: #fff;
-      border-color: var(--green-dark);
-    }
-    .mf-btn-save:hover {
-      background: var(--green-mid);
-      border-color: var(--green-mid);
-    }
-    .mf-btn-save:disabled {
-      background: var(--muted);
-      border-color: var(--muted);
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
+    .mf-btn-skip { background: transparent; color: var(--info-blue); border-color: rgba(90,122,149,0.4); }
+    .mf-btn-skip:hover { background: rgba(90,122,149,0.08); border-color: var(--info-blue); }
+    .mf-btn-cancel { background: transparent; color: var(--muted); border-color: var(--border); }
+    .mf-btn-cancel:hover { color: var(--text); border-color: var(--text); }
+    .mf-btn-save { background: var(--green-dark); color: #fff; border-color: var(--green-dark); }
+    .mf-btn-save:hover { background: var(--green-mid); border-color: var(--green-mid); }
+    .mf-btn-save:disabled { background: var(--muted); border-color: var(--muted); cursor: not-allowed; opacity: 0.6; }
 
-    body.mf-modal-open {
-      overflow: hidden;
-    }
+    body.mf-modal-open { overflow: hidden; }
 
-    /* Modal Mobile RWD */
     @media (max-width: 700px) {
       .mf-modal-overlay { padding: 10px; }
       .mf-modal-container { max-height: 92vh; }
       .mf-modal-header { padding: 12px 16px; }
       .mf-modal-body { padding: 14px 16px; }
       .mf-running-total { padding: 8px 16px; font-size: 11px; }
-      .mf-modal-footer {
-        padding: 12px 16px;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-      }
-      .mf-modal-footer-left,
-      .mf-modal-footer-right {
-        width: 100%;
-        justify-content: stretch;
-      }
-      .mf-btn {
-        flex: 1;
-        padding: 9px 12px;
-        font-size: 10px;
-        letter-spacing: 0.12em;
-      }
+      .mf-modal-footer { padding: 12px 16px; flex-direction: column; align-items: stretch; gap: 8px; }
+      .mf-modal-footer-left, .mf-modal-footer-right { width: 100%; justify-content: stretch; }
+      .mf-btn { flex: 1; padding: 9px 12px; font-size: 10px; letter-spacing: 0.12em; }
       .mf-sku-head { padding: 12px 14px; }
       .mf-row { padding: 10px 12px; }
       .mf-row-label { flex-wrap: wrap; gap: 4px; }
     }
 
-    /* ── Bottom Bar ── */
     .bottom-bar {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -1209,11 +893,9 @@
       gap: 12px;
     }
 
-    /* F-MODS-TOTAL: bar that sits ABOVE the bottom-bar showing the
-       total $ of all modifications saved across the cart. */
     .mods-total-bar {
       position: fixed;
-      bottom: 56px;  /* sits directly above .bottom-bar */
+      bottom: 56px;
       left: 0; right: 0;
       background: #FAFAF8;
       border-top: 1px solid var(--border);
@@ -1225,29 +907,13 @@
       font-size: 12px;
       gap: 10px;
     }
-    .mods-total-bar-label {
-      color: var(--muted);
-      letter-spacing: 0.06em;
-      font-weight: 500;
-    }
-    .mods-total-bar-value {
-      color: var(--green-dark);
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .mods-total-bar-value.zero {
-      color: var(--muted);
-      font-weight: 400;
-    }
+    .mods-total-bar-label { color: var(--muted); letter-spacing: 0.06em; font-weight: 500; }
+    .mods-total-bar-value { color: var(--green-dark); font-weight: 600; font-size: 14px; }
+    .mods-total-bar-value.zero { color: var(--muted); font-weight: 400; }
     @media (max-width: 700px) {
-      .mods-total-bar {
-        bottom: 88px;  /* bottom-bar grows on mobile (flex-wrap), give more headroom */
-        padding: 6px 14px;
-        font-size: 11px;
-      }
+      .mods-total-bar { bottom: 88px; padding: 6px 14px; font-size: 11px; }
     }
 
-    /* F-SWAP: ↻ Swap Style button in ds-card-header */
     .ds-swap-btn {
       flex-shrink: 0;
       background: transparent;
@@ -1267,28 +933,15 @@
       gap: 5px;
       white-space: nowrap;
     }
-    .ds-swap-btn:hover {
-      color: var(--green-dark);
-      border-color: var(--green-dark);
-      background: rgba(62,90,66,0.04);
-    }
-    .ds-swap-btn svg {
-      width: 11px; height: 11px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
+    .ds-swap-btn:hover { color: var(--green-dark); border-color: var(--green-dark); background: rgba(62,90,66,0.04); }
+    .ds-swap-btn svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-    /* F-SWAP: Swap modal (shares overlay/container with mf modal pattern) */
     .swap-modal-overlay {
       position: fixed; inset: 0;
       background: rgba(44, 58, 50, 0.55);
       z-index: 810;
       display: none;
-      align-items: center;
-      justify-content: center;
+      align-items: center; justify-content: center;
       padding: 20px;
     }
     .swap-modal-overlay.show { display: flex; }
@@ -1314,29 +967,18 @@
       gap: 12px;
     }
     .swap-modal-title {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--green-dark);
     }
     .swap-modal-close {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--muted);
-      font-size: 24px;
-      line-height: 1;
-      padding: 0 4px;
-      transition: color 0.15s;
+      background: none; border: none;
+      cursor: pointer; color: var(--muted);
+      font-size: 24px; line-height: 1;
+      padding: 0 4px; transition: color 0.15s;
     }
     .swap-modal-close:hover { color: var(--text); }
-
-    .swap-modal-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 18px 22px;
-    }
+    .swap-modal-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
     .swap-modal-body::-webkit-scrollbar { width: 6px; }
     .swap-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -1351,18 +993,14 @@
       gap: 14px;
     }
     .swap-current-thumb {
-      width: 48px;
-      flex-shrink: 0;
+      width: 48px; flex-shrink: 0;
       aspect-ratio: 355 / 601;
       background: var(--cream);
       border: 1px solid var(--border);
       border-radius: 3px;
       overflow: hidden;
     }
-    .swap-current-thumb img {
-      width: 100%; height: 100%;
-      object-fit: contain; display: block;
-    }
+    .swap-current-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .swap-current-info { flex: 1; min-width: 0; }
     .swap-current-label {
       font-size: 9px;
@@ -1377,11 +1015,7 @@
       color: var(--green-dark);
       line-height: 1.2;
     }
-    .swap-current-meta {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 2px;
-    }
+    .swap-current-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
     .swap-section-label {
       font-size: 10px;
@@ -1391,19 +1025,14 @@
       color: var(--muted);
       margin: 10px 0 8px;
     }
-
     .swap-style-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 10px;
       margin-bottom: 14px;
     }
-    @media (max-width: 700px) {
-      .swap-style-grid { grid-template-columns: repeat(3, 1fr); }
-    }
-    @media (max-width: 460px) {
-      .swap-style-grid { grid-template-columns: repeat(2, 1fr); }
-    }
+    @media (max-width: 700px) { .swap-style-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 460px) { .swap-style-grid { grid-template-columns: repeat(2, 1fr); } }
 
     .swap-style-card {
       border: 1.5px solid var(--border);
@@ -1413,39 +1042,19 @@
       transition: all 0.15s;
       background: var(--white);
     }
-    .swap-style-card:hover {
-      border-color: var(--gold);
-      transform: translateY(-1px);
-    }
-    .swap-style-card.selected {
-      border-color: var(--green-dark);
-      border-width: 2px;
-    }
-    .swap-style-card.current {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-    .swap-style-card.current:hover {
-      border-color: var(--border);
-      transform: none;
-    }
+    .swap-style-card:hover { border-color: var(--gold); transform: translateY(-1px); }
+    .swap-style-card.selected { border-color: var(--green-dark); border-width: 2px; }
+    .swap-style-card.current { opacity: 0.4; cursor: not-allowed; }
+    .swap-style-card.current:hover { border-color: var(--border); transform: none; }
     .swap-style-img-wrap {
       width: 100%;
       aspect-ratio: 355 / 601;
       overflow: hidden;
       background: var(--cream);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
     }
-    .swap-style-img-wrap img {
-      width: 100%; height: 100%;
-      object-fit: contain; display: block;
-    }
-    .swap-style-info {
-      padding: 6px 8px;
-      border-top: 1px solid var(--border);
-    }
+    .swap-style-img-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .swap-style-info { padding: 6px 8px; border-top: 1px solid var(--border); }
     .swap-style-name {
       font-size: 11px;
       font-weight: 500;
@@ -1455,11 +1064,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .swap-style-code {
-      font-size: 9px;
-      color: var(--muted);
-      margin-top: 1px;
-    }
+    .swap-style-code { font-size: 9px; color: var(--muted); margin-top: 1px; }
 
     .swap-preview-empty {
       padding: 30px 20px;
@@ -1471,12 +1076,7 @@
       border-radius: 4px;
       background: var(--cream);
     }
-
-    .swap-preview-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
+    .swap-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .swap-preview-table thead th {
       background: #F5F3EF;
       border-bottom: 1px solid var(--border);
@@ -1489,24 +1089,14 @@
       text-align: left;
     }
     .swap-preview-table thead th.th-right { text-align: right; }
-    .swap-preview-table tbody td {
-      padding: 7px 10px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
-    }
+    .swap-preview-table tbody td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     .swap-preview-table tbody tr:last-child td { border-bottom: none; }
     .swap-preview-table .td-right { text-align: right; }
     .swap-preview-table .price-delta-pos { color: var(--error); }
     .swap-preview-table .price-delta-neg { color: var(--green-mid); }
     .swap-preview-table .price-delta-zero { color: var(--muted); }
-    .swap-preview-table .td-sku {
-      font-weight: 500;
-      color: var(--green-dark);
-      white-space: nowrap;
-    }
-    .swap-preview-table .td-desc {
-      color: var(--text);
-    }
+    .swap-preview-table .td-sku { font-weight: 500; color: var(--green-dark); white-space: nowrap; }
+    .swap-preview-table .td-desc { color: var(--text); }
 
     .swap-preview-summary {
       margin-top: 12px;
@@ -1525,11 +1115,7 @@
       text-transform: uppercase;
       color: var(--muted);
     }
-    .swap-preview-summary-value {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--green-dark);
-    }
+    .swap-preview-summary-value { font-size: 16px; font-weight: 600; color: var(--green-dark); }
     .swap-preview-summary-value.pos { color: var(--error); }
     .swap-preview-summary-value.neg { color: var(--green-mid); }
 
@@ -1548,26 +1134,14 @@
       .swap-modal-container { max-height: 92vh; }
       .swap-modal-header { padding: 12px 16px; }
       .swap-modal-body { padding: 14px 16px; }
-      .swap-modal-footer {
-        padding: 12px 16px;
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .swap-modal-footer .mf-btn {
-        flex: 1;
-      }
+      .swap-modal-footer { padding: 12px 16px; flex-direction: column; align-items: stretch; }
+      .swap-modal-footer .mf-btn { flex: 1; }
     }
-    .bottom-left {
-      font-size: 12px;
-      color: var(--muted);
-    }
+
+    .bottom-left { font-size: 12px; color: var(--muted); }
     .bottom-left strong { color: var(--green-dark); }
     .bottom-left.complete strong { color: var(--gold); }
-    .bottom-right {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
+    .bottom-right { display: flex; gap: 10px; align-items: center; }
     .btn-back {
       background: transparent;
       color: var(--muted);
@@ -1586,10 +1160,7 @@
       display: inline-flex;
       align-items: center;
     }
-    .btn-back:hover {
-      color: var(--text);
-      border-color: var(--text);
-    }
+    .btn-back:hover { color: var(--text); border-color: var(--text); }
     .btn-next {
       background: var(--green-dark);
       color: #fff;
@@ -1606,12 +1177,8 @@
       min-height: 40px;
     }
     .btn-next:hover { background: var(--green-mid); }
-    .btn-next:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
+    .btn-next:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    /* ── Toast ── */
     .toast {
       position: fixed;
       bottom: 70px;
@@ -1627,74 +1194,38 @@
       z-index: 600;
       white-space: nowrap;
     }
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-    .toast.error {
-      background: var(--error);
-    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--error); }
 
-    /* ── Mobile RWD ── */
     @media (max-width: 700px) {
       .page { padding: 16px 14px 80px; }
-
-      .ds-card-header {
-        flex-wrap: wrap;
-        padding: 12px 14px;
-        gap: 10px;
-      }
+      .ds-card-header { flex-wrap: wrap; padding: 12px 14px; gap: 10px; }
       .ds-info { flex: 1 0 calc(100% - 78px); }
-      .ds-progress {
-        flex: 1 0 100%;
-        text-align: left;
-        padding-left: 78px;
-        margin-top: -4px;
-      }
+      .ds-progress { flex: 1 0 100%; text-align: left; padding-left: 78px; margin-top: -4px; }
       .ds-name { font-size: 17px; }
       .ds-thumb { width: 64px; }
-
       .ds-discontinued-banner { padding: 10px 14px; }
       .no-assembled-banner { padding: 12px 16px; }
-
       .ds-group { padding: 10px 14px; }
-
-      .sku-row {
-        flex-wrap: wrap;
-        gap: 6px 10px;
-        padding: 12px 0;
-      }
+      .sku-row { flex-wrap: wrap; gap: 6px 10px; padding: 12px 0; }
       .sku-code { min-width: 0; flex: 1 0 auto; }
       .sku-desc { flex: 1 0 100%; font-size: 11px; }
       .sku-qty { text-align: left; min-width: 0; }
       .sku-status { min-width: 0; font-size: 9px; padding: 2px 7px; }
-
       .page-heading h1 { font-size: 22px; }
       .page-heading .subtitle { font-size: 12px; }
-
-      .bottom-bar {
-        padding: 8px 14px;
-        height: auto;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
+      .bottom-bar { padding: 8px 14px; height: auto; flex-wrap: wrap; gap: 8px; }
       .bottom-left { flex: 1 0 100%; font-size: 11px; }
       .bottom-right { flex: 1 0 100%; justify-content: space-between; }
-      .btn-back, .btn-next {
-        padding: 9px 14px;
-        font-size: 10px;
-        letter-spacing: 0.12em;
-      }
+      .btn-back, .btn-next { padding: 9px 14px; font-size: 10px; letter-spacing: 0.12em; }
     }
   </style>
 </head>
 <body>
 
-<!-- Quote Flow Header -->
 <div id="pcd-quote-flow-header" data-step="3"></div>
 
 <div class="page">
-
   <div id="returnedBannerMount"></div>
   <div id="noAssembledBannerMount"></div>
 
@@ -1719,16 +1250,13 @@
   <div id="doorStyleList">
     <div class="empty-state">Loading...</div>
   </div>
-
 </div>
-
 
 <div class="lightbox-overlay" id="lightboxOverlay" onclick="closeLightbox()">
   <button class="lightbox-close" onclick="closeLightbox()">×</button>
   <img class="lightbox-img" id="lightboxImg" src="" alt=""/>
 </div>
 
-<!-- Modal -->
 <div class="mf-modal-overlay" id="mfModalOverlay">
   <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
     <div class="mf-modal-header">
@@ -1736,7 +1264,7 @@
       <button class="mf-modal-close" type="button" onclick="closeMfModal()" aria-label="Close">×</button>
     </div>
 
-    <div class="mf-modal-body">
+    <div class="mf-modal-body" id="mfModalBody">
       <div class="mf-sku-head" id="mfSkuHead">
         <div class="mf-sku-head-row1">
           <span class="mf-sku-head-code" id="mfHeadCode">—</span>
@@ -1744,9 +1272,25 @@
           <span id="mfHeadDesc">—</span>
         </div>
         <div class="mf-sku-head-row2" id="mfHeadMeta"></div>
+        <!-- F-RTA-SWITCH: RTA / Assembled segmented control -->
+        <div class="mf-asm-switch-wrap" id="mfAsmSwitchWrap" style="display:none;">
+          <span class="mf-asm-switch-label">Ship as:</span>
+          <div class="mf-asm-switch" role="tablist">
+            <button class="mf-asm-switch-btn" type="button" data-asm="RTA"
+              onclick="handleAssemblyTypeChange('RTA')">RTA</button>
+            <button class="mf-asm-switch-btn" type="button" data-asm="Assembled"
+              onclick="handleAssemblyTypeChange('Assembled')">Assembled</button>
+          </div>
+          <span class="mf-asm-fee-note" id="mfAsmFeeNote"></span>
+        </div>
       </div>
 
-      <!-- E5: Split panel -->
+      <!-- F-RTA-SWITCH: info banner shown only in RTA mode -->
+      <div class="mf-rta-info-banner">
+        <strong>RTA — Knock-Down Shipment</strong>
+        This SKU ships flat-packed. No modifications are needed and no assembly fee applies. Switch to <em>Assembled</em> above to configure modifications.
+      </div>
+
       <div class="mf-split-panel" id="mfSplitPanel">
         <div class="mf-split-header">
           <span class="mf-split-title">Split this SKU</span>
@@ -1760,7 +1304,6 @@
         </div>
       </div>
 
-      <!-- E5: Tabs (only shown when sub_groups.length > 1) -->
       <div class="mf-tabs" id="mfTabs" style="display:none;"></div>
 
       <div class="mf-group" data-group-no="1">
@@ -1797,13 +1340,11 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- F-MODS-TOTAL: 一行總金額 bar,顯示在 bottom-bar 上方 -->
 <div class="mods-total-bar" id="modsTotalBar">
   <span class="mods-total-bar-label">Modifications Total:</span>
   <span class="mods-total-bar-value zero" id="modsTotalBarValue">$0.00</span>
 </div>
 
-<!-- F-SWAP: Swap Door Style modal -->
 <div class="swap-modal-overlay" id="swapModalOverlay">
   <div class="swap-modal-container" role="dialog" aria-modal="true" aria-labelledby="swapModalTitle">
     <div class="swap-modal-header">
@@ -1848,7 +1389,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="components/quote-flow-header.js"></script>
 
-<!-- 7 MF element factories -->
 <script src="components/modifications/mf01-skin.js"></script>
 <script src="components/modifications/mf02-toggle-dropdown.js"></script>
 <script src="components/modifications/mf03-pure-toggle.js"></script>
@@ -1856,7 +1396,6 @@
 <script src="components/modifications/mf05-pure-dropdown.js"></script>
 <script src="components/modifications/mf06-text-only.js"></script>
 <script src="components/modifications/mf07-super.js"></script>
-
 <script>
 const { createClient } = supabase;
 const _supabase = createClient(
@@ -1875,23 +1414,18 @@ let pageProgress     = { done: 0, total: 0, percent: 0 };
 
 // Modal state
 let activeMfModalKey   = null;
-let activeMfModalRules = [];   // E5: shared RPC result for all sub-groups
+let activeMfModalRules = [];
 let effectiveRole      = 'dealer';
 
-// E5: Multi sub-group modal state
-// activeSubGroups: working copy of item.sub_groups, mutated during modal session.
-//   Each entry: {
-//     sub_index: number,
-//     qty: number,
-//     modifications: [...],        // last-saved snapshot
-//     modification_status: 'unprocessed'|'configured'|'skipped',
-//     instances: [],               // live MF instances when this sub is active tab
-//     liveValues: {},              // rule_idx -> {value, cost} when active tab
-//     frozenValues: null,          // snapshot of liveValues when tab is inactive
-//   }
+// E5: sub-group state
 let activeSubGroups    = [];
-let activeSubGroupIdx  = 0;     // currently visible tab index
-let activeSkuQty       = 1;     // editable SKU qty in modal header
+let activeSubGroupIdx  = 0;
+let activeSkuQty       = 1;
+
+// F-RTA-SWITCH: modal-scoped assembly type + fee. Written back to
+// item.type / item.assemble_fee only on Save (Cancel reverts).
+let activeAssemblyType = 'Assembled';  // 'RTA' | 'Assembled'
+let activeAssembleFee  = 0;
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -1954,17 +1488,33 @@ function buildNoAssembledBanner() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// E5: Data layer — sub_groups structure
+// F-RTA-SWITCH: Assembly fee lookup
+//   (dealer × construction × sku_type) → per-unit assembly fee
+// ═══════════════════════════════════════════════════════════════════
+function getAssembleFeeForItem(dealer, item) {
+  if (!dealer || !item) return 0;
+  const ctype = (item.construction_type || '').toLowerCase();
+  const skuType = (item.skuType || '').toUpperCase();
+  if (ctype !== 'framed' && ctype !== 'frameless') return 0;
+  const map = {
+    'BASE':          'asm_fee_' + ctype + '_base',
+    'WALL':          'asm_fee_' + ctype + '_wall',
+    'TALL':          'asm_fee_' + ctype + '_tall',
+    'VANITY':        'asm_fee_' + ctype + '_vanity',
+    'ROLL_OUT_TRAY': 'asm_fee_' + ctype + '_roll_out_tray',
+  };
+  const col = map[skuType];
+  if (!col) return 0;  // framed+VANITY, ACCESSORIES, OTHER — no column
+  const v = parseFloat(dealer[col]);
+  return isNaN(v) ? 0 : v;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// E5: sub_groups data layer
 // ═══════════════════════════════════════════════════════════════════
 
-/**
- * E5: Migrate legacy item.modifications / modification_status to sub_groups.
- * Idempotent: if sub_groups already exists, only ensures it's well-formed.
- * Legacy fields (modifications, modification_status) are removed.
- */
 function ensureSubGroups(item) {
   if (Array.isArray(item.sub_groups) && item.sub_groups.length) {
-    // Already migrated — ensure each entry is well-formed
     item.sub_groups = item.sub_groups.map(function (g, i) {
       return {
         sub_index:           (typeof g.sub_index === 'number') ? g.sub_index : (i + 1),
@@ -1979,7 +1529,6 @@ function ensureSubGroups(item) {
     return item;
   }
 
-  // Legacy fallback: build a single sub-group from the old fields
   const legacyStatus = item.modification_status
     || (item.type === 'RTA' ? 'skipped' : 'unprocessed');
   const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
@@ -1995,12 +1544,6 @@ function ensureSubGroups(item) {
   return item;
 }
 
-/**
- * E5 / Q11: SKU overall status from sub_groups.
- *   - All sub_groups configured OR skipped → configured (or skipped if ALL skipped)
- *   - Any sub_group unprocessed → unprocessed
- *   - RTA always skipped (no UI to configure)
- */
 function getItemOverallStatus(item) {
   if (item.type === 'RTA') return 'skipped';
   if (!Array.isArray(item.sub_groups) || !item.sub_groups.length) return 'unprocessed';
@@ -2017,9 +1560,6 @@ function getItemOverallStatus(item) {
   return allSkipped ? 'skipped' : 'configured';
 }
 
-/**
- * E5: Sum of all sub_group qtys (should always equal item.quantity).
- */
 function sumSubQty(item) {
   if (!Array.isArray(item.sub_groups)) return 0;
   return item.sub_groups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
@@ -2035,10 +1575,6 @@ function normalizeCartItems(items) {
   });
 }
 
-/**
- * E5: Load draft items from DB, GROUP BY (sku_code, assemble_status, style_code)
- * to merge multi-row sub_index records back into a single cart entry.
- */
 async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   const { data: items, error } = await _supabase
     .from('quote_items').select('*').eq('quote_id', draftId);
@@ -2047,7 +1583,6 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   const skuAll = allSkusFramed.concat(allSkusFrameless);
   const groupsByKey = new Map();
 
-  // Sort by sub_index ASC so sub_groups end up in order
   const sorted = items.slice().sort(function (a, b) {
     if (a.style_code !== b.style_code) return a.style_code.localeCompare(b.style_code);
     if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
@@ -2094,7 +1629,6 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
     });
   });
 
-  // Re-number sub_indexes 1..N in case of gaps
   const out = [];
   groupsByKey.forEach(function (item) {
     item.sub_groups.forEach(function (g, i) { g.sub_index = i + 1; });
@@ -2106,23 +1640,15 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
 function buildDoorStyleGroups(items, doorStyles) {
   const groups = [];
   const indexByCode = new Map();
-
-  // F-CUSTOM Phase 3: collect custom Accessory/Other into a separate
-  // "Custom Items" pseudo-group at the end. Custom Cabinets fall into
-  // their normal door style group (or create one if style is admin-typed).
-  const customExtras = []; // accessory + other custom items
+  const customExtras = [];
 
   items.forEach(function (item) {
-    // F-CUSTOM: route non-cabinet custom items to the standalone group
     if (item.is_custom &&
         (item.skuType === 'ACCESSORIES' || item.skuType === 'OTHER')) {
       customExtras.push(item);
       return;
     }
 
-    // F-CUSTOM: Custom Cabinet with no style_code (admin typed style) —
-    // use style_name as the group key so multiple custom cabinets with
-    // the same typed style name get grouped together.
     const code = item.style_code || ('__CUSTOM_' + (item.style_name || 'NO_STYLE') + '__');
     let idx = indexByCode.get(code);
 
@@ -2140,7 +1666,7 @@ function buildDoorStyleGroups(items, doorStyles) {
         image_url:         (styleRow && styleRow.image_url) || null,
         color:             (styleRow && styleRow.color) || null,
         subcategory:       (styleRow && styleRow.subcategory) || null,
-        is_discontinued:   !styleRow && !isCustomGroup,  // custom style isn't "discontinued"
+        is_discontinued:   !styleRow && !isCustomGroup,
         is_custom_style:   isCustomGroup,
         assembledItems:    [],
         rtaItems:          [],
@@ -2158,7 +1684,6 @@ function buildDoorStyleGroups(items, doorStyles) {
     }
   });
 
-  // Append the "Custom Items" pseudo-group at the end (only if non-empty)
   if (customExtras.length) {
     groups.push({
       style_code:        '__CUSTOM_EXTRAS__',
@@ -2169,9 +1694,9 @@ function buildDoorStyleGroups(items, doorStyles) {
       subcategory:       null,
       is_discontinued:   false,
       is_custom_extras:  true,
-      assembledItems:    [],   // not used — these items can't have mods
+      assembledItems:    [],
       rtaItems:          [],
-      customExtras:      customExtras,   // Accessory + Other custom items
+      customExtras:      customExtras,
       progress:          { done: 0, total: 0 },
     });
   }
@@ -2233,40 +1758,29 @@ function renderProgressCard(progress) {
     barFillEl.classList.remove('complete');
   }
 
-  if (progress.total === 0) {
-    card.classList.add('no-assembled');
-  } else {
-    card.classList.remove('no-assembled');
-  }
+  if (progress.total === 0) card.classList.add('no-assembled');
+  else card.classList.remove('no-assembled');
 }
 
 function renderDoorStyleList() {
   const container = document.getElementById('doorStyleList');
-
   if (!doorStyleGroups.length) {
     container.innerHTML = '<div class="empty-state">No items in your quote.</div>';
     return;
   }
-
   container.innerHTML = doorStyleGroups.map(function (g, gIdx) {
     return buildDoorStyleCard(g, gIdx);
   }).join('');
 }
 
 function buildDoorStyleCard(group, gIdx) {
-  // F-CUSTOM Phase 3: special card for the "Custom Items" standalone group
-  // (holds Accessory + Other custom items that can't have modifications)
-  if (group.is_custom_extras) {
-    return buildCustomExtrasCard(group);
-  }
+  if (group.is_custom_extras) return buildCustomExtrasCard(group);
 
   const hasImage = !!group.image_url;
-
   const thumbInner = hasImage
     ? `<img src="${esc(group.image_url)}" alt="${esc(group.style_name)}" loading="lazy"/>
        <div class="ds-thumb-zoom-icon" aria-hidden="true">${ZOOM_ICON_SVG}</div>`
     : `<div class="ds-thumb-fallback" style="background: ${esc(colorMap[group.color] || '#8A8A8A')};"></div>`;
-
   const thumbAttrs = hasImage
     ? `class="ds-thumb zoomable" onclick="openLightbox('${esc(group.image_url)}')"`
     : `class="ds-thumb"`;
@@ -2279,8 +1793,6 @@ function buildDoorStyleCard(group, gIdx) {
   const discTag = group.is_discontinued
     ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
     : '';
-
-  // F-CUSTOM Phase 3: tag for admin-typed custom styles
   const customStyleTag = group.is_custom_style
     ? `<span class="sku-custom-badge">CUSTOM STYLE</span>`
     : '';
@@ -2309,23 +1821,18 @@ function buildDoorStyleCard(group, gIdx) {
       ${group.rtaItems.map(function (item) { return buildRtaRow(item); }).join('')}
     </div>` : '';
 
-  // F-CUSTOM Phase 3: Swap Style button hidden for custom-style groups
-  // (they have no catalog code to swap from/to in a meaningful way)
-  const swapBtnHtml = group.is_custom_style
-    ? ''
-    : `<button class="ds-swap-btn" type="button"
-          onclick="openSwapModal('${esc(group.style_code)}')"
-          title="Replace this door style with another (same construction type)">
-          <svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>
-          Swap Style
-        </button>`;
+  const swapBtnHtml = group.is_custom_style ? '' : `
+    <button class="ds-swap-btn" type="button"
+      onclick="openSwapModal('${esc(group.style_code)}')"
+      title="Replace this door style with another (same construction type)">
+      <svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>
+      Swap Style
+    </button>`;
 
   return `
     <div class="ds-card" data-style-code="${esc(group.style_code)}">
       <div class="ds-card-header">
-        <div ${thumbAttrs}>
-          ${thumbInner}
-        </div>
+        <div ${thumbAttrs}>${thumbInner}</div>
         <div class="ds-info">
           <div class="ds-name">${esc(group.style_name)} ${customStyleTag}</div>
           <div class="ds-meta">
@@ -2343,10 +1850,8 @@ function buildDoorStyleCard(group, gIdx) {
     </div>`;
 }
 
-// F-CUSTOM Phase 3: standalone card for Accessory + Other custom items
 function buildCustomExtrasCard(group) {
   const items = group.customExtras || [];
-
   return `
     <div class="ds-card custom-standalone" data-style-code="__CUSTOM_EXTRAS__">
       <div class="ds-card-header">
@@ -2386,16 +1891,13 @@ function buildCustomExtraRow(item) {
 }
 
 function onCustomNoModClick(evt, key) {
-  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) {
-    return;
-  }
+  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) return;
   showToast('No modifications available for custom Accessory / Other items');
 }
 
 function buildGroupProgressDisplay(group) {
   const total = group.progress.total;
   const done  = group.progress.done;
-
   if (total === 0) {
     return `
       <div class="ds-progress">
@@ -2403,7 +1905,6 @@ function buildGroupProgressDisplay(group) {
         <div class="ds-progress-label">RTA only</div>
       </div>`;
   }
-
   const completeClass = (done === total) ? ' complete' : '';
   return `
     <div class="ds-progress">
@@ -2415,28 +1916,13 @@ function buildGroupProgressDisplay(group) {
 function buildAssembledRow(item, gIdx) {
   const status = getItemOverallStatus(item);
   let statusClass, statusLabel;
+  if (status === 'configured')      { statusClass = 'configured';  statusLabel = '● Configured'; }
+  else if (status === 'skipped')    { statusClass = 'skipped';     statusLabel = '⊘ Skipped'; }
+  else                              { statusClass = 'unprocessed'; statusLabel = '○ Unprocessed'; }
 
-  if (status === 'configured') {
-    statusClass = 'configured';
-    statusLabel = '● Configured';
-  } else if (status === 'skipped') {
-    statusClass = 'skipped';
-    statusLabel = '⊘ Skipped';
-  } else {
-    statusClass = 'unprocessed';
-    statusLabel = '○ Unprocessed';
-  }
-
-  // E5: split badge when sub_groups > 1
   const subCount = Array.isArray(item.sub_groups) ? item.sub_groups.length : 1;
-  const splitBadge = subCount > 1
-    ? `<span class="sku-split-badge">Split × ${subCount}</span>`
-    : '';
-
-  // F-CUSTOM Phase 3: gold [CUSTOM] badge for hand-entered items
-  const customBadge = item.is_custom
-    ? `<span class="sku-custom-badge">CUSTOM</span>`
-    : '';
+  const splitBadge = subCount > 1 ? `<span class="sku-split-badge">Split × ${subCount}</span>` : '';
+  const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
 
   return `
     <div class="sku-row assembled" onclick="onAssembledRowClick(event, '${esc(item.key)}')">
@@ -2453,33 +1939,31 @@ function buildAssembledRow(item, gIdx) {
     </div>`;
 }
 
+// F-RTA-SWITCH: RTA row also clickable — opens modal in RTA mode
 function buildRtaRow(item) {
-  // F-CUSTOM Phase 3: gold [CUSTOM] badge for hand-entered items
-  const customBadge = item.is_custom
-    ? `<span class="sku-custom-badge">CUSTOM</span>`
-    : '';
-
+  const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
   return `
-    <div class="sku-row rta">
+    <div class="sku-row rta" onclick="onRtaRowClick(event, '${esc(item.key)}')">
       <span class="sku-code">${esc(item.sku_code)}</span>
       ${customBadge}
       <span class="sku-desc">${esc(item.sku_desc)}</span>
       <span class="sku-qty">Qty ${item.quantity}</span>
+      <span class="sku-arrow">›</span>
       <button class="sku-delete-btn" type="button"
-        onclick="onDeleteSkuClick('${esc(item.key)}')"
+        onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
         aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
     </div>`;
 }
 
-// E5: Click handler now takes event so Delete can stopPropagation
 function onAssembledRowClick(evt, key) {
-  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) {
-    return;
-  }
+  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) return;
+  openMfModal(key);
+}
+function onRtaRowClick(evt, key) {
+  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) return;
   openMfModal(key);
 }
 
-// E5: Delete a SKU from cart (Assembled or RTA)
 function onDeleteSkuClick(key) {
   const item = cartItems.find(function (i) { return i.key === key; });
   if (!item) return;
@@ -2492,9 +1976,8 @@ function onDeleteSkuClick(key) {
   renderProgressCard(pageProgress);
   renderDoorStyleList();
   renderBottomBar(pageProgress);
-  renderModsTotalBar();  // F-MODS-TOTAL
+  renderModsTotalBar();
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-
   console.log('[E5] Removed SKU', key, 'from cart. Remaining items:', cartItems.length);
   showToast(item.sku_code + ' removed');
 }
@@ -2503,7 +1986,6 @@ function renderBottomBar(progress) {
   const statusEl     = document.getElementById('bottomStatus');
   const statusTextEl = document.getElementById('bottomStatusText');
   const btnNext      = document.getElementById('btnNext');
-
   if (!statusEl || !statusTextEl || !btnNext) return;
 
   const pendingAssembled = progress.total - progress.done;
@@ -2520,11 +2002,8 @@ function renderBottomBar(progress) {
       (pendingAssembled !== 1 ? 's' : '') + ' need attention';
   }
 
-  if (isReady && cartItems.length > 0) {
-    statusEl.classList.add('complete');
-  } else {
-    statusEl.classList.remove('complete');
-  }
+  if (isReady && cartItems.length > 0) statusEl.classList.add('complete');
+  else statusEl.classList.remove('complete');
 
   btnNext.disabled = !isReady || cartItems.length === 0;
 }
@@ -2532,35 +2011,15 @@ function renderBottomBar(progress) {
 function goReview() {
   const pendingAssembled = pageProgress.total - pageProgress.done;
   const isReady = (pageProgress.total === 0) || (pendingAssembled === 0);
-  if (!isReady) {
-    showToast('Please configure all assembled SKUs first', true);
-    return;
-  }
-  if (cartItems.length === 0) {
-    showToast('Cart is empty — add items first', true);
-    return;
-  }
+  if (!isReady) { showToast('Please configure all assembled SKUs first', true); return; }
+  if (cartItems.length === 0) { showToast('Cart is empty — add items first', true); return; }
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-  const nextUrl = draftId
-    ? 'new-quote-step3.html?draft=' + draftId
-    : 'new-quote-step3.html';
+  const nextUrl = draftId ? 'new-quote-step3.html?draft=' + draftId : 'new-quote-step3.html';
   window.location.href = nextUrl;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ║                                                                 ║
-// ║  E3 + E4.3 + E4.4 + E4.5 + E4.6 + E4.7 + F3.1 + E5 + F-TAX:     ║
-// ║  Modal logic                                                    ║
-// ║                                                                 ║
-// ║  F-TAX changes (2026-05-11):                                    ║
-// ║    • handleMfSave now snapshots tax_status into each mod entry  ║
-// ║      written to quote_items.modifications[i].tax_status         ║
-// ║    • MF1-6: tax_status = matching rule's tax_status (DB)        ║
-// ║    • MF07:  tax_status = value.taxable (per-instance, admin     ║
-// ║             toggles in MF07 modal Taxable checkbox)             ║
-// ║    • Tax base is computed downstream in step3 using these       ║
-// ║      snapshots; this file only persists them.                   ║
-// ║                                                                 ║
+// Modal core: helpers
 // ═══════════════════════════════════════════════════════════════════
 
 function shouldKeepModification(value) {
@@ -2570,47 +2029,27 @@ function shouldKeepModification(value) {
   if (Array.isArray(value) && value.length === 0) return false;
   if (typeof value === 'object' && !Array.isArray(value)) {
     if (Object.keys(value).length === 0) return false;
-    // E5 fix: MFs with explicit `enabled: false` mean the user didn't
-    // activate this modification (MF04 / MF07 default state). Don't
-    // persist these as "configured modifications" — they add noise
-    // and would show as $0 line items downstream.
     if (value.enabled === false) return false;
   }
   return true;
 }
 
-// ──────────────────────────────────────────────────────────────────
-// F-TAX: Resolve the tax_status for a single mod entry at save time.
-//   MF07 → per-instance, read from entry.value.taxable
-//   MF01-MF06 → per-rule, read from the matching rule's tax_status
-//     (snapshot, so future rule edits don't change historical quotes)
-// ──────────────────────────────────────────────────────────────────
 function resolveTaxStatusForEntry(entry) {
   if (!entry) return false;
-
-  // MF07: read from the admin's per-instance Taxable checkbox
-  if (entry.mf_code === 'MF07') {
-    return !!(entry.value && entry.value.taxable === true);
-  }
-
-  // MF01-MF06: snapshot from the rule that was rendered
-  // entry.rule_idx is the index in activeMfModalRules (set in
-  // renderMfElements; preserved through freezeActiveSub).
+  if (entry.mf_code === 'MF07') return !!(entry.value && entry.value.taxable === true);
   if (!Array.isArray(activeMfModalRules)) return false;
   const rule = activeMfModalRules[entry.rule_idx];
   if (!rule) return false;
   return rule.tax_status === true;
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E5 + Q17 (B): Running total = ACTIVE sub-group's line total.
-//   line total = sum(per-unit cost from liveValues) × sub.qty
-// Display includes the sub label when modal is split (sub_groups > 1).
-// ──────────────────────────────────────────────────────────────────
 function updateRunningTotal() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
-  if (!activeSub) {
-    setRunningTotalDOM('Modifications subtotal', 0);
+  if (!activeSub) { setRunningTotalDOM('Modifications subtotal', 0); return; }
+
+  // F-RTA-SWITCH: RTA mode → $0
+  if (activeAssemblyType === 'RTA') {
+    setRunningTotalDOM('RTA — no modifications', 0);
     return;
   }
 
@@ -2624,13 +2063,11 @@ function updateRunningTotal() {
 
   const subQty = activeSub.qty || 0;
   const lineTotal = perUnit * subQty;
-
   const isSplit = activeSubGroups.length > 1;
   const label = isSplit
     ? ('Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)) +
        ' (qty ' + subQty + ') modifications')
     : 'Modifications subtotal';
-
   setRunningTotalDOM(label, lineTotal);
 }
 
@@ -2644,9 +2081,6 @@ function setRunningTotalDOM(label, total) {
   else valueEl.classList.add('zero');
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E4.7 helpers (preserved verbatim from prior stage)
-// ──────────────────────────────────────────────────────────────────
 function makeVirtualInstance(savedEntry) {
   const frozenValue = savedEntry.value;
   const frozenCost  = (typeof savedEntry.cost === 'number') ? savedEntry.cost : 0;
@@ -2664,10 +2098,6 @@ function extractMf07Description(value) {
   return '';
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E5: renderReadOnlyAdminRow now writes into the ACTIVE sub-group's
-// instances/liveValues (instead of the old modal-scoped globals).
-// ──────────────────────────────────────────────────────────────────
 function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
   const mfCode = rule.mf_code;
   const savedValue = savedEntry.value;
@@ -2676,17 +2106,13 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
   if (mfCode === 'MF07') {
     const desc = extractMf07Description(savedValue);
     if (!desc.trim()) {
-      console.log('[E4.7] Skipping read-only ' + mfCode +
-                  ' (rule_idx=' + idx + '): empty description');
+      console.log('[E4.7] Skipping read-only ' + mfCode + ' (rule_idx=' + idx + '): empty description');
       subRef.instances.push({
-        rule_idx:      idx,
-        mf_code:       mfCode,
+        rule_idx: idx, mf_code: mfCode,
         display_label: rule.display_label || mfCode,
-        container:     null,
-        instance:      makeVirtualInstance(savedEntry),
-        isReadOnly:    true,
-        isVirtual:     true,
-        isHidden:      true,
+        container: null,
+        instance: makeVirtualInstance(savedEntry),
+        isReadOnly: true, isVirtual: true, isHidden: true,
       });
       subRef.liveValues[idx] = { value: savedValue, cost: savedCost };
       return false;
@@ -2701,71 +2127,58 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
 
   const labelDiv = document.createElement('div');
   labelDiv.className = 'mf-row-label';
-
   const labelText = document.createElement('span');
   labelText.className = 'mf-row-label-text';
-  labelText.innerHTML =
-    esc(rule.display_label || mfCode) +
-    '<span class="mf-row-admin-badge" title="Added by admin">' +
-      ADMIN_LOCK_SVG + 'Added by admin' +
-    '</span>';
+  labelText.innerHTML = esc(rule.display_label || mfCode) +
+    '<span class="mf-row-admin-badge" title="Added by admin">' + ADMIN_LOCK_SVG + 'Added by admin</span>';
   labelDiv.appendChild(labelText);
-
   const costSpan = document.createElement('span');
   costSpan.className = 'mf-row-label-cost';
-  costSpan.textContent = savedCost > 0
-    ? '+$' + savedCost.toFixed(2)
-    : 'Included';
+  costSpan.textContent = savedCost > 0 ? '+$' + savedCost.toFixed(2) : 'Included';
   labelDiv.appendChild(costSpan);
-
   row.appendChild(labelDiv);
 
   const bodyDiv = document.createElement('div');
   bodyDiv.className = 'mf-readonly-body';
-
   let descriptionText = '';
-  if (mfCode === 'MF07') {
-    descriptionText = extractMf07Description(savedValue);
-  } else if (typeof savedValue === 'string') {
-    descriptionText = savedValue;
-  } else {
-    try { descriptionText = JSON.stringify(savedValue); }
-    catch (_) { descriptionText = String(savedValue); }
-  }
-
+  if (mfCode === 'MF07') descriptionText = extractMf07Description(savedValue);
+  else if (typeof savedValue === 'string') descriptionText = savedValue;
+  else { try { descriptionText = JSON.stringify(savedValue); } catch (_) { descriptionText = String(savedValue); } }
   const descDiv = document.createElement('div');
   descDiv.className = 'mf-readonly-desc';
   descDiv.textContent = descriptionText;
   bodyDiv.appendChild(descDiv);
-
   if (savedCost > 0) {
     const costPill = document.createElement('div');
     costPill.className = 'mf-readonly-cost';
     costPill.textContent = '+$' + savedCost.toFixed(2);
     bodyDiv.appendChild(costPill);
   }
-
   row.appendChild(bodyDiv);
   wrap.appendChild(row);
 
   subRef.instances.push({
-    rule_idx:      idx,
-    mf_code:       mfCode,
+    rule_idx: idx, mf_code: mfCode,
     display_label: rule.display_label || mfCode,
-    container:     row,
-    instance:      makeVirtualInstance(savedEntry),
-    isReadOnly:    true,
-    isVirtual:     true,
-    isHidden:      false,
+    container: row,
+    instance: makeVirtualInstance(savedEntry),
+    isReadOnly: true, isVirtual: true, isHidden: false,
   });
   subRef.liveValues[idx] = { value: savedValue, cost: savedCost };
   return true;
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E5: renderMfElements now takes (rules, savedByIdx, subRef).
-// All instances/liveValues writes go to subRef (the active sub-group).
-// ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// F-BINDING-GROUP + F-GLASS-MULTIPLIER: renderMfElements
+//
+//   F-BINDING-GROUP: read mf_params._binding_group + _binding_role;
+//   stash on instance record; coordinator uses for primary↔dependent
+//   sync.
+//
+//   F-GLASS-MULTIPLIER: when mf_params._unit_price + _multiplier > 1,
+//   suppress the coordinator-rendered "Base cost: +$X.XX" header so
+//   the MF02 element can draw its own "$25 × 2 = $50.00" display.
+// ═══════════════════════════════════════════════════════════════════
 function renderMfElements(rules, savedByIdx, subRef) {
   const wrap = document.getElementById('mfElementsContainer');
   savedByIdx = savedByIdx || {};
@@ -2797,14 +2210,11 @@ function renderMfElements(rules, savedByIdx, subRef) {
 
     const isAdminOnly = Array.isArray(rule.allowed_roles)
       && !rule.allowed_roles.some(function (r) { return (r || '').toLowerCase() === 'dealer'; });
-    const isDealerViewingAdminMod = isAdminOnly
-      && effectiveRole === 'dealer'
-      && savedEntry;
+    const isDealerViewingAdminMod = isAdminOnly && effectiveRole === 'dealer' && savedEntry;
 
     if (isDealerViewingAdminMod) {
       const wasRendered = renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef);
-      if (wasRendered) readOnlyCount++;
-      else hiddenCount++;
+      if (wasRendered) readOnlyCount++; else hiddenCount++;
       return;
     }
 
@@ -2814,24 +2224,39 @@ function renderMfElements(rules, savedByIdx, subRef) {
       return;
     }
 
+    // F-BINDING-GROUP: read binding markers
+    const mfParams = rule.mf_params || {};
+    const bindingGroup = mfParams._binding_group || null;
+    const bindingRole  = mfParams._binding_role  || null;
+
+    // F-GLASS-MULTIPLIER: detect cost-yield case
+    const hasUnitMultiplier =
+      typeof mfParams._unit_price !== 'undefined' && mfParams._unit_price !== null &&
+      typeof mfParams._multiplier !== 'undefined' && mfParams._multiplier !== null &&
+      parseFloat(mfParams._multiplier) > 1;
+
     const row = document.createElement('div');
     row.className = 'mf-row';
     row.setAttribute('data-mf-code', mfCode);
     row.setAttribute('data-rule-idx', String(idx));
+    if (bindingGroup) {
+      row.setAttribute('data-binding-group', bindingGroup);
+      row.setAttribute('data-binding-role', bindingRole || '');
+    }
 
     const baseCost = parseFloat(rule.cost) || 0;
 
-    const costHtml = isAdminOnly
-      ? '<span class="mf-row-label-cost admin-only">Admin Only</span>'
-      : (baseCost > 0
-          ? '<span class="mf-row-label-cost">Base cost: +$' + baseCost.toFixed(2) + '</span>'
-          : '<span class="mf-row-label-cost">Included</span>');
+    // F-GLASS-MULTIPLIER: yield cost display to element when unit+multiplier
+    let costHtml;
+    if (isAdminOnly) costHtml = '<span class="mf-row-label-cost admin-only">Admin Only</span>';
+    else if (hasUnitMultiplier) costHtml = '';  // element draws own "$X × N = $Y"
+    else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">Base cost: +$' + baseCost.toFixed(2) + '</span>';
+    else costHtml = '<span class="mf-row-label-cost">Included</span>';
 
     const labelDiv = document.createElement('div');
     labelDiv.className = 'mf-row-label';
     labelDiv.innerHTML =
-      '<span class="mf-row-label-text">' + esc(rule.display_label || mfCode) + '</span>' +
-      costHtml;
+      '<span class="mf-row-label-text">' + esc(rule.display_label || mfCode) + '</span>' + costHtml;
     row.appendChild(labelDiv);
 
     const elementDiv = document.createElement('div');
@@ -2840,11 +2265,10 @@ function renderMfElements(rules, savedByIdx, subRef) {
 
     wrap.appendChild(row);
 
-    const params = Object.assign({}, rule.mf_params || {}, {
+    const params = Object.assign({}, mfParams, {
       _base_cost: baseCost,
       _display_label: rule.display_label || ''
     });
-
     const savedValueForCreate = savedEntry ? savedEntry.value : null;
 
     let instance;
@@ -2858,13 +2282,14 @@ function renderMfElements(rules, savedByIdx, subRef) {
     }
 
     subRef.instances.push({
-      rule_idx:      idx,
-      mf_code:       mfCode,
+      rule_idx: idx, mf_code: mfCode,
       display_label: rule.display_label || mfCode,
-      container:     elementDiv,
-      instance:      instance,
-      isReadOnly:    false,
-      isVirtual:     false,
+      container: elementDiv,
+      instance: instance,
+      isReadOnly: false, isVirtual: false,
+      // F-BINDING-GROUP: stash binding info on instance record
+      binding_group: bindingGroup,
+      binding_role:  bindingRole,
     });
 
     try {
@@ -2888,12 +2313,89 @@ function renderMfElements(rules, savedByIdx, subRef) {
 
   wrap.addEventListener('mf-change', onMfChangeDelegated);
 
+  // F-BINDING-GROUP: initial sync after render (covers re-opening
+  // saved quotes and tab switches)
+  syncBindingGroups(subRef);
+
   updateRunningTotal();
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E5: mf-change writes to the ACTIVE sub-group's liveValues
-// ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// F-BINDING-GROUP: helpers
+// ═══════════════════════════════════════════════════════════════════
+
+function findBindingPeers(subRef, group, role) {
+  if (!subRef || !Array.isArray(subRef.instances) || !group) return [];
+  return subRef.instances.filter(function (rec) {
+    return rec.binding_group === group && rec.binding_role === role;
+  });
+}
+
+// Read on/off state from an instance. Handles boolean, object with
+// .enabled, etc.
+function isInstanceEnabled(rec) {
+  if (!rec || !rec.instance) return false;
+  let val;
+  try {
+    val = (typeof rec.instance.getValue === 'function') ? rec.instance.getValue() : null;
+  } catch (_) { return false; }
+  if (val === null || val === undefined) return false;
+  if (val === true) return true;
+  if (val === false) return false;
+  if (typeof val === 'object') {
+    if (val.enabled === true) return true;
+    if (val.enabled === false) return false;
+  }
+  return false;
+}
+
+// For each primary in subRef, propagate state to dependents in same group.
+//   primary ON  → dependent setEnabled(true) + setLocked(true, reason)
+//   primary OFF → dependent setLocked(false)  (don't auto-disable)
+function syncBindingGroups(subRef) {
+  if (!subRef || !Array.isArray(subRef.instances)) return;
+
+  const primaries = subRef.instances.filter(function (rec) {
+    return rec.binding_group && rec.binding_role === 'primary' && !rec.isVirtual;
+  });
+  if (!primaries.length) return;
+
+  primaries.forEach(function (primary) {
+    const isOn = isInstanceEnabled(primary);
+    const dependents = findBindingPeers(subRef, primary.binding_group, 'dependent')
+      .filter(function (rec) { return !rec.isVirtual; });
+    if (!dependents.length) return;
+    dependents.forEach(function (dep) { applyDependentState(dep, isOn); });
+    console.log('[F-BINDING-GROUP] Initial sync — group "' + primary.binding_group +
+                '" primary ' + primary.mf_code + '=' + (isOn ? 'ON' : 'OFF') +
+                ', synced ' + dependents.length + ' dependent(s)');
+  });
+}
+
+function applyDependentState(dep, primaryIsOn) {
+  if (!dep || !dep.instance) return;
+  const inst = dep.instance;
+
+  if (primaryIsOn) {
+    if (typeof inst.setEnabled === 'function') {
+      try { inst.setEnabled(true); }
+      catch (e) { console.warn('[F-BINDING-GROUP] setEnabled(true) threw for', dep.mf_code, e); }
+    }
+    if (typeof inst.setLocked === 'function') {
+      try { inst.setLocked(true, 'Required with Glass'); }
+      catch (e) { console.warn('[F-BINDING-GROUP] setLocked(true) threw for', dep.mf_code, e); }
+    }
+  } else {
+    if (typeof inst.setLocked === 'function') {
+      try { inst.setLocked(false); }
+      catch (e) { console.warn('[F-BINDING-GROUP] setLocked(false) threw for', dep.mf_code, e); }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// mf-change handler — also handles F-BINDING-GROUP primary broadcast
+// ═══════════════════════════════════════════════════════════════════
 function onMfChangeDelegated(e) {
   if (!e || !e.detail) return;
   const activeSub = activeSubGroups[activeSubGroupIdx];
@@ -2919,29 +2421,39 @@ function onMfChangeDelegated(e) {
               ' · ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
               value, ', cost: $' + cost.toFixed(2));
 
+  // F-BINDING-GROUP: if primary changed, broadcast to dependents
+  const detailGroup = e.detail._binding_group || row.getAttribute('data-binding-group') || null;
+  const detailRole  = e.detail._binding_role  || row.getAttribute('data-binding-role')  || null;
+
+  if (detailGroup && detailRole === 'primary') {
+    const primary = (activeSub.instances || []).find(function (rec) {
+      return String(rec.rule_idx) === String(ruleIdx);
+    });
+    const isOn = primary ? isInstanceEnabled(primary) : (
+      value === true || (value && typeof value === 'object' && value.enabled === true)
+    );
+    const dependents = findBindingPeers(activeSub, detailGroup, 'dependent')
+      .filter(function (rec) { return !rec.isVirtual; });
+    dependents.forEach(function (dep) { applyDependentState(dep, isOn); });
+    if (dependents.length) {
+      console.log('[F-BINDING-GROUP] Primary ' + mfCode + ' (group "' + detailGroup + '") → ' +
+                  (isOn ? 'ON' : 'OFF') + '; updated ' + dependents.length + ' dependent(s)');
+    }
+  }
+
   updateRunningTotal();
 }
 
-// ──────────────────────────────────────────────────────────────────
-// E5: destroy ONLY the active sub-group's instances (called before
-// switching tabs or closing modal). Does NOT touch other subs.
-// ──────────────────────────────────────────────────────────────────
 function destroyActiveSubInstances() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
   const wrap = document.getElementById('mfElementsContainer');
-  if (wrap) {
-    wrap.removeEventListener('mf-change', onMfChangeDelegated);
-  }
+  if (wrap) wrap.removeEventListener('mf-change', onMfChangeDelegated);
 
   if (activeSub && Array.isArray(activeSub.instances)) {
     activeSub.instances.forEach(function (rec) {
       try {
-        if (rec.instance && typeof rec.instance.destroy === 'function') {
-          rec.instance.destroy();
-        }
-      } catch (err) {
-        console.warn('[E4.4] destroy() threw for', rec.mf_code, err);
-      }
+        if (rec.instance && typeof rec.instance.destroy === 'function') rec.instance.destroy();
+      } catch (err) { console.warn('[E4.4] destroy() threw for', rec.mf_code, err); }
     });
     activeSub.instances = [];
   }
@@ -2956,10 +2468,6 @@ function clearMfContainerToLoading() {
       </div>`;
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// E5: Freeze / hydrate logic
-// ═══════════════════════════════════════════════════════════════════
 
 function freezeActiveSub() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
@@ -2977,29 +2485,22 @@ function freezeActiveSub() {
     }
     if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
     snapshot.push({
-      rule_idx:      rec.rule_idx,
-      mf_code:       rec.mf_code,
-      display_label: rec.display_label,
-      value:         val,
-      cost:          cost,
+      rule_idx: rec.rule_idx, mf_code: rec.mf_code,
+      display_label: rec.display_label, value: val, cost: cost,
     });
   });
-
   activeSub.frozenValues = snapshot;
 }
 
 function buildSavedByIdxForSub(subRef, rules) {
   const rawList = (subRef.frozenValues && subRef.frozenValues.length)
-    ? subRef.frozenValues
-    : (subRef.modifications || []);
-
+    ? subRef.frozenValues : (subRef.modifications || []);
   const byMfKey = {};
   rawList.forEach(function (m) {
     if (!m || !m.mf_code) return;
     const k = m.mf_code + '|' + (m.display_label || '');
     byMfKey[k] = m;
   });
-
   const reKeyed = {};
   rules.forEach(function (r, newIdx) {
     const k = r.mf_code + '|' + (r.display_label || '');
@@ -3008,10 +2509,7 @@ function buildSavedByIdxForSub(subRef, rules) {
   return reKeyed;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// E5: Split panel rendering + handlers
-// ═══════════════════════════════════════════════════════════════════
-
+// Split panel
 function renderSplitPanel() {
   const rowsEl = document.getElementById('mfSplitRows');
   const addBtn = document.getElementById('mfSplitAddBtn');
@@ -3039,7 +2537,6 @@ function renderSplitPanel() {
   }).join('');
 
   addBtn.disabled = false;
-
   updateSplitSummary();
 }
 
@@ -3059,20 +2556,20 @@ function updateSplitSummary() {
     summaryEl.classList.remove('valid');
     summaryEl.classList.add('invalid');
     const diff = skuQty - sum;
-    if (diff > 0) {
-      summaryEl.textContent = 'Need ' + diff + ' more (sum ' + sum + ' / ' + skuQty + ')';
-    } else {
-      summaryEl.textContent = 'Over by ' + Math.abs(diff) + ' (sum ' + sum + ' / ' + skuQty + ')';
-    }
+    if (diff > 0) summaryEl.textContent = 'Need ' + diff + ' more (sum ' + sum + ' / ' + skuQty + ')';
+    else summaryEl.textContent = 'Over by ' + Math.abs(diff) + ' (sum ' + sum + ' / ' + skuQty + ')';
   }
 
-  if (skuQtyEl) {
-    skuQtyEl.classList.toggle('invalid', sum !== skuQty);
-  }
+  if (skuQtyEl) skuQtyEl.classList.toggle('invalid', sum !== skuQty);
 
   const saveBtn = document.getElementById('mfBtnSave');
   if (saveBtn) {
-    saveBtn.disabled = (sum !== skuQty) || activeSubGroups.length === 0 || skuQty < 1;
+    // F-RTA-SWITCH: in RTA mode, only need qty >= 1
+    if (activeAssemblyType === 'RTA') {
+      saveBtn.disabled = activeSkuQty < 1;
+    } else {
+      saveBtn.disabled = (sum !== skuQty) || activeSubGroups.length === 0 || skuQty < 1;
+    }
   }
 }
 
@@ -3091,23 +2588,15 @@ function onSubQtyChange(subIdx, newVal) {
 }
 
 function onDeleteSubGroup(subIdx) {
-  if (activeSubGroups.length <= 1) {
-    showToast('Cannot delete the only sub-group', true);
-    return;
-  }
+  if (activeSubGroups.length <= 1) { showToast('Cannot delete the only sub-group', true); return; }
   const sub = activeSubGroups[subIdx];
   if (!sub) return;
 
-  if (subIdx === activeSubGroupIdx) {
-    destroyActiveSubInstances();
-  }
+  if (subIdx === activeSubGroupIdx) destroyActiveSubInstances();
 
   activeSubGroups.splice(subIdx, 1);
   activeSubGroups.forEach(function (g, i) { g.sub_index = i + 1; });
-
-  if (activeSubGroupIdx >= activeSubGroups.length) {
-    activeSubGroupIdx = activeSubGroups.length - 1;
-  }
+  if (activeSubGroupIdx >= activeSubGroups.length) activeSubGroupIdx = activeSubGroups.length - 1;
 
   renderSplitPanel();
   renderTabs();
@@ -3118,37 +2607,27 @@ function addSubGroup() {
   const skuQty = activeSkuQty;
   const currentSum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   const remaining = skuQty - currentSum;
-
   const newQty = remaining > 0 ? remaining : 1;
 
   activeSubGroups.push({
-    sub_index:           activeSubGroups.length + 1,
-    qty:                 newQty,
-    modifications:       [],
+    sub_index: activeSubGroups.length + 1,
+    qty: newQty,
+    modifications: [],
     modification_status: 'unprocessed',
-    instances:           [],
-    liveValues:          {},
-    frozenValues:        null,
+    instances: [], liveValues: {}, frozenValues: null,
   });
-
   renderSplitPanel();
   renderTabs();
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// E5: Tab rendering + switching
-// ═══════════════════════════════════════════════════════════════════
-
 function renderTabs() {
   const tabsEl = document.getElementById('mfTabs');
   if (!tabsEl) return;
-
   if (activeSubGroups.length <= 1) {
     tabsEl.style.display = 'none';
     tabsEl.innerHTML = '';
     return;
   }
-
   tabsEl.style.display = 'flex';
   tabsEl.innerHTML = activeSubGroups.map(function (sub, i) {
     const activeClass = (i === activeSubGroupIdx) ? ' active' : '';
@@ -3163,10 +2642,8 @@ function renderTabs() {
 function onTabClick(newIdx) {
   if (newIdx === activeSubGroupIdx) return;
   if (newIdx < 0 || newIdx >= activeSubGroups.length) return;
-
   freezeActiveSub();
   destroyActiveSubInstances();
-
   activeSubGroupIdx = newIdx;
   renderTabs();
   renderActiveSubTab();
@@ -3174,10 +2651,7 @@ function onTabClick(newIdx) {
 
 function renderActiveSubTab() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
-  if (!activeSub) {
-    clearMfContainerToLoading();
-    return;
-  }
+  if (!activeSub) { clearMfContainerToLoading(); return; }
 
   const groupLabel = document.getElementById('mfGroupLabel');
   const groupQty   = document.getElementById('mfGroupQty');
@@ -3188,18 +2662,11 @@ function renderActiveSubTab() {
   }
   if (groupQty) groupQty.textContent = 'Qty: ' + (activeSub.qty || 0);
 
-  if (!Array.isArray(activeMfModalRules)) {
-    clearMfContainerToLoading();
-    return;
-  }
+  if (!Array.isArray(activeMfModalRules)) { clearMfContainerToLoading(); return; }
 
   const reKeyed = buildSavedByIdxForSub(activeSub, activeMfModalRules);
   renderMfElements(activeMfModalRules, reKeyed, activeSub);
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// E5: Modal header — editable SKU qty
-// ═══════════════════════════════════════════════════════════════════
 
 function onSkuQtyChange(newVal) {
   let q = parseInt(newVal, 10);
@@ -3207,9 +2674,139 @@ function onSkuQtyChange(newVal) {
   activeSkuQty = q;
   updateSplitSummary();
 }
+// ═══════════════════════════════════════════════════════════════════
+// F-RTA-SWITCH: Assembly type switch
+// ═══════════════════════════════════════════════════════════════════
+
+function renderAssemblySwitch(item) {
+  const wrap = document.getElementById('mfAsmSwitchWrap');
+  const note = document.getElementById('mfAsmFeeNote');
+  if (!wrap) return;
+
+  // F-CUSTOM: custom items don't use catalog asm fee — hide switch
+  if (item && item.is_custom) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'flex';
+
+  const btns = wrap.querySelectorAll('.mf-asm-switch-btn');
+  btns.forEach(function (b) {
+    const asm = b.getAttribute('data-asm');
+    b.classList.toggle('active', asm === activeAssemblyType);
+  });
+
+  if (note) {
+    if (activeAssemblyType === 'Assembled' && activeAssembleFee > 0) {
+      note.innerHTML = '<strong>+$' + activeAssembleFee.toFixed(2) + '</strong> assembly fee per unit';
+    } else if (activeAssemblyType === 'Assembled') {
+      note.textContent = '';
+    } else {
+      note.textContent = 'Ships flat-packed';
+    }
+  }
+
+  // also update the assembled/rta pill in the meta row
+  const pillEl = document.getElementById('mfHeadAsmPill');
+  if (pillEl) {
+    pillEl.classList.remove('assembled', 'rta');
+    pillEl.classList.add(activeAssemblyType === 'RTA' ? 'rta' : 'assembled');
+    pillEl.textContent = activeAssemblyType === 'RTA' ? 'RTA' : 'Assembled';
+  }
+}
+
+function applyRtaModeUI() {
+  const body = document.getElementById('mfModalBody');
+  if (!body) return;
+  if (activeAssemblyType === 'RTA') body.classList.add('rta-mode');
+  else body.classList.remove('rta-mode');
+}
+
+function handleAssemblyTypeChange(newType) {
+  if (newType !== 'RTA' && newType !== 'Assembled') return;
+  if (newType === activeAssemblyType) return;
+
+  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  if (!item) return;
+
+  if (item.is_custom) {
+    showToast('Custom items cannot be switched between RTA and Assembled', true);
+    return;
+  }
+
+  if (newType === 'Assembled') {
+    // RTA → Assembled
+    const newFee = getAssembleFeeForItem(dealer, item);
+    const feeNote = newFee > 0
+      ? '\n\nAn assembly fee of $' + newFee.toFixed(2) + ' per unit will apply.'
+      : '\n\nNo assembly fee applies for this SKU type.';
+    const ok = confirm(
+      'Switch this SKU to Assembled?' + feeNote +
+      '\n\nYou will be able to configure modifications after switching.'
+    );
+    if (!ok) return;
+
+    activeAssemblyType = 'Assembled';
+    activeAssembleFee  = newFee;
+    console.log('[F-RTA-SWITCH] RTA → Assembled · SKU=' + item.sku_code + ' · fee=$' + newFee.toFixed(2));
+  } else {
+    // Assembled → RTA
+    let hasMods = false;
+    activeSubGroups.forEach(function (sub) {
+      Object.keys(sub.liveValues || {}).forEach(function (k) {
+        const e = sub.liveValues[k];
+        if (e && shouldKeepModification(e.value)) hasMods = true;
+      });
+      if (Array.isArray(sub.frozenValues)) {
+        sub.frozenValues.forEach(function (e) {
+          if (e && shouldKeepModification(e.value)) hasMods = true;
+        });
+      }
+    });
+
+    const warning = hasMods
+      ? 'Switch this SKU to RTA?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
+      : 'Switch this SKU to RTA?\n\nThe assembly fee will be removed and no modifications will be allowed.';
+    const ok = confirm(warning);
+    if (!ok) return;
+
+    destroyActiveSubInstances();
+    activeSubGroups.forEach(function (sub) {
+      sub.modifications       = [];
+      sub.modification_status = 'skipped';
+      sub.liveValues          = {};
+      sub.frozenValues        = null;
+      sub.instances           = [];
+    });
+
+    activeAssemblyType = 'RTA';
+    activeAssembleFee  = 0;
+    console.log('[F-RTA-SWITCH] Assembled → RTA · SKU=' + item.sku_code + ' · mods cleared=' + hasMods);
+  }
+
+  renderAssemblySwitch(item);
+  applyRtaModeUI();
+  renderSplitPanel();
+  renderTabs();
+  if (activeAssemblyType === 'Assembled') {
+    renderActiveSubTab();
+  } else {
+    const wrap = document.getElementById('mfElementsContainer');
+    if (wrap) {
+      wrap.innerHTML =
+        '<div class="mf-no-rules">' +
+          '<div class="mf-no-rules-title">RTA Mode</div>' +
+          '<div>No modifications apply to RTA shipments. Switch to Assembled above if you need to configure modifications.</div>' +
+        '</div>';
+    }
+  }
+  updateRunningTotal();
+  updateSplitSummary();
+}
 
 // ═══════════════════════════════════════════════════════════════════
-// E5: openMfModal — load item.sub_groups as working copy
+// openMfModal — handles both Assembled and RTA item rows
 // ═══════════════════════════════════════════════════════════════════
 
 async function openMfModal(key) {
@@ -3224,40 +2821,40 @@ async function openMfModal(key) {
   activeMfModalKey = key;
   activeMfModalRules = null;
 
+  // F-RTA-SWITCH: init modal-scoped assembly state from item
+  activeAssemblyType = (item.type === 'RTA') ? 'RTA' : 'Assembled';
+  activeAssembleFee  = (activeAssemblyType === 'Assembled')
+    ? getAssembleFeeForItem(dealer, item) : 0;
+
   activeSubGroups = item.sub_groups.map(function (g, i) {
     return {
-      sub_index:           g.sub_index || (i + 1),
-      qty:                 g.qty,
-      modifications:       Array.isArray(g.modifications) ? g.modifications.slice() : [],
+      sub_index: g.sub_index || (i + 1),
+      qty: g.qty,
+      modifications: Array.isArray(g.modifications) ? g.modifications.slice() : [],
       modification_status: g.modification_status,
-      instances:           [],
-      liveValues:          {},
-      frozenValues:        null,
+      instances: [], liveValues: {}, frozenValues: null,
     };
   });
   activeSubGroupIdx = 0;
   activeSkuQty      = item.quantity;
 
   const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
-  // F-CUSTOM Phase 3: for custom items, styleRow may not exist (admin
-  // typed a free-text style name). Fall back to item.construction_type
-  // which was captured at create-time in Step 2.
-  const ctype    = (styleRow && styleRow.construction_type)
-                || item.construction_type
-                || 'unknown';
+  const ctype    = (styleRow && styleRow.construction_type) || item.construction_type || 'unknown';
   const ctypeClass = ctype === 'framed' ? 'framed'
-                  : ctype === 'frameless' ? 'frameless'
-                  : 'unknown';
+                  : ctype === 'frameless' ? 'frameless' : 'unknown';
   const ctypeLabel = ctype === 'unknown' ? '—' : ctype;
 
   document.getElementById('mfHeadCode').textContent = item.sku_code;
   document.getElementById('mfHeadDescSep').textContent = '  ';
   document.getElementById('mfHeadDesc').textContent = item.sku_desc || '';
 
+  const asmPillClass = activeAssemblyType === 'RTA' ? 'rta' : 'assembled';
+  const asmPillLabel = activeAssemblyType === 'RTA' ? 'RTA' : 'Assembled';
+
   document.getElementById('mfHeadMeta').innerHTML = `
     <span>${esc(item.style_name || item.style_code)}</span>
     <span class="mf-pill ${ctypeClass}">${esc(ctypeLabel)}</span>
-    <span class="mf-pill assembled">Assembled</span>
+    <span class="mf-pill ${asmPillClass}" id="mfHeadAsmPill">${asmPillLabel}</span>
     <span class="mf-sku-head-qty">
       <span class="mf-sku-head-qty-label">SKU Qty:</span>
       <input type="number" min="1" step="1" class="mf-sku-head-qty-input"
@@ -3267,32 +2864,49 @@ async function openMfModal(key) {
     </span>
   `;
 
+  // F-RTA-SWITCH: render segmented control + apply rta-mode class
+  renderAssemblySwitch(item);
+  applyRtaModeUI();
+
   renderSplitPanel();
   renderTabs();
 
   clearMfContainerToLoading();
   setRunningTotalDOM(
-    activeSubGroups.length > 1
-      ? 'Sub 1 (qty ' + (activeSubGroups[0].qty || 0) + ') modifications'
-      : 'Modifications subtotal',
+    activeAssemblyType === 'RTA'
+      ? 'RTA — no modifications'
+      : (activeSubGroups.length > 1
+          ? 'Sub 1 (qty ' + (activeSubGroups[0].qty || 0) + ') modifications'
+          : 'Modifications subtotal'),
     0
   );
 
   document.getElementById('mfModalOverlay').classList.add('show');
   document.body.classList.add('mf-modal-open');
 
-  console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item));
-  console.log('[E5] sub_groups loaded:', activeSubGroups.length, 'sub-group(s):');
-  activeSubGroups.forEach(function (g, i) {
-    console.log('  Sub ' + (i + 1) + ' qty=' + g.qty +
-                ' status=' + g.modification_status +
-                ' mods=' + g.modifications.length);
-  });
+  console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item),
+              '· activeAssemblyType=' + activeAssemblyType,
+              '· activeAssembleFee=$' + activeAssembleFee.toFixed(2));
+  console.log('[E5] sub_groups loaded:', activeSubGroups.length, 'sub-group(s)');
+
+  // F-RTA-SWITCH: in RTA mode, skip RPC entirely
+  if (activeAssemblyType === 'RTA') {
+    activeMfModalRules = [];
+    const wrap = document.getElementById('mfElementsContainer');
+    if (wrap) {
+      wrap.innerHTML =
+        '<div class="mf-no-rules">' +
+          '<div class="mf-no-rules-title">RTA Mode</div>' +
+          '<div>No modifications apply to RTA shipments. Switch to Assembled above if you need to configure modifications.</div>' +
+        '</div>';
+    }
+    updateSplitSummary();
+    return;
+  }
 
   const doorParam = (ctype || '').toLowerCase();
   if (doorParam !== 'framed' && doorParam !== 'frameless') {
-    console.warn('[E4.3] Unknown construction type for SKU', item.sku_code,
-                 '— cannot match modifications. ctype was:', ctype);
+    console.warn('[E4.3] Unknown construction type for SKU', item.sku_code, '— ctype was:', ctype);
     activeMfModalRules = [];
     renderActiveSubTab();
     return;
@@ -3307,8 +2921,6 @@ async function openMfModal(key) {
               ', role=' + role);
 
   try {
-    // F-EXCLUDE-SKU: pass p_sku_code so backend can skip rules whose
-    // exclude_sku_code list contains this SKU.
     const { data: rules, error } = await _supabase.rpc('match_modifications_for_sku', {
       p_door:        doorParam,
       p_type:        item.skuType    || '',
@@ -3324,7 +2936,6 @@ async function openMfModal(key) {
       renderActiveSubTab();
       return;
     }
-
     if (activeMfModalKey !== key) {
       console.log('[E4.3] RPC response stale (modal switched); ignoring.');
       return;
@@ -3336,24 +2947,18 @@ async function openMfModal(key) {
     const allSavedByMfCode = {};
     activeSubGroups.forEach(function (sub) {
       (sub.modifications || []).forEach(function (m) {
-        if (m && m.mf_code) {
-          allSavedByMfCode[m.mf_code + '|' + (m.display_label || '')] = m;
-        }
+        if (m && m.mf_code) allSavedByMfCode[m.mf_code + '|' + (m.display_label || '')] = m;
       });
     });
     const savedCountTotal = Object.keys(allSavedByMfCode).length;
 
     const filtered = rawRules.filter(function (r) {
       if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
-      const allowed = r.allowed_roles.some(function (ar) {
-        return (ar || '').toLowerCase() === role;
-      });
+      const allowed = r.allowed_roles.some(function (ar) { return (ar || '').toLowerCase() === role; });
       if (allowed) return true;
-
       if (role === 'dealer') {
         return Object.values(allSavedByMfCode).some(function (s) {
-          return s.mf_code === r.mf_code
-              && (s.display_label || '') === (r.display_label || '');
+          return s.mf_code === r.mf_code && (s.display_label || '') === (r.display_label || '');
         });
       }
       return false;
@@ -3363,18 +2968,14 @@ async function openMfModal(key) {
       const filteredMfCodes = new Set(filtered.map(function (r) { return r.mf_code; }));
       const missingMfCodes = [];
       Object.values(allSavedByMfCode).forEach(function (s) {
-        if (s && s.mf_code && !filteredMfCodes.has(s.mf_code)
-            && missingMfCodes.indexOf(s.mf_code) === -1) {
+        if (s && s.mf_code && !filteredMfCodes.has(s.mf_code) && missingMfCodes.indexOf(s.mf_code) === -1) {
           missingMfCodes.push(s.mf_code);
         }
       });
 
       if (missingMfCodes.length) {
-        console.log('[F3.1]   Fetching admin-only rules dealer cannot see via RLS:',
-                    missingMfCodes);
+        console.log('[F3.1]   Fetching admin-only rules dealer cannot see via RLS:', missingMfCodes);
         try {
-          // F-EXCLUDE-SKU: also pass p_sku_code on the fallback fetch
-          // so exclusion logic stays consistent for re-hydrated rules.
           const { data: extraRules, error: extraErr } = await _supabase.rpc(
             'get_modification_rules_by_codes',
             {
@@ -3386,58 +2987,51 @@ async function openMfModal(key) {
               p_sku_code:    item.sku_code   || null
             }
           );
-          if (activeMfModalKey !== key) {
-            console.log('[F3.1]   Stale (modal switched); ignoring.');
-            return;
-          }
-          if (extraErr) {
-            console.warn('[F3.1]   Failed to fetch admin-only rules:', extraErr);
-          } else if (extraRules && extraRules.length) {
-            console.log('[F3.1]   Got ' + extraRules.length +
-                        ' admin-only rule(s):', extraRules);
+          if (activeMfModalKey !== key) { console.log('[F3.1]   Stale; ignoring.'); return; }
+          if (extraErr) console.warn('[F3.1]   Failed to fetch admin-only rules:', extraErr);
+          else if (extraRules && extraRules.length) {
+            console.log('[F3.1]   Got ' + extraRules.length + ' admin-only rule(s):', extraRules);
             extraRules.forEach(function (r) { filtered.push(r); });
           } else {
             console.log('[F3.1]   No admin-only rules returned.');
           }
-        } catch (e) {
-          console.warn('[F3.1]   Unexpected error fetching admin-only rules:', e);
-        }
+        } catch (e) { console.warn('[F3.1]   Unexpected error:', e); }
       }
     }
 
     activeMfModalRules = filtered;
 
-    // F-CUSTOM Phase 3 (path A): for custom items, restrict to MF07 only.
-    // Rationale: custom items are "escape hatch" by design — they pair
-    // naturally with MF07 (admin SuperModification, free-text). Other
-    // mod rules (MF01-MF06) target catalog SKUs with specific category/
-    // subcategory and don't fit custom items semantically.
     if (item.is_custom) {
       const beforeFilter = activeMfModalRules.length;
-      activeMfModalRules = activeMfModalRules.filter(function (r) {
-        return r.mf_code === 'MF07';
-      });
+      activeMfModalRules = activeMfModalRules.filter(function (r) { return r.mf_code === 'MF07'; });
       console.log('[F-CUSTOM] Custom item — filtered to MF07 only: ' +
                   beforeFilter + ' → ' + activeMfModalRules.length + ' rule(s)');
     }
 
     console.log('[E4.3]   After role filter + F3.1: ' + activeMfModalRules.length + ' rule(s)');
     console.log('[E4.3]   Rules:', activeMfModalRules);
-    // F-EXCLUDE-SKU: log per-rule exclude_sku_code for visibility
     console.log('[F-EXCLUDE-SKU]   Rule exclude_sku_code map:',
       activeMfModalRules.map(function (r) {
         return r.mf_code + ' "' + (r.display_label || '') + '" → exclude_sku_code=' + (r.exclude_sku_code || 'null');
       })
     );
-    // F-TAX: log per-rule tax_status for visibility
     console.log('[F-TAX]   Rule tax_status map:',
       activeMfModalRules.map(function (r) {
         return r.mf_code + ' "' + (r.display_label || '') + '" → tax_status=' + r.tax_status;
       })
     );
+    // F-BINDING-GROUP: log binding markers
+    console.log('[F-BINDING-GROUP]   Rule binding map:',
+      activeMfModalRules.map(function (r) {
+        const p = r.mf_params || {};
+        return r.mf_code + ' "' + (r.display_label || '') + '" → group=' + (p._binding_group || 'null') +
+               ' role=' + (p._binding_role || 'null') +
+               (typeof p._unit_price !== 'undefined' ? ' unit=$' + p._unit_price : '') +
+               (typeof p._multiplier !== 'undefined' ? ' x' + p._multiplier : '');
+      })
+    );
 
     renderActiveSubTab();
-
   } catch (e) {
     console.error('[E4.3] Unexpected error calling RPC:', e);
     showToast('Failed to load modifications — you can still Skip or Save', true);
@@ -3446,20 +3040,19 @@ async function openMfModal(key) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// E5: Close / Save / Skip
-// ═══════════════════════════════════════════════════════════════════
-
 function closeMfModal() {
   destroyActiveSubInstances();
-
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
-  activeMfModalKey   = null;
+  activeMfModalKey = null;
   activeMfModalRules = [];
-  activeSubGroups    = [];
-  activeSubGroupIdx  = 0;
-  activeSkuQty       = 1;
+  activeSubGroups = [];
+  activeSubGroupIdx = 0;
+  activeSkuQty = 1;
+  activeAssemblyType = 'Assembled';
+  activeAssembleFee = 0;
+  const body = document.getElementById('mfModalBody');
+  if (body) body.classList.remove('rta-mode');
   console.log('[E3] closeMfModal (Cancel / × — no status change)');
 }
 
@@ -3467,11 +3060,15 @@ function closeMfModalSilent() {
   destroyActiveSubInstances();
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
-  activeMfModalKey   = null;
+  activeMfModalKey = null;
   activeMfModalRules = [];
-  activeSubGroups    = [];
-  activeSubGroupIdx  = 0;
-  activeSkuQty       = 1;
+  activeSubGroups = [];
+  activeSubGroupIdx = 0;
+  activeSkuQty = 1;
+  activeAssemblyType = 'Assembled';
+  activeAssembleFee = 0;
+  const body = document.getElementById('mfModalBody');
+  if (body) body.classList.remove('rta-mode');
 }
 
 function refreshAfterModalAction() {
@@ -3480,34 +3077,22 @@ function refreshAfterModalAction() {
   renderProgressCard(pageProgress);
   renderDoorStyleList();
   renderBottomBar(pageProgress);
-  renderModsTotalBar();  // F-MODS-TOTAL
+  renderModsTotalBar();
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 }
 
-// D17: helper — apply .invalid class + inline error message to the
-// row whose rule_idx matches. Scrolls into view for visibility.
 function markInvalidRow(ruleIdx, errors) {
-  const row = document.querySelector(
-    '#mfElementsContainer .mf-row[data-rule-idx="' + ruleIdx + '"]'
-  );
-  if (!row) {
-    console.warn('[D17] markInvalidRow: row not found for rule_idx=', ruleIdx);
-    return;
-  }
+  const row = document.querySelector('#mfElementsContainer .mf-row[data-rule-idx="' + ruleIdx + '"]');
+  if (!row) { console.warn('[D17] markInvalidRow: row not found for rule_idx=', ruleIdx); return; }
   row.classList.add('invalid');
-  // Strip any prior error message before adding a new one
   const prior = row.querySelector('.mf-row-error-msg');
   if (prior) prior.remove();
   const errDiv = document.createElement('div');
   errDiv.className = 'mf-row-error-msg';
   errDiv.textContent = (errors && errors[0]) || 'Invalid value';
   row.appendChild(errDiv);
-  // Scroll into view, but only if it's not already visible
-  try {
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  } catch (_) { /* old browsers */ }
+  try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
 
-  // Auto-clear the invalid state once the user edits the row
   const onceClear = function () {
     row.classList.remove('invalid');
     const e = row.querySelector('.mf-row-error-msg');
@@ -3518,81 +3103,71 @@ function markInvalidRow(ruleIdx, errors) {
 }
 
 /**
- * E5 + F-TAX: Save collects from ALL sub-groups.
- *   - Active tab: read from live instances
- *   - Other tabs: read from frozenValues snapshot
- *   - Determines per-sub status: configured (any mod kept) or skipped (none)
- *   - Validates Σ(sub.qty) === activeSkuQty
- *   - Writes back to item.sub_groups + item.quantity
- *
- * F-TAX (2026-05-11):
- *   - Each kept mod entry now carries a `tax_status` boolean snapshot.
- *   - MF07: from value.taxable (per-instance admin toggle)
- *   - MF01-MF06: from the matching rule's tax_status (DB column)
- *   - step3 reads this to compute taxableBase.
- *
- * D17 (2026-05-13):
- *   - Before save, run instance.validate() on every active MF element
- *     in the currently visible tab. If anything fails (e.g. MF04
- *     toggle ON but value empty), block save with:
- *       · toast (with the first error message)
- *       · red border (.mf-row.invalid) on the offending row(s)
- *       · inline error message below the row
- *     Other tabs' frozen snapshots are NOT re-validated — they were
- *     already validated when the user switched away from them (the
- *     tab switch path freezes valid snapshots; invalid state can't
- *     reach frozenValues because save is gated here).
- *   - Note: a user who toggles ON, leaves value empty, then switches
- *     to another tab WILL bypass validation for that tab. We re-check
- *     by also validating frozenValues defensively below (cheap, since
- *     MF04 is the only MF that can produce invalid frozen state).
+ * F-RTA-SWITCH + E5 + F-TAX: Save handler.
+ * - RTA mode: skip validation, write empty skipped sub_groups,
+ *   set item.type='RTA', assemble_fee=0, key=sku_code+'_RTA'
+ * - Assembled mode: existing logic + write item.type='Assembled',
+ *   assemble_fee=activeAssembleFee, key=sku_code+'_Assembled'
  */
 function handleMfSave() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  // ── D17: Clear any prior invalid markings before re-validating ──
+  // ─── F-RTA-SWITCH: RTA mode short-circuit ───
+  if (activeAssemblyType === 'RTA') {
+    const newSubGroups = activeSubGroups.length > 0
+      ? activeSubGroups.map(function (sub, i) {
+          return { sub_index: i + 1, qty: sub.qty, modifications: [], modification_status: 'skipped' };
+        })
+      : [{ sub_index: 1, qty: activeSkuQty, modifications: [], modification_status: 'skipped' }];
+
+    const sum = newSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
+    if (sum !== activeSkuQty) {
+      newSubGroups.length = 0;
+      newSubGroups.push({ sub_index: 1, qty: activeSkuQty, modifications: [], modification_status: 'skipped' });
+    }
+
+    const oldType = item.type;
+    item.type         = 'RTA';
+    item.quantity     = activeSkuQty;
+    item.assemble_fee = 0;
+    item.sub_groups   = newSubGroups;
+    item.key          = item.sku_code + '_RTA';
+
+    console.log('[F-RTA-SWITCH] Saved as RTA · SKU=' + item.sku_code +
+                (oldType !== 'RTA' ? ' (was ' + oldType + ')' : '') +
+                ' · qty=' + activeSkuQty + ' · assemble_fee=$0');
+
+    refreshAfterModalAction();
+    const skuCode = item.sku_code;
+    closeMfModalSilent();
+    showToast(skuCode + ' set to RTA');
+    return;
+  }
+
+  // ─── Assembled mode ───
   document.querySelectorAll('#mfElementsContainer .mf-row.invalid').forEach(function (row) {
     row.classList.remove('invalid');
     const errMsg = row.querySelector('.mf-row-error-msg');
     if (errMsg) errMsg.remove();
   });
 
-  // ════════════════════════════════════════════════════════════════
-  // D17: Validate gate — run before any other save logic.
-  //
-  // Pass 1: validate active tab's live instances (most common case)
-  // Pass 2: defensively check other tabs' frozenValues for MF04
-  //         enabled-but-null state (in case user toggled ON, left
-  //         value blank, then switched tabs)
-  //
-  // If anything fails: toast + red border + switch to bad tab + abort.
-  // ════════════════════════════════════════════════════════════════
   const activeSub = activeSubGroups[activeSubGroupIdx];
-  let firstFailure = null;  // { subIdx, ruleIdx, mfCode, label, errors }
+  let firstFailure = null;
 
-  // ── Pass 1: validate active tab's live instances ──
   if (activeSub && Array.isArray(activeSub.instances)) {
     for (let i = 0; i < activeSub.instances.length; i++) {
       const rec = activeSub.instances[i];
       if (rec.isReadOnly || rec.isVirtual) continue;
       if (typeof rec.instance.validate !== 'function') continue;
-
       let result;
-      try {
-        result = rec.instance.validate();
-      } catch (err) {
-        console.warn('[D17] validate() threw for', rec.mf_code, err);
-        continue;
-      }
-
+      try { result = rec.instance.validate(); }
+      catch (err) { console.warn('[D17] validate() threw for', rec.mf_code, err); continue; }
       if (result && result.valid === false) {
         firstFailure = {
-          subIdx: activeSubGroupIdx,
-          ruleIdx: rec.rule_idx,
-          mfCode: rec.mf_code,
-          label: rec.display_label,
+          subIdx: activeSubGroupIdx, ruleIdx: rec.rule_idx,
+          mfCode: rec.mf_code, label: rec.display_label,
           errors: Array.isArray(result.errors) ? result.errors : ['Invalid value'],
           isActiveTab: true,
         };
@@ -3601,30 +3176,19 @@ function handleMfSave() {
     }
   }
 
-  // ── Pass 2: defensively check OTHER tabs' frozenValues ──
-  // Re-validate by checking the snapshot shape. For MF04 the bad
-  // state is `{enabled: true, value: null}`. We check that pattern
-  // rather than calling validate() because the instances are gone.
   if (!firstFailure) {
     for (let s = 0; s < activeSubGroups.length; s++) {
-      if (s === activeSubGroupIdx) continue;  // active tab handled above
+      if (s === activeSubGroupIdx) continue;
       const sub = activeSubGroups[s];
       const snapshot = sub.frozenValues || [];
       for (let i = 0; i < snapshot.length; i++) {
         const entry = snapshot[i];
-        // MF04 invalid pattern
-        if (entry.mf_code === 'MF04'
-            && entry.value
-            && typeof entry.value === 'object'
+        if (entry.mf_code === 'MF04' && entry.value && typeof entry.value === 'object'
             && entry.value.enabled === true
-            && (entry.value.value === null
-                || entry.value.value === undefined
-                || isNaN(entry.value.value))) {
+            && (entry.value.value === null || entry.value.value === undefined || isNaN(entry.value.value))) {
           firstFailure = {
-            subIdx: s,
-            ruleIdx: entry.rule_idx,
-            mfCode: entry.mf_code,
-            label: entry.display_label,
+            subIdx: s, ruleIdx: entry.rule_idx,
+            mfCode: entry.mf_code, label: entry.display_label,
             errors: ['Please enter a value.'],
             isActiveTab: false,
           };
@@ -3637,61 +3201,41 @@ function handleMfSave() {
 
   if (firstFailure) {
     console.log('[D17] Save blocked — validation failed:', firstFailure);
-
-    // Build a friendly toast message
-    const subLabel = activeSubGroups.length > 1
-      ? ('Sub ' + (firstFailure.subIdx + 1) + ' — ')
-      : '';
+    const subLabel = activeSubGroups.length > 1 ? ('Sub ' + (firstFailure.subIdx + 1) + ' — ') : '';
     const errText = firstFailure.errors[0] || 'Invalid value';
     showToast(subLabel + (firstFailure.label || firstFailure.mfCode) + ': ' + errText, true);
-
-    // If failure is on a non-active tab, switch to it so user can fix
     if (!firstFailure.isActiveTab) {
       freezeActiveSub();
       destroyActiveSubInstances();
       activeSubGroupIdx = firstFailure.subIdx;
       renderTabs();
       renderActiveSubTab();
-      // After re-render the row exists, then mark it. Use setTimeout
-      // to wait for renderMfElements to finish painting.
-      setTimeout(function () {
-        markInvalidRow(firstFailure.ruleIdx, firstFailure.errors);
-      }, 0);
+      setTimeout(function () { markInvalidRow(firstFailure.ruleIdx, firstFailure.errors); }, 0);
     } else {
       markInvalidRow(firstFailure.ruleIdx, firstFailure.errors);
     }
     return;
   }
 
-  // ── Validate split sum ──
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
     showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ')', true);
     return;
   }
-  if (activeSkuQty < 1) {
-    showToast('SKU qty must be at least 1', true);
-    return;
-  }
-  if (activeSubGroups.length === 0) {
-    showToast('At least one sub-group required', true);
-    return;
-  }
+  if (activeSkuQty < 1) { showToast('SKU qty must be at least 1', true); return; }
+  if (activeSubGroups.length === 0) { showToast('At least one sub-group required', true); return; }
 
-  // ── Freeze the active tab so we have a uniform read path below ──
   freezeActiveSub();
 
-  // ── Collect per-sub modifications ──
   const newSubGroups = [];
   let totalLineCost = 0;
-  let taxableLineCost = 0;  // F-TAX: for debug logging only
+  let taxableLineCost = 0;
 
   activeSubGroups.forEach(function (sub, i) {
     const snapshot = sub.frozenValues || [];
     const kept = snapshot.filter(function (entry) {
       return shouldKeepModification(entry.value);
     }).map(function (entry) {
-      // F-TAX: resolve tax_status per entry and snapshot it
       const taxStatus = resolveTaxStatusForEntry(entry);
       return {
         rule_idx:      entry.rule_idx,
@@ -3699,13 +3243,10 @@ function handleMfSave() {
         display_label: entry.display_label,
         value:         entry.value,
         cost:          (typeof entry.cost === 'number' && isFinite(entry.cost)) ? entry.cost : 0,
-        tax_status:    taxStatus,   // F-TAX: snapshot
+        tax_status:    taxStatus,
       };
     });
-
-    // Q14 (A): no kept mods → skipped; else configured
     const status = kept.length > 0 ? 'configured' : 'skipped';
-
     const perUnit        = kept.reduce(function (s, m) { return s + (m.cost || 0); }, 0);
     const perUnitTaxable = kept.reduce(function (s, m) {
       return s + (m.tax_status === true ? (m.cost || 0) : 0);
@@ -3714,32 +3255,37 @@ function handleMfSave() {
     taxableLineCost += perUnitTaxable * (sub.qty || 0);
 
     newSubGroups.push({
-      sub_index:           i + 1,
-      qty:                 sub.qty,
-      modifications:       kept,
-      modification_status: status,
+      sub_index: i + 1, qty: sub.qty,
+      modifications: kept, modification_status: status,
     });
   });
 
-  // ── Write back ──
-  const oldQty = item.quantity;
-  item.quantity   = activeSkuQty;
-  item.sub_groups = newSubGroups;
+  // F-RTA-SWITCH: write back type + fee + key
+  const oldQty  = item.quantity;
+  const oldType = item.type;
+  const oldKey  = item.key;
+  item.quantity     = activeSkuQty;
+  item.sub_groups   = newSubGroups;
+  item.type         = 'Assembled';
+  item.assemble_fee = activeAssembleFee;
+  item.key          = item.sku_code + '_Assembled';
 
-  console.log('[E4.6] handleMfSave', activeMfModalKey,
+  console.log('[E4.6] handleMfSave', oldKey,
               '→', newSubGroups.length, 'sub-group(s),',
               'total line cost $' + totalLineCost.toFixed(2),
               (oldQty !== activeSkuQty ? '(SKU qty: ' + oldQty + ' → ' + activeSkuQty + ')' : ''));
+  if (oldType !== 'Assembled') {
+    console.log('[F-RTA-SWITCH] Type changed: ' + oldType + ' → Assembled, assemble_fee=$' + activeAssembleFee.toFixed(2));
+  }
   console.log('[F-TAX]   Taxable mods line cost: $' + taxableLineCost.toFixed(2) +
               ' (of $' + totalLineCost.toFixed(2) + ' total)');
   newSubGroups.forEach(function (g) {
     console.log('  Sub ' + g.sub_index + ' qty=' + g.qty +
-                ' status=' + g.modification_status +
-                ' mods=' + g.modifications.length +
+                ' status=' + g.modification_status + ' mods=' + g.modifications.length +
                 ' taxable=' + g.modifications.filter(function (m) { return m.tax_status === true; }).length);
     g.modifications.forEach(function (m) {
-      console.log('     · ' + m.mf_code + ' "' + m.display_label + '" cost=$' + (m.cost || 0).toFixed(2) +
-                  ' tax_status=' + m.tax_status);
+      console.log('     · ' + m.mf_code + ' "' + m.display_label + '" cost=$' +
+                  (m.cost || 0).toFixed(2) + ' tax_status=' + m.tax_status);
     });
   });
 
@@ -3749,14 +3295,16 @@ function handleMfSave() {
   showToast(skuCode + ' configured — $' + totalLineCost.toFixed(2));
 }
 
-/**
- * E5 + Q12 (A): Skip clears ALL sub-groups' modifications.
- * Sub-group structure is preserved (qty + sub_index unchanged).
- */
 function handleMfSkip() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
+
+  // F-RTA-SWITCH: in RTA mode, Skip == Save
+  if (activeAssemblyType === 'RTA') {
+    handleMfSave();
+    return;
+  }
 
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
@@ -3765,19 +3313,19 @@ function handleMfSkip() {
   }
 
   const newSubGroups = activeSubGroups.map(function (sub, i) {
-    return {
-      sub_index:           i + 1,
-      qty:                 sub.qty,
-      modifications:       [],
-      modification_status: 'skipped',
-    };
+    return { sub_index: i + 1, qty: sub.qty, modifications: [], modification_status: 'skipped' };
   });
 
-  item.quantity   = activeSkuQty;
-  item.sub_groups = newSubGroups;
+  const oldType = item.type;
+  item.quantity     = activeSkuQty;
+  item.sub_groups   = newSubGroups;
+  item.type         = 'Assembled';
+  item.assemble_fee = activeAssembleFee;
+  item.key          = item.sku_code + '_Assembled';
 
   console.log('[E4.6] handleMfSkip', activeMfModalKey,
-              '→ all', newSubGroups.length, 'sub-group(s) cleared & skipped');
+              '→ all', newSubGroups.length, 'sub-group(s) cleared & skipped',
+              (oldType !== 'Assembled' ? '(was ' + oldType + ')' : ''));
 
   refreshAfterModalAction();
   const skuCode = item.sku_code;
@@ -3786,10 +3334,7 @@ function handleMfSkip() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// F-MODS-TOTAL: 一行總金額 bar(2026-05-13)
-//   遍歷所有 cartItems 的所有 sub_groups 的所有 modifications,
-//   Σ(mod.cost × sub.qty)
-//   在 refreshAfterModalAction / onDeleteSkuClick 後呼叫
+// F-MODS-TOTAL
 // ═══════════════════════════════════════════════════════════════════
 function calculateAllModificationsTotal() {
   let total = 0;
@@ -3806,7 +3351,6 @@ function calculateAllModificationsTotal() {
   });
   return total;
 }
-
 function renderModsTotalBar() {
   const valueEl = document.getElementById('modsTotalBarValue');
   if (!valueEl) return;
@@ -3817,40 +3361,22 @@ function renderModsTotalBar() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// F-SWAP: Swap Door Style (2026-05-13)
-//
-//   Scope: same construction type only (Framed↔Framed, Frameless↔Frameless).
-//   Granularity: per door style group (replace ALL SKUs of that group).
-//   Preserved: sku_code, modifications, sub_groups, modification_status,
-//              assemble_fee (依 dealer × cabinet_type,不依 style).
-//   Recomputed: unit_price (用新 style 的 grp × dealer multiplier).
-//   Audit: console.log only, no DB column.
-//
-//   State while swap modal is open:
-//     swapState.currentStyleCode = 當前要換掉的 group code
-//     swapState.selectedNewStyleCode = user 在 modal 內選的新 style code
+// F-SWAP: Swap Door Style
 // ═══════════════════════════════════════════════════════════════════
 
-let swapState = {
-  currentStyleCode: null,
-  selectedNewStyleCode: null,
-};
+let swapState = { currentStyleCode: null, selectedNewStyleCode: null };
 
 function getMultiplierForStyle(style) {
-  // 跟 new-quote-step2.html 的 renderSkuTable 同邏輯
   if (!dealer || !style) return 1;
   const isFrameless = (style.construction_type || '').toLowerCase() === 'frameless';
   const isStock = !!style.is_stock;
-  if (isFrameless) {
-    return parseFloat(dealer.frameless_multiplier || 1) || 1;
-  }
+  if (isFrameless) return parseFloat(dealer.frameless_multiplier || 1) || 1;
   return isStock
     ? (parseFloat(dealer.stock_multiplier     || 1) || 1)
     : (parseFloat(dealer.non_stock_multiplier || 1) || 1);
 }
 
 function getMsrpForStyleGroup(sku, grp) {
-  // 跟 new-quote-step2.html 的 getMsrpForGroup 同邏輯
   const g = (grp || 'GROUP A').toUpperCase();
   const v = g === 'GROUP D' ? sku.msrp_group_d
           : g === 'GROUP C' ? sku.msrp_group_c
@@ -3861,7 +3387,6 @@ function getMsrpForStyleGroup(sku, grp) {
   return isNaN(n) ? null : n;
 }
 
-// Cache for SKU master tables — lazily populated on first openSwapModal()
 let _swapSkuCache = { framed: null, frameless: null };
 async function ensureSwapSkuCache() {
   if (_swapSkuCache.framed && _swapSkuCache.frameless) return;
@@ -3877,26 +3402,15 @@ async function ensureSwapSkuCache() {
 }
 
 async function openSwapModal(currentStyleCode) {
-  const currentStyle = allDoorStyles.find(function (s) {
-    return s.style_code === currentStyleCode;
-  });
-  if (!currentStyle) {
-    showToast('Current style not found', true);
-    return;
-  }
+  const currentStyle = allDoorStyles.find(function (s) { return s.style_code === currentStyleCode; });
+  if (!currentStyle) { showToast('Current style not found', true); return; }
 
-  // Lazy-load SKU master if not already
   try { await ensureSwapSkuCache(); }
-  catch (e) {
-    console.warn('[F-SWAP] Failed to load SKU cache:', e);
-    showToast('Failed to load product data', true);
-    return;
-  }
+  catch (e) { console.warn('[F-SWAP] Failed to load SKU cache:', e); showToast('Failed to load product data', true); return; }
 
   swapState.currentStyleCode = currentStyleCode;
   swapState.selectedNewStyleCode = null;
 
-  // ── Current card ──
   const thumbEl = document.getElementById('swapCurrentThumb');
   if (currentStyle.image_url) {
     thumbEl.innerHTML = '<img src="' + esc(currentStyle.image_url) + '" alt=""/>';
@@ -3910,18 +3424,12 @@ async function openSwapModal(currentStyleCode) {
     (currentStyle.construction_type || '—') +
     (currentStyle.grp ? ' · ' + currentStyle.grp : '');
 
-  // ── Update section label ──
   const ctype = (currentStyle.construction_type || '').toLowerCase();
-  const ctypeLabel = ctype === 'framed' ? 'Framed'
-                  : ctype === 'frameless' ? 'Frameless'
-                  : 'same construction type';
-  document.getElementById('swapPickLabel').textContent =
-    'Pick a replacement style (' + ctypeLabel + ' only)';
+  const ctypeLabel = ctype === 'framed' ? 'Framed' : ctype === 'frameless' ? 'Frameless' : 'same construction type';
+  document.getElementById('swapPickLabel').textContent = 'Pick a replacement style (' + ctypeLabel + ' only)';
 
-  // ── Style grid (same construction type, exclude current) ──
   renderSwapStyleGrid(currentStyle);
 
-  // ── Reset preview ──
   document.getElementById('swapPreviewMount').innerHTML =
     '<div class="swap-preview-empty">Select a style above to see the price changes.</div>';
   document.getElementById('swapConfirmBtn').disabled = true;
@@ -3930,8 +3438,7 @@ async function openSwapModal(currentStyleCode) {
   document.body.classList.add('mf-modal-open');
 
   console.log('[F-SWAP] openSwapModal — current:', currentStyleCode,
-              '(' + currentStyle.style_name + '),',
-              'construction:', ctype);
+              '(' + currentStyle.style_name + '), construction:', ctype);
 }
 
 function renderSwapStyleGrid(currentStyle) {
@@ -3940,11 +3447,9 @@ function renderSwapStyleGrid(currentStyle) {
     if (!s) return false;
     const sCtype = (s.construction_type || '').toLowerCase();
     if (sCtype !== ctype) return false;
-    if (s.is_coming_soon) return false;  // 沿用 step2 的規則
+    if (s.is_coming_soon) return false;
     return true;
   });
-
-  // Sort: same brand first, then by subcategory, then by name
   candidates.sort(function (a, b) {
     const aBrand = a.brand === currentStyle.brand ? 0 : 1;
     const bBrand = b.brand === currentStyle.brand ? 0 : 1;
@@ -3957,8 +3462,7 @@ function renderSwapStyleGrid(currentStyle) {
 
   const gridEl = document.getElementById('swapStyleGrid');
   if (!candidates.length) {
-    gridEl.innerHTML =
-      '<div style="grid-column:1/-1;padding:20px;text-align:center;font-size:12px;color:var(--muted);">' +
+    gridEl.innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;font-size:12px;color:var(--muted);">' +
       'No other styles available for ' + esc(ctype) + ' construction.</div>';
     return;
   }
@@ -3966,22 +3470,16 @@ function renderSwapStyleGrid(currentStyle) {
   gridEl.innerHTML = candidates.map(function (s) {
     const isCurrent = s.style_code === currentStyle.style_code;
     const cardClass = 'swap-style-card' + (isCurrent ? ' current' : '');
-    const onClick = isCurrent ? '' :
-      ' onclick="onSwapStyleSelect(\'' + esc(s.style_code) + '\')"';
+    const onClick = isCurrent ? '' : ' onclick="onSwapStyleSelect(\'' + esc(s.style_code) + '\')"';
     const img = s.image_url
       ? '<img src="' + esc(s.image_url) + '" alt="" loading="lazy"/>'
-      : '<div style="width:100%;height:100%;background:' +
-        esc(colorMap[s.color] || '#8A8A8A') + ';"></div>';
-    return '' +
-      '<div class="' + cardClass + '" data-style-code="' + esc(s.style_code) + '"' + onClick + '>' +
+      : '<div style="width:100%;height:100%;background:' + esc(colorMap[s.color] || '#8A8A8A') + ';"></div>';
+    return '<div class="' + cardClass + '" data-style-code="' + esc(s.style_code) + '"' + onClick + '>' +
         '<div class="swap-style-img-wrap">' + img + '</div>' +
         '<div class="swap-style-info">' +
           '<div class="swap-style-name">' + esc(s.style_name) +
-            (isCurrent ? ' <span style="color:var(--muted);font-weight:400;font-size:9px;">(current)</span>' : '') +
-          '</div>' +
-          '<div class="swap-style-code">' + esc(s.style_code) +
-            (s.grp ? ' · ' + esc(s.grp) : '') +
-          '</div>' +
+            (isCurrent ? ' <span style="color:var(--muted);font-weight:400;font-size:9px;">(current)</span>' : '') + '</div>' +
+          '<div class="swap-style-code">' + esc(s.style_code) + (s.grp ? ' · ' + esc(s.grp) : '') + '</div>' +
         '</div>' +
       '</div>';
   }).join('');
@@ -3990,41 +3488,27 @@ function renderSwapStyleGrid(currentStyle) {
 function onSwapStyleSelect(newStyleCode) {
   if (newStyleCode === swapState.currentStyleCode) return;
   swapState.selectedNewStyleCode = newStyleCode;
-
-  // Highlight selected card
   document.querySelectorAll('#swapStyleGrid .swap-style-card').forEach(function (card) {
     const code = card.getAttribute('data-style-code');
     card.classList.toggle('selected', code === newStyleCode);
   });
-
   renderSwapPreview(newStyleCode);
   document.getElementById('swapConfirmBtn').disabled = false;
 }
 
 function renderSwapPreview(newStyleCode) {
-  const currentStyle = allDoorStyles.find(function (s) {
-    return s.style_code === swapState.currentStyleCode;
-  });
-  const newStyle = allDoorStyles.find(function (s) {
-    return s.style_code === newStyleCode;
-  });
+  const currentStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.currentStyleCode; });
+  const newStyle = allDoorStyles.find(function (s) { return s.style_code === newStyleCode; });
   if (!currentStyle || !newStyle) return;
 
-  // 取得這個 group 內所有 cart items
-  const groupItems = cartItems.filter(function (item) {
-    return item.style_code === swapState.currentStyleCode;
-  });
-
+  const groupItems = cartItems.filter(function (item) { return item.style_code === swapState.currentStyleCode; });
   if (!groupItems.length) {
-    document.getElementById('swapPreviewMount').innerHTML =
-      '<div class="swap-preview-empty">No items in this group.</div>';
+    document.getElementById('swapPreviewMount').innerHTML = '<div class="swap-preview-empty">No items in this group.</div>';
     return;
   }
 
   const ctype = (newStyle.construction_type || '').toLowerCase();
-  const skuMaster = ctype === 'frameless'
-    ? _swapSkuCache.frameless
-    : _swapSkuCache.framed;
+  const skuMaster = ctype === 'frameless' ? _swapSkuCache.frameless : _swapSkuCache.framed;
   const newMultiplier = getMultiplierForStyle(newStyle);
   const newGrp = newStyle.grp || 'GROUP A';
 
@@ -4037,28 +3521,19 @@ function renderSwapPreview(newStyleCode) {
     let newUnitPrice = null;
     if (sku) {
       const newMsrp = getMsrpForStyleGroup(sku, newGrp);
-      if (newMsrp !== null) {
-        newUnitPrice = newMsrp * newMultiplier;
-      }
+      if (newMsrp !== null) newUnitPrice = newMsrp * newMultiplier;
     }
-
     const oldUnitPrice = item.unit_price || 0;
     const qty = item.quantity || 0;
     const oldLine = oldUnitPrice * qty;
     const newLine = (newUnitPrice !== null) ? newUnitPrice * qty : null;
     const delta = (newLine !== null) ? newLine - oldLine : 0;
-
     if (newUnitPrice === null) unpriced++;
     if (newUnitPrice !== null) totalDelta += delta;
-
     rows.push({
-      sku_code:   item.sku_code,
-      sku_desc:   item.sku_desc,
-      qty:        qty,
-      oldPrice:   oldUnitPrice,
-      newPrice:   newUnitPrice,
-      delta:      delta,
-      unpriced:   newUnitPrice === null,
+      sku_code: item.sku_code, sku_desc: item.sku_desc, qty: qty,
+      oldPrice: oldUnitPrice, newPrice: newUnitPrice, delta: delta,
+      unpriced: newUnitPrice === null,
     });
   });
 
@@ -4072,7 +3547,6 @@ function renderSwapPreview(newStyleCode) {
     '<th class="th-right">New Unit</th>' +
     '<th class="th-right">Δ Line Total</th>' +
     '</tr></thead><tbody>';
-
   rows.forEach(function (r) {
     let newCell, deltaCell;
     if (r.unpriced) {
@@ -4080,9 +3554,7 @@ function renderSwapPreview(newStyleCode) {
       deltaCell = '<span style="color:var(--error);font-size:11px;">—</span>';
     } else {
       newCell = '$' + r.newPrice.toFixed(2);
-      const dClass = r.delta > 0 ? 'price-delta-pos'
-                   : r.delta < 0 ? 'price-delta-neg'
-                   : 'price-delta-zero';
+      const dClass = r.delta > 0 ? 'price-delta-pos' : r.delta < 0 ? 'price-delta-neg' : 'price-delta-zero';
       const dSign = r.delta > 0 ? '+' : '';
       deltaCell = '<span class="' + dClass + '">' + dSign + '$' + r.delta.toFixed(2) + '</span>';
     }
@@ -4099,18 +3571,14 @@ function renderSwapPreview(newStyleCode) {
 
   html += '<div class="swap-preview-summary">' +
     '<span class="swap-preview-summary-label">Total Change</span>' +
-    '<span class="swap-preview-summary-value ' + deltaClass + '">' +
-      deltaSign + '$' + totalDelta.toFixed(2) +
-    '</span>' +
+    '<span class="swap-preview-summary-value ' + deltaClass + '">' + deltaSign + '$' + totalDelta.toFixed(2) + '</span>' +
   '</div>';
 
   if (unpriced > 0) {
     html += '<div style="margin-top:10px;padding:10px 14px;background:rgba(192,57,43,0.06);' +
-      'border-left:3px solid var(--error);border-radius:3px;font-size:11px;line-height:1.5;' +
-      'color:var(--text);">' +
-      '⚠ ' + unpriced + ' SKU(s) have no price for ' + esc(newStyle.style_name) + '\'s ' +
-      esc(newGrp) + '. Their unit prices will be set to $0.00 after swap — ' +
-      'please review carefully.</div>';
+      'border-left:3px solid var(--error);border-radius:3px;font-size:11px;line-height:1.5;color:var(--text);">' +
+      '⚠ ' + unpriced + ' SKU(s) have no price for ' + esc(newStyle.style_name) + '\'s ' + esc(newGrp) +
+      '. Their unit prices will be set to $0.00 after swap — please review carefully.</div>';
   }
 
   document.getElementById('swapPreviewMount').innerHTML = html;
@@ -4128,19 +3596,10 @@ function confirmSwap() {
     showToast('Please select a replacement style', true);
     return;
   }
+  const newStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.selectedNewStyleCode; });
+  const oldStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.currentStyleCode; });
+  if (!newStyle || !oldStyle) { showToast('Style not found', true); return; }
 
-  const newStyle = allDoorStyles.find(function (s) {
-    return s.style_code === swapState.selectedNewStyleCode;
-  });
-  const oldStyle = allDoorStyles.find(function (s) {
-    return s.style_code === swapState.currentStyleCode;
-  });
-  if (!newStyle || !oldStyle) {
-    showToast('Style not found', true);
-    return;
-  }
-
-  // ── Final guard: same construction type ──
   const oldCtype = (oldStyle.construction_type || '').toLowerCase();
   const newCtype = (newStyle.construction_type || '').toLowerCase();
   if (oldCtype !== newCtype) {
@@ -4148,10 +3607,7 @@ function confirmSwap() {
     return;
   }
 
-  // ── Recompute unit_price for every cart item in this group ──
-  const skuMaster = newCtype === 'frameless'
-    ? _swapSkuCache.frameless
-    : _swapSkuCache.framed;
+  const skuMaster = newCtype === 'frameless' ? _swapSkuCache.frameless : _swapSkuCache.framed;
   const newMultiplier = getMultiplierForStyle(newStyle);
   const newGrp = newStyle.grp || 'GROUP A';
 
@@ -4159,50 +3615,31 @@ function confirmSwap() {
   let unpriced = 0;
   cartItems.forEach(function (item) {
     if (item.style_code !== swapState.currentStyleCode) return;
-
     const sku = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
     let newUnitPrice = 0;
     let newMsrp = 0;
     if (sku) {
       const msrp = getMsrpForStyleGroup(sku, newGrp);
-      if (msrp !== null) {
-        newMsrp = msrp;
-        newUnitPrice = msrp * newMultiplier;
-      } else {
-        unpriced++;
-      }
-    } else {
-      unpriced++;
-    }
+      if (msrp !== null) { newMsrp = msrp; newUnitPrice = msrp * newMultiplier; }
+      else { unpriced++; }
+    } else { unpriced++; }
 
     const oldUnitPrice = item.unit_price;
     item.style_code = newStyle.style_code;
     item.style_name = newStyle.style_name;
     item.unit_price = newUnitPrice;
     item.msrp       = newMsrp;
-    // assemble_fee 不變(依 dealer × cabinet_type)
-    // sub_groups, modifications, modification_status, quantity 全部保留
-    // key 不變(它的格式是 sku_code_assemble_status,跟 style 無關)
     swappedCount++;
-
-    // Audit log
     console.log('[F-SWAP]   item:', item.sku_code,
                 'unit_price:', oldUnitPrice.toFixed(2), '→', newUnitPrice.toFixed(2),
                 (newUnitPrice === 0 && oldUnitPrice !== 0 ? ' ⚠ N/A in new style' : ''));
   });
 
-  // ── Audit log ──
-  console.log('[F-SWAP] CONFIRM:',
-              oldStyle.style_code, '(' + oldStyle.style_name + ')',
-              '→',
-              newStyle.style_code, '(' + newStyle.style_name + ')',
-              '·', swappedCount, 'item(s) re-priced',
-              '·', new Date().toISOString());
-  if (unpriced > 0) {
-    console.warn('[F-SWAP] ⚠', unpriced, 'item(s) had no price in new style — unit_price set to 0');
-  }
+  console.log('[F-SWAP] CONFIRM:', oldStyle.style_code, '(' + oldStyle.style_name + ')',
+              '→', newStyle.style_code, '(' + newStyle.style_name + ')',
+              '·', swappedCount, 'item(s) re-priced', '·', new Date().toISOString());
+  if (unpriced > 0) console.warn('[F-SWAP] ⚠', unpriced, 'item(s) had no price in new style — unit_price set to 0');
 
-  // ── Refresh UI ──
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
   renderProgressCard(pageProgress);
@@ -4212,8 +3649,7 @@ function confirmSwap() {
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
   closeSwapModal();
-  showToast('Swapped to ' + newStyle.style_name +
-            (unpriced > 0 ? ' (' + unpriced + ' unpriced — please review)' : ''));
+  showToast('Swapped to ' + newStyle.style_name + (unpriced > 0 ? ' (' + unpriced + ' unpriced — please review)' : ''));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -4222,13 +3658,8 @@ function confirmSwap() {
 
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
-  if (!session) {
-    window.location.href = 'login.html';
-    return;
-  }
+  if (!session) { window.location.href = 'login.html'; return; }
 
-  // D09 fix: pull role alongside is_active so we can do role-aware
-  // effectiveRole logic for the Return→Edit / Draft-edit paths below.
   const { data: meRow } = await _supabase
     .from('dealers').select('is_active, role').eq('id', session.user.id).single();
   if (!meRow?.is_active) {
@@ -4244,32 +3675,19 @@ async function init() {
     const s1 = sessionStorage.getItem('quoteStep1');
     if (s1) {
       const parsed = JSON.parse(s1);
-      if (parsed?.isResumingReturned) {
-        isResumingReturned = true;
-      }
+      if (parsed?.isResumingReturned) isResumingReturned = true;
     }
-  } catch (_) { /* ignore */ }
+  } catch (_) {}
 
-  // D09 fix: fetch the quote status (for ?draft=<uuid> paths) so admin
-  // viewing a Returned-or-Draft quote can be promoted to admin context
-  // even when sessionStorage.quoteStep1.adminDraft isn't set (e.g. the
-  // Return→Edit path doesn't go through the "Create as dealer" flow).
   let quoteStatus = null;
   if (draftId) {
-    const { data: q } = await _supabase
-      .from('quotes')
-      .select('dealer_id, status')
-      .eq('id', draftId)
-      .single();
-    if (q) {
-      quoteStatus = q.status || null;
-    }
+    const { data: q } = await _supabase.from('quotes').select('dealer_id, status').eq('id', draftId).single();
+    if (q) quoteStatus = q.status || null;
   }
 
   let dealerIdToLoad = session.user.id;
   if (draftId) {
-    const { data: q } = await _supabase
-      .from('quotes').select('dealer_id').eq('id', draftId).single();
+    const { data: q } = await _supabase.from('quotes').select('dealer_id').eq('id', draftId).single();
     if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
   } else {
     try {
@@ -4278,7 +3696,7 @@ async function init() {
         const parsed = JSON.parse(s1);
         if (parsed?.dealerIdForQuote) dealerIdToLoad = parsed.dealerIdForQuote;
       }
-    } catch (_) { /* ignore */ }
+    } catch (_) {}
   }
 
   if (draftId) {
@@ -4286,12 +3704,8 @@ async function init() {
     if (backBtn) backBtn.href = 'new-quote-step2.html?draft=' + draftId;
   }
 
-  const { data: d } = await _supabase
-    .from('dealers').select('*').eq('id', dealerIdToLoad).single();
-  if (!d) {
-    alert('Could not load dealer data. Please go back and try again.');
-    return;
-  }
+  const { data: d } = await _supabase.from('dealers').select('*').eq('id', dealerIdToLoad).single();
+  if (!d) { alert('Could not load dealer data. Please go back and try again.'); return; }
   dealer = d;
 
   const [styleRes, framedRes, framelessRes] = await Promise.all([
@@ -4303,28 +3717,19 @@ async function init() {
   const allSkusFramed    = framedRes.data    || [];
   const allSkusFrameless = framelessRes.data || [];
 
-  // ════════════════════════════════════════════════════════════════
-  // D14b fix: Same bug as Step 2 — distinguish "key never written"
-  // (null) from "key written as empty []". Without this, deleting
-  // the last SKU here, then navigating away & back, would silently
-  // re-fetch the deleted SKU from DB.
-  // ════════════════════════════════════════════════════════════════
   if (draftId) {
     const savedCart = sessionStorage.getItem('quoteStep2');
     if (savedCart !== null) {
-      try {
-        cartItems = JSON.parse(savedCart) || [];
-      } catch (e) {
+      try { cartItems = JSON.parse(savedCart) || []; }
+      catch (e) {
         console.warn('[D14b] Failed to parse quoteStep2, falling back to DB', e);
         cartItems = [];
         cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
       }
-      console.log('[D14b] Step 2.5 restored cart from sessionStorage:',
-                  cartItems.length, 'item(s) (key existed)');
+      console.log('[D14b] Step 2.5 restored cart from sessionStorage:', cartItems.length, 'item(s) (key existed)');
     } else {
       cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
-      console.log('[D14b] Step 2.5 first load — fetched from DB:',
-                  cartItems.length, 'item(s)');
+      console.log('[D14b] Step 2.5 first load — fetched from DB:', cartItems.length, 'item(s)');
     }
   } else {
     const savedCart = sessionStorage.getItem('quoteStep2');
@@ -4335,9 +3740,7 @@ async function init() {
   }
 
   cartItems = normalizeCartItems(cartItems);
-  cartItems.forEach(function (item) {
-    if (!item.key) item.key = item.sku_code + '_' + item.type;
-  });
+  cartItems.forEach(function (item) { if (!item.key) item.key = item.sku_code + '_' + item.type; });
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
   if (!cartItems.length) {
@@ -4352,35 +3755,17 @@ async function init() {
   renderProgressCard(pageProgress);
   renderDoorStyleList();
   renderBottomBar(pageProgress);
-  renderModsTotalBar();  // F-MODS-TOTAL: 初次渲染
+  renderModsTotalBar();
 
   if (isResumingReturned) {
     document.getElementById('returnedBannerMount').innerHTML =
       buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
   }
-
   if (pageProgress.total === 0) {
     document.getElementById('noAssembledBannerMount').innerHTML = buildNoAssembledBanner();
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // D09 fix: role-aware effectiveRole resolution.
-  //
-  // Three ways to be in "admin context":
-  //   1. sessionStorage.quoteStep1.adminDraft === true
-  //        (legacy: admin creates a new draft for a dealer via the
-  //         "Create as dealer" flow)
-  //   2. The logged-in user's DB role is admin OR super_admin AND
-  //      the quote being edited is in Draft or Returned status
-  //        (this covers: admin clicks Return→Edit, admin opens any
-  //         dealer's draft, admin resumes their own draft)
-  //   3. No draftId at all AND user is admin/super_admin
-  //        (defensive: admin starting a fresh quote — treat as admin)
-  //
-  // Outside Draft/Returned (Pending, Approved, etc.), admin still
-  // only gets read views elsewhere; this page should only be
-  // reachable in editable states anyway.
-  // ════════════════════════════════════════════════════════════════
+  // D09: role-aware effectiveRole resolution
   const dbRole = (meRow.role || '').toLowerCase();
   const isAdminRole = dbRole === 'admin' || dbRole === 'super_admin';
 
@@ -4396,7 +3781,7 @@ async function init() {
         adminContextReason = 'sessionStorage.adminDraft=true';
       }
     }
-  } catch (_) { /* ignore */ }
+  } catch (_) {}
 
   if (!isAdminContext && isAdminRole) {
     if (draftId && (quoteStatus === 'Draft' || quoteStatus === 'Returned')) {
@@ -4411,8 +3796,7 @@ async function init() {
   effectiveRole = isAdminContext ? 'admin' : 'dealer';
 
   console.log('[D09] effectiveRole =', effectiveRole,
-              '(dbRole=' + dbRole +
-              ', isAdminRole=' + isAdminRole +
+              '(dbRole=' + dbRole + ', isAdminRole=' + isAdminRole +
               ', draftId=' + (draftId || 'null') +
               ', quoteStatus=' + (quoteStatus || 'null') +
               ', reason: ' + (adminContextReason || 'no admin trigger') + ')');
@@ -4437,10 +3821,13 @@ async function init() {
   console.log('[F3.1] Re-hydrate + Option B (read-only admin MF07, RLS-aware) ready');
   console.log('[F-TAX] tax_status snapshot active (MF07 per-instance, MF1-6 per-rule)');
   console.log('[D09] Role-aware effectiveRole resolution active');
-  console.log('[D17] MF validate() gate active on Save (toggle-on-with-empty-value blocked)');
+  console.log('[D17] MF validate() gate active on Save');
   console.log('[F-SWAP] Door style swap ready (same construction type only)');
   console.log('[F-MODS-TOTAL] Modifications total bar ready');
   console.log('[F-CUSTOM] Phase 3 ready — custom Cabinet+Assembled can mod, Accessory/Other cannot');
+  console.log('[F-BINDING-GROUP] Primary↔dependent sync ready (MF02 Glass ↔ MF03 Prep For Glass)');
+  console.log('[F-GLASS-MULTIPLIER] Coordinator yields cost label to MF02 for double-door rules');
+  console.log('[F-RTA-SWITCH] RTA/Assembled segmented control + grey-out body ready');
 
   setInterval(async function () {
     const { data: check } = await _supabase
@@ -4456,3 +3843,4 @@ init();
 </script>
 </body>
 </html>
+
