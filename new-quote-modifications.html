@@ -1493,7 +1493,14 @@ function buildNoAssembledBanner() {
 // ═══════════════════════════════════════════════════════════════════
 function getAssembleFeeForItem(dealer, item) {
   if (!dealer || !item) return 0;
-  const ctype = (item.construction_type || '').toLowerCase();
+
+  // construction_type is on the door_style row, not on cartItem.
+  let ctype = (item.construction_type || '').toLowerCase();
+  if (!ctype && item.style_code && Array.isArray(allDoorStyles)) {
+    const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+    if (styleRow) ctype = (styleRow.construction_type || '').toLowerCase();
+  }
+
   const skuType = (item.skuType || '').toUpperCase();
   if (ctype !== 'framed' && ctype !== 'frameless') return 0;
   const map = {
@@ -1504,7 +1511,7 @@ function getAssembleFeeForItem(dealer, item) {
     'ROLL_OUT_TRAY': 'asm_fee_' + ctype + '_roll_out_tray',
   };
   const col = map[skuType];
-  if (!col) return 0;  // framed+VANITY, ACCESSORIES, OTHER — no column
+  if (!col) return 0;
   const v = parseFloat(dealer[col]);
   return isNaN(v) ? 0 : v;
 }
@@ -2686,7 +2693,14 @@ function itemSupportsAssembled(dealer, item) {
   if (!dealer || !item) return false;
   if (item.is_custom) return true;  // custom items always allow both
 
-  const ctype = (item.construction_type || '').toLowerCase();
+  // construction_type is on the door_style row, not on cartItem.
+  // Look it up via style_code.
+  let ctype = (item.construction_type || '').toLowerCase();
+  if (!ctype && item.style_code && Array.isArray(allDoorStyles)) {
+    const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+    if (styleRow) ctype = (styleRow.construction_type || '').toLowerCase();
+  }
+
   const skuType = (item.skuType || '').toUpperCase();
   if (ctype !== 'framed' && ctype !== 'frameless') return false;
 
