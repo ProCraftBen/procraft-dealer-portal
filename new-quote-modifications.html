@@ -2675,6 +2675,37 @@ function onSkuQtyChange(newVal) {
   updateSplitSummary();
 }
 // ═══════════════════════════════════════════════════════════════════
+// F-RTA-SWITCH: Assembly type support detection
+//
+//   itemSupportsAssembled(): does this SKU have an Assembled version
+//   in the dealer's price sheet?
+//   Rule (Ben): fee column has a value (including 0) → supports
+//               Assembled; column is null/undefined → RTA only.
+// ═══════════════════════════════════════════════════════════════════
+function itemSupportsAssembled(dealer, item) {
+  if (!dealer || !item) return false;
+  if (item.is_custom) return true;  // custom items always allow both
+
+  const ctype = (item.construction_type || '').toLowerCase();
+  const skuType = (item.skuType || '').toUpperCase();
+  if (ctype !== 'framed' && ctype !== 'frameless') return false;
+
+  const map = {
+    'BASE':          'asm_fee_' + ctype + '_base',
+    'WALL':          'asm_fee_' + ctype + '_wall',
+    'TALL':          'asm_fee_' + ctype + '_tall',
+    'VANITY':        'asm_fee_' + ctype + '_vanity',
+    'ROLL_OUT_TRAY': 'asm_fee_' + ctype + '_roll_out_tray',
+  };
+  const col = map[skuType];
+  if (!col) return false;  // framed+VANITY, ACCESSORIES, OTHER
+
+  // Has value (including 0) → supports. null/undefined → does not.
+  const raw = dealer[col];
+  return raw !== null && raw !== undefined && raw !== '';
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // F-RTA-SWITCH: Assembly type switch
 // ═══════════════════════════════════════════════════════════════════
 
@@ -2683,7 +2714,16 @@ function renderAssemblySwitch(item) {
   const note = document.getElementById('mfAsmFeeNote');
   if (!wrap) return;
 
-  // F-CUSTOM: custom items don't use catalog asm fee — hide switch
+  // Hide switch entirely if this SKU has no Assembled version
+  if (!itemSupportsAssembled(dealer, item)) {
+    wrap.style.display = 'none';
+    console.log('[F-RTA-SWITCH] No Assembled version for SKU=' + item.sku_code +
+                ' (ctype=' + (item.construction_type || '?') +
+                ', skuType=' + (item.skuType || '?') + ') — switch hidden');
+    return;
+  }
+
+  // F-CUSTOM: custom items don't use catalog asm fee — also hide switch
   if (item && item.is_custom) {
     wrap.style.display = 'none';
     return;
@@ -2701,7 +2741,7 @@ function renderAssemblySwitch(item) {
     if (activeAssemblyType === 'Assembled' && activeAssembleFee > 0) {
       note.innerHTML = '<strong>+$' + activeAssembleFee.toFixed(2) + '</strong> assembly fee per unit';
     } else if (activeAssemblyType === 'Assembled') {
-      note.textContent = '';
+      note.textContent = 'No assembly fee';
     } else {
       note.textContent = 'Ships flat-packed';
     }
@@ -2723,7 +2763,219 @@ function applyRtaModeUI() {
   else body.classList.remove('rta-mode');
 }
 
-function handleAssemblyTypeChange(newType) {
+/**
+ * F-RTA-SWITCH: fetch mod rules from RPC. Called on first switch to
+ * Assembled in a modal session (avoids needing to close/reopen).
+ * Returns true on success, false on failure.
+ */
+async function fetchModRulesForActiveItem() {
+  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  if (!item) return false;
+
+  const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+  const ctype = (styleRow && styleRow.construction_type) || item.construction_type || 'unknown';
+  const doorParam = (ctype || '').toLowerCase();
+
+  if (doorParam !== 'framed' && doorParam !== 'frameless') {
+    console.warn('[E4.3] Unknown construction type for SKU', item.sku_code, '— ctype was:', ctype);
+    activeMfModalRules = [];
+    return false;
+  }
+
+  const role = effectiveRole;
+  console.log('[E4.3]   (re-fetch) door=' + doorParam +
+              ', type=' + (item.skuType || '') +
+              ', sku_code=' + (item.sku_code || '') +
+              ', role=' + role);
+
+  try {
+    const { data: rules, error } = await _supabase.rpc('match_modifications_for_sku', {
+      p_door:        doorParam,
+      p_type:        item.skuType    || '',
+      p_category:    item.category   || '',
+      p_subcategory: item.subcategory || '',
+      p_sku_code:    item.sku_code   || null
+    });
+
+    if (error) {
+      console.error('[E4.3] RPC error:', error);
+      showToast('Failed to load modifications', true);
+      activeMfModalRules = [];
+      return false;
+    }
+
+    if (activeMfModalKey !== item.key) {
+      console.log('[E4.3] RPC response stale (modal switched); ignoring.');
+      return false;
+    }
+
+    const rawRules = rules || [];
+    console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
+
+    const allSavedByMfCode = {};
+    activeSubGroups.forEach(function (sub) {
+      (sub.modifications || []).forEach(function (m) {
+        if (m && m.mf_code) allSavedByMfCode[m.mf_code + '|' + (m.display_label || '')] = m;
+      });
+    });
+    const savedCountTotal = Object.keys(allSavedByMfCode).length;
+
+    const filtered = rawRules.filter(function (r) {
+      if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
+      const allowed = r.allowed_roles.some(function (ar) { return (ar || '').toLowerCase() === role; });
+      if (allowed) return true;
+      if (role === 'dealer') {
+        return Object.values(allSavedByMfCode).some(function (s) {
+          return s.mf_code === r.mf_code && (s.display_label || '') === (r.display_label || '');
+        });
+      }
+      return false;
+    });
+
+    if (role === 'dealer' && savedCountTotal > 0) {
+      const filteredMfCodes = new Set(filtered.map(function (r) { return r.mf_code; }));
+      const missingMfCodes = [];
+      Object.values(allSavedByMfCode).forEach(function (s) {
+        if (s && s.mf_code && !filteredMfCodes.has(s.mf_code) && missingMfCodes.indexOf(s.mf_code) === -1) {
+          missingMfCodes.push(s.mf_code);
+        }
+      });
+
+      if (missingMfCodes.length) {
+        console.log('[F3.1]   Fetching admin-only rules dealer cannot see via RLS:', missingMfCodes);
+        try {
+          const { data: extraRules, error: extraErr } = await _supabase.rpc(
+            'get_modification_rules_by_codes',
+            {
+              p_mf_codes:    missingMfCodes,
+              p_door:        doorParam,
+              p_type:        item.skuType    || '',
+              p_category:    item.category   || '',
+              p_subcategory: item.subcategory || '',
+              p_sku_code:    item.sku_code   || null
+            }
+          );
+          if (activeMfModalKey !== item.key) { console.log('[F3.1]   Stale; ignoring.'); return false; }
+          if (extraErr) console.warn('[F3.1]   Failed to fetch admin-only rules:', extraErr);
+          else if (extraRules && extraRules.length) {
+            console.log('[F3.1]   Got ' + extraRules.length + ' admin-only rule(s)');
+            extraRules.forEach(function (r) { filtered.push(r); });
+          }
+        } catch (e) { console.warn('[F3.1]   Unexpected error:', e); }
+      }
+    }
+
+    let finalRules = filtered;
+
+    if (item.is_custom) {
+      const beforeFilter = finalRules.length;
+      finalRules = finalRules.filter(function (r) { return r.mf_code === 'MF07'; });
+      console.log('[F-CUSTOM] Custom item — filtered to MF07 only: ' +
+                  beforeFilter + ' → ' + finalRules.length + ' rule(s)');
+    }
+
+    // F-BINDING-GROUP: sort so primary precedes its dependents
+    // within the same binding_group. Preserves natural order otherwise.
+    finalRules = sortRulesByBindingGroup(finalRules);
+
+    activeMfModalRules = finalRules;
+
+    console.log('[E4.3]   After role filter + F3.1 + sort: ' + activeMfModalRules.length + ' rule(s)');
+    console.log('[F-BINDING-GROUP]   Order after sort:',
+      activeMfModalRules.map(function (r) {
+        const p = r.mf_params || {};
+        return r.mf_code + (p._binding_group ? ' [' + p._binding_group + '/' + (p._binding_role || '?') + ']' : '');
+      }).join(' → ')
+    );
+
+    return true;
+  } catch (e) {
+    console.error('[E4.3] Unexpected error calling RPC:', e);
+    showToast('Failed to load modifications', true);
+    activeMfModalRules = [];
+    return false;
+  }
+}
+
+/**
+ * F-BINDING-GROUP: stable sort that keeps primary immediately before
+ * its dependents within the same _binding_group. Rules without a
+ * binding_group stay in their original position relative to the
+ * group's primary.
+ */
+function sortRulesByBindingGroup(rules) {
+  if (!Array.isArray(rules) || rules.length < 2) return rules;
+
+  // Map each rule to its original index, then build groups.
+  const result = [];
+  const consumed = new Set();
+
+  rules.forEach(function (rule, idx) {
+    if (consumed.has(idx)) return;
+
+    const params = rule.mf_params || {};
+    const group = params._binding_group;
+    const role  = params._binding_role;
+
+    // Not in a binding group — emit as-is
+    if (!group) {
+      result.push(rule);
+      consumed.add(idx);
+      return;
+    }
+
+    // In a binding group. Find the primary for this group.
+    if (role === 'primary') {
+      result.push(rule);
+      consumed.add(idx);
+      // Now append any dependents in the same group
+      rules.forEach(function (other, j) {
+        if (consumed.has(j)) return;
+        const op = other.mf_params || {};
+        if (op._binding_group === group && op._binding_role === 'dependent') {
+          result.push(other);
+          consumed.add(j);
+        }
+      });
+    } else if (role === 'dependent') {
+      // Dependent encountered before its primary — find & emit primary first
+      let primaryIdx = -1;
+      for (let j = 0; j < rules.length; j++) {
+        if (consumed.has(j)) continue;
+        const op = rules[j].mf_params || {};
+        if (op._binding_group === group && op._binding_role === 'primary') {
+          primaryIdx = j;
+          break;
+        }
+      }
+      if (primaryIdx >= 0) {
+        result.push(rules[primaryIdx]);
+        consumed.add(primaryIdx);
+        // Then all dependents in the group
+        rules.forEach(function (other, j) {
+          if (consumed.has(j)) return;
+          const op = other.mf_params || {};
+          if (op._binding_group === group && op._binding_role === 'dependent') {
+            result.push(other);
+            consumed.add(j);
+          }
+        });
+      } else {
+        // No primary found in this rule set — emit dependent as-is (orphan)
+        result.push(rule);
+        consumed.add(idx);
+      }
+    } else {
+      // binding_group set but role is neither primary nor dependent — treat as orphan
+      result.push(rule);
+      consumed.add(idx);
+    }
+  });
+
+  return result;
+}
+
+async function handleAssemblyTypeChange(newType) {
   if (newType !== 'RTA' && newType !== 'Assembled') return;
   if (newType === activeAssemblyType) return;
 
@@ -2736,6 +2988,12 @@ function handleAssemblyTypeChange(newType) {
   }
 
   if (newType === 'Assembled') {
+    // Guard: SKU must actually have an Assembled version
+    if (!itemSupportsAssembled(dealer, item)) {
+      showToast('This SKU is not available in Assembled', true);
+      return;
+    }
+
     // RTA → Assembled
     const newFee = getAssembleFeeForItem(dealer, item);
     const feeNote = newFee > 0
@@ -2750,56 +3008,76 @@ function handleAssemblyTypeChange(newType) {
     activeAssemblyType = 'Assembled';
     activeAssembleFee  = newFee;
     console.log('[F-RTA-SWITCH] RTA → Assembled · SKU=' + item.sku_code + ' · fee=$' + newFee.toFixed(2));
-  } else {
-    // Assembled → RTA
-    let hasMods = false;
-    activeSubGroups.forEach(function (sub) {
-      Object.keys(sub.liveValues || {}).forEach(function (k) {
-        const e = sub.liveValues[k];
+
+    renderAssemblySwitch(item);
+    applyRtaModeUI();
+    renderSplitPanel();
+    renderTabs();
+
+    // BUGFIX: if rules haven't been fetched yet (modal opened in RTA
+    // mode), fetch them now. Otherwise just re-render with cached rules.
+    if (!Array.isArray(activeMfModalRules) || activeMfModalRules.length === 0) {
+      clearMfContainerToLoading();
+      const ok = await fetchModRulesForActiveItem();
+      if (activeMfModalKey !== item.key) return;  // user closed modal mid-fetch
+      if (!ok) {
+        renderActiveSubTab();  // will show "No modifications available"
+      } else {
+        renderActiveSubTab();
+      }
+    } else {
+      renderActiveSubTab();
+    }
+    updateRunningTotal();
+    updateSplitSummary();
+    return;
+  }
+
+  // Assembled → RTA
+  let hasMods = false;
+  activeSubGroups.forEach(function (sub) {
+    Object.keys(sub.liveValues || {}).forEach(function (k) {
+      const e = sub.liveValues[k];
+      if (e && shouldKeepModification(e.value)) hasMods = true;
+    });
+    if (Array.isArray(sub.frozenValues)) {
+      sub.frozenValues.forEach(function (e) {
         if (e && shouldKeepModification(e.value)) hasMods = true;
       });
-      if (Array.isArray(sub.frozenValues)) {
-        sub.frozenValues.forEach(function (e) {
-          if (e && shouldKeepModification(e.value)) hasMods = true;
-        });
-      }
-    });
+    }
+  });
 
-    const warning = hasMods
-      ? 'Switch this SKU to RTA?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
-      : 'Switch this SKU to RTA?\n\nThe assembly fee will be removed and no modifications will be allowed.';
-    const ok = confirm(warning);
-    if (!ok) return;
+  const warning = hasMods
+    ? 'Switch this SKU to RTA?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
+    : 'Switch this SKU to RTA?\n\nThe assembly fee will be removed and no modifications will be allowed.';
+  const ok = confirm(warning);
+  if (!ok) return;
 
-    destroyActiveSubInstances();
-    activeSubGroups.forEach(function (sub) {
-      sub.modifications       = [];
-      sub.modification_status = 'skipped';
-      sub.liveValues          = {};
-      sub.frozenValues        = null;
-      sub.instances           = [];
-    });
+  destroyActiveSubInstances();
+  activeSubGroups.forEach(function (sub) {
+    sub.modifications       = [];
+    sub.modification_status = 'skipped';
+    sub.liveValues          = {};
+    sub.frozenValues        = null;
+    sub.instances           = [];
+  });
 
-    activeAssemblyType = 'RTA';
-    activeAssembleFee  = 0;
-    console.log('[F-RTA-SWITCH] Assembled → RTA · SKU=' + item.sku_code + ' · mods cleared=' + hasMods);
-  }
+  activeAssemblyType = 'RTA';
+  activeAssembleFee  = 0;
+  console.log('[F-RTA-SWITCH] Assembled → RTA · SKU=' + item.sku_code + ' · mods cleared=' + hasMods);
 
   renderAssemblySwitch(item);
   applyRtaModeUI();
   renderSplitPanel();
   renderTabs();
-  if (activeAssemblyType === 'Assembled') {
-    renderActiveSubTab();
-  } else {
-    const wrap = document.getElementById('mfElementsContainer');
-    if (wrap) {
-      wrap.innerHTML =
-        '<div class="mf-no-rules">' +
-          '<div class="mf-no-rules-title">RTA Mode</div>' +
-          '<div>No modifications apply to RTA shipments. Switch to Assembled above if you need to configure modifications.</div>' +
-        '</div>';
-    }
+
+  const wrap = document.getElementById('mfElementsContainer');
+  if (wrap) {
+    wrap.innerHTML =
+      '<div class="mf-no-rules">' +
+        '<div class="mf-no-rules-title">RTA Mode</div>' +
+        '<div>No modifications apply to RTA shipments. Switch to Assembled above if you need to configure modifications.</div>' +
+      '</div>';
   }
   updateRunningTotal();
   updateSplitSummary();
@@ -2865,6 +3143,7 @@ async function openMfModal(key) {
   `;
 
   // F-RTA-SWITCH: render segmented control + apply rta-mode class
+  // (renderAssemblySwitch handles the "no Assembled version" hide case)
   renderAssemblySwitch(item);
   applyRtaModeUI();
 
@@ -2886,10 +3165,12 @@ async function openMfModal(key) {
 
   console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item),
               '· activeAssemblyType=' + activeAssemblyType,
-              '· activeAssembleFee=$' + activeAssembleFee.toFixed(2));
+              '· activeAssembleFee=$' + activeAssembleFee.toFixed(2),
+              '· supportsAssembled=' + itemSupportsAssembled(dealer, item));
   console.log('[E5] sub_groups loaded:', activeSubGroups.length, 'sub-group(s)');
 
-  // F-RTA-SWITCH: in RTA mode, skip RPC entirely
+  // F-RTA-SWITCH: in RTA mode, skip RPC entirely (will fetch lazily
+  // if user switches to Assembled)
   if (activeAssemblyType === 'RTA') {
     activeMfModalRules = [];
     const wrap = document.getElementById('mfElementsContainer');
@@ -2904,140 +3185,10 @@ async function openMfModal(key) {
     return;
   }
 
-  const doorParam = (ctype || '').toLowerCase();
-  if (doorParam !== 'framed' && doorParam !== 'frameless') {
-    console.warn('[E4.3] Unknown construction type for SKU', item.sku_code, '— ctype was:', ctype);
-    activeMfModalRules = [];
-    renderActiveSubTab();
-    return;
-  }
-
-  const role = effectiveRole;
-  console.log('[E4.3]   door=' + doorParam +
-              ', type=' + (item.skuType || '') +
-              ', category=' + (item.category || '') +
-              ', subcategory=' + (item.subcategory || '') +
-              ', sku_code=' + (item.sku_code || '') +
-              ', role=' + role);
-
-  try {
-    const { data: rules, error } = await _supabase.rpc('match_modifications_for_sku', {
-      p_door:        doorParam,
-      p_type:        item.skuType    || '',
-      p_category:    item.category   || '',
-      p_subcategory: item.subcategory || '',
-      p_sku_code:    item.sku_code   || null
-    });
-
-    if (error) {
-      console.error('[E4.3] RPC error:', error);
-      showToast('Failed to load modifications — you can still Skip or Save', true);
-      activeMfModalRules = [];
-      renderActiveSubTab();
-      return;
-    }
-    if (activeMfModalKey !== key) {
-      console.log('[E4.3] RPC response stale (modal switched); ignoring.');
-      return;
-    }
-
-    const rawRules = rules || [];
-    console.log('[E4.3]   RPC returned ' + rawRules.length + ' rule(s) (before role filter)');
-
-    const allSavedByMfCode = {};
-    activeSubGroups.forEach(function (sub) {
-      (sub.modifications || []).forEach(function (m) {
-        if (m && m.mf_code) allSavedByMfCode[m.mf_code + '|' + (m.display_label || '')] = m;
-      });
-    });
-    const savedCountTotal = Object.keys(allSavedByMfCode).length;
-
-    const filtered = rawRules.filter(function (r) {
-      if (!r.allowed_roles || !Array.isArray(r.allowed_roles)) return false;
-      const allowed = r.allowed_roles.some(function (ar) { return (ar || '').toLowerCase() === role; });
-      if (allowed) return true;
-      if (role === 'dealer') {
-        return Object.values(allSavedByMfCode).some(function (s) {
-          return s.mf_code === r.mf_code && (s.display_label || '') === (r.display_label || '');
-        });
-      }
-      return false;
-    });
-
-    if (role === 'dealer' && savedCountTotal > 0) {
-      const filteredMfCodes = new Set(filtered.map(function (r) { return r.mf_code; }));
-      const missingMfCodes = [];
-      Object.values(allSavedByMfCode).forEach(function (s) {
-        if (s && s.mf_code && !filteredMfCodes.has(s.mf_code) && missingMfCodes.indexOf(s.mf_code) === -1) {
-          missingMfCodes.push(s.mf_code);
-        }
-      });
-
-      if (missingMfCodes.length) {
-        console.log('[F3.1]   Fetching admin-only rules dealer cannot see via RLS:', missingMfCodes);
-        try {
-          const { data: extraRules, error: extraErr } = await _supabase.rpc(
-            'get_modification_rules_by_codes',
-            {
-              p_mf_codes:    missingMfCodes,
-              p_door:        doorParam,
-              p_type:        item.skuType    || '',
-              p_category:    item.category   || '',
-              p_subcategory: item.subcategory || '',
-              p_sku_code:    item.sku_code   || null
-            }
-          );
-          if (activeMfModalKey !== key) { console.log('[F3.1]   Stale; ignoring.'); return; }
-          if (extraErr) console.warn('[F3.1]   Failed to fetch admin-only rules:', extraErr);
-          else if (extraRules && extraRules.length) {
-            console.log('[F3.1]   Got ' + extraRules.length + ' admin-only rule(s):', extraRules);
-            extraRules.forEach(function (r) { filtered.push(r); });
-          } else {
-            console.log('[F3.1]   No admin-only rules returned.');
-          }
-        } catch (e) { console.warn('[F3.1]   Unexpected error:', e); }
-      }
-    }
-
-    activeMfModalRules = filtered;
-
-    if (item.is_custom) {
-      const beforeFilter = activeMfModalRules.length;
-      activeMfModalRules = activeMfModalRules.filter(function (r) { return r.mf_code === 'MF07'; });
-      console.log('[F-CUSTOM] Custom item — filtered to MF07 only: ' +
-                  beforeFilter + ' → ' + activeMfModalRules.length + ' rule(s)');
-    }
-
-    console.log('[E4.3]   After role filter + F3.1: ' + activeMfModalRules.length + ' rule(s)');
-    console.log('[E4.3]   Rules:', activeMfModalRules);
-    console.log('[F-EXCLUDE-SKU]   Rule exclude_sku_code map:',
-      activeMfModalRules.map(function (r) {
-        return r.mf_code + ' "' + (r.display_label || '') + '" → exclude_sku_code=' + (r.exclude_sku_code || 'null');
-      })
-    );
-    console.log('[F-TAX]   Rule tax_status map:',
-      activeMfModalRules.map(function (r) {
-        return r.mf_code + ' "' + (r.display_label || '') + '" → tax_status=' + r.tax_status;
-      })
-    );
-    // F-BINDING-GROUP: log binding markers
-    console.log('[F-BINDING-GROUP]   Rule binding map:',
-      activeMfModalRules.map(function (r) {
-        const p = r.mf_params || {};
-        return r.mf_code + ' "' + (r.display_label || '') + '" → group=' + (p._binding_group || 'null') +
-               ' role=' + (p._binding_role || 'null') +
-               (typeof p._unit_price !== 'undefined' ? ' unit=$' + p._unit_price : '') +
-               (typeof p._multiplier !== 'undefined' ? ' x' + p._multiplier : '');
-      })
-    );
-
-    renderActiveSubTab();
-  } catch (e) {
-    console.error('[E4.3] Unexpected error calling RPC:', e);
-    showToast('Failed to load modifications — you can still Skip or Save', true);
-    activeMfModalRules = [];
-    renderActiveSubTab();
-  }
+  // Assembled — fetch rules now
+  await fetchModRulesForActiveItem();
+  if (activeMfModalKey !== key) return;  // user closed modal mid-fetch
+  renderActiveSubTab();
 }
 
 function closeMfModal() {
@@ -3104,10 +3255,6 @@ function markInvalidRow(ruleIdx, errors) {
 
 /**
  * F-RTA-SWITCH + E5 + F-TAX: Save handler.
- * - RTA mode: skip validation, write empty skipped sub_groups,
- *   set item.type='RTA', assemble_fee=0, key=sku_code+'_RTA'
- * - Assembled mode: existing logic + write item.type='Assembled',
- *   assemble_fee=activeAssembleFee, key=sku_code+'_Assembled'
  */
 function handleMfSave() {
   if (!activeMfModalKey) return;
@@ -3279,15 +3426,6 @@ function handleMfSave() {
   }
   console.log('[F-TAX]   Taxable mods line cost: $' + taxableLineCost.toFixed(2) +
               ' (of $' + totalLineCost.toFixed(2) + ' total)');
-  newSubGroups.forEach(function (g) {
-    console.log('  Sub ' + g.sub_index + ' qty=' + g.qty +
-                ' status=' + g.modification_status + ' mods=' + g.modifications.length +
-                ' taxable=' + g.modifications.filter(function (m) { return m.tax_status === true; }).length);
-    g.modifications.forEach(function (m) {
-      console.log('     · ' + m.mf_code + ' "' + m.display_label + '" cost=$' +
-                  (m.cost || 0).toFixed(2) + ' tax_status=' + m.tax_status);
-    });
-  });
 
   refreshAfterModalAction();
   const skuCode = item.sku_code;
@@ -3630,15 +3768,10 @@ function confirmSwap() {
     item.unit_price = newUnitPrice;
     item.msrp       = newMsrp;
     swappedCount++;
-    console.log('[F-SWAP]   item:', item.sku_code,
-                'unit_price:', oldUnitPrice.toFixed(2), '→', newUnitPrice.toFixed(2),
-                (newUnitPrice === 0 && oldUnitPrice !== 0 ? ' ⚠ N/A in new style' : ''));
   });
 
-  console.log('[F-SWAP] CONFIRM:', oldStyle.style_code, '(' + oldStyle.style_name + ')',
-              '→', newStyle.style_code, '(' + newStyle.style_name + ')',
-              '·', swappedCount, 'item(s) re-priced', '·', new Date().toISOString());
-  if (unpriced > 0) console.warn('[F-SWAP] ⚠', unpriced, 'item(s) had no price in new style — unit_price set to 0');
+  console.log('[F-SWAP] CONFIRM:', oldStyle.style_code, '→', newStyle.style_code,
+              '·', swappedCount, 'item(s) re-priced');
 
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
@@ -3722,14 +3855,11 @@ async function init() {
     if (savedCart !== null) {
       try { cartItems = JSON.parse(savedCart) || []; }
       catch (e) {
-        console.warn('[D14b] Failed to parse quoteStep2, falling back to DB', e);
         cartItems = [];
         cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
       }
-      console.log('[D14b] Step 2.5 restored cart from sessionStorage:', cartItems.length, 'item(s) (key existed)');
     } else {
       cartItems = await loadDraftItems(allSkusFramed, allSkusFrameless);
-      console.log('[D14b] Step 2.5 first load — fetched from DB:', cartItems.length, 'item(s)');
     }
   } else {
     const savedCart = sessionStorage.getItem('quoteStep2');
@@ -3796,38 +3926,21 @@ async function init() {
   effectiveRole = isAdminContext ? 'admin' : 'dealer';
 
   console.log('[D09] effectiveRole =', effectiveRole,
-              '(dbRole=' + dbRole + ', isAdminRole=' + isAdminRole +
-              ', draftId=' + (draftId || 'null') +
-              ', quoteStatus=' + (quoteStatus || 'null') +
-              ', reason: ' + (adminContextReason || 'no admin trigger') + ')');
+              '(dbRole=' + dbRole + ', reason: ' + (adminContextReason || 'no admin trigger') + ')');
 
   const mfCodes = ['MF01','MF02','MF03','MF04','MF05','MF06','MF07'];
   const missing = mfCodes.filter(function (c) {
     return !window.MF || !window.MF[c] || typeof window.MF[c].create !== 'function';
   });
   if (missing.length) {
-    console.error('[E4.4] Missing MF factories:', missing,
-                  '— check <script> tags for components/modifications/*.js');
+    console.error('[E4.4] Missing MF factories:', missing);
   } else {
     console.log('[E4.4] All 7 MF factories loaded (MF01-MF07)');
   }
 
   console.log('[E1.2] init() complete');
-  console.log('[E1.2] dealer:', dealer);
-  console.log('[E1.2] cartItems:', cartItems);
-
   logDoorStyleGroups(doorStyleGroups);
-  console.log('[E5] Multi sub-group split + delete + qty edit ready');
-  console.log('[F3.1] Re-hydrate + Option B (read-only admin MF07, RLS-aware) ready');
-  console.log('[F-TAX] tax_status snapshot active (MF07 per-instance, MF1-6 per-rule)');
-  console.log('[D09] Role-aware effectiveRole resolution active');
-  console.log('[D17] MF validate() gate active on Save');
-  console.log('[F-SWAP] Door style swap ready (same construction type only)');
-  console.log('[F-MODS-TOTAL] Modifications total bar ready');
-  console.log('[F-CUSTOM] Phase 3 ready — custom Cabinet+Assembled can mod, Accessory/Other cannot');
-  console.log('[F-BINDING-GROUP] Primary↔dependent sync ready (MF02 Glass ↔ MF03 Prep For Glass)');
-  console.log('[F-GLASS-MULTIPLIER] Coordinator yields cost label to MF02 for double-door rules');
-  console.log('[F-RTA-SWITCH] RTA/Assembled segmented control + grey-out body ready');
+  console.log('[F-RTA-SWITCH] Ready · v2 (rules sorted by binding group, lazy fetch on switch)');
 
   setInterval(async function () {
     const { data: check } = await _supabase
