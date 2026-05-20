@@ -1,8 +1,14 @@
 /* ──────────────────────────────────────────────────────────────────────
- * ProCraft Dealer Portal — Unified Navigator Component (v1.1)
+ * ProCraft Dealer Portal — Unified Navigator Component (v1.2)
  *
  * Self-contained component that renders a consistent navbar + mobile menu
  * across all dealer- and admin-facing pages.
+ *
+ * v1.2 CHANGES:
+ *   - Brand title updated to full name "ProCraft Cabinetry DC"
+ *   - On mobile (<768px), brand title text is hidden — only the logo
+ *     remains, since the logo already contains the brand mark and
+ *     mobile real estate is tight. Hamburger fills the right side.
  *
  * v1.1 CHANGES:
  *   - Inject CSS immediately on script load (not after session check)
@@ -43,6 +49,7 @@
   const SUPABASE_URL  = 'https://acwgemgpnusworpxxoai.supabase.co';
   const SUPABASE_ANON = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
   const LOGO_URL      = 'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png';
+  const BRAND_TITLE   = 'ProCraft Cabinetry DC';
 
   // Navigation item maps — key = data-page value
   const DEALER_NAV = [
@@ -71,7 +78,7 @@
     .pcd-nav-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; text-decoration: none; }
     .pcd-nav-brand:hover { opacity: 0.9; }
     .pcd-nav-logo { height: 44px; max-width: 110px; object-fit: contain; }
-    .pcd-nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+    .pcd-nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; white-space: nowrap; }
     .pcd-nav-badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; background: #C9A84C; color: #3e5a42; padding: 2px 7px; border-radius: 2px; font-weight: 500; }
 
     .pcd-nav-right { display: flex; align-items: center; gap: 16px; }
@@ -121,6 +128,9 @@
       .pcd-nav-right { display: none !important; }
       .pcd-hamburger { display: flex !important; }
       .pcd-nav-logo { height: 36px; max-width: 90px; }
+      /* v1.2: Hide brand title on mobile — logo carries the brand mark */
+      .pcd-nav-title { display: none !important; }
+      .pcd-navbar { padding: 0 16px; }
     }
   `;
 
@@ -222,7 +232,7 @@
     container.innerHTML =
       '<nav class="pcd-navbar">' +
         '<div class="pcd-nav-brand" style="cursor:default;">' +
-          '<img class="pcd-nav-logo" src="' + LOGO_URL + '" alt="ProCraft DC"/>' +
+          '<img class="pcd-nav-logo" src="' + LOGO_URL + '" alt="ProCraft Cabinetry DC"/>' +
         '</div>' +
         '<div></div>' +
       '</nav>';
@@ -250,8 +260,8 @@
     container.innerHTML =
       '<nav class="pcd-navbar">' +
         '<a class="pcd-nav-brand" href="' + homeHref + '">' +
-          '<img class="pcd-nav-logo" src="' + LOGO_URL + '" alt="ProCraft DC"/>' +
-          '<span class="pcd-nav-title">ProCraft DC</span>' +
+          '<img class="pcd-nav-logo" src="' + LOGO_URL + '" alt="' + escapeHtml(BRAND_TITLE) + '"/>' +
+          '<span class="pcd-nav-title">' + escapeHtml(BRAND_TITLE) + '</span>' +
           adminBadge +
         '</a>' +
         '<div class="pcd-nav-right">' +
