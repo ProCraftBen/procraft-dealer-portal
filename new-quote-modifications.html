@@ -242,13 +242,9 @@
       padding: 10px;
       border-radius: 3px;
     }
-    .sku-row.rta { cursor: pointer; transition: background 0.1s; }
-    .sku-row.rta:hover {
-      background: rgba(62,90,66,0.04);
-      margin: 0 -10px;
-      padding: 10px;
-      border-radius: 3px;
-    }
+    /* F-RTA-SWITCH v3: RTA row is no longer clickable (static info row).
+       Switch happens via the [⇄ Assembled] button only. */
+    .sku-row.rta { cursor: default; }
     .sku-code { font-weight: 500; color: var(--green-dark); white-space: nowrap; flex-shrink: 0; min-width: 110px; }
     .sku-row.rta .sku-code { color: var(--muted); }
     .sku-desc { flex: 1; color: var(--text); min-width: 0; }
@@ -279,7 +275,6 @@
       transition: color 0.15s;
     }
     .sku-row.assembled:hover .sku-arrow { color: var(--green-dark); }
-    .sku-row.rta:hover .sku-arrow { color: var(--green-dark); }
 
     .sku-delete-btn {
       flex-shrink: 0;
@@ -295,6 +290,39 @@
     }
     .sku-delete-btn:hover { color: var(--error); background: rgba(192,57,43,0.08); }
     .sku-delete-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+    /* F-RTA-SWITCH v3: per-row assembly switch button */
+    .sku-asm-switch-btn {
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 4px 10px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      line-height: 1;
+      min-height: 24px;
+    }
+    .sku-asm-switch-btn:hover {
+      color: var(--green-dark);
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.04);
+    }
+    .sku-asm-switch-btn svg {
+      width: 11px; height: 11px;
+      fill: none; stroke: currentColor;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
 
     .sku-split-badge {
       flex-shrink: 0;
@@ -459,7 +487,6 @@
     .mf-pill.frameless  { background: rgba(201,168,76,0.12);  color: #8B6914; }
     .mf-pill.unknown    { background: rgba(122,140,130,0.12); color: var(--muted); }
     .mf-pill.assembled  { background: rgba(201,168,76,0.15);  color: #8B6914; }
-    .mf-pill.rta        { background: rgba(90,122,149,0.12);  color: var(--info-blue); }
 
     .mf-sku-head-qty { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
     .mf-sku-head-qty-label { font-size: 11px; color: var(--muted); }
@@ -476,83 +503,6 @@
     }
     .mf-sku-head-qty-input:focus { outline: none; border-color: var(--green-dark); }
     .mf-sku-head-qty-input.invalid { border-color: var(--error); background: rgba(192,57,43,0.04); }
-
-    /* F-RTA-SWITCH: segmented control in modal header */
-    .mf-asm-switch-wrap {
-      margin-top: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .mf-asm-switch-label {
-      font-size: 10px;
-      letter-spacing: 0.13em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 500;
-    }
-    .mf-asm-switch {
-      display: inline-flex;
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-      background: var(--white);
-    }
-    .mf-asm-switch-btn {
-      background: transparent;
-      border: none;
-      padding: 6px 14px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.13em;
-      text-transform: uppercase;
-      color: var(--muted);
-      cursor: pointer;
-      transition: all 0.15s;
-      min-width: 86px;
-    }
-    .mf-asm-switch-btn + .mf-asm-switch-btn { border-left: 1px solid var(--border); }
-    .mf-asm-switch-btn:hover:not(.active):not(:disabled) {
-      background: rgba(62,90,66,0.05);
-      color: var(--green-dark);
-    }
-    .mf-asm-switch-btn.active { background: var(--green-dark); color: #fff; cursor: default; }
-    .mf-asm-switch-btn:disabled { cursor: not-allowed; opacity: 0.5; }
-    .mf-asm-fee-note { font-size: 11px; color: var(--muted); font-style: italic; }
-    .mf-asm-fee-note strong { color: var(--green-dark); font-style: normal; font-weight: 500; }
-
-    /* F-RTA-SWITCH: RTA mode grey-out */
-    .mf-modal-body.rta-mode .mf-split-panel,
-    .mf-modal-body.rta-mode .mf-tabs,
-    .mf-modal-body.rta-mode .mf-group {
-      opacity: 0.45;
-      pointer-events: none;
-      user-select: none;
-    }
-    .mf-rta-info-banner {
-      display: none;
-      background: rgba(90,122,149,0.06);
-      border: 1px solid rgba(90,122,149,0.25);
-      border-left: 4px solid var(--info-blue);
-      border-radius: 3px;
-      padding: 12px 16px;
-      margin-bottom: 14px;
-      font-size: 12px;
-      color: var(--text);
-      line-height: 1.5;
-    }
-    .mf-modal-body.rta-mode .mf-rta-info-banner { display: block; }
-    .mf-rta-info-banner strong {
-      color: var(--info-blue);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      font-size: 10px;
-      font-weight: 600;
-      display: block;
-      margin-bottom: 3px;
-    }
 
     /* Split panel */
     .mf-split-panel {
@@ -1212,6 +1162,7 @@
       .sku-desc { flex: 1 0 100%; font-size: 11px; }
       .sku-qty { text-align: left; min-width: 0; }
       .sku-status { min-width: 0; font-size: 9px; padding: 2px 7px; }
+      .sku-asm-switch-btn { font-size: 9px; padding: 3px 8px; letter-spacing: 0.08em; }
       .page-heading h1 { font-size: 22px; }
       .page-heading .subtitle { font-size: 12px; }
       .bottom-bar { padding: 8px 14px; height: auto; flex-wrap: wrap; gap: 8px; }
@@ -1272,23 +1223,6 @@
           <span id="mfHeadDesc">—</span>
         </div>
         <div class="mf-sku-head-row2" id="mfHeadMeta"></div>
-        <!-- F-RTA-SWITCH: RTA / Assembled segmented control -->
-        <div class="mf-asm-switch-wrap" id="mfAsmSwitchWrap" style="display:none;">
-          <span class="mf-asm-switch-label">Ship as:</span>
-          <div class="mf-asm-switch" role="tablist">
-            <button class="mf-asm-switch-btn" type="button" data-asm="RTA"
-              onclick="handleAssemblyTypeChange('RTA')">RTA</button>
-            <button class="mf-asm-switch-btn" type="button" data-asm="Assembled"
-              onclick="handleAssemblyTypeChange('Assembled')">Assembled</button>
-          </div>
-          <span class="mf-asm-fee-note" id="mfAsmFeeNote"></span>
-        </div>
-      </div>
-
-      <!-- F-RTA-SWITCH: info banner shown only in RTA mode -->
-      <div class="mf-rta-info-banner">
-        <strong>RTA — Knock-Down Shipment</strong>
-        This SKU ships flat-packed. No modifications are needed and no assembly fee applies. Switch to <em>Assembled</em> above to configure modifications.
       </div>
 
       <div class="mf-split-panel" id="mfSplitPanel">
@@ -1422,11 +1356,6 @@ let activeSubGroups    = [];
 let activeSubGroupIdx  = 0;
 let activeSkuQty       = 1;
 
-// F-RTA-SWITCH: modal-scoped assembly type + fee. Written back to
-// item.type / item.assemble_fee only on Save (Cancel reverts).
-let activeAssemblyType = 'Assembled';  // 'RTA' | 'Assembled'
-let activeAssembleFee  = 0;
-
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
   grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
@@ -1435,6 +1364,7 @@ const colorMap = {
 const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
 const ADMIN_LOCK_SVG = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
 const TRASH_SVG = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+const SWAP_ARROWS_SVG = '<svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>';
 
 function openLightbox(src) {
   if (!src) return;
@@ -1488,13 +1418,11 @@ function buildNoAssembledBanner() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// F-RTA-SWITCH: Assembly fee lookup
-//   (dealer × construction × sku_type) → per-unit assembly fee
+// F-RTA-SWITCH: Assembly fee lookup + support detection
 // ═══════════════════════════════════════════════════════════════════
 function getAssembleFeeForItem(dealer, item) {
   if (!dealer || !item) return 0;
 
-  // construction_type is on the door_style row, not on cartItem.
   let ctype = (item.construction_type || '').toLowerCase();
   if (!ctype && item.style_code && Array.isArray(allDoorStyles)) {
     const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
@@ -1514,6 +1442,33 @@ function getAssembleFeeForItem(dealer, item) {
   if (!col) return 0;
   const v = parseFloat(dealer[col]);
   return isNaN(v) ? 0 : v;
+}
+
+function itemSupportsAssembled(dealer, item) {
+  if (!dealer || !item) return false;
+  if (item.is_custom) return true;  // custom items always allow both
+
+  let ctype = (item.construction_type || '').toLowerCase();
+  if (!ctype && item.style_code && Array.isArray(allDoorStyles)) {
+    const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+    if (styleRow) ctype = (styleRow.construction_type || '').toLowerCase();
+  }
+
+  const skuType = (item.skuType || '').toUpperCase();
+  if (ctype !== 'framed' && ctype !== 'frameless') return false;
+
+  const map = {
+    'BASE':          'asm_fee_' + ctype + '_base',
+    'WALL':          'asm_fee_' + ctype + '_wall',
+    'TALL':          'asm_fee_' + ctype + '_tall',
+    'VANITY':        'asm_fee_' + ctype + '_vanity',
+    'ROLL_OUT_TRAY': 'asm_fee_' + ctype + '_roll_out_tray',
+  };
+  const col = map[skuType];
+  if (!col) return false;
+
+  const raw = dealer[col];
+  return raw !== null && raw !== undefined && raw !== '';
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1832,7 +1787,7 @@ function buildDoorStyleCard(group, gIdx) {
     <button class="ds-swap-btn" type="button"
       onclick="openSwapModal('${esc(group.style_code)}')"
       title="Replace this door style with another (same construction type)">
-      <svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3"/></svg>
+      ${SWAP_ARROWS_SVG}
       Swap Style
     </button>`;
 
@@ -1920,6 +1875,34 @@ function buildGroupProgressDisplay(group) {
     </div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// F-RTA-SWITCH v3: main-page row builder helpers
+// ═══════════════════════════════════════════════════════════════════
+
+// Decides whether the [⇄ Switch to X] button should render on a row.
+// Hide button for: custom items, or SKUs with no Assembled version in dealer's price sheet.
+function shouldShowAsmSwitchBtn(item) {
+  if (!item) return false;
+  if (item.is_custom) return false;
+  return itemSupportsAssembled(dealer, item);
+}
+
+function buildAsmSwitchBtnHtml(item) {
+  if (!shouldShowAsmSwitchBtn(item)) return '';
+  // Assembled row → switches to RTA; RTA row → switches to Assembled
+  const targetType = (item.type === 'Assembled') ? 'RTA' : 'Assembled';
+  const labelText  = (targetType === 'RTA') ? 'RTA' : 'Assembled';
+  const title = targetType === 'RTA'
+    ? 'Switch to RTA (knock-down shipment, clears modifications)'
+    : 'Switch to Assembled (adds assembly fee, enables modifications)';
+  return `
+    <button class="sku-asm-switch-btn" type="button"
+      onclick="event.stopPropagation(); onMainPageAssemblyToggle('${esc(item.key)}', '${targetType}')"
+      title="${esc(title)}" aria-label="${esc(title)}">
+      ${SWAP_ARROWS_SVG} ${labelText}
+    </button>`;
+}
+
 function buildAssembledRow(item, gIdx) {
   const status = getItemOverallStatus(item);
   let statusClass, statusLabel;
@@ -1930,6 +1913,7 @@ function buildAssembledRow(item, gIdx) {
   const subCount = Array.isArray(item.sub_groups) ? item.sub_groups.length : 1;
   const splitBadge = subCount > 1 ? `<span class="sku-split-badge">Split × ${subCount}</span>` : '';
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
+  const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
 
   return `
     <div class="sku-row assembled" onclick="onAssembledRowClick(event, '${esc(item.key)}')">
@@ -1940,34 +1924,37 @@ function buildAssembledRow(item, gIdx) {
       ${splitBadge}
       <span class="sku-status ${statusClass}">${statusLabel}</span>
       <span class="sku-arrow">›</span>
+      ${asmSwitchBtn}
       <button class="sku-delete-btn" type="button"
         onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
         aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
     </div>`;
 }
 
-// F-RTA-SWITCH: RTA row also clickable — opens modal in RTA mode
+// F-RTA-SWITCH v3: RTA row is a static info row. No row-click, no hover, no arrow.
+// Switch via the [⇄ Assembled] button; remove via trash icon.
 function buildRtaRow(item) {
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
+  const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
+
   return `
-    <div class="sku-row rta" onclick="onRtaRowClick(event, '${esc(item.key)}')">
+    <div class="sku-row rta">
       <span class="sku-code">${esc(item.sku_code)}</span>
       ${customBadge}
       <span class="sku-desc">${esc(item.sku_desc)}</span>
       <span class="sku-qty">Qty ${item.quantity}</span>
-      <span class="sku-arrow">›</span>
+      ${asmSwitchBtn}
       <button class="sku-delete-btn" type="button"
-        onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
+        onclick="onDeleteSkuClick('${esc(item.key)}')"
         aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
     </div>`;
 }
 
 function onAssembledRowClick(evt, key) {
-  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) return;
-  openMfModal(key);
-}
-function onRtaRowClick(evt, key) {
-  if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) return;
+  if (!evt || !evt.target || !evt.target.closest) return openMfModal(key);
+  // Don't open modal if user clicked delete button or the switch button
+  if (evt.target.closest('.sku-delete-btn')) return;
+  if (evt.target.closest('.sku-asm-switch-btn')) return;
   openMfModal(key);
 }
 
@@ -1987,6 +1974,131 @@ function onDeleteSkuClick(key) {
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   console.log('[E5] Removed SKU', key, 'from cart. Remaining items:', cartItems.length);
   showToast(item.sku_code + ' removed');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// F-RTA-SWITCH v3: main-page assembly toggle
+//
+//   Triggered by the per-row [⇄ RTA] / [⇄ Assembled] button.
+//   Both directions show a confirm dialog. Switch happens entirely
+//   on the main page — no modal involved.
+// ═══════════════════════════════════════════════════════════════════
+function onMainPageAssemblyToggle(key, newType) {
+  if (newType !== 'RTA' && newType !== 'Assembled') return;
+
+  const item = cartItems.find(function (i) { return i.key === key; });
+  if (!item) {
+    console.warn('[F-RTA-SWITCH] onMainPageAssemblyToggle: cartItem not found for key', key);
+    return;
+  }
+  if (item.type === newType) return;  // no-op
+
+  // Guard: custom items shouldn't reach here (button hidden), but double-check.
+  if (item.is_custom) {
+    showToast('Custom items cannot be switched between RTA and Assembled', true);
+    return;
+  }
+
+  if (newType === 'Assembled') {
+    // RTA → Assembled
+    if (!itemSupportsAssembled(dealer, item)) {
+      showToast('This SKU is not available in Assembled', true);
+      return;
+    }
+
+    const newFee = getAssembleFeeForItem(dealer, item);
+    const feeNote = newFee > 0
+      ? '\n\nAn assembly fee of $' + newFee.toFixed(2) + ' per unit will apply.'
+      : '\n\nNo assembly fee applies for this SKU type.';
+    const ok = confirm(
+      'Switch "' + item.sku_code + '" to Assembled?' + feeNote +
+      '\n\nYou will be able to configure modifications after switching.'
+    );
+    if (!ok) return;
+
+    // Key collision guard: if there's already an Assembled row for this SKU
+    // in the same style group, refuse the switch (user should merge manually).
+    const newKey = item.sku_code + '_Assembled';
+    const conflict = cartItems.find(function (other) {
+      return other !== item && other.key === newKey && other.style_code === item.style_code;
+    });
+    if (conflict) {
+      showToast('An Assembled row already exists for this SKU. Please remove one first.', true);
+      console.warn('[F-RTA-SWITCH] Key collision aborted switch: ' + newKey);
+      return;
+    }
+
+    const oldKey = item.key;
+    ensureSubGroups(item);
+    item.type         = 'Assembled';
+    item.assemble_fee = newFee;
+    item.key          = newKey;
+    // RTA sub_groups were 'skipped'; reset to unprocessed so user is prompted to configure
+    item.sub_groups.forEach(function (g) {
+      g.modifications       = [];
+      g.modification_status = 'unprocessed';
+    });
+
+    console.log('[F-RTA-SWITCH] (main-page) RTA → Assembled · SKU=' + item.sku_code +
+                ' · ' + oldKey + ' → ' + newKey +
+                ' · fee=$' + newFee.toFixed(2));
+
+    refreshAfterCartChange();
+    showToast(item.sku_code + ' → Assembled (please configure modifications)');
+    return;
+  }
+
+  // Assembled → RTA
+  // Check whether there are configured mods that will be cleared
+  let hasMods = false;
+  if (Array.isArray(item.sub_groups)) {
+    item.sub_groups.forEach(function (sub) {
+      if (Array.isArray(sub.modifications) && sub.modifications.length > 0) hasMods = true;
+    });
+  }
+
+  const warning = hasMods
+    ? 'Switch "' + item.sku_code + '" to RTA?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
+    : 'Switch "' + item.sku_code + '" to RTA?\n\nThe assembly fee will be removed and no modifications will be allowed.';
+  const ok = confirm(warning);
+  if (!ok) return;
+
+  // Key collision guard
+  const newKey = item.sku_code + '_RTA';
+  const conflict = cartItems.find(function (other) {
+    return other !== item && other.key === newKey && other.style_code === item.style_code;
+  });
+  if (conflict) {
+    showToast('An RTA row already exists for this SKU. Please remove one first.', true);
+    console.warn('[F-RTA-SWITCH] Key collision aborted switch: ' + newKey);
+    return;
+  }
+
+  const oldKey = item.key;
+  ensureSubGroups(item);
+  item.type         = 'RTA';
+  item.assemble_fee = 0;
+  item.key          = newKey;
+
+  // Bug 4+8 fix: When switching to RTA, collapse all sub_groups into a single one.
+  // RTA cannot have mods, so split structure is meaningless and would confuse the
+  // user if they later switch back to Assembled (they'd see an unexpected split).
+  const prevSubCount = item.sub_groups.length;
+  const totalQty = item.sub_groups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
+  item.sub_groups = [{
+    sub_index:           1,
+    qty:                 totalQty,
+    modifications:       [],
+    modification_status: 'skipped',
+  }];
+
+  console.log('[F-RTA-SWITCH] (main-page) Assembled → RTA · SKU=' + item.sku_code +
+              ' · ' + oldKey + ' → ' + newKey +
+              ' · mods cleared=' + hasMods +
+              (prevSubCount > 1 ? ' · sub_groups collapsed: ' + prevSubCount + ' → 1' : ''));
+
+  refreshAfterCartChange();
+  showToast(item.sku_code + ' → RTA' + (hasMods ? ' (modifications cleared)' : ''));
 }
 
 function renderBottomBar(progress) {
@@ -2053,12 +2165,6 @@ function resolveTaxStatusForEntry(entry) {
 function updateRunningTotal() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
   if (!activeSub) { setRunningTotalDOM('Modifications subtotal', 0); return; }
-
-  // F-RTA-SWITCH: RTA mode → $0
-  if (activeAssemblyType === 'RTA') {
-    setRunningTotalDOM('RTA — no modifications', 0);
-    return;
-  }
 
   let perUnit = 0;
   Object.keys(activeSub.liveValues || {}).forEach(function (k) {
@@ -2177,14 +2283,6 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
 
 // ═══════════════════════════════════════════════════════════════════
 // F-BINDING-GROUP + F-GLASS-MULTIPLIER: renderMfElements
-//
-//   F-BINDING-GROUP: read mf_params._binding_group + _binding_role;
-//   stash on instance record; coordinator uses for primary↔dependent
-//   sync.
-//
-//   F-GLASS-MULTIPLIER: when mf_params._unit_price + _multiplier > 1,
-//   suppress the coordinator-rendered "Base cost: +$X.XX" header so
-//   the MF02 element can draw its own "$25 × 2 = $50.00" display.
 // ═══════════════════════════════════════════════════════════════════
 function renderMfElements(rules, savedByIdx, subRef) {
   const wrap = document.getElementById('mfElementsContainer');
@@ -2231,12 +2329,10 @@ function renderMfElements(rules, savedByIdx, subRef) {
       return;
     }
 
-    // F-BINDING-GROUP: read binding markers
     const mfParams = rule.mf_params || {};
     const bindingGroup = mfParams._binding_group || null;
     const bindingRole  = mfParams._binding_role  || null;
 
-    // F-GLASS-MULTIPLIER: detect cost-yield case
     const hasUnitMultiplier =
       typeof mfParams._unit_price !== 'undefined' && mfParams._unit_price !== null &&
       typeof mfParams._multiplier !== 'undefined' && mfParams._multiplier !== null &&
@@ -2253,10 +2349,9 @@ function renderMfElements(rules, savedByIdx, subRef) {
 
     const baseCost = parseFloat(rule.cost) || 0;
 
-    // F-GLASS-MULTIPLIER: yield cost display to element when unit+multiplier
     let costHtml;
     if (isAdminOnly) costHtml = '<span class="mf-row-label-cost admin-only">Admin Only</span>';
-    else if (hasUnitMultiplier) costHtml = '';  // element draws own "$X × N = $Y"
+    else if (hasUnitMultiplier) costHtml = '';
     else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">Base cost: +$' + baseCost.toFixed(2) + '</span>';
     else costHtml = '<span class="mf-row-label-cost">Included</span>';
 
@@ -2294,7 +2389,6 @@ function renderMfElements(rules, savedByIdx, subRef) {
       container: elementDiv,
       instance: instance,
       isReadOnly: false, isVirtual: false,
-      // F-BINDING-GROUP: stash binding info on instance record
       binding_group: bindingGroup,
       binding_role:  bindingRole,
     });
@@ -2320,16 +2414,10 @@ function renderMfElements(rules, savedByIdx, subRef) {
 
   wrap.addEventListener('mf-change', onMfChangeDelegated);
 
-  // F-BINDING-GROUP: initial sync after render (covers re-opening
-  // saved quotes and tab switches)
   syncBindingGroups(subRef);
 
   updateRunningTotal();
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// F-BINDING-GROUP: helpers
-// ═══════════════════════════════════════════════════════════════════
 
 function findBindingPeers(subRef, group, role) {
   if (!subRef || !Array.isArray(subRef.instances) || !group) return [];
@@ -2338,8 +2426,6 @@ function findBindingPeers(subRef, group, role) {
   });
 }
 
-// Read on/off state from an instance. Handles boolean, object with
-// .enabled, etc.
 function isInstanceEnabled(rec) {
   if (!rec || !rec.instance) return false;
   let val;
@@ -2356,9 +2442,6 @@ function isInstanceEnabled(rec) {
   return false;
 }
 
-// For each primary in subRef, propagate state to dependents in same group.
-//   primary ON  → dependent setEnabled(true) + setLocked(true, reason)
-//   primary OFF → dependent setLocked(false)  (don't auto-disable)
 function syncBindingGroups(subRef) {
   if (!subRef || !Array.isArray(subRef.instances)) return;
 
@@ -2400,9 +2483,6 @@ function applyDependentState(dep, primaryIsOn) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// mf-change handler — also handles F-BINDING-GROUP primary broadcast
-// ═══════════════════════════════════════════════════════════════════
 function onMfChangeDelegated(e) {
   if (!e || !e.detail) return;
   const activeSub = activeSubGroups[activeSubGroupIdx];
@@ -2428,7 +2508,6 @@ function onMfChangeDelegated(e) {
               ' · ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
               value, ', cost: $' + cost.toFixed(2));
 
-  // F-BINDING-GROUP: if primary changed, broadcast to dependents
   const detailGroup = e.detail._binding_group || row.getAttribute('data-binding-group') || null;
   const detailRole  = e.detail._binding_role  || row.getAttribute('data-binding-role')  || null;
 
@@ -2571,12 +2650,7 @@ function updateSplitSummary() {
 
   const saveBtn = document.getElementById('mfBtnSave');
   if (saveBtn) {
-    // F-RTA-SWITCH: in RTA mode, only need qty >= 1
-    if (activeAssemblyType === 'RTA') {
-      saveBtn.disabled = activeSkuQty < 1;
-    } else {
-      saveBtn.disabled = (sum !== skuQty) || activeSubGroups.length === 0 || skuQty < 1;
-    }
+    saveBtn.disabled = (sum !== skuQty) || activeSubGroups.length === 0 || skuQty < 1;
   }
 }
 
@@ -2681,106 +2755,10 @@ function onSkuQtyChange(newVal) {
   activeSkuQty = q;
   updateSplitSummary();
 }
-// ═══════════════════════════════════════════════════════════════════
-// F-RTA-SWITCH: Assembly type support detection
-//
-//   itemSupportsAssembled(): does this SKU have an Assembled version
-//   in the dealer's price sheet?
-//   Rule (Ben): fee column has a value (including 0) → supports
-//               Assembled; column is null/undefined → RTA only.
-// ═══════════════════════════════════════════════════════════════════
-function itemSupportsAssembled(dealer, item) {
-  if (!dealer || !item) return false;
-  if (item.is_custom) return true;  // custom items always allow both
-
-  // construction_type is on the door_style row, not on cartItem.
-  // Look it up via style_code.
-  let ctype = (item.construction_type || '').toLowerCase();
-  if (!ctype && item.style_code && Array.isArray(allDoorStyles)) {
-    const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
-    if (styleRow) ctype = (styleRow.construction_type || '').toLowerCase();
-  }
-
-  const skuType = (item.skuType || '').toUpperCase();
-  if (ctype !== 'framed' && ctype !== 'frameless') return false;
-
-  const map = {
-    'BASE':          'asm_fee_' + ctype + '_base',
-    'WALL':          'asm_fee_' + ctype + '_wall',
-    'TALL':          'asm_fee_' + ctype + '_tall',
-    'VANITY':        'asm_fee_' + ctype + '_vanity',
-    'ROLL_OUT_TRAY': 'asm_fee_' + ctype + '_roll_out_tray',
-  };
-  const col = map[skuType];
-  if (!col) return false;  // framed+VANITY, ACCESSORIES, OTHER
-
-  // Has value (including 0) → supports. null/undefined → does not.
-  const raw = dealer[col];
-  return raw !== null && raw !== undefined && raw !== '';
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// F-RTA-SWITCH: Assembly type switch
-// ═══════════════════════════════════════════════════════════════════
-
-function renderAssemblySwitch(item) {
-  const wrap = document.getElementById('mfAsmSwitchWrap');
-  const note = document.getElementById('mfAsmFeeNote');
-  if (!wrap) return;
-
-  // Hide switch entirely if this SKU has no Assembled version
-  if (!itemSupportsAssembled(dealer, item)) {
-    wrap.style.display = 'none';
-    console.log('[F-RTA-SWITCH] No Assembled version for SKU=' + item.sku_code +
-                ' (ctype=' + (item.construction_type || '?') +
-                ', skuType=' + (item.skuType || '?') + ') — switch hidden');
-    return;
-  }
-
-  // F-CUSTOM: custom items don't use catalog asm fee — also hide switch
-  if (item && item.is_custom) {
-    wrap.style.display = 'none';
-    return;
-  }
-
-  wrap.style.display = 'flex';
-
-  const btns = wrap.querySelectorAll('.mf-asm-switch-btn');
-  btns.forEach(function (b) {
-    const asm = b.getAttribute('data-asm');
-    b.classList.toggle('active', asm === activeAssemblyType);
-  });
-
-  if (note) {
-    if (activeAssemblyType === 'Assembled' && activeAssembleFee > 0) {
-      note.innerHTML = '<strong>+$' + activeAssembleFee.toFixed(2) + '</strong> assembly fee per unit';
-    } else if (activeAssemblyType === 'Assembled') {
-      note.textContent = 'No assembly fee';
-    } else {
-      note.textContent = 'Ships flat-packed';
-    }
-  }
-
-  // also update the assembled/rta pill in the meta row
-  const pillEl = document.getElementById('mfHeadAsmPill');
-  if (pillEl) {
-    pillEl.classList.remove('assembled', 'rta');
-    pillEl.classList.add(activeAssemblyType === 'RTA' ? 'rta' : 'assembled');
-    pillEl.textContent = activeAssemblyType === 'RTA' ? 'RTA' : 'Assembled';
-  }
-}
-
-function applyRtaModeUI() {
-  const body = document.getElementById('mfModalBody');
-  if (!body) return;
-  if (activeAssemblyType === 'RTA') body.classList.add('rta-mode');
-  else body.classList.remove('rta-mode');
-}
 
 /**
- * F-RTA-SWITCH: fetch mod rules from RPC. Called on first switch to
- * Assembled in a modal session (avoids needing to close/reopen).
- * Returns true on success, false on failure.
+ * Fetch mod rules for the currently-open SKU modal.
+ * Only called when modal opens for an Assembled item.
  */
 async function fetchModRulesForActiveItem() {
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
@@ -2797,7 +2775,7 @@ async function fetchModRulesForActiveItem() {
   }
 
   const role = effectiveRole;
-  console.log('[E4.3]   (re-fetch) door=' + doorParam +
+  console.log('[E4.3]   door=' + doorParam +
               ', type=' + (item.skuType || '') +
               ', sku_code=' + (item.sku_code || '') +
               ', role=' + role);
@@ -2888,8 +2866,6 @@ async function fetchModRulesForActiveItem() {
                   beforeFilter + ' → ' + finalRules.length + ' rule(s)');
     }
 
-    // F-BINDING-GROUP: sort so primary precedes its dependents
-    // within the same binding_group. Preserves natural order otherwise.
     finalRules = sortRulesByBindingGroup(finalRules);
 
     activeMfModalRules = finalRules;
@@ -2911,16 +2887,9 @@ async function fetchModRulesForActiveItem() {
   }
 }
 
-/**
- * F-BINDING-GROUP: stable sort that keeps primary immediately before
- * its dependents within the same _binding_group. Rules without a
- * binding_group stay in their original position relative to the
- * group's primary.
- */
 function sortRulesByBindingGroup(rules) {
   if (!Array.isArray(rules) || rules.length < 2) return rules;
 
-  // Map each rule to its original index, then build groups.
   const result = [];
   const consumed = new Set();
 
@@ -2931,18 +2900,15 @@ function sortRulesByBindingGroup(rules) {
     const group = params._binding_group;
     const role  = params._binding_role;
 
-    // Not in a binding group — emit as-is
     if (!group) {
       result.push(rule);
       consumed.add(idx);
       return;
     }
 
-    // In a binding group. Find the primary for this group.
     if (role === 'primary') {
       result.push(rule);
       consumed.add(idx);
-      // Now append any dependents in the same group
       rules.forEach(function (other, j) {
         if (consumed.has(j)) return;
         const op = other.mf_params || {};
@@ -2952,7 +2918,6 @@ function sortRulesByBindingGroup(rules) {
         }
       });
     } else if (role === 'dependent') {
-      // Dependent encountered before its primary — find & emit primary first
       let primaryIdx = -1;
       for (let j = 0; j < rules.length; j++) {
         if (consumed.has(j)) continue;
@@ -2965,7 +2930,6 @@ function sortRulesByBindingGroup(rules) {
       if (primaryIdx >= 0) {
         result.push(rules[primaryIdx]);
         consumed.add(primaryIdx);
-        // Then all dependents in the group
         rules.forEach(function (other, j) {
           if (consumed.has(j)) return;
           const op = other.mf_params || {};
@@ -2975,12 +2939,10 @@ function sortRulesByBindingGroup(rules) {
           }
         });
       } else {
-        // No primary found in this rule set — emit dependent as-is (orphan)
         result.push(rule);
         consumed.add(idx);
       }
     } else {
-      // binding_group set but role is neither primary nor dependent — treat as orphan
       result.push(rule);
       consumed.add(idx);
     }
@@ -2989,116 +2951,10 @@ function sortRulesByBindingGroup(rules) {
   return result;
 }
 
-async function handleAssemblyTypeChange(newType) {
-  if (newType !== 'RTA' && newType !== 'Assembled') return;
-  if (newType === activeAssemblyType) return;
-
-  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
-  if (!item) return;
-
-  if (item.is_custom) {
-    showToast('Custom items cannot be switched between RTA and Assembled', true);
-    return;
-  }
-
-  if (newType === 'Assembled') {
-    // Guard: SKU must actually have an Assembled version
-    if (!itemSupportsAssembled(dealer, item)) {
-      showToast('This SKU is not available in Assembled', true);
-      return;
-    }
-
-    // RTA → Assembled
-    const newFee = getAssembleFeeForItem(dealer, item);
-    const feeNote = newFee > 0
-      ? '\n\nAn assembly fee of $' + newFee.toFixed(2) + ' per unit will apply.'
-      : '\n\nNo assembly fee applies for this SKU type.';
-    const ok = confirm(
-      'Switch this SKU to Assembled?' + feeNote +
-      '\n\nYou will be able to configure modifications after switching.'
-    );
-    if (!ok) return;
-
-    activeAssemblyType = 'Assembled';
-    activeAssembleFee  = newFee;
-    console.log('[F-RTA-SWITCH] RTA → Assembled · SKU=' + item.sku_code + ' · fee=$' + newFee.toFixed(2));
-
-    renderAssemblySwitch(item);
-    applyRtaModeUI();
-    renderSplitPanel();
-    renderTabs();
-
-    // BUGFIX: if rules haven't been fetched yet (modal opened in RTA
-    // mode), fetch them now. Otherwise just re-render with cached rules.
-    if (!Array.isArray(activeMfModalRules) || activeMfModalRules.length === 0) {
-      clearMfContainerToLoading();
-      const ok = await fetchModRulesForActiveItem();
-      if (activeMfModalKey !== item.key) return;  // user closed modal mid-fetch
-      if (!ok) {
-        renderActiveSubTab();  // will show "No modifications available"
-      } else {
-        renderActiveSubTab();
-      }
-    } else {
-      renderActiveSubTab();
-    }
-    updateRunningTotal();
-    updateSplitSummary();
-    return;
-  }
-
-  // Assembled → RTA
-  let hasMods = false;
-  activeSubGroups.forEach(function (sub) {
-    Object.keys(sub.liveValues || {}).forEach(function (k) {
-      const e = sub.liveValues[k];
-      if (e && shouldKeepModification(e.value)) hasMods = true;
-    });
-    if (Array.isArray(sub.frozenValues)) {
-      sub.frozenValues.forEach(function (e) {
-        if (e && shouldKeepModification(e.value)) hasMods = true;
-      });
-    }
-  });
-
-  const warning = hasMods
-    ? 'Switch this SKU to RTA?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
-    : 'Switch this SKU to RTA?\n\nThe assembly fee will be removed and no modifications will be allowed.';
-  const ok = confirm(warning);
-  if (!ok) return;
-
-  destroyActiveSubInstances();
-  activeSubGroups.forEach(function (sub) {
-    sub.modifications       = [];
-    sub.modification_status = 'skipped';
-    sub.liveValues          = {};
-    sub.frozenValues        = null;
-    sub.instances           = [];
-  });
-
-  activeAssemblyType = 'RTA';
-  activeAssembleFee  = 0;
-  console.log('[F-RTA-SWITCH] Assembled → RTA · SKU=' + item.sku_code + ' · mods cleared=' + hasMods);
-
-  renderAssemblySwitch(item);
-  applyRtaModeUI();
-  renderSplitPanel();
-  renderTabs();
-
-  const wrap = document.getElementById('mfElementsContainer');
-  if (wrap) {
-    wrap.innerHTML =
-      '<div class="mf-no-rules">' +
-        '<div class="mf-no-rules-title">RTA Mode</div>' +
-        '<div>No modifications apply to RTA shipments. Switch to Assembled above if you need to configure modifications.</div>' +
-      '</div>';
-  }
-  updateRunningTotal();
-  updateSplitSummary();
-}
-
 // ═══════════════════════════════════════════════════════════════════
-// openMfModal — handles both Assembled and RTA item rows
+// openMfModal — ONLY opens for Assembled items now.
+// RTA items don't open modal (no row-click), so this function
+// assumes activeAssemblyType is always Assembled.
 // ═══════════════════════════════════════════════════════════════════
 
 async function openMfModal(key) {
@@ -3108,15 +2964,16 @@ async function openMfModal(key) {
     return;
   }
 
+  // Defensive: should never be called for RTA, but bail just in case
+  if (item.type === 'RTA') {
+    console.warn('[E3] openMfModal called for RTA item — ignoring. Use main-page switch button instead.');
+    return;
+  }
+
   ensureSubGroups(item);
 
   activeMfModalKey = key;
   activeMfModalRules = null;
-
-  // F-RTA-SWITCH: init modal-scoped assembly state from item
-  activeAssemblyType = (item.type === 'RTA') ? 'RTA' : 'Assembled';
-  activeAssembleFee  = (activeAssemblyType === 'Assembled')
-    ? getAssembleFeeForItem(dealer, item) : 0;
 
   activeSubGroups = item.sub_groups.map(function (g, i) {
     return {
@@ -3140,13 +2997,10 @@ async function openMfModal(key) {
   document.getElementById('mfHeadDescSep').textContent = '  ';
   document.getElementById('mfHeadDesc').textContent = item.sku_desc || '';
 
-  const asmPillClass = activeAssemblyType === 'RTA' ? 'rta' : 'assembled';
-  const asmPillLabel = activeAssemblyType === 'RTA' ? 'RTA' : 'Assembled';
-
   document.getElementById('mfHeadMeta').innerHTML = `
     <span>${esc(item.style_name || item.style_code)}</span>
     <span class="mf-pill ${ctypeClass}">${esc(ctypeLabel)}</span>
-    <span class="mf-pill ${asmPillClass}" id="mfHeadAsmPill">${asmPillLabel}</span>
+    <span class="mf-pill assembled">Assembled</span>
     <span class="mf-sku-head-qty">
       <span class="mf-sku-head-qty-label">SKU Qty:</span>
       <input type="number" min="1" step="1" class="mf-sku-head-qty-input"
@@ -3156,52 +3010,25 @@ async function openMfModal(key) {
     </span>
   `;
 
-  // F-RTA-SWITCH: render segmented control + apply rta-mode class
-  // (renderAssemblySwitch handles the "no Assembled version" hide case)
-  renderAssemblySwitch(item);
-  applyRtaModeUI();
-
   renderSplitPanel();
   renderTabs();
 
   clearMfContainerToLoading();
   setRunningTotalDOM(
-    activeAssemblyType === 'RTA'
-      ? 'RTA — no modifications'
-      : (activeSubGroups.length > 1
-          ? 'Sub 1 (qty ' + (activeSubGroups[0].qty || 0) + ') modifications'
-          : 'Modifications subtotal'),
+    activeSubGroups.length > 1
+      ? 'Sub 1 (qty ' + (activeSubGroups[0].qty || 0) + ') modifications'
+      : 'Modifications subtotal',
     0
   );
 
   document.getElementById('mfModalOverlay').classList.add('show');
   document.body.classList.add('mf-modal-open');
 
-  console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item),
-              '· activeAssemblyType=' + activeAssemblyType,
-              '· activeAssembleFee=$' + activeAssembleFee.toFixed(2),
-              '· supportsAssembled=' + itemSupportsAssembled(dealer, item));
+  console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item));
   console.log('[E5] sub_groups loaded:', activeSubGroups.length, 'sub-group(s)');
 
-  // F-RTA-SWITCH: in RTA mode, skip RPC entirely (will fetch lazily
-  // if user switches to Assembled)
-  if (activeAssemblyType === 'RTA') {
-    activeMfModalRules = [];
-    const wrap = document.getElementById('mfElementsContainer');
-    if (wrap) {
-      wrap.innerHTML =
-        '<div class="mf-no-rules">' +
-          '<div class="mf-no-rules-title">RTA Mode</div>' +
-          '<div>No modifications apply to RTA shipments. Switch to Assembled above if you need to configure modifications.</div>' +
-        '</div>';
-    }
-    updateSplitSummary();
-    return;
-  }
-
-  // Assembled — fetch rules now
   await fetchModRulesForActiveItem();
-  if (activeMfModalKey !== key) return;  // user closed modal mid-fetch
+  if (activeMfModalKey !== key) return;
   renderActiveSubTab();
 }
 
@@ -3214,10 +3041,6 @@ function closeMfModal() {
   activeSubGroups = [];
   activeSubGroupIdx = 0;
   activeSkuQty = 1;
-  activeAssemblyType = 'Assembled';
-  activeAssembleFee = 0;
-  const body = document.getElementById('mfModalBody');
-  if (body) body.classList.remove('rta-mode');
   console.log('[E3] closeMfModal (Cancel / × — no status change)');
 }
 
@@ -3230,13 +3053,9 @@ function closeMfModalSilent() {
   activeSubGroups = [];
   activeSubGroupIdx = 0;
   activeSkuQty = 1;
-  activeAssemblyType = 'Assembled';
-  activeAssembleFee = 0;
-  const body = document.getElementById('mfModalBody');
-  if (body) body.classList.remove('rta-mode');
 }
 
-function refreshAfterModalAction() {
+function refreshAfterCartChange() {
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
   renderProgressCard(pageProgress);
@@ -3268,46 +3087,14 @@ function markInvalidRow(ruleIdx, errors) {
 }
 
 /**
- * F-RTA-SWITCH + E5 + F-TAX: Save handler.
+ * E5 + F-TAX: Save handler.
+ * Modal only opens for Assembled items now, so no RTA branch.
  */
 function handleMfSave() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
 
-  // ─── F-RTA-SWITCH: RTA mode short-circuit ───
-  if (activeAssemblyType === 'RTA') {
-    const newSubGroups = activeSubGroups.length > 0
-      ? activeSubGroups.map(function (sub, i) {
-          return { sub_index: i + 1, qty: sub.qty, modifications: [], modification_status: 'skipped' };
-        })
-      : [{ sub_index: 1, qty: activeSkuQty, modifications: [], modification_status: 'skipped' }];
-
-    const sum = newSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
-    if (sum !== activeSkuQty) {
-      newSubGroups.length = 0;
-      newSubGroups.push({ sub_index: 1, qty: activeSkuQty, modifications: [], modification_status: 'skipped' });
-    }
-
-    const oldType = item.type;
-    item.type         = 'RTA';
-    item.quantity     = activeSkuQty;
-    item.assemble_fee = 0;
-    item.sub_groups   = newSubGroups;
-    item.key          = item.sku_code + '_RTA';
-
-    console.log('[F-RTA-SWITCH] Saved as RTA · SKU=' + item.sku_code +
-                (oldType !== 'RTA' ? ' (was ' + oldType + ')' : '') +
-                ' · qty=' + activeSkuQty + ' · assemble_fee=$0');
-
-    refreshAfterModalAction();
-    const skuCode = item.sku_code;
-    closeMfModalSilent();
-    showToast(skuCode + ' set to RTA');
-    return;
-  }
-
-  // ─── Assembled mode ───
   document.querySelectorAll('#mfElementsContainer .mf-row.invalid').forEach(function (row) {
     row.classList.remove('invalid');
     const errMsg = row.querySelector('.mf-row-error-msg');
@@ -3421,27 +3208,19 @@ function handleMfSave() {
     });
   });
 
-  // F-RTA-SWITCH: write back type + fee + key
-  const oldQty  = item.quantity;
-  const oldType = item.type;
-  const oldKey  = item.key;
-  item.quantity     = activeSkuQty;
-  item.sub_groups   = newSubGroups;
-  item.type         = 'Assembled';
-  item.assemble_fee = activeAssembleFee;
-  item.key          = item.sku_code + '_Assembled';
+  const oldQty = item.quantity;
+  item.quantity   = activeSkuQty;
+  item.sub_groups = newSubGroups;
+  // type and assemble_fee stay as Assembled (no change in modal-only flow)
 
-  console.log('[E4.6] handleMfSave', oldKey,
+  console.log('[E4.6] handleMfSave', activeMfModalKey,
               '→', newSubGroups.length, 'sub-group(s),',
               'total line cost $' + totalLineCost.toFixed(2),
               (oldQty !== activeSkuQty ? '(SKU qty: ' + oldQty + ' → ' + activeSkuQty + ')' : ''));
-  if (oldType !== 'Assembled') {
-    console.log('[F-RTA-SWITCH] Type changed: ' + oldType + ' → Assembled, assemble_fee=$' + activeAssembleFee.toFixed(2));
-  }
   console.log('[F-TAX]   Taxable mods line cost: $' + taxableLineCost.toFixed(2) +
               ' (of $' + totalLineCost.toFixed(2) + ' total)');
 
-  refreshAfterModalAction();
+  refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
   showToast(skuCode + ' configured — $' + totalLineCost.toFixed(2));
@@ -3451,12 +3230,6 @@ function handleMfSkip() {
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
-
-  // F-RTA-SWITCH: in RTA mode, Skip == Save
-  if (activeAssemblyType === 'RTA') {
-    handleMfSave();
-    return;
-  }
 
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
@@ -3468,18 +3241,13 @@ function handleMfSkip() {
     return { sub_index: i + 1, qty: sub.qty, modifications: [], modification_status: 'skipped' };
   });
 
-  const oldType = item.type;
-  item.quantity     = activeSkuQty;
-  item.sub_groups   = newSubGroups;
-  item.type         = 'Assembled';
-  item.assemble_fee = activeAssembleFee;
-  item.key          = item.sku_code + '_Assembled';
+  item.quantity   = activeSkuQty;
+  item.sub_groups = newSubGroups;
 
   console.log('[E4.6] handleMfSkip', activeMfModalKey,
-              '→ all', newSubGroups.length, 'sub-group(s) cleared & skipped',
-              (oldType !== 'Assembled' ? '(was ' + oldType + ')' : ''));
+              '→ all', newSubGroups.length, 'sub-group(s) cleared & skipped');
 
-  refreshAfterModalAction();
+  refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
   showToast(skuCode + ' skipped');
@@ -3776,7 +3544,6 @@ function confirmSwap() {
       else { unpriced++; }
     } else { unpriced++; }
 
-    const oldUnitPrice = item.unit_price;
     item.style_code = newStyle.style_code;
     item.style_name = newStyle.style_name;
     item.unit_price = newUnitPrice;
@@ -3861,7 +3628,7 @@ async function init() {
     _supabase.from('skus_frameless').select('*').eq('active', true),
   ]);
   allDoorStyles = styleRes.data || [];
-  const allSkusFramed    = framedRes.data    || [];
+  const allSkusFramed    = framedRes.data || [];
   const allSkusFrameless = framelessRes.data || [];
 
   if (draftId) {
@@ -3954,7 +3721,7 @@ async function init() {
 
   console.log('[E1.2] init() complete');
   logDoorStyleGroups(doorStyleGroups);
-  console.log('[F-RTA-SWITCH] Ready · v2 (rules sorted by binding group, lazy fetch on switch)');
+  console.log('[F-RTA-SWITCH] Ready · v3 (main-page row buttons, modal segmented control removed)');
 
   setInterval(async function () {
     const { data: check } = await _supabase
@@ -3970,4 +3737,3 @@ init();
 </script>
 </body>
 </html>
-
