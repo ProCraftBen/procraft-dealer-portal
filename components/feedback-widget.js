@@ -13,11 +13,10 @@
  *     mobile: collapses to a small tab, click expands for 5 seconds)
  *   - Click button → opens modal with sentiment / category / message
  *   - On submit → INSERTs row into portal_feedback table
- *   - On first-ever load (desktop), pulse-animates once after 5s
  *
  * Storage scope:
  *   - All UI inside Shadow DOM (no CSS leakage to/from portal)
- *   - localStorage key: 'pfb_has_seen_widget' (one-time pulse flag)
+ *   - sessionStorage key: 'pfb_hidden_this_session' (mobile × close flag)
  *
  * Dependencies (must exist in page before this script runs):
  *   - window.supabase (from @supabase/supabase-js@2 CDN)
@@ -39,7 +38,6 @@
   const MOBILE_BREAKPOINT = 700;     // px, matches portal's mobile breakpoint
   const MOBILE_AUTO_COLLAPSE_MS = 5000;
   const MESSAGE_MAX = 2000;
-  const LS_KEY_FIRST_SEEN = 'pfb_has_seen_widget';
   const SS_KEY_HIDDEN     = 'pfb_hidden_this_session';
 
   const CATEGORIES = [
@@ -124,14 +122,6 @@
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
-    }
-    .pfb-fab.pulse {
-      animation: pfb-pulse 1.4s ease-in-out 2;
-    }
-    @keyframes pfb-pulse {
-      0%   { box-shadow: 0 4px 14px rgba(62, 90, 66, 0.35), 0 0 0 0 rgba(201, 168, 76, 0.7); }
-      50%  { box-shadow: 0 4px 14px rgba(62, 90, 66, 0.35), 0 0 0 12px rgba(201, 168, 76, 0); }
-      100% { box-shadow: 0 4px 14px rgba(62, 90, 66, 0.35), 0 0 0 0 rgba(201, 168, 76, 0); }
     }
 
     /* ─── Mobile tab (collapsed state) ─── */
@@ -530,18 +520,6 @@
     renderTrigger();
     renderModal();
     setupResizeListener();
-
-    // First-time pulse on desktop
-    if (!_isMobile && !localStorage.getItem(LS_KEY_FIRST_SEEN)) {
-      setTimeout(function () {
-        const fab = _shadow.querySelector('.pfb-fab');
-        if (fab) {
-          fab.classList.add('pulse');
-          setTimeout(function () { fab.classList.remove('pulse'); }, 3000);
-        }
-        localStorage.setItem(LS_KEY_FIRST_SEEN, '1');
-      }, 5000);
-    }
 
     console.log('[FeedbackWidget] Mounted v1.0 — user:', _dealerRow.dealer_name,
                 '· role:', _dealerRow.role,
