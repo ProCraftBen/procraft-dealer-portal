@@ -67,7 +67,7 @@
   // ──────────────────────────────────────────────────────────────────
   let _supabase     = null;
   let _session      = null;
-  let _dealerRow    = null;     // { dealer_name, role, ... }
+  let _dealerRow    = null;     // { company_name, role, ... }
   let _host         = null;     // shadow host element
   let _shadow       = null;     // shadow root
   let _isMobile     = false;
@@ -480,7 +480,7 @@
     // Load dealer row for name + role
     const { data: row, error: rowErr } = await _supabase
       .from('dealers')
-      .select('id, dealer_name, role, is_active')
+      .select('id, company_name, role, is_active')
       .eq('id', session.user.id)
       .single();
 
@@ -521,7 +521,7 @@
     renderModal();
     setupResizeListener();
 
-    console.log('[FeedbackWidget] Mounted v1.0 — user:', _dealerRow.dealer_name,
+    console.log('[FeedbackWidget] Mounted v1.0 — user:', _dealerRow.company_name,
                 '· role:', _dealerRow.role,
                 '· mobile:', _isMobile);
   }
@@ -842,7 +842,7 @@
 
     const payload = {
       dealer_id:         _session.user.id,
-      dealer_name:       _dealerRow.dealer_name || null,
+      dealer_name:       _dealerRow.company_name || null,
       submitted_by_role: isAdminRole(_dealerRow.role) ? (_dealerRow.role || 'admin') : 'dealer',
       sentiment:         _selectedSentiment,
       category:          _selectedCategory,
