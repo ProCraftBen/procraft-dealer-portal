@@ -1380,7 +1380,14 @@ const colorMap = {
 const BINDING_RULES = [
   {
     group:       'GLASS',
-    primary:     { mf_code: 'MF02', display_label_contains: 'Glass' },
+    primary:     {
+      mf_code:                   'MF02',
+      display_label_contains:    'Glass',
+      // F-GLASS-MULTIPLIER: derive _unit_price + _multiplier from
+      // the CSV row's subcategory. Only multipliers > 1 get injected
+      // (1Dr just shows "+$25.00" like a normal mod, no breakdown).
+      multiplier_by_subcategory: { '1Dr': 1, '2Dr': 2 },
+    },
     dependent:   { mf_code: 'MF03', display_label_contains: 'Prep For Glass' },
     lock_reason: 'Required with Glass',
   },
@@ -1408,10 +1415,26 @@ function inferBindingFromMfCode(rule) {
     const br = BINDING_RULES[i];
     if (rule.mf_code === br.primary.mf_code &&
         label.indexOf(br.primary.display_label_contains) !== -1) {
-      return {
+      const result = {
         _binding_group: br.group,
         _binding_role:  'primary',
       };
+      // F-GLASS-MULTIPLIER: derive unit_price + multiplier from
+      // rule.subcategory (e.g. '2Dr' → multiplier 2, unit_price = cost/2).
+      // Only multipliers > 1 get injected — 1Dr just keeps the default
+      // "+$25.00" display via the rule's base cost.
+      if (br.primary.multiplier_by_subcategory) {
+        const sub = (rule.subcategory || '').trim();
+        const m = sub ? br.primary.multiplier_by_subcategory[sub] : null;
+        if (typeof m === 'number' && m > 1) {
+          const cost = parseFloat(rule.cost);
+          if (isFinite(cost) && cost > 0) {
+            result._multiplier = m;
+            result._unit_price = cost / m;
+          }
+        }
+      }
+      return result;
     }
   }
 
@@ -2936,9 +2959,15 @@ async function fetchModRulesForActiveItem() {
       if (!inferred) return;
 
       rule.mf_params = Object.assign({}, existingParams, inferred);
+      const multiplierNote = (typeof inferred._multiplier === 'number')
+        ? ' · multiplier=' + inferred._multiplier +
+          ', unit_price=$' + inferred._unit_price.toFixed(2) +
+          ' (cost $' + rule.cost + ' / ' + (rule.subcategory || '?') + ')'
+        : '';
       console.log('[F-BINDING-GROUP] inferred ' + rule.mf_code +
                   ' "' + (rule.display_label || '') + '" → ' +
-                  inferred._binding_group + '/' + inferred._binding_role);
+                  inferred._binding_group + '/' + inferred._binding_role +
+                  multiplierNote);
     });
 
     finalRules = sortRulesByBindingGroup(finalRules);
