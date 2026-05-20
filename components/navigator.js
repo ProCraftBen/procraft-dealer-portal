@@ -78,7 +78,7 @@
     .pcd-nav-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; text-decoration: none; }
     .pcd-nav-brand:hover { opacity: 0.9; }
     .pcd-nav-logo { height: 44px; max-width: 110px; object-fit: contain; }
-    .pcd-nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; white-space: nowrap; }
+    .pcd-nav-title { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 500; letter-spacing: 0.06em; color: #fff; white-space: nowrap; }
     .pcd-nav-badge { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; background: #C9A84C; color: #3e5a42; padding: 2px 7px; border-radius: 2px; font-weight: 500; }
 
     .pcd-nav-right { display: flex; align-items: center; gap: 16px; }
