@@ -1361,6 +1361,63 @@ const colorMap = {
   grey:'#8A8A8A', white:'#F0EDE8', green:'#2D4A3A', beige:'#C8B89A',
 };
 
+// ═══════════════════════════════════════════════════════════════════
+// F-BINDING-GROUP: automatic binding inference
+//
+// CSV doesn't manually tag _binding_group / _binding_role on
+// modification_assignments rows. Instead, after the RPC returns
+// rules, we infer binding markers from (mf_code, display_label)
+// and inject them into mf_params in-memory (DB stays untouched).
+//
+// To add a new binding pair (e.g. Drawer Front) later:
+//   1. Append a new entry to BINDING_RULES below
+//   2. Done — no other code changes needed
+//
+// Important: dependent label matching is checked BEFORE primary
+// because "Prep For Glass" string-contains "Glass". The check
+// order in inferBindingFromMfCode preserves this guarantee.
+// ═══════════════════════════════════════════════════════════════════
+const BINDING_RULES = [
+  {
+    group:       'GLASS',
+    primary:     { mf_code: 'MF02', display_label_contains: 'Glass' },
+    dependent:   { mf_code: 'MF03', display_label_contains: 'Prep For Glass' },
+    lock_reason: 'Required with Glass',
+  },
+  // Future bindings (e.g. DRAWER_FRONT) — add here, no logic change.
+];
+
+function inferBindingFromMfCode(rule) {
+  if (!rule || !rule.mf_code) return null;
+  const label = (rule.display_label || '').trim();
+
+  // Dependent first — "Prep For Glass" also contains "Glass"
+  for (let i = 0; i < BINDING_RULES.length; i++) {
+    const br = BINDING_RULES[i];
+    if (rule.mf_code === br.dependent.mf_code &&
+        label.indexOf(br.dependent.display_label_contains) !== -1) {
+      return {
+        _binding_group: br.group,
+        _binding_role:  'dependent',
+        _lock_reason:   br.lock_reason,
+      };
+    }
+  }
+
+  for (let i = 0; i < BINDING_RULES.length; i++) {
+    const br = BINDING_RULES[i];
+    if (rule.mf_code === br.primary.mf_code &&
+        label.indexOf(br.primary.display_label_contains) !== -1) {
+      return {
+        _binding_group: br.group,
+        _binding_role:  'primary',
+      };
+    }
+  }
+
+  return null;
+}
+
 const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
 const ADMIN_LOCK_SVG = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
 const TRASH_SVG = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
@@ -2391,6 +2448,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
       isReadOnly: false, isVirtual: false,
       binding_group: bindingGroup,
       binding_role:  bindingRole,
+      lock_reason:   mfParams._lock_reason || 'Required',
     });
 
     try {
@@ -2472,7 +2530,7 @@ function applyDependentState(dep, primaryIsOn) {
       catch (e) { console.warn('[F-BINDING-GROUP] setEnabled(true) threw for', dep.mf_code, e); }
     }
     if (typeof inst.setLocked === 'function') {
-      try { inst.setLocked(true, 'Required with Glass'); }
+      try { inst.setLocked(true, dep.lock_reason || 'Required'); }
       catch (e) { console.warn('[F-BINDING-GROUP] setLocked(true) threw for', dep.mf_code, e); }
     }
   } else {
@@ -2865,6 +2923,23 @@ async function fetchModRulesForActiveItem() {
       console.log('[F-CUSTOM] Custom item — filtered to MF07 only: ' +
                   beforeFilter + ' → ' + finalRules.length + ' rule(s)');
     }
+
+    // F-BINDING-GROUP: infer binding markers from (mf_code, display_label)
+    // and inject into mf_params in-memory. DB rows are not touched.
+    // If a row already has _binding_group set (manually tagged in CSV),
+    // we respect the manual value and skip inference.
+    finalRules.forEach(function (rule) {
+      const existingParams = rule.mf_params || {};
+      if (existingParams._binding_group) return;  // respect manual tag
+
+      const inferred = inferBindingFromMfCode(rule);
+      if (!inferred) return;
+
+      rule.mf_params = Object.assign({}, existingParams, inferred);
+      console.log('[F-BINDING-GROUP] inferred ' + rule.mf_code +
+                  ' "' + (rule.display_label || '') + '" → ' +
+                  inferred._binding_group + '/' + inferred._binding_role);
+    });
 
     finalRules = sortRulesByBindingGroup(finalRules);
 
