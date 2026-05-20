@@ -4,31 +4,29 @@
  * ═══════════════════════════════════════════════════════════════════
  *
  * Usage:
- *   <script src="components/feedback-widget.js?v=1.1"></script>
+ *   <script src="components/feedback-widget.js?v=1.2"></script>
  *   (Place AFTER the supabase-js script and AFTER user is logged in.)
  *
  * The widget:
  *   - Auto-detects logged-in session; renders nothing if not authenticated
- *   - Starts as a collapsed tab on the left edge of the viewport
+ *   - Renders a persistent tab on the left edge of the viewport
  *     · Desktop: 24px wide with vertical "Feedback" text
  *     · Mobile:  6px wide with no text (more compact)
- *   - Click tab → expands to action button
- *     · Desktop: pill "💬 Feedback" + × close button. No auto-collapse.
- *     · Mobile:  circle "💬" + × close button. Auto-collapses after 5s.
- *   - Click action button → opens modal with sentiment / category / message
+ *   - Click tab → opens modal directly (no intermediate button step)
+ *   - Modal: sentiment / category / message
  *   - On submit → INSERTs row into portal_feedback table
- *   - × close button hides widget for the rest of the session (sessionStorage)
+ *   - Tab stays visible at all times (no hide button)
  *
  * Storage scope:
  *   - All UI inside Shadow DOM (no CSS leakage to/from portal)
- *   - sessionStorage key: 'pfb_hidden_this_session' (× close flag)
  *
  * Dependencies (must exist in page before this script runs):
  *   - window.supabase (from @supabase/supabase-js@2 CDN)
- *   - The page must have already initialized a Supabase client OR
- *     this widget will create its own with the hardcoded creds.
  *
- * Version: 1.1
+ * Version: 1.2
+ *   - Tab now opens modal directly (removed expand-to-pill intermediate step)
+ *   - Removed × hide button and session-hide flag
+ *   - Removed mobile auto-collapse timer
  * ═══════════════════════════════════════════════════════════════════
  */
 
@@ -40,10 +38,8 @@
   // ──────────────────────────────────────────────────────────────────
   const SUPABASE_URL  = 'https://acwgemgpnusworpxxoai.supabase.co';
   const SUPABASE_KEY  = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
-  const MOBILE_BREAKPOINT = 700;     // px, matches portal's mobile breakpoint
-  const MOBILE_AUTO_COLLAPSE_MS = 5000;
+  const MOBILE_BREAKPOINT = 700;
   const MESSAGE_MAX = 2000;
-  const SS_KEY_HIDDEN     = 'pfb_hidden_this_session';
 
   const CATEGORIES = [
     { value: 'bug',         icon: '🐛', label: 'Bug' },
@@ -76,7 +72,6 @@
   let _host         = null;     // shadow host element
   let _shadow       = null;     // shadow root
   let _isMobile     = false;
-  let _autoCollapseTimer = null;
 
   // Form state
   let _selectedSentiment = null;
@@ -93,43 +88,7 @@
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ─── Floating button (desktop pill — expanded state) ─── */
-    .pfb-fab {
-      position: fixed;
-      bottom: 20px; left: 20px;
-      z-index: 9998;
-      background: #3e5a42;
-      color: #fff;
-      border: none;
-      border-radius: 22px;
-      height: 44px;
-      padding: 0 16px 0 12px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 500;
-      letter-spacing: 0.03em;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(62, 90, 66, 0.35);
-      transition: all 0.2s ease;
-    }
-    .pfb-fab:hover {
-      background: #4a6b4f;
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(62, 90, 66, 0.45);
-    }
-    .pfb-fab svg {
-      width: 18px; height: 18px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    /* ─── Tab (collapsed state) ─── */
+    /* ─── Tab (the only trigger) ─── */
     /* Desktop: 24px wide with vertical "Feedback" text
        Mobile:  6px wide, no text (compact) */
     .pfb-tab {
@@ -143,7 +102,7 @@
       border-radius: 0 4px 4px 0;
       cursor: pointer;
       box-shadow: 2px 2px 8px rgba(0,0,0,0.18);
-      transition: width 0.2s ease, padding 0.2s ease;
+      transition: width 0.2s ease, background 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -156,56 +115,12 @@
       writing-mode: vertical-rl;
       text-orientation: mixed;
       user-select: none;
+      border: none;
     }
     .pfb-tab:hover {
       width: 28px;
       background: #4a6b4f;
     }
-    .pfb-tab.hidden { display: none; }
-
-    /* ─── Expanded wrapper (holds pill/fab + close button) ─── */
-    .pfb-fab-wrap {
-      position: fixed;
-      bottom: 20px; left: 20px;
-      z-index: 9998;
-    }
-    .pfb-fab-wrap .pfb-fab {
-      position: static;
-      bottom: auto; left: auto;
-    }
-
-    /* ─── Mobile circular fab (expanded state on mobile) ─── */
-    .pfb-fab-mobile {
-      background: #3e5a42;
-      color: #fff;
-      border: none;
-      border-radius: 50%;
-      width: 48px; height: 48px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 4px 14px rgba(62, 90, 66, 0.4);
-    }
-    .pfb-fab-mobile svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
-
-    /* ─── Close button (×) used on expanded state, desktop + mobile ─── */
-    .pfb-fab-close {
-      position: absolute;
-      top: -6px; right: -6px;
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      background: #fff;
-      color: #7A8C82;
-      border: 1px solid #DDD8CC;
-      font-size: 14px;
-      line-height: 1;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      padding: 0;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-    }
-    .pfb-fab-close:hover { color: #C0392B; border-color: #C0392B; }
 
     /* ─── Modal overlay ─── */
     .pfb-overlay {
@@ -472,15 +387,8 @@
         writing-mode: horizontal-tb;
       }
       .pfb-tab:hover { width: 10px; }
-      /* Mobile expanded wrap position adjustment */
-      .pfb-fab-wrap { bottom: 76px; left: 12px; }
     }
   `;
-
-  // ──────────────────────────────────────────────────────────────────
-  // ICONS
-  // ──────────────────────────────────────────────────────────────────
-  const MSG_ICON = '<svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
 
   // ──────────────────────────────────────────────────────────────────
   // HELPERS
@@ -547,12 +455,6 @@
   function mount() {
     _isMobile = detectMobile();
 
-    // Respect session-hide flag (user closed via × button)
-    if (sessionStorage.getItem(SS_KEY_HIDDEN) === '1') {
-      console.log('[FeedbackWidget] Hidden for this session (user closed via ×)');
-      return;
-    }
-
     _host = document.createElement('div');
     _host.id = 'pcd-feedback-widget-host';
     document.body.appendChild(_host);
@@ -562,100 +464,29 @@
     styleEl.textContent = CSS;
     _shadow.appendChild(styleEl);
 
-    renderTrigger();
+    renderTab();
     renderModal();
-    setupResizeListener();
 
-    console.log('[FeedbackWidget] Mounted v1.1 — user:', _dealerRow.company_name,
+    console.log('[FeedbackWidget] Mounted v1.2 — user:', _dealerRow.company_name,
                 '· role:', _dealerRow.role,
                 '· mobile:', _isMobile);
   }
 
   /**
-   * Renders the collapsed tab (left edge of viewport).
-   * Both desktop and mobile start in this state.
+   * Renders the persistent tab on the left edge of the viewport.
+   * Tab is always visible; clicking it opens the modal directly.
    * - Desktop: 24px wide with vertical "Feedback" text
    * - Mobile:  6px wide with no text (CSS @media handles it)
    */
-  function renderTrigger() {
-    // Clear any existing triggers
-    const existing = _shadow.querySelectorAll('.pfb-fab, .pfb-tab, .pfb-fab-wrap');
-    existing.forEach(function (el) { el.remove(); });
-
-    const tab = document.createElement('div');
+  function renderTab() {
+    const tab = document.createElement('button');
     tab.className = 'pfb-tab';
-    tab.setAttribute('role', 'button');
-    tab.setAttribute('aria-label', 'Show feedback button');
+    tab.type = 'button';
+    tab.setAttribute('aria-label', 'Send feedback');
+    tab.title = 'Send feedback';
     tab.textContent = 'Feedback';  // hidden via font-size:0 on mobile
-    tab.addEventListener('click', onTabClick);
+    tab.addEventListener('click', openModal);
     _shadow.appendChild(tab);
-  }
-
-  /**
-   * Tab clicked → expand to action button.
-   * - Desktop: pill button "💬 Feedback" + × close button. No auto-collapse.
-   * - Mobile:  circular button "💬" + × close button. Auto-collapses in 5s.
-   */
-  function onTabClick() {
-    const tab = _shadow.querySelector('.pfb-tab');
-    if (tab) tab.remove();
-
-    const wrap = document.createElement('div');
-    wrap.className = 'pfb-fab-wrap';
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.setAttribute('aria-label', 'Send feedback');
-    btn.addEventListener('click', function () {
-      cancelAutoCollapse();
-      openModal();
-    });
-
-    if (_isMobile) {
-      // Mobile: circular icon-only
-      btn.className = 'pfb-fab-mobile';
-      btn.innerHTML = MSG_ICON;
-    } else {
-      // Desktop: pill with icon + text
-      btn.className = 'pfb-fab';
-      btn.innerHTML = MSG_ICON + '<span>Feedback</span>';
-    }
-
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'pfb-fab-close';
-    closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'Hide feedback widget for this session');
-    closeBtn.title = 'Hide for this session';
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', function (e) {
-      e.stopPropagation();
-      cancelAutoCollapse();
-      sessionStorage.setItem(SS_KEY_HIDDEN, '1');
-      const w = _shadow.querySelector('.pfb-fab-wrap');
-      if (w) w.remove();
-      const overlay = _shadow.querySelector('.pfb-overlay');
-      if (overlay) overlay.classList.remove('show');
-      console.log('[FeedbackWidget] User hid widget for this session');
-    });
-
-    wrap.appendChild(btn);
-    wrap.appendChild(closeBtn);
-    _shadow.appendChild(wrap);
-
-    // Auto-collapse only on mobile
-    if (_isMobile) {
-      _autoCollapseTimer = setTimeout(function () {
-        wrap.remove();
-        renderTrigger();
-      }, MOBILE_AUTO_COLLAPSE_MS);
-    }
-  }
-
-  function cancelAutoCollapse() {
-    if (_autoCollapseTimer) {
-      clearTimeout(_autoCollapseTimer);
-      _autoCollapseTimer = null;
-    }
   }
 
   function renderModal() {
@@ -946,29 +777,6 @@
       cancelBtn.disabled = false;
       submitBtn.innerHTML = originalLabel;
     }
-  }
-
-  // ──────────────────────────────────────────────────────────────────
-  // RESIZE: switch between desktop and mobile UI on viewport change
-  // ──────────────────────────────────────────────────────────────────
-  let _resizeTimer = null;
-  function setupResizeListener() {
-    window.addEventListener('resize', function () {
-      if (_resizeTimer) clearTimeout(_resizeTimer);
-      _resizeTimer = setTimeout(function () {
-        const wasMobile = _isMobile;
-        _isMobile = detectMobile();
-        if (wasMobile !== _isMobile) {
-          console.log('[FeedbackWidget] Viewport switched, re-rendering trigger. mobile:', _isMobile);
-          cancelAutoCollapse();
-          // Clean any expanded wrap so re-render starts fresh from tab
-          const wrap = _shadow.querySelector('.pfb-fab-wrap');
-          if (wrap) wrap.remove();
-          // Re-render trigger (will start as tab in both modes)
-          renderTrigger();
-        }
-      }, 200);
-    });
   }
 
   // ──────────────────────────────────────────────────────────────────
