@@ -1386,7 +1386,17 @@ async function init() {
   allSkusFrameless = framelessRes.data || [];
 
   // Render brand tabs dynamically
-  const brands = [...new Set(allStyles.map(s => s.brand).filter(Boolean))].sort();
+  const brands = [...new Set(allStyles.map(s => s.brand).filter(Boolean))];
+  const BRAND_ORDER = ['Procraft', 'Milania'];  // ← 想排第一的放第一,新品牌加在後面
+  brands.sort((a, b) => {
+    const ai = BRAND_ORDER.indexOf(a);
+    const bi = BRAND_ORDER.indexOf(b);
+    // 沒在 BRAND_ORDER 裡的品牌排到最後,且其內部用字母順序
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
   activeBrand = brands[0] || 'Procraft';
   document.getElementById('brandTabsBar').innerHTML = brands.map((b, i) =>
     `<button class="brand-tab ${i === 0 ? 'active' : ''}" onclick="switchBrand('${b}')">${b}</button>`
