@@ -33,42 +33,42 @@
 //   • TYPE_ORDER now includes 'OTHER' between ACCESSORIES and MODIFICATION
 //     so Custom Other items sort consistently with step3 / quote-detail.
 //   • All three PDFs (packing-list / invoice / draft-quote) suffix the SKU
-//     cell with " [CUSTOM]" for rows where item.is_custom === true. Plain
-//     ASCII suffix is used because jsPDF AutoTable cells are plain text;
-//     coloured/highlighted styling is not supported per-cell without
-//     hacky workarounds.
-//   • [CUSTOM] tag appears only on the first sub-row of split items to
-//     avoid visual noise (consistent with step3 / quote-detail UI).
-//   • MSRP is NOT shown in any PDF mode (already true before Phase 6),
-//     so the "don't show MSRP for custom items" handover requirement is
-//     auto-satisfied.
+//     cell with " [CUSTOM]" for rows where item.is_custom === true.
+//   • [CUSTOM] tag appears only on the first sub-row of split items.
 //
 // F-HIDDEN-MODS (2026-05-18):
 //   • _isHiddenMod() filters mods that are recorded in DB but should NOT
 //     appear in PDF output. Currently filters MF01 value='none' (No Skin).
-//   • _buildDescriptionCellText() applies this filter via .filter() BEFORE
-//     processing mods. If all mods get filtered out, the cell is treated
-//     same as "skipped + empty" (no clutter), matching step3 behavior.
-//   • Mirror this in new-quote-step3.html and quote-detail.html.
 //
 // F-LINE-TOTAL-INCLUDES-ASM (2026-05-21):
 //   • PDF table "Total" column now INCLUDES asmFeeTotal:
 //       lineTotal = skuLineTotal + modFeeTotal + asmFeeTotal
-//     Matches the updated formula in step3.html. The dealer-facing intuition
-//     that "Total = sum of the row's $ columns" is now honoured.
-//     Bottom totals-section still independently sums Subtotal / Modifications
-//     / Assemble Fee / Shipping / Tax, so no double-counting at grand total.
-//   • Mirror this change in quote-detail.html when next updated.
+//     Matches the updated formula in step3.html. Bottom totals-section still
+//     independently sums each subtotal, so no double-counting at grand total.
 //
 // F-COL-ABBREVIATIONS (2026-05-21):
-//   • Type column values shortened to 3-letter uppercase (BAS / WAL / TAL /
-//     ACC / OTH / MOD) and Asm Status to ASM / RTA. Reason: 7-/11-letter
-//     values like "Assembled" / "ACCESSORIES" wrap to 2 lines and visually
-//     misalign the row. Abbreviations are display-only — underlying DB
-//     fields (item.sku_type / item.assemble_status) are unchanged.
-//   • TYPE_SHORT_MAP and STATUS_SHORT_MAP centralise the lookups so future
-//     additions only touch one place. step3.html and quote-detail.html
-//     should mirror these maps for cross-surface consistency.
+//   • Type column shortened to 3-letter uppercase (BAS/WAL/TAL/ACC/OTH/MOD)
+//     and Asm Status to ASM/RTA. Underlying DB fields unchanged.
+//   • TYPE_SHORT_MAP / STATUS_SHORT_MAP centralise lookups for mirroring
+//     across step3.html and quote-detail.html.
+//
+// F-PROMOTIONS (2026-05-21):
+//   • Reads quoteData._promo (written by step3 buildQuoteDataForPdf) to
+//     render a "Promo Discount" row in totals of Invoice and Draft Quote
+//     PDFs (between Subtotal and Modifications, mirroring step3 UI layout).
+//     Discount value rendered in red.
+//   • Packing List PDF intentionally does NOT show promo info — it's for
+//     warehouse / assembly workflow, not pricing.
+//   • Tax base, billing base (shipping bracket), and grand total all factor
+//     in the discount: (markedSubtotal - promoDiscount) feeds taxBase and
+//     billingBase. The "Subtotal" row in PDF still shows PRE-discount value
+//     so dealer reads "Subtotal $X → Promo -$Y → ... → Total $Z" in order.
+//   • When _promo.suppressed_by_markup === true (set by step3 when markup>0
+//     on the Draft Quote PDF), promo is treated as zero — no discount row,
+//     no tax recalc. PDF reflects the marked-up price as the customer-facing
+//     number, consistent with step3 markup-mode behavior.
+//   • When quoteData._promo is absent (legacy quotes from before this feature
+//     went live), behavior is fully backward compatible.
 // ============================================================
 
 (function (global) {
@@ -77,13 +77,9 @@
   // ----------------------------------------
   // 常數
   // ----------------------------------------
-  // F-CUSTOM (Phase 6): Added 'OTHER' between ACCESSORIES and MODIFICATION,
-  // aligned with new-quote-step3.html and quote-detail.html.
   const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ACCESSORIES', 'OTHER', 'MODIFICATION'];
 
-  // F-COL-ABBREVIATIONS (2026-05-21): display-only shortenings to keep
-  // table cells single-line. Underlying DB values stay full-length.
-  // When adding a new sku_type, append both here and in TYPE_ORDER.
+  // F-COL-ABBREVIATIONS (2026-05-21)
   const TYPE_SHORT_MAP = {
     'BASE':         'BAS',
     'WALL':         'WAL',
@@ -92,9 +88,6 @@
     'OTHER':        'OTH',
     'MODIFICATION': 'MOD',
   };
-
-  // F-COL-ABBREVIATIONS (2026-05-21): assemble_status shortenings.
-  // RTA is already 3 letters; Assembled compresses to ASM to match width.
   const STATUS_SHORT_MAP = {
     'ASSEMBLED': 'ASM',
     'RTA':       'RTA',
@@ -112,48 +105,38 @@
     return STATUS_SHORT_MAP[key] || key.slice(0, 3);
   }
 
-  // PDF 顏色（RGB 陣列，給 jsPDF 用）
   const COLORS = {
     darkGreen: [14, 31, 22],
     muted:     [122, 140, 130],
     border:    [221, 216, 204],
     gold:      [201, 168, 76],
     white:     [255, 255, 255],
-    pending:   [224, 123, 57],   // C1: orange for pending shipping (matches UI #E07B39)
-    note:      [224, 123, 57],   // F4.2: same orange for Note references
-    modText:   [62, 90, 66],     // F4.2: green-dark for inline mod lines
+    pending:   [224, 123, 57],
+    note:      [224, 123, 57],
+    modText:   [62, 90, 66],
+    discount:  [192, 57, 43],   // F-PROMOTIONS: red for discount values
   };
 
-  // PDF 版面常數
   const LAYOUT = {
-    pageW:    210,   // A4 寬度（mm）
-    pageH:    297,   // A4 高度（mm）
+    pageW:    210,
+    pageH:    297,
     margin:   14,
-    headerH:  36,    // header 區塊高度（為了大標題加高 4mm）
+    headerH:  36,
   };
 
-  // F4.2: Notes table configuration (mirrors step3)
   const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
   const NOTES_TABLE_FALLBACK_LENGTH = 40;
-
-  // F-CUSTOM (Phase 6): suffix appended to SKU cell for custom rows
   const CUSTOM_SUFFIX = ' [CUSTOM]';
 
   // ----------------------------------------
   // Internal Helpers
   // ----------------------------------------
 
-  /**
-   * 把 type 字串轉成排序用的數字（BASE=0、WALL=1、TALL=2...）
-   */
   function _typeRank(type) {
     const idx = TYPE_ORDER.indexOf((type || '').toUpperCase());
     return idx === -1 ? 99 : idx;
   }
 
-  /**
-   * 把 items 依 style 群組、組內依 type 排序
-   */
   function _groupAndSort(items) {
     const grouped = {};
     items.forEach(item => {
@@ -171,9 +154,6 @@
     return grouped;
   }
 
-  /**
-   * 計算 assemble fee 依 type 分類的小計
-   */
   function _calcAsmByType(items) {
     const byType = {};
     items.forEach(item => {
@@ -188,9 +168,6 @@
     return byType;
   }
 
-  /**
-   * 載入圖片並轉成 base64 dataURL
-   */
   function _loadImage(url) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -207,13 +184,6 @@
     });
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // F4.2: sub_groups normalization
-  //
-  // Returns the item's sub_groups array as-is if it exists and is non-empty,
-  // otherwise constructs a single-sub fallback from legacy fields
-  // (item.modifications + item.modification_status + item.quantity).
-  // ─────────────────────────────────────────────────────────────────────────
   function _getNormalizedSubGroups(item) {
     if (Array.isArray(item.sub_groups) && item.sub_groups.length) {
       return item.sub_groups;
@@ -274,8 +244,30 @@
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // F4.2: Format mod value (handles MF07 object, string, number, boolean)
+  // F-PROMOTIONS (2026-05-21): Extract promo info from quoteData._promo.
+  //
+  // step3 buildQuoteDataForPdf writes _promo = { total_discount, label,
+  // promo_id, matched_line_count, matched_subtotal, suppressed_by_markup }.
+  // Returns null when:
+  //   - quoteData._promo missing (legacy quote)
+  //   - total_discount <= 0
+  //   - suppressed_by_markup === true (markup mode overrides promo)
   // ─────────────────────────────────────────────────────────────────────────
+  function _extractPromoInfo(quoteData) {
+    if (!quoteData || !quoteData._promo) return null;
+    const p = quoteData._promo;
+    if (p.suppressed_by_markup === true) return null;
+    const amount = parseFloat(p.total_discount);
+    if (isNaN(amount) || amount <= 0) return null;
+    return {
+      amount:           amount,
+      label:            String(p.label || 'Promo Discount'),
+      id:               String(p.promo_id || ''),
+      matchedCount:     parseInt(p.matched_line_count, 10) || 0,
+      matchedSubtotal:  parseFloat(p.matched_subtotal) || 0,
+    };
+  }
+
   function _formatModValue(v) {
     if (v == null) return '';
     if (typeof v === 'string')  return v;
@@ -305,27 +297,12 @@
     return false;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // F-HIDDEN-MODS (2026-05-18) — Display-layer filter for mods that should be
-  // recorded in DB but NOT shown in PDF output.
-  //
-  // Currently filters:
-  //   • MF01 value='none' (No Skin) — dealer actively chose "no skin", cost=0;
-  //     showing "Skin: No Skin" in PDF description is noise.
-  //
-  // Mirror this function in new-quote-step3.html and quote-detail.html so all
-  // surfaces apply the same filter. To add more cases, just extend this
-  // function — callers (_buildDescriptionCellText) already use it.
-  // ─────────────────────────────────────────────────────────────────────────
   function _isHiddenMod(mod) {
     if (!mod) return false;
     if (mod.mf_code === 'MF01' && mod.value === 'none') return true;
     return false;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // C1: Pending shipping detection
-  // ─────────────────────────────────────────────────────────────────────────
   function _isPendingShipping(quoteData) {
     if (!quoteData) return false;
     if (quoteData._isPendingShipping === true) return true;
@@ -341,14 +318,12 @@
     const { pageW, margin, headerH } = LAYOUT;
     const { logoImg, poNumber, jobName, date, documentTitle } = context;
 
-    // 白底 + 底線
     doc.setFillColor(...COLORS.white);
     doc.rect(0, 0, pageW, headerH, 'F');
     doc.setDrawColor(...COLORS.border);
     doc.setLineWidth(0.5);
     doc.line(0, headerH, pageW, headerH);
 
-    // Logo（左上）
     if (logoImg) {
       doc.addImage(logoImg, 'PNG', margin, 3, 44, 26);
     } else {
@@ -358,7 +333,6 @@
       doc.text('ProCraft DC', margin, 15);
     }
 
-    // 公司資訊（中間）
     const infoX = margin + 48;
     let infoY = 7;
     doc.setFont('helvetica', 'bold');
@@ -380,7 +354,6 @@
       infoY += 3.5;
     });
 
-    // 文件類型大標題
     if (documentTitle) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
@@ -388,7 +361,6 @@
       doc.text(documentTitle, pageW - margin, 9, { align: 'right' });
     }
 
-    // PO# / 日期 / 工作名
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric',
     });
@@ -492,57 +464,29 @@
   }
 
   // ----------------------------------------
-  // F4.2: Items 表格繪製 — sub_groups + Mods inline + Notes
+  // F4.2: Items 表格繪製
   // ----------------------------------------
 
-  /**
-   * Build a Description cell string for a given sub.
-   * For each mod:
-   *   - If shouldUseNotesTable → render as "⚠ See Note №N — {label}"
-   *     and push the full detail into notesCollector.
-   *   - Else → render as "◆ {label}: {value}"
-   *
-   * F-HIDDEN-MODS (2026-05-18):
-   *   Filter mods via _isHiddenMod() BEFORE the empty-check. If MF01 No Skin
-   *   was the only mod, the visibleMods array becomes empty → same treatment
-   *   as "skipped + empty" → no warning, no clutter. Matches step3 behavior.
-   *
-   * @param {Object} ctx
-   * @param {Object} ctx.sub
-   * @param {Object} ctx.item              parent item (for sku_code + sub_total)
-   * @param {string} ctx.skuDesc           sku description (first line of cell)
-   * @param {number} ctx.totalSubs         sub_groups.length for this item
-   * @param {Object} ctx.notesIndex        { counter: number } shared counter
-   * @param {Array}  ctx.notesCollector    output array of note objects
-   * @returns {string}
-   */
   function _buildDescriptionCellText(ctx) {
     const { sub, item, skuDesc, totalSubs, notesIndex, notesCollector } = ctx;
     const rawMods     = Array.isArray(sub.modifications) ? sub.modifications : [];
-    const visibleMods = rawMods.filter(function (m) { return !_isHiddenMod(m); });  // F-HIDDEN-MODS
+    const visibleMods = rawMods.filter(function (m) { return !_isHiddenMod(m); });
     const status = sub.modification_status || 'unprocessed';
     const lines  = [];
 
-    // First line: sku_desc
     if (skuDesc) lines.push(skuDesc);
 
-    // Empty mods handling (mirrors step3 B2 logic + F-HIDDEN-MODS route A)
     if (!visibleMods.length) {
-      // F-HIDDEN-MODS: if all mods were hidden, same as skipped/configured + empty
       if (rawMods.length > 0) {
         return lines.join('\n');
       }
-      // raw was already empty:
-      // skipped / configured + empty → no clutter
       if (status === 'skipped' || status === 'configured') {
         return lines.join('\n');
       }
-      // unprocessed + empty → real warning
       lines.push('⚠ Modifications pending');
       return lines.join('\n');
     }
 
-    // Mods present — render each line
     visibleMods.forEach(function (m) {
       const label = m.display_label || m.mf_code || 'Modification';
       const useNotes = _shouldUseNotesTable(m);
@@ -559,7 +503,6 @@
           label:      label,
           content:    _formatModValue(m.value) || '(no detail)',
         });
-        // Use plain ASCII markers (jsPDF default fonts may not render fancy glyphs)
         lines.push(`! See Note No.${noteNum} — ${label}`);
       } else {
         const value = _formatModValue(m.value);
@@ -571,27 +514,6 @@
     return lines.join('\n');
   }
 
-  /**
-   * 畫 items 表格（jsPDF AutoTable）— F4.2 multi-sub aware.
-   *
-   * mode 對應：
-   *   'packing-list' = 7 欄（Item# / Door / SKU / Qty / Description / Type / AsmStatus）
-   *   'invoice'      = 11 欄（含 Mod Fee col）
-   *   'draft-quote'  = 11 欄（含 Mod Fee col, markup applies to unit price only）
-   *
-   * F-CUSTOM (Phase 6): SKU cell suffixed with " [CUSTOM]" when item.is_custom.
-   * Suffix appears on the first sub-row only (mirrors step3 / quote-detail UI).
-   *
-   * F-COL-ABBREVIATIONS (2026-05-21): Type col uses 3-letter abbreviations
-   * (BAS/WAL/TAL/ACC/OTH/MOD) and Asm Status col uses ASM/RTA. Prevents
-   * 7-/11-character labels from line-wrapping in narrow columns.
-   *
-   * F-LINE-TOTAL-INCLUDES-ASM (2026-05-21): For invoice / draft-quote modes,
-   * Total col is now Unit×Qty + Mod×Qty + Asm×Qty. Bottom totals-section
-   * does NOT change — it independently sums each subtotal, so no double-count.
-   *
-   * Returns: { tableEndY, notes }  where notes is the collector for renderNotesTable.
-   */
   function _drawItemTable(doc, context) {
     const { margin, headerH } = LAYOUT;
     const {
@@ -604,17 +526,14 @@
 
     const grouped = _groupAndSort(items);
 
-    // ── 組 table head（依 mode 決定欄位）──
     let head;
     if (mode === 'packing-list') {
       head = [['Item#', 'Door Style', 'SKU', 'Qty', 'Description', 'Type', 'Asm Status']];
     } else {
-      // F4.2: invoice / draft-quote 改 11 欄，加 Mod Fee
       head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Asm Status',
                'Qty', 'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
     }
 
-    // ── 組 table body ──
     const body = [];
     let itemNum = 0;
     let lastStyle = null;
@@ -625,9 +544,7 @@
       styleItems.forEach(item => {
         const subs = _getNormalizedSubGroups(item);
         const isSplit = subs.length > 1;
-        const isCustom = !!item.is_custom;  // F-CUSTOM (Phase 6)
-        // F-COL-ABBREVIATIONS: pre-compute shortened display strings;
-        // raw item.sku_type / item.assemble_status untouched.
+        const isCustom = !!item.is_custom;
         const skuType        = item.sku_type || item.skuType || '';
         const skuTypeShort   = _shortType(skuType);
         const assembleStatus = item.assemble_status || item.type || '';
@@ -639,13 +556,10 @@
           itemNum++;
           const isFirstSub = subIdx === 0;
 
-          // Style col: show once per style (only on first sub of first item with new style)
           const showStyle = isFirstSub && (styleName !== lastStyle);
           if (isFirstSub) lastStyle = styleName;
           const styleCell = showStyle ? styleName : '';
 
-          // SKU cell: code + [CUSTOM] suffix (first sub only) + Sub label when split
-          // F-CUSTOM (Phase 6): plain-ASCII " [CUSTOM]" suffix marks custom rows
           const subQty = parseInt(sub.qty, 10) || 0;
           const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
           const subLabelLine = isSplit
@@ -653,7 +567,6 @@
             : '';
           const skuCell = `${item.sku_code}${customSuffix}${subLabelLine}`;
 
-          // Description cell: sku_desc + mods (or note refs)
           const descCell = _buildDescriptionCellText({
             sub: sub,
             item: item,
@@ -664,34 +577,30 @@
           });
 
           if (mode === 'packing-list') {
-            // 7 cols, no fees
             body.push([
               `#${itemNum}`,
               styleCell,
               skuCell,
               subQty,
               descCell,
-              isFirstSub ? skuTypeShort   : '',  // F-COL-ABBREVIATIONS
-              isFirstSub ? asmStatusShort : '',  // F-COL-ABBREVIATIONS
+              isFirstSub ? skuTypeShort   : '',
+              isFirstSub ? asmStatusShort : '',
             ]);
           } else {
-            // 11 cols, with Mod Fee column
             const perSubModCost = _calcPerSubModCost(sub);
-            const modFeeTotal   = perSubModCost * subQty;  // F4.2 Confirm 4: NOT marked up
+            const modFeeTotal   = perSubModCost * subQty;
             const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
             const skuLineTotal  = markedUnitPrice * subQty;
-            // F-LINE-TOTAL-INCLUDES-ASM: Total now includes asmFeeTotal so it
-            // matches the sum of the row's $ columns. Bottom totals-section
-            // remains the source of truth for grand total.
+            // F-LINE-TOTAL-INCLUDES-ASM: Total = Unit + Mod + Asm
             const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
 
             body.push([
               `#${itemNum}`,
               styleCell,
-              isFirstSub ? skuTypeShort   : '',  // F-COL-ABBREVIATIONS
+              isFirstSub ? skuTypeShort   : '',
               skuCell,
               descCell,
-              isFirstSub ? asmStatusShort : '',  // F-COL-ABBREVIATIONS
+              isFirstSub ? asmStatusShort : '',
               subQty,
               `$${markedUnitPrice.toFixed(2)}`,
               modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
@@ -703,10 +612,6 @@
       });
     });
 
-    // ── 欄寬設定 ──
-    // F-COL-ABBREVIATIONS: type/asm-status columns kept at current widths
-    // (already conservative); the 3-letter abbreviations comfortably fit so
-    // no width tuning is needed. If future labels exceed 3 letters, revisit.
     let columnStyles;
     if (mode === 'packing-list') {
       columnStyles = {
@@ -719,7 +624,6 @@
         6: { cellWidth: 22 },
       };
     } else {
-      // 11 cols — tighter widths to fit Mod Fee
       columnStyles = {
         0: { cellWidth: 9 },
         1: { cellWidth: 22 },
@@ -741,19 +645,11 @@
       }
     };
 
-    // didParseCell hook: colour note-reference lines & sub-continuation rows
     const didParseCell = function (data) {
-      // Only style body cells
       if (data.section !== 'body') return;
-
-      // Find which column index is "Description" depending on mode
       const descColIdx = (mode === 'packing-list') ? 4 : 4;
-
       if (data.column.index === descColIdx) {
-        // Description col — keep default styling (mixed content);
-        // jsPDF AutoTable doesn't support per-line colouring without breaking
-        // into multiple cells, so we rely on the "! See Note No.N —" prefix
-        // being visually distinct in plain text.
+        // Mixed content; rely on "! See Note No.N —" prefix for visual distinction
       }
     };
 
@@ -788,15 +684,9 @@
   }
 
   // ----------------------------------------
-  // F4.2: Notes Table (MF06 / MF07 / long-value mods)
+  // F4.2: Notes Table
   // ----------------------------------------
 
-  /**
-   * Draw the Notes Table below the items table.
-   * Skipped if notes array is empty.
-   *
-   * @returns {number} ending Y position (or startY if nothing drawn)
-   */
   function _drawNotesTable(doc, context) {
     const { margin, pageW, headerH } = LAYOUT;
     const { notes, startY, headerContext } = context;
@@ -805,15 +695,13 @@
 
     let y = startY + 6;
 
-    // ── Title bar ──
-    // Page break check before drawing
     if (y + 30 > 275) {
       doc.addPage();
       _drawHeader(doc, headerContext);
       y = headerH + 8;
     }
 
-    doc.setFillColor(255, 247, 235);   // very light orange bg
+    doc.setFillColor(255, 247, 235);
     doc.setDrawColor(...COLORS.note);
     doc.setLineWidth(0.3);
     doc.rect(margin, y - 4, pageW - margin * 2, 8, 'FD');
@@ -825,7 +713,6 @@
 
     y += 7;
 
-    // ── Notes table ──
     const body = notes.map(function (n) {
       const subSuffix = (n.subTotal > 1) ? ` (Sub ${n.subIndex}/${n.subTotal})` : '';
       const modCell = n.mfCode ? `${n.label}\n(${n.mfCode})` : n.label;
@@ -877,16 +764,17 @@
   // ----------------------------------------
 
   /**
-   * F4.2: Totals now includes a Modifications row between Subtotal and Asm Fee.
-   *
-   * context.totals = {
-   *   subtotal:      number,   // SKU subtotal (markup applied to unit_price)
-   *   modsTotal:     number,   // F4.2: ALL mods (taxable + non-taxable), unmarked-up
-   *   assembleTotal: number,
-   *   shipping:      number,
-   *   tax:           number,   // F4.2: tax = taxBase × taxRate (taxBase = SKU + taxableMods)
-   *   grand:         number,   // F4.2: grand = SKU + ALL mods + assembly + shipping + tax
-   * }
+   * F4.2 + F-PROMOTIONS Totals layout:
+   *   Subtotal              $X       (PRE-discount)
+   *   Promo Discount       -$Y       (only when totals.promoDiscount > 0)
+   *     N eligible lines
+   *   Modifications        +$Z       (only when > 0)
+   *   Assemble Fee         +$A       (only when > 0)
+   *     BAS x2  / WAL x3  / etc.
+   *   Shipping              $S
+   *   Tax                   $T
+   *   ────────────────
+   *   Order Total           $G
    */
   function _drawTotals(doc, context) {
     const { pageW, margin } = LAYOUT;
@@ -907,7 +795,7 @@
     const valX    = pageW - margin;
     let y = startY;
 
-    // ── Subtotal ──
+    // ── Subtotal (PRE-discount) ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -919,13 +807,42 @@
     );
     y += 6;
 
-    // ── F4.2: Modifications (only if > 0) ──
+    // ── F-PROMOTIONS: Promo Discount row ──
+    if (showPrices && totals.promoDiscount > 0) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.discount);
+      const label = totals.promoLabel || 'Promo Discount';
+      // Truncate label if too long for the totals column (~70mm wide).
+      // jsPDF doesn't auto-wrap small inline text without splitTextToSize;
+      // an ellipsis keeps things tidy.
+      const maxLabelChars = 40;
+      const displayLabel = label.length > maxLabelChars
+        ? label.slice(0, maxLabelChars - 1) + '…'
+        : label;
+      doc.text(displayLabel, totalsX, y);
+      doc.text(`−$${totals.promoDiscount.toFixed(2)}`, valX, y, { align: 'right' });
+      // Sublabel "N eligible lines" below
+      if (totals.promoMatchedCount > 0) {
+        y += 3.3;
+        doc.setFontSize(6);
+        doc.setTextColor(...COLORS.discount);
+        const subText = `${totals.promoMatchedCount} eligible line${totals.promoMatchedCount === 1 ? '' : 's'}`;
+        doc.text(subText, totalsX, y);
+        y += 3;
+      } else {
+        y += 6;
+      }
+      doc.setFontSize(8);
+    }
+
+    // ── F4.2: Modifications ──
     if (showPrices && totals.modsTotal > 0) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.muted);
       doc.text('Modifications', totalsX, y);
-      doc.setTextColor(140, 100, 20);   // gold-ish to match step3 UI
+      doc.setTextColor(140, 100, 20);
       doc.text(`+$${totals.modsTotal.toFixed(2)}`, valX, y, { align: 'right' });
       y += 6;
     }
@@ -942,8 +859,7 @@
       }
       y += 5;
 
-      // F-COL-ABBREVIATIONS: use short codes for the by-type breakdown too,
-      // so the right-side totals column stays narrow and aligned.
+      // F-COL-ABBREVIATIONS: use short codes for the by-type breakdown
       TYPE_ORDER.filter(t => byType[t]).forEach(t => {
         const row = byType[t];
         doc.setFontSize(6.5);
@@ -982,7 +898,7 @@
     }
     y += 6;
 
-    // ── Tax (F4.2 Q3: do NOT disclose taxable base breakdown) ──
+    // ── Tax ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -1100,24 +1016,35 @@
       startY: y - 4,
     });
 
-    // F-CUSTOM (Phase 6): debug log for custom item count in PDF
+    // F-CUSTOM (Phase 6): debug log for custom item count
     if (Array.isArray(quoteData.items)) {
       const customCount = quoteData.items.filter(i => i.is_custom).length;
       if (customCount > 0) {
         console.log('[F-CUSTOM] ' + documentTitle + ' PDF: ' + customCount + ' custom item(s)');
       }
     }
+    // F-PROMOTIONS: debug log for promo presence
+    const promoInfo = _extractPromoInfo(quoteData);
+    if (promoInfo) {
+      console.log('[F-PROMO] ' + documentTitle + ' PDF: ' + (promoInfo.id || '?')
+        + ' applied, -$' + promoInfo.amount.toFixed(2)
+        + ' across ' + promoInfo.matchedCount + ' line(s)');
+    } else if (quoteData && quoteData._promo && quoteData._promo.suppressed_by_markup) {
+      console.log('[F-PROMO] ' + documentTitle + ' PDF: promo suppressed by markup mode');
+    }
 
     return { doc, logoImg, y, headerContext };
   }
 
   /**
-   * F4.2: Finalize with totals — now factors in mods + taxable-only tax base.
+   * F4.2 + F-PROMOTIONS: Finalize with totals.
    *
-   * Reads from quoteData if provided:
-   *   - modifications_total          (all mods, unmarked-up)
-   *   - modifications_total_taxable  (taxable-only subset)
-   * Falls back to recomputing from items[].sub_groups[].modifications.
+   * F-PROMOTIONS (2026-05-21): When _promo present and not suppressed:
+   *   - taxBase     = (markedSubtotal - promoDiscount) + taxableModsTotal
+   *   - billingBase = (markedSubtotal - promoDiscount) + modsTotal
+   *   - grand       = billingBase + assembly + shipping + tax
+   *   Subtotal row in PDF still shows PRE-discount markedSubtotal so dealer
+   *   sees the original price before the deduction (as a separate row).
    */
   function _finalizeWithTotals(args) {
     const {
@@ -1126,17 +1053,14 @@
     } = args;
     const { pageW, margin } = LAYOUT;
 
-    // ── SKU subtotal (markup applied to unit_price) ──
     const markedSubtotal = items.reduce(
       (s, i) => s + i.unit_price * (1 + markupPercent) * i.quantity, 0
     );
 
-    // ── Assembly total (no markup) ──
     const assembleTotal = items.reduce(
       (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
     );
 
-    // ── F4.2: Mods totals (no markup; read from quoteData if available) ──
     let modsTotal;
     if (typeof quoteData.modifications_total === 'number') {
       modsTotal = quoteData.modifications_total;
@@ -1155,12 +1079,20 @@
       taxableModsTotal = _calcTaxableModsCost(items);
     }
 
+    // ── F-PROMOTIONS: discount info ──
+    const promoInfo = _extractPromoInfo(quoteData);
+    const promoDiscount     = promoInfo ? promoInfo.amount : 0;
+    const promoLabel        = promoInfo ? promoInfo.label : '';
+    const promoMatchedCount = promoInfo ? promoInfo.matchedCount : 0;
+
     const logisticType    = quoteData.logistic_type || 'pickup';
     const deliveryFee     = parseFloat(quoteData.delivery_fee || 0);
     const pendingShipping = _isPendingShipping(quoteData);
 
-    // ── Shipping resolution (uses billingBase = SKU + ALL mods) ──
-    const billingBase = markedSubtotal + modsTotal;
+    // ── Shipping resolution — uses POST-discount billing base ──
+    // F-PROMOTIONS: shipping bracket uses post-discount base to avoid dealers
+    // hitting a higher shipping tier just because we hadn't deducted the promo.
+    const billingBase = (markedSubtotal - promoDiscount) + modsTotal;
     let shipping;
     if (pendingShipping) {
       shipping = 0;
@@ -1179,26 +1111,29 @@
       }
     }
 
-    // ── F4.2: Tax base = SKU + TAXABLE mods only ──
+    // ── F4.2 + F-PROMOTIONS: Tax base = (SKU - promo) + TAXABLE mods ──
     const taxRate   = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
-    const taxBase   = markedSubtotal + taxableModsTotal;
+    const taxBase   = (markedSubtotal - promoDiscount) + taxableModsTotal;
     const tax       = taxExempt ? 0 : taxBase * taxRate;
 
     // ── Grand total = billing base + assembly + shipping + tax ──
+    // billingBase already has promoDiscount subtracted.
     const grand = billingBase + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
 
     const totals = {
-      subtotal:      markedSubtotal,
-      modsTotal:     modsTotal,
-      assembleTotal: assembleTotal,
-      shipping:      shipping,
-      tax:           tax,
-      grand:         grand,
+      subtotal:          markedSubtotal,     // PRE-discount (shown on its own row)
+      promoDiscount:     promoDiscount,
+      promoLabel:        promoLabel,
+      promoMatchedCount: promoMatchedCount,
+      modsTotal:         modsTotal,
+      assembleTotal:     assembleTotal,
+      shipping:          shipping,
+      tax:               tax,
+      grand:             grand,
     };
     const asmByType = _calcAsmByType(items);
 
-    // ── Notes table (between items and T&C / totals) ──
     let yAfterNotes = tableEndY;
     if (notes && notes.length) {
       yAfterNotes = _drawNotesTable(doc, {
@@ -1210,7 +1145,9 @@
 
     let y = yAfterNotes + 8;
     const TC_BLOCK_H = 7 * 6 + 16;
-    const TOTALS_H   = (assembleTotal > 0 ? 60 : 45) + (modsTotal > 0 ? 6 : 0);
+    // F-PROMOTIONS: account for extra discount row + sublabel height
+    const PROMO_H    = promoDiscount > 0 ? 9 : 0;
+    const TOTALS_H   = (assembleTotal > 0 ? 60 : 45) + (modsTotal > 0 ? 6 : 0) + PROMO_H;
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
     if (y + NEEDED > 275) {
       doc.addPage();
@@ -1223,10 +1160,8 @@
     doc.line(margin, y, pageW - margin, y);
     y += 6;
 
-    // T&C（左側）
     _drawTermsAndConditions(doc, { startY: y });
 
-    // Totals（右側）
     const freeShipping = !pendingShipping && shipping === 0 && markedSubtotal > 0;
     _drawTotals(doc, {
       totals, asmByType, taxExempt, freeShipping,
@@ -1240,12 +1175,12 @@
 
   /**
    * F4.2: Packing List finalize — Notes table + T&C, no totals.
+   * F-PROMOTIONS: intentionally no discount info (warehouse workflow only).
    */
   function _finalizePackingListWithTcAndNotes(args) {
     const { doc, headerContext, tableEndY, notes } = args;
     const { pageW, margin } = LAYOUT;
 
-    // ── Notes table (between items and T&C) ──
     let yAfterNotes = tableEndY;
     if (notes && notes.length) {
       yAfterNotes = _drawNotesTable(doc, {
@@ -1265,13 +1200,11 @@
       y = LAYOUT.headerH + 8;
     }
 
-    // 分隔線
     doc.setDrawColor(...COLORS.border);
     doc.setLineWidth(0.3);
     doc.line(margin, y, pageW - margin, y);
     y += 6;
 
-    // T&C 比較寬（右邊沒東西）
     _drawTermsAndConditions(doc, { startY: y, maxWidth: 180 });
 
     _drawFooterBar(doc);
@@ -1280,7 +1213,7 @@
 
   /**
    * 建立 Packing List PDF（無價，給工廠用）
-   * F4.2: sub_groups support + mods (no fees) + Notes table at bottom
+   * F-PROMOTIONS: explicitly NOT showing promo info (warehouse-only doc).
    */
   async function buildPackingListPdf(quoteData, dealer, shippingAddress, options = {}) {
     const { doc, y, headerContext } = await _initDocAndDrawTop(
@@ -1303,7 +1236,7 @@
 
   /**
    * 建立 Invoice PDF（含價，給 dealer / 客戶用）
-   * F4.2: sub_groups + Mod Fee col + Notes table + Modifications subtotal
+   * F-PROMOTIONS: Discount row added when _promo present and not markup'd.
    */
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
@@ -1331,8 +1264,9 @@
 
   /**
    * 建立 Draft Quote PDF（Step 3 預覽用）
-   * F4.2: same as Invoice but mode='draft-quote'.
-   *   Q4: NO markup disclosure footer (dealer's choice — they print as-is).
+   * F-PROMOTIONS: respects _promo.suppressed_by_markup — when dealer is
+   * previewing with markup>0, promo discount is suppressed (set by step3
+   * buildQuoteDataForPdf, this function just reads it).
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
@@ -1393,38 +1327,39 @@
   // 對外暴露
   // ----------------------------------------
   global.ProCraftPDF = {
-    _TYPE_ORDER: TYPE_ORDER,
-    _TYPE_SHORT_MAP:   TYPE_SHORT_MAP,    // F-COL-ABBREVIATIONS
-    _STATUS_SHORT_MAP: STATUS_SHORT_MAP,  // F-COL-ABBREVIATIONS
-    _shortType:        _shortType,        // F-COL-ABBREVIATIONS
-    _shortStatus:      _shortStatus,      // F-COL-ABBREVIATIONS
+    _TYPE_ORDER:       TYPE_ORDER,
+    _TYPE_SHORT_MAP:   TYPE_SHORT_MAP,
+    _STATUS_SHORT_MAP: STATUS_SHORT_MAP,
+    _shortType:        _shortType,
+    _shortStatus:      _shortStatus,
     _COLORS:     COLORS,
     _LAYOUT:     LAYOUT,
-    _MF_USE_NOTES_TABLE:           MF_USE_NOTES_TABLE,           // F4.2
-    _NOTES_TABLE_FALLBACK_LENGTH:  NOTES_TABLE_FALLBACK_LENGTH,  // F4.2
-    _CUSTOM_SUFFIX:                CUSTOM_SUFFIX,                // F-CUSTOM (Phase 6)
+    _MF_USE_NOTES_TABLE:           MF_USE_NOTES_TABLE,
+    _NOTES_TABLE_FALLBACK_LENGTH:  NOTES_TABLE_FALLBACK_LENGTH,
+    _CUSTOM_SUFFIX:                CUSTOM_SUFFIX,
 
     _typeRank:                _typeRank,
     _groupAndSort:            _groupAndSort,
     _calcAsmByType:           _calcAsmByType,
     _loadImage:               _loadImage,
     _isPendingShipping:       _isPendingShipping,
-    _isHiddenMod:             _isHiddenMod,                      // F-HIDDEN-MODS
-    _getNormalizedSubGroups:  _getNormalizedSubGroups,           // F4.2
-    _calcPerSubModCost:       _calcPerSubModCost,                // F4.2
-    _calcPerSubTaxableModCost: _calcPerSubTaxableModCost,        // F4.2
-    _calcTotalModsCost:       _calcTotalModsCost,                // F4.2
-    _calcTaxableModsCost:     _calcTaxableModsCost,              // F4.2
-    _formatModValue:          _formatModValue,                   // F4.2
-    _shouldUseNotesTable:     _shouldUseNotesTable,              // F4.2
-    _buildDescriptionCellText: _buildDescriptionCellText,        // F4.2
+    _isHiddenMod:             _isHiddenMod,
+    _extractPromoInfo:        _extractPromoInfo,                 // F-PROMOTIONS
+    _getNormalizedSubGroups:  _getNormalizedSubGroups,
+    _calcPerSubModCost:       _calcPerSubModCost,
+    _calcPerSubTaxableModCost: _calcPerSubTaxableModCost,
+    _calcTotalModsCost:       _calcTotalModsCost,
+    _calcTaxableModsCost:     _calcTaxableModsCost,
+    _formatModValue:          _formatModValue,
+    _shouldUseNotesTable:     _shouldUseNotesTable,
+    _buildDescriptionCellText: _buildDescriptionCellText,
 
     _drawHeader:             _drawHeader,
     _drawBillShipBlock:      _drawBillShipBlock,
     _drawFooterBar:          _drawFooterBar,
     _addPageNumbers:         _addPageNumbers,
     _drawItemTable:          _drawItemTable,
-    _drawNotesTable:         _drawNotesTable,                    // F4.2
+    _drawNotesTable:         _drawNotesTable,
     _drawTotals:             _drawTotals,
     _drawTermsAndConditions: _drawTermsAndConditions,
 
