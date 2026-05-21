@@ -769,6 +769,35 @@ function getActivePromoStyleCodes() {
 const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
 const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
+// ─────────────────────────────────────────────────────────────────────────
+// F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
+// 7-/11-letter labels from wrapping in narrow table columns.
+// Underlying DB fields (item.sku_type / item.assemble_status) are unchanged.
+// Mirror with pdf-builder.js / quote-detail.html.
+// ─────────────────────────────────────────────────────────────────────────
+const TYPE_SHORT_MAP = {
+  'BASE':         'BAS',
+  'WALL':         'WAL',
+  'TALL':         'TAL',
+  'ACCESSORIES':  'ACC',
+  'OTHER':        'OTH',
+  'MODIFICATION': 'MOD',
+};
+const STATUS_SHORT_MAP = {
+  'ASSEMBLED': 'ASM',
+  'RTA':       'RTA',
+};
+function shortType(t) {
+  if (!t) return '—';
+  const key = String(t).toUpperCase();
+  return TYPE_SHORT_MAP[key] || key.slice(0, 3);
+}
+function shortStatus(s) {
+  if (!s) return '—';
+  const key = String(s).toUpperCase();
+  return STATUS_SHORT_MAP[key] || key.slice(0, 3);
+}
+
 function shouldUseNotesTable(mod) {
   if (!mod) return false;
   const code = (mod.mf_code || '').toUpperCase();
@@ -1278,11 +1307,11 @@ function buildItemRowsHtml(markupPct) {
         const descCellHtml = `${descMainHtml}${modsBlockHtml}`;
 
         const typeColHtml = isFirstSub && item.skuType
-          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(item.skuType.toUpperCase())}</span>`
+          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(shortType(item.skuType))}</span>`
           : '';
 
         const assembleStatusHtml = isFirstSub
-          ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(item.type)}</span>`
+          ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(shortStatus(item.type))}</span>`
           : '';
 
         const trClass = isFirstSub ? '' : 'sub-continuation';
