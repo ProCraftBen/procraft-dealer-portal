@@ -1252,7 +1252,7 @@ function buildItemRowsHtml(markupPct) {
         const modFeeTotal   = perSubModCost * subQty;
         const skuLineTotal  = markedUnitPrice * subQty;
         const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
-        const lineTotal     = skuLineTotal + modFeeTotal;
+        const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
 
         const subLabelHtml = isSplit
           ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
