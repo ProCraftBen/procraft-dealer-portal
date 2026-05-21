@@ -821,7 +821,11 @@
         ? label.slice(0, maxLabelChars - 1) + '…'
         : label;
       doc.text(displayLabel, totalsX, y);
-      doc.text(`−$${totals.promoDiscount.toFixed(2)}`, valX, y, { align: 'right' });
+      // NOTE: use ASCII '-$' not Unicode minus '−$' (U+2212). jsPDF default
+      // Helvetica WinAnsi encoding doesn't render U+2212 cleanly — it shows
+      // as a different glyph and the subsequent digits get visually spaced
+      // out (e.g. "$ 1 1 0 . 0 0"). ASCII hyphen renders correctly.
+      doc.text(`-$${totals.promoDiscount.toFixed(2)}`, valX, y, { align: 'right' });
       // Sublabel "N eligible lines" below
       if (totals.promoMatchedCount > 0) {
         y += 3.3;
