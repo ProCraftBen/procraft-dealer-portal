@@ -1420,11 +1420,13 @@ function inferBindingFromMfCode(rule) {
         _binding_role:  'primary',
       };
       // F-GLASS-MULTIPLIER: derive unit_price + multiplier from
-      // rule.subcategory (e.g. '2Dr' → multiplier 2, unit_price = cost/2).
+      // rule.matched_subcategory (e.g. '2Dr' → multiplier 2, unit_price = cost/2).
+      // RPC returns the matched subcategory under `matched_subcategory`;
+      // `subcategory` is kept as a fallback for safety.
       // Only multipliers > 1 get injected — 1Dr just keeps the default
       // "+$25.00" display via the rule's base cost.
       if (br.primary.multiplier_by_subcategory) {
-        const sub = (rule.subcategory || '').trim();
+        const sub = (rule.matched_subcategory || rule.subcategory || '').trim();
         const m = sub ? br.primary.multiplier_by_subcategory[sub] : null;
         if (typeof m === 'number' && m > 1) {
           const cost = parseFloat(rule.cost);
@@ -2962,7 +2964,7 @@ async function fetchModRulesForActiveItem() {
       const multiplierNote = (typeof inferred._multiplier === 'number')
         ? ' · multiplier=' + inferred._multiplier +
           ', unit_price=$' + inferred._unit_price.toFixed(2) +
-          ' (cost $' + rule.cost + ' / ' + (rule.subcategory || '?') + ')'
+          ' (cost $' + rule.cost + ' / ' + (rule.matched_subcategory || rule.subcategory || '?') + ')'
         : '';
       console.log('[F-BINDING-GROUP] inferred ' + rule.mf_code +
                   ' "' + (rule.display_label || '') + '" → ' +
