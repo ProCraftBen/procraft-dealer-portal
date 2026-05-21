@@ -16,6 +16,7 @@
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
       --status-draft:#7A8C82; --status-returned:#E07B39;
       --error:#C0392B;
+      --discount:#C0392B;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
     .page { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
@@ -229,6 +230,20 @@
       vertical-align: middle;
     }
 
+    /* F-PROMOTIONS: [PROMO] badge — red bg + red text, mirrors step3 */
+    .promo-badge {
+      display: inline-block;
+      background: rgba(192,57,43,0.10);
+      color: #C0392B;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
     .items-table tbody tr.sub-continuation {
       border-top: 1px dashed rgba(201,168,76,0.25);
     }
@@ -364,6 +379,13 @@
       font-size: 11px;
       color: var(--muted);
       margin-top: 2px;
+    }
+
+    /* F-PROMOTIONS: discount row styling — red minus value, mirrors step3 */
+    .total-row.discount .total-val { color: var(--discount); font-weight: 500; }
+    .total-row.discount .discount-sublabel {
+      font-size: 10px; color: var(--discount); opacity: 0.75;
+      margin-top: 2px; letter-spacing: 0.04em;
     }
 
     /* ── C1: Pending Shipping styles ── */
@@ -526,6 +548,128 @@ const statusClass = {
 const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// F-PROMOTIONS (2026-05-21) — Module-level campaign config.
+//
+// MUST stay in sync with the const in new-quote-step3.html, pdf-builder.js,
+// and the send-quote-email Edge Function. When the campaign ends, set
+// active:false (or empty PROMOTIONS array) in ALL FOUR places.
+//
+// Quote-detail computes discount live from quote_items.style_code — we don't
+// rely on a snapshot in the quotes table (per "不動 schema" decision). This
+// means: if you change the discount_pct or style_codes mid-campaign, OLD
+// quotes will retroactively show the NEW discount. Acceptable because there's
+// only one campaign at a time and quotes are short-lived.
+// ─────────────────────────────────────────────────────────────────────────────
+const PROMOTIONS = [
+  {
+    id:           'LSW_LSG_LSA_20OFF',
+    label:        'LSW/LSG/LSA Promo Discount (20% off)',
+    style_codes:  ['LSW', 'LSG', 'LSA'],
+    discount_pct: 20,
+    applies_to:   'line_items',
+    active:       true,
+  },
+];
+
+/**
+ * Pure function (mirrors step3 calculatePromotionDiscount):
+ * Takes a list of items with .style_code / .unit_price / .quantity and
+ * returns { totalDiscount, matchedLineCount, matchedSubtotal, appliedPromo }.
+ *
+ * NOTE: For quote-detail, "items" are the RECONSTRUCTED groupedItems where
+ * .quantity is the SUM of sub_groups[].qty. This matches step3's per-style-row
+ * granularity, so discount counts are consistent across the two surfaces.
+ */
+function calculatePromotionDiscount(items) {
+  const result = {
+    totalDiscount:    0,
+    matchedLineCount: 0,
+    matchedSubtotal:  0,
+    appliedPromo:     null,
+  };
+  if (!Array.isArray(items) || !items.length) return result;
+
+  const activePromos = (PROMOTIONS || []).filter(function (p) { return p && p.active; });
+  if (!activePromos.length) return result;
+
+  activePromos.forEach(function (promo) {
+    const styleSet = new Set((promo.style_codes || []).map(function (c) { return String(c).toUpperCase(); }));
+    if (!styleSet.size) return;
+    const pct = parseFloat(promo.discount_pct) || 0;
+    if (pct <= 0) return;
+
+    let promoMatched     = 0;
+    let promoSubtotal    = 0;
+    let promoDiscount    = 0;
+
+    items.forEach(function (item) {
+      if (!item) return;
+      const code = String(item.style_code || '').toUpperCase();
+      if (!styleSet.has(code)) return;
+
+      const unitPrice = parseFloat(item.unit_price) || 0;
+      const qty       = parseInt(item.quantity, 10) || 0;
+      if (unitPrice <= 0 || qty <= 0) return;
+
+      const lineSubtotal = unitPrice * qty;
+      const lineDiscount = lineSubtotal * (pct / 100);
+      promoMatched  += 1;
+      promoSubtotal += lineSubtotal;
+      promoDiscount += lineDiscount;
+    });
+
+    if (promoMatched > 0) {
+      result.totalDiscount    += promoDiscount;
+      result.matchedLineCount += promoMatched;
+      result.matchedSubtotal  += promoSubtotal;
+      if (!result.appliedPromo) result.appliedPromo = promo;
+    }
+  });
+
+  return result;
+}
+
+function getActivePromoStyleCodes() {
+  const set = new Set();
+  (PROMOTIONS || []).forEach(function (p) {
+    if (!p || !p.active) return;
+    (p.style_codes || []).forEach(function (c) {
+      set.add(String(c).toUpperCase());
+    });
+  });
+  return set;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
+// 7-/11-letter labels from wrapping in narrow table columns.
+// Mirrors pdf-builder.js _shortType / _shortStatus and step3 shortType /
+// shortStatus.
+// ─────────────────────────────────────────────────────────────────────────
+const TYPE_SHORT_MAP = {
+  'BASE':         'BAS',
+  'WALL':         'WAL',
+  'TALL':         'TAL',
+  'ACCESSORIES':  'ACC',
+  'OTHER':        'OTH',
+  'MODIFICATION': 'MOD',
+};
+const STATUS_SHORT_MAP = {
+  'ASSEMBLED': 'ASM',
+  'RTA':       'RTA',
+};
+function shortType(t) {
+  if (!t) return '—';
+  const key = String(t).toUpperCase();
+  return TYPE_SHORT_MAP[key] || key.slice(0, 3);
+}
+function shortStatus(s) {
+  if (!s) return '—';
+  const key = String(s).toUpperCase();
+  return STATUS_SHORT_MAP[key] || key.slice(0, 3);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2 — Notes table configuration (aligned with new-quote-step3.html)
 // ─────────────────────────────────────────────────────────────────────────────
 const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
@@ -578,14 +722,7 @@ function shouldUseNotesTable(mod) {
 // ─────────────────────────────────────────────────────────────────────────────
 // F-HIDDEN-MODS (2026-05-18) — Display-layer filter for mods that should be
 // recorded in DB but NOT shown in this view (admin / dealer detail page).
-//
-// Currently filters:
-//   • MF01 value='none' (No Skin) — dealer actively chose "no skin", cost=0;
-//     showing "Skin: No Skin" in description is noise. Keeps F6 semantic
-//     distinction at DB level (configured vs skipped) but hides from display.
-//
-// Mirrors new-quote-step3.html isHiddenMod() and pdf-builder.js _isHiddenMod()
-// so all surfaces apply the same filter. Add more cases here if needed.
+// Mirrors new-quote-step3.html isHiddenMod() and pdf-builder.js _isHiddenMod().
 // ─────────────────────────────────────────────────────────────────────────────
 function isHiddenMod(mod) {
   if (!mod) return false;
@@ -657,24 +794,38 @@ function calcTaxableModsCost(groupedItems) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// F-PROMOTIONS helper: groupedItems → flat shape for calculatePromotionDiscount.
+//
+// calculatePromotionDiscount expects items with .style_code / .unit_price /
+// .quantity. groupedItems have multi-sub structure where .quantity must be
+// summed across sub_groups. This adapter flattens that view.
+// ─────────────────────────────────────────────────────────────────────────────
+function groupedItemsToPromoShape(groupedItems) {
+  return (groupedItems || []).map(function (item) {
+    const totalQty = (item.sub_groups || []).reduce(function (s, g) {
+      return s + (parseInt(g.qty, 10) || 0);
+    }, 0);
+    return {
+      style_code: item.style_code,
+      unit_price: item.unit_price,
+      quantity:   totalQty,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2 — Reconstruct sub_groups from flat quote_items rows.
 //
 // In v1.1, each quote_items row is ONE sub-group. Multiple rows with the same
 // sku_code (+ other stable fields) belong to the same logical item.
 //
-// We group by sku_code + style_code + unit_price + assemble_status to identify
-// items that should be merged back. sub_index is preserved for stable ordering.
-//
-// F-CUSTOM (Phase 5): grouping key now includes is_custom to prevent custom
-// items from ever being merged with regular catalog SKUs (defensive — sku_code
-// should already differ, but this protects against future edge cases).
+// F-CUSTOM (Phase 5): grouping key includes is_custom for safety.
 // ─────────────────────────────────────────────────────────────────────────────
 function reconstructGroupedItems(rawItems) {
   const itemMap = new Map();
   const itemOrder = [];
 
   rawItems.forEach(function (row) {
-    // F-CUSTOM: include is_custom in key for safety
     const key = [
       row.sku_code || '',
       row.style_code || '',
@@ -695,7 +846,7 @@ function reconstructGroupedItems(rawItems) {
         unit_price:      parseFloat(row.unit_price || 0),
         msrp:            row.msrp || null,
         assemble_fee:    parseFloat(row.assemble_fee || 0),
-        is_custom:       !!row.is_custom,  // F-CUSTOM (Phase 5)
+        is_custom:       !!row.is_custom,
         sub_groups:      [],
       });
       itemOrder.push(key);
@@ -710,7 +861,6 @@ function reconstructGroupedItems(rawItems) {
     });
   });
 
-  // Sort sub_groups by sub_index within each item (defensive)
   itemMap.forEach(function (item) {
     item.sub_groups.sort(function (a, b) { return (a.sub_index || 1) - (b.sub_index || 1); });
   });
@@ -739,33 +889,17 @@ function groupAndSortByStyle(groupedItems) {
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2.1 — Render mods inside Description column (NO fees).
 //
-// B2 logic (from step3):
-//   - skipped + empty mods   → return '' (no visual noise)
-//   - configured + empty mods → return '' (defensive, shouldn't happen)
-//   - unprocessed + empty mods → KEEP "⚠ Modifications pending" warning
-//
-// F-HIDDEN-MODS (2026-05-18):
-//   Filter mods via isHiddenMod() BEFORE the empty-check. If MF01 No Skin was
-//   the only mod, the visibleMods array becomes empty → same treatment as
-//   "skipped + empty" → return '' (no visual noise). This is intentional even
-//   for status='unprocessed' since the dealer DID make an active choice
-//   (entered modal, picked No Skin); we just don't surface it in description.
-//
-// Mods that match shouldUseNotesTable() are rendered as [See note №N below]
-// and collected into notesCollector for the Notes table.
+// F-HIDDEN-MODS (2026-05-18): Filter mods via isHiddenMod() BEFORE empty-check.
 // ─────────────────────────────────────────────────────────────────────────────
 function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
   const rawMods     = Array.isArray(sub.modifications) ? sub.modifications : [];
-  const visibleMods = rawMods.filter(function (m) { return !isHiddenMod(m); });  // F-HIDDEN-MODS
+  const visibleMods = rawMods.filter(function (m) { return !isHiddenMod(m); });
   const status = sub.modification_status || 'unprocessed';
 
   if (!visibleMods.length) {
-    // F-HIDDEN-MODS: if user-chosen route A is in effect, all-hidden-mods is
-    // treated the same as skipped/configured + empty (no visual noise).
     if (rawMods.length > 0) {
-      return '';  // had mods but all hidden → suppress
+      return '';
     }
-    // raw was already empty:
     if (status === 'skipped' || status === 'configured') {
       return '';
     }
@@ -836,10 +970,13 @@ function renderNotesTable(notes) {
 // Returns { rowsHtml, notes }
 //
 // F-CUSTOM (Phase 5): Custom items get a gold [CUSTOM] badge next to SKU code.
-// Detected via item.is_custom === true (set in reconstructGroupedItems).
+// F-PROMOTIONS (2026-05-21): Promo-eligible items get a red [PROMO] badge.
+// F-COL-ABBREVIATIONS (2026-05-21): Type / Asm Status use 3-letter codes.
+// F-LINE-TOTAL-INCLUDES-ASM (2026-05-21): Total = Unit + Mod + Asm.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemRowsHtml(groupedItems) {
   const byStyle = groupAndSortByStyle(groupedItems);
+  const promoStyleCodes = getActivePromoStyleCodes();  // F-PROMOTIONS
 
   let itemNum = 0;
   let lastStyle = null;
@@ -851,7 +988,8 @@ function buildItemRowsHtml(groupedItems) {
     items.forEach(function (item) {
       const subs = item.sub_groups;
       const isSplit = subs.length > 1;
-      const isCustom = !!item.is_custom;  // F-CUSTOM
+      const isCustom = !!item.is_custom;
+      const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase());  // F-PROMOTIONS
 
       subs.forEach(function (sub, subIdx) {
         itemNum++;
@@ -864,16 +1002,22 @@ function buildItemRowsHtml(groupedItems) {
         const modFeeTotal   = perSubModCost * subQty;
         const skuLineTotal  = item.unit_price * subQty;
         const asmFeeTotal   = item.assemble_fee * subQty;
-        const lineTotal     = skuLineTotal + modFeeTotal;
+        // F-LINE-TOTAL-INCLUDES-ASM: Total now includes asmFeeTotal so the row
+        // visibly sums Unit + Mod + Asm columns.
+        const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
 
         const subLabelHtml = isSplit
           ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
           : '';
-        // F-CUSTOM: gold [CUSTOM] badge on first sub only (avoids visual noise on split subs)
+        // F-CUSTOM: gold [CUSTOM] badge on first sub only
         const customBadgeHtml = (isCustom && isFirstSub)
           ? `<span class="custom-badge">CUSTOM</span>`
           : '';
-        const skuCellHtml = `${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}`;
+        // F-PROMOTIONS: red [PROMO] badge on first sub only
+        const promoBadgeHtml = (isPromo && isFirstSub)
+          ? `<span class="promo-badge">PROMO</span>`
+          : '';
+        const skuCellHtml = `${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}`;
 
         const itemContext = {
           sku_code:  item.sku_code,
@@ -885,12 +1029,14 @@ function buildItemRowsHtml(groupedItems) {
           : '';
         const descCellHtml = `${descMainHtml}${modsBlockHtml}`;
 
+        // F-COL-ABBREVIATIONS: shortType for Type col
         const typeColHtml = isFirstSub && item.sku_type
-          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(item.sku_type.toUpperCase())}</span>`
+          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(shortType(item.sku_type))}</span>`
           : '';
 
+        // F-COL-ABBREVIATIONS: shortStatus for Asm Status col
         const assembleStatusHtml = isFirstSub
-          ? `<span class="type-badge ${(item.assemble_status||'').toLowerCase()}">${escapeHtml(item.assemble_status)}</span>`
+          ? `<span class="type-badge ${(item.assemble_status||'').toLowerCase()}">${escapeHtml(shortStatus(item.assemble_status))}</span>`
           : '';
 
         const trClass = isFirstSub ? '' : 'sub-continuation';
@@ -1083,23 +1229,35 @@ function renderQuote(quote, dealer, addr) {
   }
 
   // ─────────────────────────────────────────────────────────────────────
-  // F-TAX: Calculate totals
-  //   - skuSubtotal     = quote.subtotal (already SKU-only per spec)
-  //   - modsSubtotal    = sum of all mod costs (taxable + non-taxable)
-  //   - taxableMods     = sum of mods with tax_status === true
-  //   - assembleTotal   = quote.assemble_total
-  //   - shipping        = quote.shipping_cost (may be null = pending)
-  //   - tax             = quote.tax_amount (already calculated by step3, snapshot)
-  //   - grand           = quote.grand_total
+  // F-TAX + F-PROMOTIONS: Calculate totals for display.
   //
-  // We don't recompute tax/grand — those are snapshotted at save time. We only
-  // recompute mod totals for DISPLAY (since the source of truth is the
-  // modifications jsonb on quote_items rows).
+  // quotes.subtotal is the PRE-discount SKU subtotal (raw, per step3 spec).
+  // quotes.grand_total is the POST-discount final figure (snapshot).
+  // We recompute mod totals live for DISPLAY consistency, and recompute
+  // promo discount live from quote_items.style_code so quote-detail's UI
+  // shows the discount row in line with email/PDF.
+  //
+  // We do NOT recompute tax — that was snapshotted at submit time using the
+  // PROMOTIONS const that was active back then. Recomputing now could disagree
+  // with the snapshot if PROMOTIONS has been edited since. The snapshot wins.
   // ─────────────────────────────────────────────────────────────────────
   const skuSubtotal       = parseFloat(quote.subtotal || 0);
   const modsSubtotal      = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
   const taxableMods       = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
   const nonTaxableMods    = modsSubtotal - taxableMods;
+
+  // F-PROMOTIONS: compute discount live for UI display
+  const promoResult = _groupedItems
+    ? calculatePromotionDiscount(groupedItemsToPromoShape(_groupedItems))
+    : { totalDiscount: 0, matchedLineCount: 0, appliedPromo: null };
+  const promoDiscount     = promoResult.totalDiscount;
+  const promoLabel        = promoResult.appliedPromo ? promoResult.appliedPromo.label : '';
+  const promoMatchedCount = promoResult.matchedLineCount;
+
+  if (promoDiscount > 0) {
+    console.log('[F-PROMO] quote-detail: ' + (promoResult.appliedPromo ? promoResult.appliedPromo.id : '?')
+      + ' matched ' + promoMatchedCount + ' line(s), discount=$' + promoDiscount.toFixed(2));
+  }
 
   // Assemble breakdown by type
   const byType = {};
@@ -1111,6 +1269,7 @@ function renderQuote(quote, dealer, addr) {
     byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
   });
   const assembleTotal = parseFloat(quote.assemble_total || 0);
+  // F-COL-ABBREVIATIONS: use shortType() for the by-type breakdown labels
   const asmBreakdownHtml = assembleTotal > 0
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
@@ -1118,7 +1277,7 @@ function renderQuote(quote, dealer, addr) {
         </div>
         <div class="asm-breakdown">
           ${TYPE_ORDER.filter(t=>byType[t]).map(t=>
-            `<div class="asm-breakdown-row"><span>${t} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
+            `<div class="asm-breakdown-row"><span>${shortType(t)} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
           ).join('')}
         </div>
       </div>`
@@ -1129,6 +1288,19 @@ function renderQuote(quote, dealer, addr) {
     ? `<div class="total-row">
         <span class="total-label">Modifications</span>
         <span class="total-val" style="color:#8B6914;">+${fmt(modsSubtotal)}</span>
+      </div>`
+    : '';
+
+  // F-PROMOTIONS: Discount row, placed right after Subtotal
+  const discountRowHtml = promoDiscount > 0
+    ? `<div class="total-row discount">
+        <div>
+          <span class="total-label">${escapeHtml(promoLabel || 'Promo Discount')}</span>
+          ${promoMatchedCount > 0
+            ? `<div class="discount-sublabel">${promoMatchedCount} eligible line${promoMatchedCount === 1 ? '' : 's'}</div>`
+            : ''}
+        </div>
+        <span class="total-val">−${fmt(promoDiscount)}</span>
       </div>`
     : '';
 
@@ -1191,9 +1363,10 @@ function renderQuote(quote, dealer, addr) {
       </div>`;
   } else {
     // Build tax detail note (if mods are partially taxable)
+    // F-PROMOTIONS: tax base = (SKU - promo) + taxable mods, matching step3
     let taxDetailHtml = '';
-    if (modsSubtotal > 0 && nonTaxableMods > 0.005) {  // 0.005 = penny tolerance
-      const taxBase = skuSubtotal + taxableMods;
+    if (modsSubtotal > 0 && nonTaxableMods > 0.005) {
+      const taxBase = (skuSubtotal - promoDiscount) + taxableMods;
       taxDetailHtml = `<div class="tax-note-detail">Taxable base: ${fmt(taxBase)} (excludes ${fmt(nonTaxableMods)} non-taxable mods)</div>`;
     }
     taxRowHtml = `
@@ -1330,6 +1503,7 @@ function renderQuote(quote, dealer, addr) {
 
       <div class="totals">
         <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(skuSubtotal)}</span></div>
+        ${discountRowHtml}
         ${modsRowHtml}
         ${asmBreakdownHtml}
         ${shippingRowHtml}
@@ -1395,12 +1569,39 @@ async function saveShipping() {
     return;
   }
 
-  // Recompute grand_total = subtotal + assemble_total + new_shipping + tax
+  // F-PROMOTIONS bug fix (2026-05-21): grand_total recompute must subtract
+  // promo discount. Previously, admin shipping edits silently re-inflated
+  // grand_total by the discount amount, because subtotal here is the PRE-
+  // discount value but the original grand_total was POST-discount.
+  //
+  // Formula: grand = subtotal - promoDiscount + modsTotal + assembleTotal
+  //                  + newShipping + tax
+  // We don't recompute tax — keep the snapshot (matches step3 behavior).
   const subtotal      = parseFloat(_quote.subtotal       || 0);
   const assembleTotal = parseFloat(_quote.assemble_total || 0);
   const taxAmount     = parseFloat(_quote.tax_amount     || 0);
+  const modsTotal     = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
+
+  // F-PROMOTIONS: compute discount the same way the rest of the page does
+  const promoResult = _groupedItems
+    ? calculatePromotionDiscount(groupedItemsToPromoShape(_groupedItems))
+    : { totalDiscount: 0 };
+  const promoDiscount = promoResult.totalDiscount;
+
   const newShippingRounded = parseFloat(newShipping.toFixed(2));
-  const newGrand      = parseFloat((subtotal + assembleTotal + newShippingRounded + taxAmount).toFixed(2));
+  const newGrand = parseFloat(
+    (subtotal - promoDiscount + modsTotal + assembleTotal + newShippingRounded + taxAmount).toFixed(2)
+  );
+
+  console.log('[F-PROMO] saveShipping recompute:',
+    'subtotal=$' + subtotal.toFixed(2),
+    'promoDiscount=$' + promoDiscount.toFixed(2),
+    'modsTotal=$' + modsTotal.toFixed(2),
+    'assembleTotal=$' + assembleTotal.toFixed(2),
+    'newShipping=$' + newShippingRounded.toFixed(2),
+    'tax=$' + taxAmount.toFixed(2),
+    'newGrand=$' + newGrand.toFixed(2)
+  );
 
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
@@ -1430,15 +1631,11 @@ async function saveShipping() {
 // ─────────────────────────────────────────────────────────────────────────
 // PDF download functions
 // F4.1 v2: pass sub_groups + modifications so PDF builder can render correctly
-//
-// F-CUSTOM (Phase 5): items.map now includes is_custom so the PDF builder
-// (Phase 6) renders [CUSTOM] badge and skips MSRP display for custom rows.
-// Mirrors step3.html buildQuoteDataForPdf shape exactly.
+// F-PROMOTIONS (2026-05-21): pass _promo block so PDF shows discount row.
 //
 // F-HIDDEN-MODS (2026-05-18): We INTENTIONALLY do NOT filter MF01 No Skin
 // here either. PDF builder applies its own _isHiddenMod() filter at render
-// time, so we just pass through the raw modifications. This keeps DB audit
-// trail intact regardless of PDF presentation.
+// time, so we just pass through the raw modifications.
 // ─────────────────────────────────────────────────────────────────────────
 
 function buildQuoteDataForPdf() {
@@ -1451,13 +1648,12 @@ function buildQuoteDataForPdf() {
       sku_desc:        item.sku_desc || '',
       sku_type:        item.sku_type || null,
       assemble_status: item.assemble_status,
-      // For PDF builder backward compat: also include quantity as total of subs
       quantity:        item.sub_groups.reduce((s, g) => s + (parseInt(g.qty, 10) || 0), 0),
       unit_price:      item.unit_price,
       msrp:            item.msrp || null,
       assemble_fee:    item.assemble_fee,
       sub_groups:      item.sub_groups,
-      is_custom:       !!item.is_custom,  // F-CUSTOM (Phase 5)
+      is_custom:       !!item.is_custom,
     };
   });
 
@@ -1469,11 +1665,17 @@ function buildQuoteDataForPdf() {
   const modsTotal        = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
   const taxableModsTotal = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
 
-  // Tax rate: derive from snapshot if possible. quote.subtotal is SKU-only;
-  // taxable base was skuSubtotal + taxableModsTotal at save time.
-  // tax_amount / taxable_base = effective rate.
+  // F-PROMOTIONS: compute promo block live so pdf-builder can render Discount row
+  const promoResult = _groupedItems
+    ? calculatePromotionDiscount(groupedItemsToPromoShape(_groupedItems))
+    : { totalDiscount: 0, matchedLineCount: 0, matchedSubtotal: 0, appliedPromo: null };
+
+  // Tax rate: derive from snapshot. quote.subtotal is SKU-only (pre-discount).
+  // At submit time, taxable base was (skuSubtotal - promoDiscount) + taxableModsTotal.
+  // So effective rate = tax_amount / (post-discount taxable base).
   const skuSubtotal = parseFloat(_quote.subtotal || 0);
-  const taxableBase = skuSubtotal + taxableModsTotal;
+  const promoDiscount = promoResult.totalDiscount;
+  const taxableBase = (skuSubtotal - promoDiscount) + taxableModsTotal;
   const taxAmount   = parseFloat(_quote.tax_amount || 0);
   const _taxRate    = (taxableBase > 0 && taxAmount > 0) ? (taxAmount / taxableBase) : 0;
   const _taxExempt  = taxAmount === 0 && !!(_dealer && _dealer.tax_exempt);
@@ -1492,6 +1694,17 @@ function buildQuoteDataForPdf() {
     _taxRate:      _taxRate,
     _taxExempt:    _taxExempt,
     _isPendingShipping: (_quote.logistic_type === 'shipping' && shippingCost === null),
+    // F-PROMOTIONS: shape matches step3 buildQuoteDataForPdf._promo so pdf-builder
+    // can render the discount row consistently. quote-detail never has markup,
+    // so suppressed_by_markup is always false.
+    _promo: {
+      total_discount:       parseFloat(promoResult.totalDiscount.toFixed(2)),
+      matched_line_count:   promoResult.matchedLineCount,
+      matched_subtotal:     parseFloat(promoResult.matchedSubtotal.toFixed(2)),
+      label:                promoResult.appliedPromo ? promoResult.appliedPromo.label : null,
+      promo_id:             promoResult.appliedPromo ? promoResult.appliedPromo.id : null,
+      suppressed_by_markup: false,
+    },
   };
 }
 
