@@ -50,6 +50,25 @@
 //     processing mods. If all mods get filtered out, the cell is treated
 //     same as "skipped + empty" (no clutter), matching step3 behavior.
 //   • Mirror this in new-quote-step3.html and quote-detail.html.
+//
+// F-LINE-TOTAL-INCLUDES-ASM (2026-05-21):
+//   • PDF table "Total" column now INCLUDES asmFeeTotal:
+//       lineTotal = skuLineTotal + modFeeTotal + asmFeeTotal
+//     Matches the updated formula in step3.html. The dealer-facing intuition
+//     that "Total = sum of the row's $ columns" is now honoured.
+//     Bottom totals-section still independently sums Subtotal / Modifications
+//     / Assemble Fee / Shipping / Tax, so no double-counting at grand total.
+//   • Mirror this change in quote-detail.html when next updated.
+//
+// F-COL-ABBREVIATIONS (2026-05-21):
+//   • Type column values shortened to 3-letter uppercase (BAS / WAL / TAL /
+//     ACC / OTH / MOD) and Asm Status to ASM / RTA. Reason: 7-/11-letter
+//     values like "Assembled" / "ACCESSORIES" wrap to 2 lines and visually
+//     misalign the row. Abbreviations are display-only — underlying DB
+//     fields (item.sku_type / item.assemble_status) are unchanged.
+//   • TYPE_SHORT_MAP and STATUS_SHORT_MAP centralise the lookups so future
+//     additions only touch one place. step3.html and quote-detail.html
+//     should mirror these maps for cross-surface consistency.
 // ============================================================
 
 (function (global) {
@@ -61,6 +80,37 @@
   // F-CUSTOM (Phase 6): Added 'OTHER' between ACCESSORIES and MODIFICATION,
   // aligned with new-quote-step3.html and quote-detail.html.
   const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ACCESSORIES', 'OTHER', 'MODIFICATION'];
+
+  // F-COL-ABBREVIATIONS (2026-05-21): display-only shortenings to keep
+  // table cells single-line. Underlying DB values stay full-length.
+  // When adding a new sku_type, append both here and in TYPE_ORDER.
+  const TYPE_SHORT_MAP = {
+    'BASE':         'BAS',
+    'WALL':         'WAL',
+    'TALL':         'TAL',
+    'ACCESSORIES':  'ACC',
+    'OTHER':        'OTH',
+    'MODIFICATION': 'MOD',
+  };
+
+  // F-COL-ABBREVIATIONS (2026-05-21): assemble_status shortenings.
+  // RTA is already 3 letters; Assembled compresses to ASM to match width.
+  const STATUS_SHORT_MAP = {
+    'ASSEMBLED': 'ASM',
+    'RTA':       'RTA',
+  };
+
+  function _shortType(t) {
+    if (!t) return '—';
+    const key = String(t).toUpperCase();
+    return TYPE_SHORT_MAP[key] || key.slice(0, 3);
+  }
+
+  function _shortStatus(s) {
+    if (!s) return '—';
+    const key = String(s).toUpperCase();
+    return STATUS_SHORT_MAP[key] || key.slice(0, 3);
+  }
 
   // PDF 顏色（RGB 陣列，給 jsPDF 用）
   const COLORS = {
@@ -532,6 +582,14 @@
    * F-CUSTOM (Phase 6): SKU cell suffixed with " [CUSTOM]" when item.is_custom.
    * Suffix appears on the first sub-row only (mirrors step3 / quote-detail UI).
    *
+   * F-COL-ABBREVIATIONS (2026-05-21): Type col uses 3-letter abbreviations
+   * (BAS/WAL/TAL/ACC/OTH/MOD) and Asm Status col uses ASM/RTA. Prevents
+   * 7-/11-character labels from line-wrapping in narrow columns.
+   *
+   * F-LINE-TOTAL-INCLUDES-ASM (2026-05-21): For invoice / draft-quote modes,
+   * Total col is now Unit×Qty + Mod×Qty + Asm×Qty. Bottom totals-section
+   * does NOT change — it independently sums each subtotal, so no double-count.
+   *
    * Returns: { tableEndY, notes }  where notes is the collector for renderNotesTable.
    */
   function _drawItemTable(doc, context) {
@@ -549,7 +607,7 @@
     // ── 組 table head（依 mode 決定欄位）──
     let head;
     if (mode === 'packing-list') {
-      head = [['Item#', 'Door Style', 'SKU', 'Qty', 'Description', 'Type', 'Assemble Status']];
+      head = [['Item#', 'Door Style', 'SKU', 'Qty', 'Description', 'Type', 'Asm Status']];
     } else {
       // F4.2: invoice / draft-quote 改 11 欄，加 Mod Fee
       head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Asm Status',
@@ -568,9 +626,13 @@
         const subs = _getNormalizedSubGroups(item);
         const isSplit = subs.length > 1;
         const isCustom = !!item.is_custom;  // F-CUSTOM (Phase 6)
-        const skuType        = (item.sku_type || item.skuType || '—');
+        // F-COL-ABBREVIATIONS: pre-compute shortened display strings;
+        // raw item.sku_type / item.assemble_status untouched.
+        const skuType        = item.sku_type || item.skuType || '';
+        const skuTypeShort   = _shortType(skuType);
+        const assembleStatus = item.assemble_status || item.type || '';
+        const asmStatusShort = _shortStatus(assembleStatus);
         const skuDesc        = item.sku_desc || '';
-        const assembleStatus = item.assemble_status || item.type || '—';
         const markedUnitPrice = item.unit_price * (1 + markupPercent);
 
         subs.forEach((sub, subIdx) => {
@@ -609,8 +671,8 @@
               skuCell,
               subQty,
               descCell,
-              isFirstSub ? skuType : '',
-              isFirstSub ? assembleStatus : '',
+              isFirstSub ? skuTypeShort   : '',  // F-COL-ABBREVIATIONS
+              isFirstSub ? asmStatusShort : '',  // F-COL-ABBREVIATIONS
             ]);
           } else {
             // 11 cols, with Mod Fee column
@@ -618,15 +680,18 @@
             const modFeeTotal   = perSubModCost * subQty;  // F4.2 Confirm 4: NOT marked up
             const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
             const skuLineTotal  = markedUnitPrice * subQty;
-            const lineTotal     = skuLineTotal + modFeeTotal;
+            // F-LINE-TOTAL-INCLUDES-ASM: Total now includes asmFeeTotal so it
+            // matches the sum of the row's $ columns. Bottom totals-section
+            // remains the source of truth for grand total.
+            const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
 
             body.push([
               `#${itemNum}`,
               styleCell,
-              isFirstSub ? skuType : '',
+              isFirstSub ? skuTypeShort   : '',  // F-COL-ABBREVIATIONS
               skuCell,
               descCell,
-              isFirstSub ? assembleStatus : '',
+              isFirstSub ? asmStatusShort : '',  // F-COL-ABBREVIATIONS
               subQty,
               `$${markedUnitPrice.toFixed(2)}`,
               modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
@@ -639,6 +704,9 @@
     });
 
     // ── 欄寬設定 ──
+    // F-COL-ABBREVIATIONS: type/asm-status columns kept at current widths
+    // (already conservative); the 3-letter abbreviations comfortably fit so
+    // no width tuning is needed. If future labels exceed 3 letters, revisit.
     let columnStyles;
     if (mode === 'packing-list') {
       columnStyles = {
@@ -874,12 +942,14 @@
       }
       y += 5;
 
+      // F-COL-ABBREVIATIONS: use short codes for the by-type breakdown too,
+      // so the right-side totals column stays narrow and aligned.
       TYPE_ORDER.filter(t => byType[t]).forEach(t => {
         const row = byType[t];
         doc.setFontSize(6.5);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...COLORS.muted);
-        doc.text(`  ${t} x${row.qty}`, totalsX, y);
+        doc.text(`  ${_shortType(t)} x${row.qty}`, totalsX, y);
         if (showPrices) {
           doc.setTextColor(140, 100, 20);
           doc.text(`+$${row.total.toFixed(2)}`, valX, y, { align: 'right' });
@@ -1324,6 +1394,10 @@
   // ----------------------------------------
   global.ProCraftPDF = {
     _TYPE_ORDER: TYPE_ORDER,
+    _TYPE_SHORT_MAP:   TYPE_SHORT_MAP,    // F-COL-ABBREVIATIONS
+    _STATUS_SHORT_MAP: STATUS_SHORT_MAP,  // F-COL-ABBREVIATIONS
+    _shortType:        _shortType,        // F-COL-ABBREVIATIONS
+    _shortStatus:      _shortStatus,      // F-COL-ABBREVIATIONS
     _COLORS:     COLORS,
     _LAYOUT:     LAYOUT,
     _MF_USE_NOTES_TABLE:           MF_USE_NOTES_TABLE,           // F4.2
