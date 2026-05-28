@@ -544,6 +544,12 @@ const statusClass = {
   Returned:'returned',
 };
 
+// CB-2: Display-only status label map. DB status values are unchanged —
+// this only affects what the badge text shows. 'Returned' (DB) → 'Revising' (UI).
+const statusLabel = {
+  Returned: 'Revising',
+};
+
 // ── C1: which statuses allow admin to edit shipping_cost ──
 const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
 
@@ -1155,7 +1161,7 @@ function buildReturnHistoryHtml() {
       <div class="return-event">
         <div class="return-event-head">
           <span class="return-event-version">v${h.revision_at_return}</span>
-          <span>Returned by</span>
+          <span>Revision requested by</span>
           <span class="return-event-by">${escapeHtml(adminLabel)}</span>
           <span class="return-event-time">${formatDateTime(h.returned_at)}</span>
         </div>
@@ -1169,7 +1175,7 @@ function buildReturnHistoryHtml() {
       <div class="return-history-header" onclick="toggleReturnHistory()">
         <div class="return-history-title">
           <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
-          Return History
+          Revision History
           <span class="return-history-count">${count} event${count !== 1 ? 's' : ''}</span>
         </div>
         <span class="return-history-toggle">
@@ -1196,6 +1202,8 @@ function toggleReturnHistory() {
 
 function renderQuote(quote, dealer, addr) {
   const sc    = statusClass[quote.status] || 'pending';
+  // CB-2: display-only label; falls back to raw DB status for all other values.
+  const statusText = statusLabel[quote.status] || quote.status;
   const isReturned = quote.status === 'Returned';
 
   // Back link target — admin → admin-quotes, dealer → quotes
@@ -1427,7 +1435,7 @@ function renderQuote(quote, dealer, addr) {
           <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
         </div>
         <div class="return-banner-body">
-          <div class="return-banner-title">This Quote Has Been Returned for Revision</div>
+          <div class="return-banner-title">Revision Requested</div>
           <div class="return-banner-msg">${reasonText}</div>
           <div class="return-banner-action">
             ${editButtonHtml}
@@ -1450,7 +1458,7 @@ function renderQuote(quote, dealer, addr) {
         <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
       </div>
       <div class="header-right">
-        <span class="status-badge ${sc}">${quote.status}</span>
+        <span class="status-badge ${sc}">${statusText}</span>
         ${downloadButtonsHtml}
       </div>
     </div>
@@ -1464,7 +1472,7 @@ function renderQuote(quote, dealer, addr) {
           <div><div class="info-label">Dealer</div><div class="info-value">${escapeHtml(dealer?.company_name||'—')}</div></div>
           <div><div class="info-label">Contact</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
           <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
-          <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${quote.status}</span></div></div>
+          <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${statusText}</span></div></div>
         </div>
       </div>
     </div>
