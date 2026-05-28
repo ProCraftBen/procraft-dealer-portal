@@ -304,11 +304,11 @@
     </button>
   </div>
 
-  <!-- 6-card stats: Total / Draft / Returned / Pending / Processing / Complete -->
+  <!-- 6-card stats: Total / Draft / Revising / Pending / Processing / Complete -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
-    <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label">Returned</div></div>
+    <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label">Revising</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label">Pending</div></div>
     <div class="stat-card"><div class="stat-num" id="statProcessing" style="color:var(--status-processing)">—</div><div class="stat-label">Processing</div></div>
     <div class="stat-card"><div class="stat-num" id="statComplete" style="color:var(--status-complete)">—</div><div class="stat-label">Complete</div></div>
@@ -320,7 +320,7 @@
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
         <option value="Draft">Draft</option>
-        <option value="Returned">Returned</option>
+        <option value="Returned">Revising</option>
         <option value="Pending">Pending</option>
         <option value="Processing">Processing</option>
         <option value="Complete">Complete</option>
@@ -391,14 +391,14 @@
   </div>
 </div>
 
-<!-- Return to Dealer Modal -->
+<!-- Request Revision Modal -->
 <div class="modal-overlay" id="returnQuoteModal">
   <div class="modal-box">
-    <div class="modal-title">Return Quote to Dealer</div>
+    <div class="modal-title">Request Revision</div>
     <div class="modal-sub" id="returnModalSub">Please describe what needs to be revised. The dealer will see this message in their email and on the quote detail page.</div>
     <input type="hidden" id="returnQuoteId"/>
     <div class="modal-field">
-      <label>Return Reason <span style="color:var(--gold);">*</span></label>
+      <label>Revision Note <span style="color:var(--gold);">*</span></label>
       <textarea id="returnReason" maxlength="1000"
         placeholder="e.g. Please update the quantity for SKU XX. Also confirm the delivery address."
         oninput="updateReturnCharCounter()"></textarea>
@@ -408,7 +408,7 @@
     <div class="modal-actions">
       <button class="btn-modal-cancel" onclick="cancelReturnQuote()">Cancel</button>
       <button class="btn-modal-return" id="btnConfirmReturn" onclick="confirmReturnQuote()">
-        <span class="btn-text">Confirm Return</span>
+        <span class="btn-text">Send Revision Request</span>
         <div class="modal-spinner"></div>
       </button>
     </div>
@@ -505,6 +505,13 @@ const statusClass = {
   Closed:'closed',
   Returned:'returned',
 };
+
+// CB-2: Display-only status label map. DB status values are unchanged —
+// this only affects what the badge text shows. 'Returned' (DB) → 'Revising' (UI).
+const statusLabel = {
+  Returned: 'Revising',
+};
+
 let allQuotes = [], allDealers = {};
 
 // 用來記住每個 quote 的「目前 select 顯示值之前是什麼」，方便 Cancel 時還原
@@ -626,6 +633,8 @@ function renderTable() {
     const dealer     = allDealers[q.dealer_id] || {};
     const items      = q.quote_items || [];
     const sc         = statusClass[q.status] || 'pending';
+    // CB-2: display-only label; falls back to raw DB status for all other values.
+    const statusText = statusLabel[q.status] || q.status;
     const isDraft    = q.status === 'Draft';
     const isReturned = q.status === 'Returned';
     const isClosed   = q.status === 'Closed';
@@ -742,13 +751,13 @@ function renderTable() {
     if (isDraft) {
       statusCellHtml = '<td><span class="status-badge-draft">Draft</span></td>';
     } else if (isReturned) {
-      // Returned: 顯示 badge，沒有下拉
-      statusCellHtml = '<td><span class="status-badge-returned">Returned</span></td>';
+      // Returned: 顯示 badge（CB-2: 顯示為 Revising），沒有下拉
+      statusCellHtml = '<td><span class="status-badge-returned">' + statusText + '</span></td>';
     } else if (isClosed) {
       // Closed: 顯示 badge，沒有下拉（最終狀態，不能再改）
       statusCellHtml = '<td><span class="status-badge-closed">Closed</span></td>';
     } else {
-      // Pending / Processing / Complete: 下拉 + Return + Close 選項
+      // Pending / Processing / Complete: 下拉 + Request Revision + Close 選項
       statusCellHtml =
         '<td onclick="event.stopPropagation()" style="white-space:nowrap">' +
           '<select class="status-select ' + sc + '" id="status-' + q.id + '" onchange="onStatusChange(\'' + q.id + '\', this)">' +
@@ -756,7 +765,7 @@ function renderTable() {
             '<option value="Processing"' + (q.status === 'Processing' ? ' selected' : '') + '>Processing</option>' +
             '<option value="Complete"'   + (q.status === 'Complete'   ? ' selected' : '') + '>Complete</option>' +
             '<option value="Closed" class="close-option">✕ Close Quote</option>' +
-            '<option value="Returned" class="return-option">↩ Return to Dealer</option>' +
+            '<option value="Returned" class="return-option">↩ Request Revision</option>' +
           '</select>' +
           '<button id="save-' + q.id + '" onclick="saveStatus(\'' + q.id + '\')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>' +
         '</td>';
@@ -775,7 +784,7 @@ function renderTable() {
     // ── Reason banner inside detail ──
     let reasonBanner = '';
     if (isReturned && q.return_reason) {
-      reasonBanner = '<div class="return-reason-banner"><strong>Return Reason</strong>' + escapeHtml(q.return_reason) + '</div>';
+      reasonBanner = '<div class="return-reason-banner"><strong>Revision Note</strong>' + escapeHtml(q.return_reason) + '</div>';
     } else if (isClosed && q.close_reason) {
       reasonBanner = '<div class="close-reason-banner"><strong>Close Reason</strong>' + escapeHtml(q.close_reason) + '</div>';
     }
@@ -888,7 +897,7 @@ function toggleDetail(idx) {
 }
 
 // ── Status change handler ─────────────────────────────────────────
-// 選到 "Returned" → 開 Return Modal；選到 "Closed" → 開 Close Modal；其他 → 顯示 Save 按鈕
+// 選到 "Returned" → 開 Request Revision Modal；選到 "Closed" → 開 Close Modal；其他 → 顯示 Save 按鈕
 function onStatusChange(quoteId, selectEl) {
   const newStatus = selectEl.value;
   if (newStatus === 'Returned') {
@@ -924,7 +933,7 @@ async function saveStatus(quoteId) {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// Return to Dealer Modal
+// Request Revision Modal
 // ════════════════════════════════════════════════════════════════════
 
 function openReturnQuoteModal(quoteId, selectEl) {
@@ -986,12 +995,12 @@ async function confirmReturnQuote() {
   errEl.classList.remove('show');
 
   if (!reason) {
-    errEl.textContent = 'Return reason is required. Please describe what needs to be revised.';
+    errEl.textContent = 'Revision note is required. Please describe what needs to be revised.';
     errEl.classList.add('show');
     return;
   }
   if (reason.length > 1000) {
-    errEl.textContent = 'Return reason cannot exceed 1000 characters.';
+    errEl.textContent = 'Revision note cannot exceed 1000 characters.';
     errEl.classList.add('show');
     return;
   }
@@ -1023,7 +1032,7 @@ async function confirmReturnQuote() {
   if (updateErr) {
     btn.classList.remove('loading');
     btn.disabled = false;
-    errEl.textContent = 'Failed to return quote: ' + (updateErr.message || 'Unknown error');
+    errEl.textContent = 'Failed to send revision request: ' + (updateErr.message || 'Unknown error');
     errEl.classList.add('show');
     return;
   }
@@ -1095,11 +1104,11 @@ async function confirmReturnQuote() {
   renderTable();
 
   if (emailErr) {
-    showToast('Quote returned, but email notification failed to send.');
+    showToast('Revision requested, but email notification failed to send.');
   } else if (historyErr) {
-    showToast('Quote returned, but history log failed to save.');
+    showToast('Revision requested, but history log failed to save.');
   } else {
-    showToast('Quote returned and dealer notified.');
+    showToast('Revision requested. Dealer notified.');
   }
 }
 
