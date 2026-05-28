@@ -31,7 +31,7 @@
  * BEHAVIOR:
  *   - On script load: inject CSS + render skeleton (logo only) instantly
  *   - No session → clear skeleton (page's own redirect handles login)
- *   - Dealer role → renders dealer nav (Dashboard / My Quotes / New Quote /
+ *   - Dealer role → renders dealer nav (Dashboard / My Orders / New Estimate /
  *     Edit Profile / Change Password / Sign Out)
  *   - Admin / super_admin role → renders admin nav with [Admin] badge
  *     (Dashboard / Quotes / Dealers / Account / Tags / Change Password /
@@ -52,10 +52,12 @@
   const BRAND_TITLE   = 'ProCraft Cabinetry DC';
 
   // Navigation item maps — key = data-page value
+  // CB-2: dealer-facing labels renamed. data-page / href / page keys are
+  // internal identifiers and stay untouched so existing page wiring works.
   const DEALER_NAV = [
     { page: 'dashboard',       label: 'Dashboard',       href: 'dashboard.html' },
-    { page: 'quotes',          label: 'My Quotes',       href: 'quotes.html' },
-    { page: 'new-quote',       label: 'New Quote',       href: 'new-quote.html' },
+    { page: 'quotes',          label: 'My Orders',       href: 'quotes.html' },
+    { page: 'new-quote',       label: 'New Estimate',    href: 'new-quote.html' },
     { page: 'dealer-profile',  label: 'Edit Profile',    href: 'dealer-profile.html' },
     { page: 'change-password', label: 'Change Password', href: 'change-password.html' },
   ];
