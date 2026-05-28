@@ -396,7 +396,7 @@
 
   <div class="draft-banner" id="draftBanner" style="display:none;">
     <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-    <span id="draftBannerText">You are editing a saved draft. You can save again or submit when ready.</span>
+    <span id="draftBannerText">You are editing a saved quote. You can save again or submit when ready.</span>
   </div>
 
   <div class="error-msg" id="errorMsg"></div>
@@ -552,8 +552,8 @@
 
   <div class="submit-card">
     <div class="submit-note" id="submitNote">
-      Please review your quote carefully before submitting.<br>
-      You can also save as a draft to continue later.
+      Please review your purchase order carefully before submitting.<br>
+      You can also save as a quote to continue later.
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
       <button class="btn-draft" id="btnDraft" onclick="saveDraft()">
@@ -563,7 +563,7 @@
       </button>
       <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
         <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        <span class="btn-text" id="btnSubmitText">Submit Quote</span>
+        <span class="btn-text" id="btnSubmitText">Submit Purchase Order</span>
         <div class="spinner"></div>
       </button>
     </div>
@@ -577,7 +577,7 @@
 
 <div class="progress-overlay" id="progressOverlay">
   <div class="progress-spinner"></div>
-  <div class="progress-title" id="progressTitle">Submitting Your Quote</div>
+  <div class="progress-title" id="progressTitle">Submitting Your Purchase Order</div>
   <div class="progress-step" id="progressStep">Saving your quote...</div>
   <div class="progress-msg">
     Please don't close this window.<br>
@@ -589,7 +589,7 @@
   <div class="success-icon">
     <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
   </div>
-  <div class="success-title" id="successTitle">Quote Submitted!</div>
+  <div class="success-title" id="successTitle">Purchase Order Submitted!</div>
   <div class="success-quote-num" id="successQuoteNum"></div>
   <div class="success-msg" id="successMsg">
     Thank you! Your quote has been received.<br>
@@ -605,7 +605,7 @@
   <div class="success-icon gold">
     <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
   </div>
-  <div class="success-title" id="draftTitle">Draft Saved!</div>
+  <div class="success-title" id="draftTitle">Quote Saved!</div>
   <div class="success-quote-num" id="draftQuoteNum"></div>
   <div class="success-msg" id="draftMsg">
     Your quote has been saved as a draft.<br>
@@ -832,7 +832,7 @@ function buildReturnedBannerStep3(roleMsg) {
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       </div>
       <div class="rrb-body">
-        <div class="rrb-title">Revising Returned Quote</div>
+        <div class="rrb-title">Revising — Revision Requested</div>
         <div class="rrb-msg">${roleMsg}</div>
       </div>
     </div>`;
@@ -1176,7 +1176,7 @@ async function init() {
       document.getElementById('submitNote').innerHTML =
         'Save changes as a draft. The dealer will review and submit when ready.';
     } else {
-      document.getElementById('btnSubmitText').textContent = 'Resubmit Quote';
+      document.getElementById('btnSubmitText').textContent = 'Resubmit Purchase Order';
       document.getElementById('submitNote').innerHTML =
         'Please review your changes carefully before resubmitting.<br>You can also save as a draft to continue later.';
     }
@@ -1886,10 +1886,10 @@ async function submitQuote() {
   errMsg.classList.remove('show');
 
   if (_isResumingReturned) {
-    titleEl.textContent = 'Resubmitting Your Quote';
+    titleEl.textContent = 'Resubmitting Your Purchase Order';
     setStep('Updating your quote...');
   } else {
-    titleEl.textContent = 'Submitting Your Quote';
+    titleEl.textContent = 'Submitting Your Purchase Order';
     setStep('Saving your quote...');
   }
   overlay.classList.add('show');
@@ -2175,7 +2175,7 @@ async function submitQuote() {
     overlay.classList.remove('show');
 
     if (_isResumingReturned) {
-      document.getElementById('successTitle').textContent = 'Quote Resubmitted!';
+      document.getElementById('successTitle').textContent = 'Purchase Order Resubmitted!';
       document.getElementById('successMsg').innerHTML =
         'Thank you! Your revised quote has been resubmitted.<br>' +
         'Our team will review it and get back to you shortly.<br>' +
