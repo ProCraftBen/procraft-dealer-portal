@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ProCraft Dealer Portal — Review Quote</title>
+  <title>ProCraft Dealer Portal — New Quote</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -17,20 +17,35 @@
       --border:     #DDD8CC;
       --white:      #FFFFFF;
       --error:      #C0392B;
-      --discount:   #C0392B;
     }
-    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+    html, body {
+      min-height: 100%;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      color: var(--text);
+    }
 
-    .page { max-width: 920px; margin: 0 auto; padding: 28px 20px 100px; }
-    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); margin-bottom: 24px; }
+    /* ── Page ── */
+    .page {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+    .page-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px; font-weight: 400;
+      color: var(--green-dark);
+      margin-bottom: 24px;
+    }
 
+    /* ── Returned Revising Banner ── */
     .returned-revising-banner {
       background: rgba(224,123,57,0.07);
       border: 1px solid rgba(224,123,57,0.3);
       border-left: 4px solid #E07B39;
       border-radius: 4px;
       padding: 16px 22px;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       display: flex;
       gap: 16px;
       align-items: flex-start;
@@ -43,7 +58,9 @@
       display: flex; align-items: center; justify-content: center;
       margin-top: 2px;
     }
-    .returned-revising-banner .rrb-icon-wrap svg { width: 16px; height: 16px; fill: #E07B39; }
+    .returned-revising-banner .rrb-icon-wrap svg {
+      width: 16px; height: 16px; fill: #E07B39;
+    }
     .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
     .returned-revising-banner .rrb-title {
       font-size: 11px; font-weight: 600;
@@ -51,2295 +68,1174 @@
       color: #E07B39;
       margin-bottom: 4px;
     }
-    .returned-revising-banner .rrb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
-    .returned-revising-banner .rrb-msg strong { color: #E07B39; }
-
-    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
-    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
-    .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
-    .card-body { padding: 18px 20px; }
-
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
-    .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-    .info-value { font-size: 13px; color: var(--text); line-height: 1.5; }
-
-    .items-table { width: 100%; border-collapse: collapse; }
-    .items-table thead th { padding: 9px 10px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
-    .items-table thead th.th-right { text-align: right; }
-    .items-table tbody tr { border-bottom: 1px solid var(--border); }
-    .items-table tbody tr:last-child { border-bottom: none; }
-    .items-table td { padding: 10px 10px; font-size: 13px; vertical-align: top; }
-    .td-style { font-weight: 500; color: var(--green-dark); }
-    .td-sku { color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; }
-    .td-desc { color: var(--muted); font-size: 12px; line-height: 1.5; }
-    .td-desc .desc-main { color: var(--text); font-size: 12px; margin-bottom: 4px; }
-    .td-type .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
-    .td-type .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
-    .td-type .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
-    .td-right { text-align: right; }
-    .td-total { font-weight: 500; }
-
-    /* F-CUSTOM: [CUSTOM] badge — gold bg + gold text, consistent with step2/2.5 */
-    .custom-badge {
-      display: inline-block;
-      background: rgba(201,168,76,0.18);
-      color: #8B6914;
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      padding: 1px 5px;
-      border-radius: 2px;
-      margin-left: 6px;
-      vertical-align: middle;
+    .returned-revising-banner .rrb-msg {
+      font-size: 13px;
+      color: #2C3A32;
+      line-height: 1.55;
     }
-
-    /* F-PROMOTIONS: [PROMO] badge on items eligible for a campaign — red bg + red text */
-    .promo-badge {
-      display: inline-block;
-      background: rgba(192,57,43,0.10);
-      color: #C0392B;
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      padding: 1px 5px;
-      border-radius: 2px;
-      margin-left: 6px;
-      vertical-align: middle;
-    }
-
-    .items-table tbody tr.sub-continuation {
-      border-top: 1px dashed rgba(201,168,76,0.25);
-    }
-    .items-table tbody tr.sub-continuation td:first-child {
-      border-left: 2px solid rgba(201,168,76,0.35);
-    }
-    .sub-label {
-      display: inline-block;
-      font-size: 10px;
-      letter-spacing: 0.05em;
-      color: #8B6914;
-      background: rgba(201,168,76,0.10);
-      padding: 1px 6px;
-      border-radius: 2px;
-      margin-top: 4px;
-    }
-
-    .mods-list {
-      margin-top: 6px;
-      padding: 6px 0 0;
-      border-top: 1px dotted rgba(125,140,130,0.25);
-    }
-    .mods-list .mod-line {
-      font-size: 11px;
-      color: var(--green-dark);
-      line-height: 1.5;
-      padding: 1px 0;
-    }
-    .mods-list .mod-line .mod-bullet { color: var(--gold); margin-right: 4px; }
-    .mods-list .mod-line .mod-note-ref {
-      color: #E07B39;
-      font-style: italic;
-      font-size: 11px;
-    }
-    .mods-list .mod-status-skipped,
-    .mods-list .mod-status-unprocessed {
-      font-size: 11px;
-      color: var(--muted);
-      font-style: italic;
-    }
-
-    .td-modfee { color: #8B6914; font-weight: 500; }
-
-    /* Notes table for MF06 / MF07 / long values */
-    .notes-table-wrap {
-      margin: 14px 20px 0;
-      padding: 14px 16px;
-      background: rgba(224,123,57,0.04);
-      border: 1px solid rgba(224,123,57,0.2);
-      border-radius: 4px;
-    }
-    .notes-table-title {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #E07B39;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .notes-table-title svg { width: 14px; height: 14px; fill: #E07B39; }
-    .notes-table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--white);
-      border: 1px solid rgba(224,123,57,0.25);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .notes-table thead th {
-      padding: 7px 10px;
-      background: rgba(224,123,57,0.08);
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #8B6914;
-      text-align: left;
-      border-bottom: 1px solid rgba(224,123,57,0.2);
-    }
-    .notes-table tbody td {
-      padding: 9px 10px;
+    .returned-revising-banner .rrb-reason {
       font-size: 12px;
-      color: var(--text);
-      vertical-align: top;
-      border-bottom: 1px solid rgba(224,123,57,0.12);
-      line-height: 1.5;
+      color: #5e6962;
+      line-height: 1.55;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(224,123,57,0.05);
+      border-radius: 3px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
-    .notes-table tbody tr:last-child td { border-bottom: none; }
-    .notes-table .note-num {
-      font-weight: 600;
+    .returned-revising-banner .rrb-reason-label {
+      font-size: 9px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
       color: #E07B39;
-      white-space: nowrap;
-      width: 40px;
+      margin-bottom: 4px;
     }
-    .notes-table .note-item {
+
+    /* ── Admin acting-as-dealer banner (Bug D-StepBilling fix) ── */
+    .admin-acting-banner {
+      background: rgba(62,90,66,0.06);
+      border: 1px solid rgba(62,90,66,0.25);
+      border-left: 4px solid var(--green-dark);
+      border-radius: 4px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      font-size: 12px;
       color: var(--green-dark);
-      white-space: nowrap;
-      font-size: 11px;
+      line-height: 1.55;
+    }
+    .admin-acting-banner strong { font-weight: 600; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 28px 24px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--green-dark);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Fields ── */
+    .field { margin-bottom: 18px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block;
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 7px;
+    }
+    .field label .req { color: var(--gold); margin-left: 2px; }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      background: #FAFAFA;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 12px 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .field input::placeholder,
+    .field textarea::placeholder { color: #C4C0B8; }
+    .field input:focus,
+    .field textarea:focus,
+    .field select:focus {
+      border-color: var(--green-mid);
+      background: #fff;
+    }
+    .field textarea { resize: vertical; min-height: 80px; }
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 480px) { .field-row { grid-template-columns: 1fr; } }
+
+    /* ── Address Cards ── */
+    .address-toggle {
+      display: flex; gap: 12px; margin-bottom: 16px;
+    }
+    .toggle-btn {
+      flex: 1;
+      padding: 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 3px;
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .toggle-btn.active {
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.04);
+      color: var(--green-dark);
       font-weight: 500;
     }
-    .notes-table .note-mf {
-      color: var(--muted);
-      font-size: 11px;
-      white-space: nowrap;
-    }
-    .notes-table .note-content {
-      color: var(--text);
-      font-size: 12px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
 
-    .totals-section { padding: 0 20px 18px; }
-    .total-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .total-row:last-child { border-bottom: none; }
-    .total-row.grand { padding-top: 12px; }
-    .total-label { color: var(--text); }
-    .total-value { font-weight: 500; color: var(--text); }
-    .total-row.grand .total-label { font-size: 14px; font-weight: 500; color: var(--green-dark); }
-    .total-row.grand .total-value { font-size: 16px; font-weight: 500; color: var(--green-dark); }
-    .total-note { font-size: 10px; color: var(--muted); margin-top: 2px; }
-    .tax-exempt { color: var(--green-mid); font-size: 11px; }
-
-    /* F-PROMOTIONS: discount row styling — red minus value */
-    .total-row.discount .total-value { color: var(--discount); font-weight: 500; }
-    .total-row.discount .discount-sublabel {
-      font-size: 10px; color: var(--discount); opacity: 0.75;
-      margin-top: 2px; letter-spacing: 0.04em;
+    .address-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
     }
-
-    .total-value.tbd { color: #E07B39; font-weight: 600; }
-    .pending-grand-note {
-      font-size: 11px;
-      color: #E07B39;
-      font-style: italic;
-      text-align: right;
-      padding: 6px 0 0;
-    }
-
-    .btn-edit { font-size: 11px; color: var(--gold); background: none; border: none; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.2s; text-decoration: none; }
-    .btn-edit:hover { opacity: 0.7; }
-
-    .notes-display { font-size: 13px; color: var(--text); line-height: 1.6; font-style: italic; }
-
-    .btn-back { background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; min-height: 40px; text-decoration: none; display: inline-flex; align-items: center; }
-    .btn-back:hover { color: var(--text); border-color: var(--text); }
-    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; z-index: 150; height: 56px; }
-    .submit-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 24px 20px; margin-bottom: 16px; text-align: center; }
-    .submit-note { font-size: 12px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
-    .btn-submit {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--green-dark); color: #fff; border: none; border-radius: 3px;
-      padding: 15px 40px; font-family: 'DM Sans', sans-serif;
-      font-size: 12px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase;
-      cursor: pointer; transition: background 0.2s; min-height: 52px;
-    }
-    .btn-submit:hover { background: var(--green-mid); }
-    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-submit svg { width: 16px; height: 16px; fill: currentColor; }
-    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
-    .btn-submit.loading .btn-text { display: none; }
-    .btn-submit.loading .spinner { display: block; }
-
-    .draft-banner {
-      background: rgba(201,168,76,0.1);
-      border: 1px solid rgba(201,168,76,0.35);
-      border-radius: 4px;
-      padding: 12px 16px;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      color: #8B6914;
-    }
-    .draft-banner svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
-
-    .btn-draft {
-      display: inline-flex; align-items: center; gap: 7px;
-      background: transparent; color: var(--gold);
-      border: 1.5px solid var(--gold); border-radius: 3px;
-      padding: 14px 24px; font-family: 'DM Sans', sans-serif;
-      font-size: 12px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
-      cursor: pointer; transition: all 0.2s; min-height: 52px;
-    }
-    .btn-draft:hover { background: rgba(201,168,76,0.08); }
-    .btn-draft:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-draft svg { width: 14px; height: 14px; fill: currentColor; }
-    .btn-draft.loading .draft-btn-text { display: none; }
-    .btn-draft.loading .draft-spinner { display: block; }
-    .draft-spinner { width: 14px; height: 14px; border: 2px solid rgba(201,168,76,0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
-
-    .success-icon.gold { background: rgba(201,168,76,0.15); border: 2px solid var(--gold); }
-    .success-icon.gold svg { stroke: var(--gold); }
-
-    .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 12px 16px; font-size: 12px; color: var(--error); margin-bottom: 16px; display: none; }
-    .error-msg.show { display: block; }
-
-    .success-overlay {
-      position: fixed; inset: 0; background: var(--cream);
-      z-index: 500; display: none;
-      flex-direction: column; align-items: center; justify-content: center;
-      padding: 40px 20px; text-align: center;
-    }
-    .success-overlay.show { display: flex; }
-    .success-icon { width: 72px; height: 72px; background: var(--green-dark); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; }
-    .success-icon svg { width: 32px; height: 32px; fill: none; stroke: var(--gold); stroke-width: 2.5; stroke-linecap: round; }
-    .success-title { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 400; color: var(--green-dark); margin-bottom: 8px; }
-    .success-quote-num { font-size: 20px; color: var(--gold); font-weight: 500; margin-bottom: 16px; letter-spacing: 0.05em; }
-    .success-msg { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 400px; margin-bottom: 32px; }
-    .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
-    .btn-dashboard:hover { background: var(--green-mid); }
-
-    .progress-overlay {
-      position: fixed; inset: 0;
-      background: rgba(253, 251, 247, 0.97);
-      backdrop-filter: blur(2px);
-      z-index: 600;
-      display: none;
-      flex-direction: column; align-items: center; justify-content: center;
-      padding: 40px 20px; text-align: center;
-    }
-    .progress-overlay.show { display: flex; }
-    .progress-spinner {
-      width: 56px; height: 56px;
-      border: 3px solid rgba(27, 48, 34, 0.12);
-      border-top-color: var(--green-dark);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 28px;
-    }
-    .progress-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 28px; font-weight: 400;
-      color: var(--green-dark);
-      margin-bottom: 14px;
-    }
-    .progress-step {
-      font-size: 13px;
-      color: var(--gold);
-      letter-spacing: 0.06em;
-      margin-bottom: 24px;
-      min-height: 20px;
-    }
-    .progress-msg {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.7;
-      max-width: 360px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* F-PROMOTIONS: markup × promo warning banner — red/warning theme */
-    .markup-promo-warning {
-      margin-top: 12px;
-      padding: 10px 14px;
-      background: rgba(192,57,43,0.06);
-      border: 1px solid rgba(192,57,43,0.25);
-      border-left: 3px solid var(--discount);
+    .address-card {
+      border: 1.5px solid var(--border);
       border-radius: 3px;
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .address-card:hover { border-color: var(--green-mid); }
+    .address-card.selected {
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.04);
+    }
+    .address-card .addr-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: var(--green-dark);
+    }
+    .address-card .addr-detail {
       font-size: 12px;
-      color: var(--discount);
+      color: var(--muted);
       line-height: 1.5;
+    }
+
+    .btn-add-address {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--gold);
+      background: transparent; border: none;
+      cursor: pointer; padding: 0;
+      transition: opacity 0.2s;
+    }
+    .btn-add-address:hover { opacity: 0.7; }
+
+    /* ── New address form ── */
+    .new-address-form {
+      border: 1.5px dashed var(--border);
+      border-radius: 3px;
+      padding: 20px;
+      margin-top: 12px;
+      display: none;
+    }
+    .new-address-form.show { display: block; }
+    .new-address-form .form-title {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+    }
+
+    /* ── Billing info display (read-only — edit in Profile) ── */
+    .billing-display {
+      background: #FAFAFA;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+    }
+    .billing-display strong { color: var(--green-dark); }
+    .billing-hint {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+    .billing-hint a {
+      color: var(--gold);
+      text-decoration: none;
+    }
+    .billing-hint a:hover { text-decoration: underline; }
+    .billing-warning {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.25);
+      border-radius: 3px;
+      font-size: 11px;
+      color: #8B4513;
+      line-height: 1.5;
+    }
+    .billing-warning a {
+      color: #8B4513;
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    /* ── Address card actions ── */
+    .address-card-wrap { position: relative; }
+    .address-card-actions {
       display: flex;
-      gap: 10px;
-      align-items: flex-start;
+      gap: 6px;
+      margin-top: 8px;
     }
-    .markup-promo-warning svg {
-      width: 16px; height: 16px; fill: var(--discount);
-      flex-shrink: 0; margin-top: 1px;
+    .addr-action-btn {
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 3px 8px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
     }
-    .markup-promo-warning strong { font-weight: 600; }
+    .addr-action-btn:hover { border-color: var(--green-dark); color: var(--green-dark); }
+    .addr-action-btn.delete:hover { border-color: var(--error); color: var(--error); }
+    .addr-action-btn.default-btn {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .addr-default-badge {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    /* ── Edit address modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(62,90,66,0.5);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: var(--white);
+      border-radius: 4px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-title {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--green-dark);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-actions {
+      display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;
+    }
+    .btn-modal-cancel {
+      padding: 10px 18px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px; cursor: pointer;
+      color: var(--muted);
+    }
+    .btn-modal-save {
+      padding: 10px 18px;
+      background: var(--green-dark);
+      border: none;
+      border-radius: 3px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px; cursor: pointer;
+      color: #fff;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── Bottom bar ── */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      z-index: 600;
+    }
+    .btn-next {
+      background: var(--green-dark);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      padding: 13px 28px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-height: 48px;
+    }
+    .btn-next:hover { background: var(--green-mid); }
+    .btn-next:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .error-msg {
+      background: rgba(192,57,43,0.07);
+      border: 1px solid rgba(192,57,43,0.25);
+      border-radius: 3px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--error);
+      margin-bottom: 16px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
   </style>
 </head>
 <body>
 
-<div id="pcd-quote-flow-header" data-step="4"></div>
+<!-- Quote Flow Header -->
+<div id="pcd-quote-flow-header" data-step="1"></div>
 
+<!-- Page -->
 <div class="page">
-  <div class="page-title">Review Your Quote</div>
+  <div class="page-title">New Estimate</div>
 
+  <!-- Admin acting-as-dealer banner (Bug D-StepBilling fix) -->
+  <div id="adminActingBannerMount"></div>
+
+  <!-- Returned Banner mount point (populated by JS if applicable) -->
   <div id="returnedBannerMount"></div>
-
-  <div class="draft-banner" id="draftBanner" style="display:none;">
-    <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-    <span id="draftBannerText">You are editing a saved quote. You can save again or submit when ready.</span>
-  </div>
 
   <div class="error-msg" id="errorMsg"></div>
 
+  <!-- Order Info -->
   <div class="card">
-    <div class="card-header">
-      <span class="card-title">Order Information</span>
-      <a id="editStep1Link" href="new-quote.html" class="btn-edit">Edit ✎</a>
-    </div>
-    <div class="card-body">
-      <div class="info-grid">
-        <div class="info-item">
-          <div class="info-label">PO Number</div>
-          <div class="info-value" id="reviewPO">—</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Job Name</div>
-          <div class="info-value" id="reviewJobName">—</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Dealer</div>
-          <div class="info-value" id="reviewDealer">—</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">Contact</div>
-          <div class="info-value" id="reviewContact">—</div>
-        </div>
+    <div class="card-title">Order Information</div>
+    <div class="field-row">
+      <div class="field">
+        <label>PO Number</label>
+        <!-- CB-3 (2026-05-29): PO# now generated at first Save as Quote (random
+             alphanumeric P{uid}XXXXXX, e.g. PUWV8F3K2P). On resume of a saved
+             draft / returned quote, this field is populated by loadDraftData()
+             or by sessionStorage on back-from-Step2. -->
+        <input type="text" id="poNumber" disabled style="background:var(--cream);color:var(--muted);cursor:not-allowed;font-style:italic;" placeholder="Generated when you save as quote"/>
+      </div>
+      <div class="field">
+        <label>Job Name <span class="req">*</span></label>
+        <input type="text" id="jobName" placeholder="e.g. Smith Kitchen Remodel"/>
       </div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Shipping Address</span>
-      <a id="editStep1LinkShip" href="new-quote.html" class="btn-edit">Edit ✎</a>
+    <div class="field">
+      <label>Notes (Optional)</label>
+      <textarea id="notes" placeholder="Any special instructions or comments..."></textarea>
     </div>
-    <div class="card-body">
-      <div class="info-value" id="reviewShipping">—</div>
+    <div class="field">
+      <label>Logistic <span class="req">*</span></label>
+      <select id="logisticType" onchange="handleLogisticChange()" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
+        <option value="pickup">Pick Up @ ProCraft DC — Free</option>
+        <option value="delivery">Delivery (up to 3 hours from ProCraft DC)</option>
+        <option value="shipping">Shipping (3+ hours / Warehouse)</option>
+      </select>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Items</span>
-      <a id="editStep2Link" href="new-quote-modifications.html" class="btn-edit">Edit ✎</a>
+    <div class="field" id="deliveryDistanceField" style="display:none;">
+      <label>Delivery Distance</label>
+      <select id="deliveryDistance" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
+        <option value="100">Less than 30 minutes — $100</option>
+        <option value="200">31 to 90 minutes — $200</option>
+        <option value="300">91 to 120 minutes — $300</option>
+        <option value="400">121 to 150 minutes — $400</option>
+        <option value="500">151 to 180 minutes — $500</option>
+      </select>
     </div>
-
-    <div style="background:#FAFAF8;border:1px solid var(--border);border-radius:4px;padding:14px 20px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:9px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">PDF Markup</div>
-          <div style="font-size:11px;color:var(--muted);">Applied to Unit Price only — for PDF download. Does not affect your submitted quote.</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
-          <input type="number" id="markupPct" min="0" step="0.1" placeholder="0"
-            style="width:80px;height:36px;border:1px solid var(--border);border-radius:3px;padding:0 10px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:center;"
-            oninput="updateMarkupPreview()" onchange="updateMarkupPreview()"/>
-          <span style="font-size:13px;color:var(--muted);">%</span>
-          <button onclick="downloadPDF()" style="height:36px;padding:0 16px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;">
-            Download PDF
-          </button>
-        </div>
-      </div>
-
-      <!-- F-PROMOTIONS: warning shown only when markup>0 AND quote contains promo-eligible items -->
-      <div id="markupPromoWarning" class="markup-promo-warning" style="display:none;">
-        <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 6l7.53 13H4.47L12 8zm-1 5v3h2v-3h-2zm0 4v2h2v-2h-2z"/></svg>
-        <div>
-          <strong>Promo Discount hidden in this markup preview.</strong><br>
-          When PDF Markup is greater than 0, the LSW / LSG / LSA promotional discount is removed from the preview and PDF.
-          Your <strong>actual submitted quote</strong> still includes the discount — only this markup version omits it.
-        </div>
-      </div>
-    </div>
-
-    <div style="overflow-x:auto;">
-      <table class="items-table">
+    <div id="shippingTierNote" style="display:none;font-size:12px;color:var(--muted);margin-top:8px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead>
-          <tr>
-            <th>#</th>
-            <th>Door Style</th>
-            <th>SKU</th>
-            <th>Description</th>
-            <th>Type</th>
-            <th>Assemble Status</th>
-            <th class="th-right">Qty</th>
-            <th class="th-right">Unit Price</th>
-            <th class="th-right">Mod Fee</th>
-            <th class="th-right">Assemble Fee</th>
-            <th class="th-right">Total</th>
+          <tr style="background:rgba(201,168,76,0.1);">
+            <th style="padding:8px 12px;text-align:left;border:1px solid var(--border);font-weight:500;color:var(--green-dark);">Order Subtotal</th>
+            <th style="padding:8px 12px;text-align:right;border:1px solid var(--border);font-weight:500;color:var(--green-dark);">Shipping Fee</th>
           </tr>
         </thead>
-        <tbody id="itemsTableBody"></tbody>
+        <tbody>
+          <tr><td style="padding:8px 12px;border:1px solid var(--border);">$0 – $3,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;color:var(--error);">Contact Sales Team</td></tr>
+          <tr style="background:#fafaf8;"><td style="padding:8px 12px;border:1px solid var(--border);">$3,001 – $6,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;">15%</td></tr>
+          <tr><td style="padding:8px 12px;border:1px solid var(--border);">$6,001 – $9,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;">12%</td></tr>
+          <tr style="background:#fafaf8;"><td style="padding:8px 12px;border:1px solid var(--border);">$9,001 – $12,000</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;">10%</td></tr>
+          <tr><td style="padding:8px 12px;border:1px solid var(--border);">$12,001+</td><td style="padding:8px 12px;border:1px solid var(--border);text-align:right;color:var(--success);">Free Shipping</td></tr>
+        </tbody>
       </table>
-    </div>
-
-    <div id="notesTableMount"></div>
-
-    <div class="totals-section">
-      <div class="total-row">
-        <span class="total-label">Subtotal</span>
-        <span class="total-value" id="totalSubtotal">$0.00</span>
-      </div>
-      <!-- F-PROMOTIONS: discount row, placed directly after Subtotal -->
-      <div class="total-row discount" id="discountRow" style="display:none;">
-        <div>
-          <span class="total-label" id="discountLabel">Promo Discount</span>
-          <div class="discount-sublabel" id="discountSublabel"></div>
-        </div>
-        <span class="total-value" id="totalDiscount">−$0.00</span>
-      </div>
-      <div class="total-row" id="modsRow" style="display:none;">
-        <span class="total-label">Modifications</span>
-        <span class="total-value" id="totalMods" style="color:#8B6914;">+$0.00</span>
-      </div>
-      <div id="assembleRow" style="display:none;">
-        <div class="total-row" style="padding-bottom:2px;">
-          <span class="total-label">Assemble Fee</span>
-          <span class="total-value" id="totalAssemble" style="color:#8B6914;">$0.00</span>
-        </div>
-        <div id="assembleBreakdown" style="padding:0 0 8px 16px;"></div>
-      </div>
-      <div class="total-row" id="shippingRow">
-        <div>
-          <span class="total-label">Shipping</span>
-          <div class="total-note" id="shippingNote"></div>
-        </div>
-        <span class="total-value" id="totalShipping">$0.00</span>
-      </div>
-      <div class="total-row" id="taxRow">
-        <div>
-          <span class="total-label">Tax</span>
-          <div class="total-note" id="taxNote"></div>
-        </div>
-        <span class="total-value" id="totalTax">$0.00</span>
-      </div>
-      <div class="total-row grand">
-        <span class="total-label">Order Total</span>
-        <span class="total-value" id="totalGrand">$0.00</span>
-      </div>
-      <div class="pending-grand-note" id="pendingGrandNote" style="display:none;">
-        * Shipping fee pending — final total will be confirmed by Sales
-      </div>
+      <p style="margin-top:6px;font-size:11px;">Final shipping fee will be confirmed based on your order subtotal at checkout.</p>
     </div>
   </div>
 
-  <div class="card" id="notesCard" style="display:none;">
-    <div class="card-header"><span class="card-title">Notes</span></div>
-    <div class="card-body">
-      <div class="notes-display" id="reviewNotes"></div>
+  <!-- Billing Address — read-only (edit in Profile) -->
+  <div class="card">
+    <div class="card-title">Billing Address</div>
+    <div class="billing-display" id="billingDisplay">Loading...</div>
+    <div class="billing-hint" id="billingHint">
+      To update billing information, please edit it in <a href="profile.html">your Profile</a>.
+    </div>
+    <div class="billing-warning" id="billingWarning" style="display:none;">
+      ⚠ Your billing address appears incomplete. Please go to
+      <a href="profile.html">your Profile</a> to add Address Line 1 and ZIP Code before proceeding.
     </div>
   </div>
 
-  <div class="submit-card">
-    <div class="submit-note" id="submitNote">
-      Please review your purchase order carefully before submitting.<br>
-      You can also save as a quote to continue later.
-    </div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
-      <button class="btn-draft" id="btnDraft" onclick="saveDraft()">
-        <svg viewBox="0 0 24 24" class="draft-btn-text"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-        <span class="draft-btn-text">Save Draft</span>
-        <div class="draft-spinner"></div>
+  <!-- Shipping Address -->
+  <div class="card">
+    <div class="card-title">Shipping Address</div>
+
+    <div class="address-toggle">
+      <button class="toggle-btn active" id="btnSameBilling" onclick="setShippingMode('same')">
+        Same as Billing
       </button>
-      <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
-        <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-        <span class="btn-text" id="btnSubmitText">Submit Purchase Order</span>
-        <div class="spinner"></div>
+      <button class="toggle-btn" id="btnDiffShipping" onclick="setShippingMode('different')">
+        Different Address
       </button>
     </div>
-  </div>
 
+    <!-- Saved addresses -->
+    <div id="savedAddressSection" style="display:none;">
+      <div class="address-grid" id="addressGrid">
+        <!-- populated by JS -->
+      </div>
+      <button class="btn-add-address" onclick="toggleNewAddressForm()">
+        + Add New Address
+      </button>
+
+      <!-- New address form -->
+      <div class="new-address-form" id="newAddressForm">
+        <div class="form-title">New Shipping Address</div>
+        <div class="field">
+          <label>Recipient Name <span class="req">*</span></label>
+          <input type="text" id="newRecipient" placeholder="Full name"/>
+        </div>
+        <div class="field">
+          <label>Address Line 1 <span class="req">*</span></label>
+          <input type="text" id="newAddress" placeholder="Start typing street address…" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label>Address Line 2</label>
+          <input type="text" id="newAddressLine2" placeholder="Suite, unit, floor (optional)"/>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>City <span class="req">*</span></label>
+            <input type="text" id="newCity" placeholder="City"/>
+          </div>
+          <div class="field">
+            <label>State <span class="req">*</span></label>
+            <input type="text" id="newState" placeholder="e.g. MD" maxlength="2"/>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>ZIP Code <span class="req">*</span></label>
+            <input type="text" id="newZip" placeholder="00000"/>
+          </div>
+          <div class="field">
+            <label>Phone</label>
+            <input type="tel" id="newPhone" placeholder="2025550100" maxlength="10"
+              oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;justify-content:flex-end;">
+          <button onclick="saveNewAddress()" style="background:var(--green-dark);color:#fff;border:none;border-radius:3px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:0.1em;cursor:pointer;">Save Address</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<!-- Edit Address Modal -->
+<div class="modal-overlay" id="editAddrModal">
+  <div class="modal-box">
+    <div class="modal-title">Edit Address</div>
+    <input type="hidden" id="editAddrId"/>
+    <div class="field">
+      <label>Recipient Name</label>
+      <input type="text" id="editRecipient" placeholder="Full name"/>
+    </div>
+    <div class="field">
+      <label>Address Line 1</label>
+      <input type="text" id="editAddressLine1" placeholder="Street address" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <label>Address Line 2</label>
+      <input type="text" id="editAddressLine2" placeholder="Suite, unit, floor (optional)"/>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>City</label>
+        <input type="text" id="editCity" placeholder="City"/>
+      </div>
+      <div class="field">
+        <label>State</label>
+        <input type="text" id="editState" placeholder="MD" maxlength="2"/>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>ZIP Code</label>
+        <input type="text" id="editZip" placeholder="00000"/>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="tel" id="editPhone" placeholder="2025550100" maxlength="10"
+          oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-modal-save" onclick="saveEditAddress()">Save Address</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Bar -->
 <div class="bottom-bar">
-  <a id="backToStep2" href="new-quote-modifications.html" class="btn-back">← Back to Modifications</a>
-</div>
-
-<div class="progress-overlay" id="progressOverlay">
-  <div class="progress-spinner"></div>
-  <div class="progress-title" id="progressTitle">Submitting Your Purchase Order</div>
-  <div class="progress-step" id="progressStep">Saving your quote...</div>
-  <div class="progress-msg">
-    Please don't close this window.<br>
-    This may take a few seconds.
-  </div>
-</div>
-
-<div class="success-overlay" id="successOverlay">
-  <div class="success-icon">
-    <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-  </div>
-  <div class="success-title" id="successTitle">Purchase Order Submitted!</div>
-  <div class="success-quote-num" id="successQuoteNum"></div>
-  <div class="success-msg" id="successMsg">
-    Thank you! Your quote has been received.<br>
-    Our team will review it and get back to you shortly.<br>
-    A confirmation has been sent to your email.
-  </div>
-  <button class="btn-dashboard" onclick="window.location.href='dashboard.html'">
-    Back to Dashboard
-  </button>
-</div>
-
-<div class="success-overlay" id="draftOverlay">
-  <div class="success-icon gold">
-    <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-  </div>
-  <div class="success-title" id="draftTitle">Quote Saved!</div>
-  <div class="success-quote-num" id="draftQuoteNum"></div>
-  <div class="success-msg" id="draftMsg">
-    Your quote has been saved as a draft.<br>
-    You can find it in My Quotes and continue editing anytime.
-  </div>
-  <button class="btn-dashboard" onclick="window.location.href='quotes.html'">
-    View My Quotes
-  </button>
+  <button class="btn-next" id="btnNext" onclick="goNext()">Next: Select Products →</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="pdf-builder.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7PvXRsQ5r5KAIyLYQ1uZvgdaqGQ_pkA0&libraries=places"></script>
 <script src="components/quote-flow-header.js"></script>
 <script>
-const { createClient } = supabase;
-const _supabase = createClient(
-  'https://acwgemgpnusworpxxoai.supabase.co',
-  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
-);
+  const { createClient } = supabase;
+  const _supabase = createClient(
+    'https://acwgemgpnusworpxxoai.supabase.co',
+    'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+  );
 
-let dealer    = null;
-let step1Data = null;
-let step2Data = null;
-let shippingAddress = null;
-let draftId   = null;
+  let dealer = null;                // The dealer that OWNS the quote (may differ from logged-in user when admin edits)
+  let currentUser = null;           // The logged-in dealers row (could be admin)
+  let isAdminViewer = false;        // True when logged-in user is admin/super_admin
+  let savedAddresses = [];
+  let selectedAddressId = null;
+  let shippingMode = 'same';
+  let draftId      = null;
+  let adminDraft   = false;
+  let adminDealerId = null;
+  let isResumingReturned = false;
+  let returnReason       = null;
 
-let _isResumingReturned     = false;
-let _currentRevisionNumber  = 1;
-let _existingPoNumber       = null;
-let _isAdminContext         = false;
-
-let _existingLogisticType = null;
-let _existingShippingCost = null;
-let _existingSubtotal     = null;
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F-PROMOTIONS (2026-05-21) — Module-level campaign config.
-//
-// Same architectural pattern as BINDING_RULES in new-quote-modifications.html:
-// inline const, no DB table, no admin UI. When this campaign retires set
-// `active: false` (or empty the PROMOTIONS array) — behavior reverts.
-//
-// Rules:
-//   • Triggered per line-item when item.style_code matches `style_codes`.
-//   • Discount = item.unit_price × item.quantity × (discount_pct/100).
-//     Discount applies to BASE unit_price ONLY (not modifications, not assemble_fee).
-//     RTA and Assembled both qualify — they share unit_price.
-//   • Tax base, billing base (shipping bracket), grand total all use the
-//     post-discount SKU subtotal.
-//   • UI behavior in markup mode: when markupPct > 0, discount is completely
-//     hidden AND not applied. Markup-mode PDFs reflect original SKU × markup.
-//     Rationale: dealers use markup to print quotes for end-customers; promo
-//     discount is ProCraft→dealer internal pricing and shouldn't surface there.
-//
-// To mirror this in pdf-builder.js / quote-detail.html / email Edge Function,
-// copy the PROMOTIONS const + calculatePromotionDiscount() function verbatim.
-// API surface is stable so a future migration to a Supabase `promotions` table
-// won't require call-site changes.
-// ─────────────────────────────────────────────────────────────────────────────
-const PROMOTIONS = [
-  {
-    id:           'LSW_LSG_LSA_20OFF',
-    label:        'LSW/LSG/LSA Promo Discount (20% off)',
-    style_codes:  ['LSW', 'LSG', 'LSA'],
-    discount_pct: 20,
-    applies_to:   'line_items',
-    active:       true,
-  },
-];
-
-/**
- * Calculate promotion discount for a given list of step2 cart items.
- * Pure function — no side effects, no DOM reads.
- *
- * @param {Array} items  - step2Data-shaped array (must have .style_code, .unit_price, .quantity)
- * @returns {Object} { totalDiscount, matchedLineCount, matchedSubtotal, breakdown:[{promo, lines, lineDiscount}], appliedPromo|null }
- *
- * NOTE: This does NOT take markupPct as a parameter. Markup-mode handling is
- * done at the call site by simply NOT calling this function (or zeroing the
- * result). Keeps this function pure and reusable across files.
- */
-function calculatePromotionDiscount(items) {
-  const result = {
-    totalDiscount:    0,
-    matchedLineCount: 0,
-    matchedSubtotal:  0,
-    breakdown:        [],
-    appliedPromo:     null,
-  };
-  if (!Array.isArray(items) || !items.length) return result;
-
-  const activePromos = (PROMOTIONS || []).filter(function (p) { return p && p.active; });
-  if (!activePromos.length) return result;
-
-  // Currently spec calls for ONE active campaign at a time. Iterate anyway so
-  // future multi-campaign expansion doesn't require refactoring.
-  activePromos.forEach(function (promo) {
-    const styleSet = new Set((promo.style_codes || []).map(function (c) { return String(c).toUpperCase(); }));
-    if (!styleSet.size) return;
-    const pct = parseFloat(promo.discount_pct) || 0;
-    if (pct <= 0) return;
-
-    let promoMatched     = 0;
-    let promoSubtotal    = 0;
-    let promoDiscount    = 0;
-
-    items.forEach(function (item) {
-      if (!item) return;
-      const code = String(item.style_code || '').toUpperCase();
-      if (!styleSet.has(code)) return;
-
-      const unitPrice = parseFloat(item.unit_price) || 0;
-      const qty       = parseInt(item.quantity, 10) || 0;
-      if (unitPrice <= 0 || qty <= 0) return;
-
-      const lineSubtotal = unitPrice * qty;
-      const lineDiscount = lineSubtotal * (pct / 100);
-      promoMatched  += 1;
-      promoSubtotal += lineSubtotal;
-      promoDiscount += lineDiscount;
-    });
-
-    if (promoMatched > 0) {
-      result.totalDiscount    += promoDiscount;
-      result.matchedLineCount += promoMatched;
-      result.matchedSubtotal  += promoSubtotal;
-      result.breakdown.push({
-        promo:        promo,
-        lines:        promoMatched,
-        lineSubtotal: promoSubtotal,
-        lineDiscount: promoDiscount,
-      });
-      // Single-campaign mode: first match wins as "applied"
-      if (!result.appliedPromo) result.appliedPromo = promo;
-    }
-  });
-
-  return result;
-}
-
-/**
- * Helper: returns Set of style codes eligible for any active promotion.
- * Used to render [PROMO] badge in row UI.
- */
-function getActivePromoStyleCodes() {
-  const set = new Set();
-  (PROMOTIONS || []).forEach(function (p) {
-    if (!p || !p.active) return;
-    (p.style_codes || []).forEach(function (c) {
-      set.add(String(c).toUpperCase());
-    });
-  });
-  return set;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F4.1 v2 — Notes table configuration
-// ─────────────────────────────────────────────────────────────────────────────
-const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
-const NOTES_TABLE_FALLBACK_LENGTH = 40;
-
-// ─────────────────────────────────────────────────────────────────────
-// F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
-// 7-/11-letter labels from wrapping in narrow table columns.
-// Underlying DB fields (item.sku_type / item.assemble_status) are unchanged.
-// Mirror with pdf-builder.js / quote-detail.html.
-// ─────────────────────────────────────────────────────────────────────
-const TYPE_SHORT_MAP = {
-  'BASE':         'BAS',
-  'WALL':         'WAL',
-  'TALL':         'TAL',
-  'ACCESSORIES':  'ACC',
-  'OTHER':        'OTH',
-  'MODIFICATION': 'MOD',
-};
-const STATUS_SHORT_MAP = {
-  'ASSEMBLED': 'ASM',
-  'RTA':       'RTA',
-};
-function shortType(t) {
-  if (!t) return '—';
-  const key = String(t).toUpperCase();
-  return TYPE_SHORT_MAP[key] || key.slice(0, 3);
-}
-function shortStatus(s) {
-  if (!s) return '—';
-  const key = String(s).toUpperCase();
-  return STATUS_SHORT_MAP[key] || key.slice(0, 3);
-}
-
-function shouldUseNotesTable(mod) {
-  if (!mod) return false;
-  const code = (mod.mf_code || '').toUpperCase();
-  if (MF_USE_NOTES_TABLE.indexOf(code) !== -1) return true;
-  const valStr = formatModValue(mod.value);
-  if (valStr && valStr.length > NOTES_TABLE_FALLBACK_LENGTH) return true;
-  return false;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F-HIDDEN-MODS (2026-05-18) — Display-layer filter for mods that should be
-// recorded in DB but NOT shown to user/PDF/admin.
-//
-// Currently filters:
-//   • MF01 value='none' (No Skin) — dealer actively chose "no skin", cost=0;
-//     showing "Skin: No Skin" in description is noise. Keeps F6 semantic
-//     distinction at DB level (configured vs skipped) but hides from display.
-//
-// Add more cases here if/when other mods need hide-on-display behavior.
-// Mirror this function in pdf-builder.js and quote-detail.html.
-// ─────────────────────────────────────────────────────────────────────────────
-function isHiddenMod(mod) {
-  if (!mod) return false;
-  if (mod.mf_code === 'MF01' && mod.value === 'none') return true;
-  return false;
-}
-
-function buildReturnedBannerStep3(roleMsg) {
-  return `
-    <div class="returned-revising-banner">
-      <div class="rrb-icon-wrap">
-        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-      </div>
-      <div class="rrb-body">
-        <div class="rrb-title">Revising — Revision Requested</div>
-        <div class="rrb-msg">${roleMsg}</div>
-      </div>
-    </div>`;
-}
-
-function getNormalizedSubGroups(item) {
-  if (Array.isArray(item.sub_groups) && item.sub_groups.length) {
-    return item.sub_groups;
-  }
-  const legacyStatus = item.modification_status
-    || (item.type === 'RTA' ? 'skipped' : 'unprocessed');
-  const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
-  return [{
-    sub_index:           1,
-    qty:                 item.quantity,
-    modifications:       legacyMods,
-    modification_status: legacyStatus,
-  }];
-}
-
-function calcPerSubModCost(sub) {
-  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
-  return mods.reduce(function (s, m) {
-    var c = parseFloat(m && m.cost);
-    return s + (isNaN(c) ? 0 : c);
-  }, 0);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F-TAX: per-sub TAXABLE mod cost (only mods where tax_status === true)
-// ─────────────────────────────────────────────────────────────────────────────
-function calcPerSubTaxableModCost(sub) {
-  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
-  return mods.reduce(function (s, m) {
-    if (!m || m.tax_status !== true) return s;
-    var c = parseFloat(m.cost);
-    return s + (isNaN(c) ? 0 : c);
-  }, 0);
-}
-
-function calcTotalModsCost(items) {
-  let total = 0;
-  items.forEach(function (item) {
-    const subs = getNormalizedSubGroups(item);
-    subs.forEach(function (sub) {
-      const perSub = calcPerSubModCost(sub);
-      const qty    = parseInt(sub.qty, 10) || 0;
-      total += perSub * qty;
-    });
-  });
-  return total;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F-TAX: Sum of all TAXABLE mods (× sub.qty) across the whole quote.
-// Used for tax base only. Mods without tax_status===true are excluded.
-// undefined / null / false are all treated as NOT taxable (conservative fallback).
-// ─────────────────────────────────────────────────────────────────────────────
-function calcTaxableModsCost(items) {
-  let total = 0;
-  items.forEach(function (item) {
-    const subs = getNormalizedSubGroups(item);
-    subs.forEach(function (sub) {
-      const perSub = calcPerSubTaxableModCost(sub);
-      const qty    = parseInt(sub.qty, 10) || 0;
-      total += perSub * qty;
-    });
-  });
-  return total;
-}
-
-// Format mod value: handles MF01 (string), MF07 ({selected, description, ...}), MF06 (free text), etc.
-function formatModValue(v) {
-  if (v == null) return '';
-  if (typeof v === 'string')  return v;
-  if (typeof v === 'number')  return String(v);
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
-  if (typeof v === 'object') {
-    const parts = [];
-    if ('selected' in v && v.selected) parts.push(String(v.selected));
-    else if ('label' in v && v.label)  parts.push(String(v.label));
-    else if ('value' in v && v.value != null) parts.push(String(v.value));
-
-    if ('description' in v && v.description) parts.push(String(v.description));
-    else if ('note' in v && v.note)          parts.push(String(v.note));
-
-    if (parts.length) return parts.join(' — ');
-    try { return JSON.stringify(v); } catch (e) { return ''; }
-  }
-  return String(v);
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F4.1 v2.1 — Render mods inside Description column (NO fees).
-//
-// B2 bugfix (2026-05-11):
-//   - skipped + empty mods   → return '' (no visual noise)
-//   - configured + empty mods → return '' (no visual noise — shouldn't happen
-//     in practice since configured implies mods exist, but defensive)
-//   - unprocessed + empty mods → KEEP "⚠ Modifications pending" warning
-//     (this is a real problem state — dealer forgot to configure)
-//
-// F-HIDDEN-MODS (2026-05-18):
-//   Filter mods via isHiddenMod() BEFORE the empty-check. If MF01 No Skin was
-//   the only mod, the visibleMods array becomes empty → same treatment as
-//   "skipped + empty" → return '' (no visual noise). This is intentional even
-//   for status='unprocessed' since the dealer DID make an active choice
-//   (entered modal, picked No Skin); we just don't surface it in description.
-//
-// Mods that match shouldUseNotesTable() are rendered as [See note №N below]
-// and collected into notesCollector for the Notes table.
-// ─────────────────────────────────────────────────────────────────────────────
-function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
-  const rawMods    = Array.isArray(sub.modifications) ? sub.modifications : [];
-  const visibleMods = rawMods.filter(function (m) { return !isHiddenMod(m); });  // F-HIDDEN-MODS
-  const status = sub.modification_status || 'unprocessed';
-
-  if (!visibleMods.length) {
-    // F-HIDDEN-MODS: if user-chosen route A is in effect, all-hidden-mods is
-    // treated the same as skipped/configured + empty (no visual noise).
-    if (rawMods.length > 0) {
-      return '';  // had mods but all hidden → suppress
-    }
-    // raw was already empty:
-    if (status === 'skipped' || status === 'configured') {
-      return '';
-    }
-    return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
+  // ── Utility ──
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
-  const lines = visibleMods.map(function (m) {
-    const label = m.display_label || m.mf_code || 'Modification';
-    const useNotes = shouldUseNotesTable(m);
-
-    if (useNotes) {
-      notesIndex.counter += 1;
-      const noteNum = notesIndex.counter;
-      notesCollector.push({
-        num:        noteNum,
-        skuCode:    itemContext.sku_code,
-        subIndex:   sub.sub_index || 1,
-        subTotal:   itemContext.totalSubs,
-        mfCode:     m.mf_code || '',
-        label:      label,
-        content:    formatModValue(m.value) || '(no detail)',
-      });
-      return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
-    }
-
-    const value = formatModValue(m.value);
-    const valStr = value ? `: ${escapeHtml(value)}` : '';
-    return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}${valStr}</div>`;
-  });
-
-  return `<div class="mods-list">${lines.join('')}</div>`;
-}
-
-function renderNotesTable(notes) {
-  if (!notes.length) return '';
-  const rows = notes.map(function (n) {
-    const subSuffix = (n.subTotal > 1) ? ` (Sub ${n.subIndex}/${n.subTotal})` : '';
+  // ── Returned Banner builder ──
+  function buildReturnedBannerStep1(reason) {
     return `
-      <tr>
-        <td class="note-num">№${n.num}</td>
-        <td class="note-item">${escapeHtml(n.skuCode)}${escapeHtml(subSuffix)}</td>
-        <td class="note-mf">${escapeHtml(n.label)}${n.mfCode ? ` <span style="color:#bbb;">(${escapeHtml(n.mfCode)})</span>` : ''}</td>
-        <td class="note-content">${escapeHtml(n.content)}</td>
-      </tr>`;
-  }).join('');
-  return `
-    <div class="notes-table-wrap">
-      <div class="notes-table-title">
-        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
-        Modification Notes &amp; Custom Details
-      </div>
-      <table class="notes-table">
-        <thead>
-          <tr>
-            <th>№</th>
-            <th>Item</th>
-            <th>Modification</th>
-            <th>Detail / Note</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
-}
-
-// Shipping logic (unchanged)
-function getShippingBracket(subtotal) {
-  if (subtotal == null) return null;
-  if (subtotal <= 3000)  return 'tier1';
-  if (subtotal <= 6000)  return 'tier2';
-  if (subtotal <= 9000)  return 'tier3';
-  if (subtotal <= 12000) return 'tier4';
-  return 'tier5';
-}
-
-function calcShippingByFormula(subtotal) {
-  if (subtotal <= 3000)  return null;
-  if (subtotal <= 6000)  return subtotal * 0.15;
-  if (subtotal <= 9000)  return subtotal * 0.12;
-  if (subtotal <= 12000) return subtotal * 0.10;
-  return 0;
-}
-
-function resolveShippingForDb(opts) {
-  const newLogistic   = opts.newLogistic;
-  const newSubtotal   = opts.newSubtotal;
-  const newDeliveryFee= opts.newDeliveryFee;
-  const isResuming    = !!opts.isResuming;
-
-  if (!isResuming) {
-    if (newLogistic === 'pickup')   return 0;
-    if (newLogistic === 'delivery') return newDeliveryFee;
-    if (newLogistic === 'shipping') return calcShippingByFormula(newSubtotal);
-    return 0;
+      <div class="returned-revising-banner">
+        <div class="rrb-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </div>
+        <div class="rrb-body">
+          <div class="rrb-title">Revising — Revision Requested</div>
+          <div class="rrb-msg">You are editing a returned quote. Make your changes and resubmit when ready.</div>
+          ${reason ? `
+            <div class="rrb-reason">
+              <div class="rrb-reason-label">Revision Note</div>
+              ${escapeHtml(reason)}
+            </div>` : ''}
+        </div>
+      </div>`;
   }
 
-  const oldLogistic = _existingLogisticType;
-  const oldShipping = _existingShippingCost;
-  const oldSubtotal = _existingSubtotal;
-
-  if (newLogistic === 'pickup') return 0;
-
-  if (newLogistic === 'delivery') {
-    if (oldLogistic === 'delivery') {
-      return (oldShipping == null) ? newDeliveryFee : oldShipping;
-    }
-    return newDeliveryFee;
+  // ── Admin acting-as-dealer banner ──
+  function buildAdminActingBanner(targetDealer) {
+    if (!targetDealer) return '';
+    return `
+      <div class="admin-acting-banner">
+        <strong>Admin mode:</strong> Creating a quote on behalf of
+        <strong>${escapeHtml(targetDealer.company_name || '—')}</strong>
+        (${escapeHtml(targetDealer.contact_name || targetDealer.email || '—')}).
+        Billing and shipping addresses below belong to this dealer.
+      </div>`;
   }
 
-  if (newLogistic === 'shipping') {
-    if (oldLogistic === 'shipping') {
-      const oldBracket = getShippingBracket(oldSubtotal);
-      const newBracket = getShippingBracket(newSubtotal);
-      if (oldBracket === newBracket) {
-        return oldShipping;
+  // ── Render billing display panel for the given dealer ──
+  function renderBillingDisplay(d) {
+    if (!d) return;
+    const line2 = d.address_line2 ? `<br>${escapeHtml(d.address_line2)}` : '';
+    document.getElementById('billingDisplay').innerHTML = `
+      <strong>${escapeHtml(d.company_name || '—')}</strong><br>
+      ${escapeHtml(d.contact_name || '—')}<br>
+      ${escapeHtml(d.address_line1 || d.address_formatted || '—')}${line2}<br>
+      ${escapeHtml(d.city || '')}, ${escapeHtml(d.state || '')} ${escapeHtml(d.zip_code || '')}<br>
+      ${escapeHtml(d.phone || '')}
+    `;
+
+    // Show warning if billing looks incomplete (required fields are usually
+    // enforced at signup; this is a defensive check for legacy records).
+    const incomplete = !d.address_line1 || !d.zip_code;
+    const warnEl = document.getElementById('billingWarning');
+    const hintEl = document.getElementById('billingHint');
+    if (warnEl && hintEl) {
+      if (incomplete) {
+        warnEl.style.display = 'block';
+        hintEl.style.display = 'none';
+        console.warn('[Billing] Dealer billing incomplete:', {
+          dealer_id: d.id,
+          company_name: d.company_name,
+          has_address_line1: !!d.address_line1,
+          has_zip_code: !!d.zip_code,
+        });
+      } else {
+        warnEl.style.display = 'none';
+        hintEl.style.display = 'block';
       }
     }
-    return calcShippingByFormula(newSubtotal);
   }
 
-  return 0;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CB-3 (2026-05-29): Shared helper to obtain a PO# for the current dealer.
-// Used by saveDraft() (first save → generate) and submitQuote() (A-mode
-// fallback when dealer skipped save). New RPC signature: (p_dealer_uid).
-// ─────────────────────────────────────────────────────────────────────────────
-async function obtainPoNumberForDealer(dealerId) {
-  let dealerUidForPO;
-  if (dealer && dealer.id === dealerId) {
-    dealerUidForPO = dealer.uid;
-  } else {
-    const { data: targetDealer, error: dealerErr } = await _supabase
-      .from('dealers').select('uid').eq('id', dealerId).single();
-    if (dealerErr) throw dealerErr;
-    dealerUidForPO = targetDealer ? targetDealer.uid : null;
+  // ── Load saved addresses for a given dealer id ──
+  async function loadSavedAddressesFor(dealerOwnerId) {
+    const { data: addrs } = await _supabase
+      .from('addresses')
+      .select('*')
+      .eq('dealer_id', dealerOwnerId)
+      .eq('is_deleted', false);
+    savedAddresses = addrs || [];
+    renderAddresses();
   }
-  if (!dealerUidForPO) {
-    throw new Error('Dealer UID is missing — cannot generate PO#. Please contact support.');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bug D-StepBilling fix (path B):
+  // Resolve the TARGET dealer when admin acts on behalf of someone else.
+  //
+  // Resolution order (first match wins):
+  //   1. URL ?adminDraft=1 + sessionStorage.adminDraftDealerId
+  //   2. (admin only) sessionStorage.adminDraftDealerId WITHOUT explicit flag
+  //      — defensive fallback for entry points that forget to set ?adminDraft=1
+  //   3. (admin only) sessionStorage.actingAsDealerId — alternative key some
+  //      admin dashboards may use
+  //
+  // Returns { targetId: string|null, source: string } for debug logging.
+  // ─────────────────────────────────────────────────────────────────────────
+  function resolveAdminTargetDealerId(userId, isAdmin, adminDraftFlag) {
+    const adminDraftDealerId = sessionStorage.getItem('adminDraftDealerId');
+    const actingAsDealerId   = sessionStorage.getItem('actingAsDealerId');
+
+    if (adminDraftFlag && adminDraftDealerId && adminDraftDealerId !== userId) {
+      return { targetId: adminDraftDealerId, source: 'adminDraft flag + sessionStorage' };
+    }
+    if (isAdmin && adminDraftDealerId && adminDraftDealerId !== userId) {
+      return { targetId: adminDraftDealerId, source: 'sessionStorage fallback (no ?adminDraft=1)' };
+    }
+    if (isAdmin && actingAsDealerId && actingAsDealerId !== userId) {
+      return { targetId: actingAsDealerId, source: 'actingAsDealerId fallback' };
+    }
+    return { targetId: null, source: 'none' };
   }
-  const { data: poData, error: poError } = await _supabase
-    .rpc('generate_po_number', { p_dealer_uid: dealerUidForPO });
-  if (poError) throw poError;
-  if (!poData) throw new Error('Failed to generate PO number.');
-  return poData;
-}
 
-async function init() {
-  const { data:{ session } } = await _supabase.auth.getSession();
-  if (!session) { window.location.href = 'login.html'; return; }
+  async function init() {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
 
-  const params = new URLSearchParams(window.location.search);
-  draftId = params.get('draft') || null;
-  const adminDraft = params.get('adminDraft') === '1';
+    const userId = session.user.id;
+    const params = new URLSearchParams(window.location.search);
+    draftId    = params.get('draft') || null;
+    adminDraft = params.get('adminDraft') === '1';
 
-  const s1 = sessionStorage.getItem('quoteStep1');
-  const s2 = sessionStorage.getItem('quoteStep2');
-  if (!s1 || !s2) { window.location.href = 'new-quote.html'; return; }
+    // Load logged-in user (could be dealer or admin)
+    const { data: me } = await _supabase
+      .from('dealers')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-  step1Data = JSON.parse(s1);
-  step2Data = JSON.parse(s2);
+    if (!me?.is_active) {
+      await _supabase.auth.signOut();
+      window.location.href = 'login.html';
+      return;
+    }
 
-  _isResumingReturned = !!step1Data.isResumingReturned;
+    currentUser = me;
+    isAdminViewer = me?.role === 'admin' || me?.role === 'super_admin';
 
-  const { data: meRow } = await _supabase
-    .from('dealers').select('is_active, role').eq('id', session.user.id).single();
-  if (!meRow?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+    // Default: dealer = logged-in user (overridden below for admin/draft scenarios)
+    dealer = me;
 
-  const isAdminRole = meRow?.role === 'admin' || meRow?.role === 'super_admin';
+    // ─────────────────────────────────────────────────────────────────────
+    // Bug D-StepBilling fix (path B):
+    // Try to resolve admin target dealer regardless of ?adminDraft=1 flag.
+    // If found AND admin, override `dealer` so billing/addresses are correct.
+    // ─────────────────────────────────────────────────────────────────────
+    const resolution = resolveAdminTargetDealerId(userId, isAdminViewer, adminDraft);
+    if (resolution.targetId) {
+      adminDealerId = resolution.targetId;
+      // Treat as admin draft mode internally even if the URL flag wasn't set,
+      // so downstream sessionStorage / dealerIdForQuote logic still works.
+      if (!adminDraft) {
+        adminDraft = true;
+        console.log('[StepBilling] Defensive: admin acting-as-dealer detected without ?adminDraft=1 flag. Source:', resolution.source);
+      }
+      const { data: targetDealer } = await _supabase
+        .from('dealers').select('*').eq('id', adminDealerId).single();
+      if (targetDealer) {
+        dealer = targetDealer;
+        console.log('[StepBilling] Admin acting as dealer:', {
+          admin_id: userId,
+          admin_company: me.company_name,
+          target_dealer_id: targetDealer.id,
+          target_dealer_company: targetDealer.company_name,
+          resolution_source: resolution.source,
+        });
+        // Show acting-as banner
+        document.getElementById('adminActingBannerMount').innerHTML =
+          buildAdminActingBanner(targetDealer);
+      } else {
+        console.warn('[StepBilling] adminDealerId resolved but dealer fetch returned no row:', adminDealerId);
+      }
+    } else if (isAdminViewer && !draftId) {
+      console.log('[StepBilling] Admin viewing own quote flow (no target dealer in sessionStorage).');
+    }
 
-  let dealerIdToLoad = session.user.id;
-  if (draftId) {
-    const { data: q } = await _supabase
+    // Initial billing display + addresses use the resolved dealer's data
+    renderBillingDisplay(dealer);
+    await loadSavedAddressesFor(dealer.id);
+
+    if (draftId) {
+      // ── Resume Draft OR Returned: load from DB ──
+      // 5.4-C fix A: loadDraftData no longer filters by dealer_id (RLS handles permissions);
+      // it will resolve the actual quote owner and reload dealer/addresses if needed.
+      await loadDraftData();
+    } else {
+      // ── Restore Step 1 data if coming back from Step 2 Edit ──
+      const saved = sessionStorage.getItem('quoteStep1');
+      if (saved) {
+        try {
+          const s1 = JSON.parse(saved);
+          // CB-3 (2026-05-29): PO# now generated at first save — restore if present.
+          // (Empty string means brand-new quote that hasn't been saved yet.)
+          document.getElementById('poNumber').value = s1.poNumber || '';
+          document.getElementById('jobName').value  = s1.jobName  || '';
+          document.getElementById('notes').value    = s1.notes    || '';
+          if (s1.logisticType) {
+            document.getElementById('logisticType').value = s1.logisticType;
+            handleLogisticChange();
+            if (s1.logisticType === 'delivery' && s1.deliveryFee) {
+              document.getElementById('deliveryDistance').value = s1.deliveryFee;
+            }
+          }
+          if (s1.shippingMode === 'different') {
+            setShippingMode('different');
+            if (s1.shippingAddressId) {
+              selectedAddressId = s1.shippingAddressId;
+              renderAddresses();
+            }
+          }
+          // Restore Returned-revision flag if present
+          if (s1.isResumingReturned) {
+            isResumingReturned = true;
+            returnReason = s1.returnReason || null;
+            document.getElementById('returnedBannerMount').innerHTML =
+              buildReturnedBannerStep1(returnReason);
+          }
+        } catch(e) { /* ignore parse errors */ }
+      }
+    }
+
+    // Poll is_active every 60s — kick out if deactivated
+    setInterval(async () => {
+      const { data: check } = await _supabase
+        .from('dealers').select('is_active').eq('id', userId).single();
+      if (!check?.is_active) {
+        await _supabase.auth.signOut();
+        window.location.href = 'login.html';
+      }
+    }, 60000);
+  }
+
+  // ── Load draft / returned data from DB → fill Step 1 form ──
+  // 5.4-C fix A: do NOT filter by dealer_id — rely on RLS so admins can also load.
+  // After fetching, switch `dealer` and saved addresses to the actual quote owner if needed.
+  async function loadDraftData() {
+    const { data: draft, error } = await _supabase
       .from('quotes')
-      .select('dealer_id, revision_number, po_number, status, logistic_type, shipping_cost, subtotal')
-      .eq('id', draftId).single();
-    if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
-    if (q) {
-      _currentRevisionNumber = q.revision_number || 1;
-      _existingPoNumber      = q.po_number || null;
-      _existingLogisticType  = q.logistic_type || null;
-      _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
-                                 ? null
-                                 : parseFloat(q.shipping_cost);
-      _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
-                                 ? null
-                                 : parseFloat(q.subtotal);
-      if (q.status === 'Returned') _isResumingReturned = true;
+      .select('*')
+      .eq('id', draftId)
+      .in('status', ['Draft', 'Returned'])
+      .single();
+
+    if (error || !draft) {
+      console.warn('Draft/Returned quote not found, starting fresh.', error);
+      draftId = null;
+      return;
     }
-  } else if (step1Data.dealerIdForQuote) {
-    dealerIdToLoad = step1Data.dealerIdForQuote;
-  }
 
-  const { data:d } = await _supabase
-    .from('dealers').select('*').eq('id', dealerIdToLoad).single();
-  if (!d) {
-    alert('Could not load dealer data. Please go back and try again.');
-    return;
-  }
-  dealer = d;
-
-  setInterval(async () => {
-    const { data: check } = await _supabase
-      .from('dealers').select('is_active').eq('id', session.user.id).single();
-    if (!check?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
-  }, 60000);
-
-  if (step1Data.shippingMode === 'different' && step1Data.shippingAddressId) {
-    const { data:addr } = await _supabase.from('addresses').select('*').eq('id', step1Data.shippingAddressId).single();
-    shippingAddress = addr;
-  }
-
-  if (draftId) {
-    document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
-    document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
-    document.getElementById('editStep2Link').href     = 'new-quote-modifications.html?draft=' + draftId;
-    document.getElementById('backToStep2').href       = 'new-quote-modifications.html?draft=' + draftId;
-  }
-
-  const isAdminDraftMode = (adminDraft || step1Data.adminDraft);
-  _isAdminContext = isAdminDraftMode || (_isResumingReturned && isAdminRole);
-
-  if (_isResumingReturned) {
-    document.getElementById('draftBanner').style.display = 'none';
-    const roleMsg = isAdminRole
-      ? '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.'
-      : 'You are revising a returned quote. <strong>Submit</strong> to resubmit, or <strong>Save Draft</strong> to keep working later.';
-    document.getElementById('returnedBannerMount').innerHTML = buildReturnedBannerStep3(roleMsg);
-
-    if (isAdminRole) {
-      document.getElementById('btnSubmit').style.display = 'none';
-      document.getElementById('submitNote').innerHTML =
-        'Save changes as a draft. The dealer will review and submit when ready.';
-    } else {
-      document.getElementById('btnSubmitText').textContent = 'Resubmit Purchase Order';
-      document.getElementById('submitNote').innerHTML =
-        'Please review your changes carefully before resubmitting.<br>You can also save as a draft to continue later.';
+    // If the quote belongs to a different dealer (e.g., admin viewing dealer's Returned quote),
+    // reload the owner dealer + their saved addresses so billing/shipping context is correct.
+    if (draft.dealer_id && draft.dealer_id !== dealer.id) {
+      const { data: ownerDealer } = await _supabase
+        .from('dealers').select('*').eq('id', draft.dealer_id).single();
+      if (ownerDealer) {
+        dealer = ownerDealer;
+        renderBillingDisplay(dealer);
+        await loadSavedAddressesFor(dealer.id);
+        // Show acting-as banner if admin is editing someone else's quote
+        if (isAdminViewer && currentUser && draft.dealer_id !== currentUser.id) {
+          document.getElementById('adminActingBannerMount').innerHTML =
+            buildAdminActingBanner(ownerDealer);
+        }
+      }
     }
-  } else if (isAdminDraftMode) {
-    document.getElementById('btnSubmit').style.display = 'none';
-    document.getElementById('draftBanner').style.display = 'flex';
-    document.getElementById('draftBannerText').innerHTML =
-      '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.';
-  } else if (draftId) {
-    document.getElementById('draftBanner').style.display = 'flex';
+
+    // Detect Returned-revision mode
+    isResumingReturned = (draft.status === 'Returned');
+    returnReason       = isResumingReturned ? (draft.return_reason || null) : null;
+
+    // Show banner only if Returned (not for plain Draft)
+    if (isResumingReturned) {
+      document.getElementById('returnedBannerMount').innerHTML =
+        buildReturnedBannerStep1(returnReason);
+    }
+
+    // CB-3 (2026-05-29): PO# now generated at first save, so draft/returned
+    // quotes always have one. Display it.
+    document.getElementById('poNumber').value = draft.po_number || '';
+    document.getElementById('jobName').value  = draft.job_name  || '';
+    document.getElementById('notes').value    = draft.notes     || '';
+
+    if (draft.logistic_type) {
+      document.getElementById('logisticType').value = draft.logistic_type;
+      handleLogisticChange();
+      if (draft.logistic_type === 'delivery' && draft.delivery_fee) {
+        document.getElementById('deliveryDistance').value = draft.delivery_fee;
+      }
+    }
+
+    if (draft.shipping_address_id) {
+      setShippingMode('different');
+      selectedAddressId = draft.shipping_address_id;
+      renderAddresses();
+    }
+
+    // 5.4-C fix A: when admin edits a dealer's Returned/Draft quote, propagate the OWNER dealer id
+    // so Step 2/3 use the right pricing/PO/dealer context.
+    const isAdminEditingOtherDealer = isAdminViewer && currentUser && draft.dealer_id && draft.dealer_id !== currentUser.id;
+
+    // Pre-populate sessionStorage for Step 2/3
+    // Bug D-StepBilling fix: billingOverride removed — billing is read-only here.
+    // CB-3: poNumber now sourced from draft.po_number (set at first save).
+    sessionStorage.setItem('quoteStep1', JSON.stringify({
+      poNumber:           draft.po_number || null,
+      jobName:            draft.job_name,
+      notes:              draft.notes || '',
+      shippingMode:       draft.shipping_address_id ? 'different' : 'same',
+      shippingAddressId:  draft.shipping_address_id || null,
+      logisticType:       draft.logistic_type || 'pickup',
+      deliveryFee:        draft.delivery_fee  || 0,
+      dealerIdForQuote:   isAdminEditingOtherDealer ? draft.dealer_id : (adminDraft && adminDealerId ? adminDealerId : null),
+      adminDraft:         adminDraft,
+      isResumingReturned: isResumingReturned,
+      returnReason:       returnReason,
+    }));
   }
 
-  renderReview();
-}
+  function renderAddresses() {
+    const grid = document.getElementById('addressGrid');
+    if (!savedAddresses.length) {
+      grid.innerHTML = '<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">No saved addresses yet.</p>';
+      return;
+    }
+    grid.innerHTML = savedAddresses.map(a => `
+      <div class="address-card-wrap">
+        <div class="address-card ${selectedAddressId === a.id ? 'selected' : ''}"
+             onclick="selectAddress('${a.id}')">
+          ${a.is_default ? '<div class="addr-default-badge">★ Default</div>' : ''}
+          <div class="addr-name">${a.recipient_name || dealer.contact_name}</div>
+          <div class="addr-detail">
+            ${a.address_line}<br>
+            ${a.address_line2 ? a.address_line2 + '<br>' : ''}
+            ${a.city}, ${a.state} ${a.zip_code}<br>
+            ${a.phone || ''}
+          </div>
+        </div>
+        <div class="address-card-actions">
+          <button class="addr-action-btn" onclick="openEditAddress('${a.id}')">Edit</button>
+          <button class="addr-action-btn delete" onclick="deleteAddress('${a.id}')">Delete</button>
+          ${!a.is_default ? `<button class="addr-action-btn default-btn" onclick="setDefaultAddress('${a.id}')">Set Default</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
 
-// F-CUSTOM (Phase 4): Added 'OTHER' between ACCESSORIES and MODIFICATION.
-// Custom Other items get sku_type='OTHER' from step2; this ensures they sort
-// after accessories but before MODIFICATION group (mods are always last per spec).
-const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
+  function selectAddress(id) {
+    selectedAddressId = id;
+    renderAddresses();
+    document.getElementById('newAddressForm').classList.remove('show');
+  }
 
-function typeRank(type) {
-  const idx = TYPE_ORDER.indexOf((type||'').toUpperCase());
-  return idx === -1 ? 99 : idx;
-}
+  function setShippingMode(mode) {
+    shippingMode = mode;
+    document.getElementById('btnSameBilling').classList.toggle('active', mode === 'same');
+    document.getElementById('btnDiffShipping').classList.toggle('active', mode === 'different');
+    document.getElementById('savedAddressSection').style.display = mode === 'different' ? 'block' : 'none';
+  }
 
-function groupAndSort(data) {
-  const grouped = {};
-  data.forEach(item => {
-    if (!grouped[item.style_name]) grouped[item.style_name] = [];
-    grouped[item.style_name].push(item);
-  });
-  Object.keys(grouped).forEach(style => {
-    grouped[style].sort((a,b) => typeRank(a.skuType) - typeRank(b.skuType));
-  });
-  return grouped;
-}
+  function toggleNewAddressForm() {
+    const form = document.getElementById('newAddressForm');
+    form.classList.toggle('show');
+    selectedAddressId = null;
+    renderAddresses();
+    // Init Places autocomplete on the new address field
+    if (form.classList.contains('show')) initNewAddressAutocomplete();
+  }
 
-function calcAsmByType(data) {
-  const byType = {};
-  data.forEach(item => {
-    if (item.type?.toLowerCase() !== 'assembled' || !item.assemble_fee) return;
-    const t = (item.skuType || 'OTHER').toUpperCase();
-    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
-    byType[t].qty   += item.quantity;
-    byType[t].total += item.assemble_fee * item.quantity;
-  });
-  return byType;
-}
-
-function renderAsmBreakdown(byType, showPrices, containerId) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  const entries = TYPE_ORDER.filter(t => byType[t]);
-  if (!entries.length) { el.innerHTML = ''; return; }
-  el.innerHTML = entries.map(t => {
-    const row = byType[t];
-    const priceStr = showPrices ? `<span style="color:#8B6914;">+$${row.total.toFixed(2)}</span>` : '';
-    return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
-      <span>${t} &nbsp;×${row.qty}</span>${priceStr}</div>`;
-  }).join('');
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F4.1 v2 — Build item rows + collect notes for Notes table.
-// Returns { rowsHtml, notes } so caller can render the Notes table after.
-//
-// F-CUSTOM (Phase 4): Custom items get a gold [CUSTOM] badge next to SKU code.
-// Detected via item.is_custom === true (snapshot from step2 cartItems).
-//
-// F-PROMOTIONS (2026-05-21): Promo-eligible items get a red [PROMO] badge
-// next to SKU code (regardless of markup mode — the badge marks eligibility,
-// not whether the discount is applied this preview). Badge shown on first sub
-// only, mirroring CUSTOM badge logic.
-// ─────────────────────────────────────────────────────────────────────────────
-function buildItemRowsHtml(markupPct) {
-  markupPct = markupPct || 0;
-  const grouped = groupAndSort(step2Data);
-  const promoStyleCodes = getActivePromoStyleCodes();  // F-PROMOTIONS
-
-  let itemNum = 0;
-  let lastStyle = null;
-  const rows = [];
-  const notes = [];
-  const notesIndex = { counter: 0 };
-
-  Object.entries(grouped).forEach(function ([styleName, items]) {
-    items.forEach(function (item) {
-      const subs = getNormalizedSubGroups(item);
-      const isSplit = subs.length > 1;
-      const markedUnitPrice = item.unit_price * (1 + markupPct);
-      const isCustom = !!item.is_custom;  // F-CUSTOM
-      const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase());  // F-PROMOTIONS
-
-      subs.forEach(function (sub, subIdx) {
-        itemNum++;
-        const isFirstSub  = subIdx === 0;
-        const showStyle   = isFirstSub && (styleName !== lastStyle);
-        if (isFirstSub) lastStyle = styleName;
-
-        const subQty = parseInt(sub.qty, 10) || 0;
-        const perSubModCost = calcPerSubModCost(sub);
-        const modFeeTotal   = perSubModCost * subQty;
-        const skuLineTotal  = markedUnitPrice * subQty;
-        const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
-        const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
-
-        const subLabelHtml = isSplit
-          ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
-          : '';
-        // F-CUSTOM: gold [CUSTOM] badge on first sub only (avoids visual noise on split subs)
-        const customBadgeHtml = (isCustom && isFirstSub)
-          ? `<span class="custom-badge">CUSTOM</span>`
-          : '';
-        // F-PROMOTIONS: red [PROMO] badge on first sub only
-        const promoBadgeHtml = (isPromo && isFirstSub)
-          ? `<span class="promo-badge">PROMO</span>`
-          : '';
-        const skuCellHtml = `${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}`;
-
-        const itemContext = {
-          sku_code:  item.sku_code,
-          totalSubs: subs.length,
-        };
-        const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
-        const descMainHtml  = item.sku_desc
-          ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>`
-          : '';
-        const descCellHtml = `${descMainHtml}${modsBlockHtml}`;
-
-        const typeColHtml = isFirstSub && item.skuType
-          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(shortType(item.skuType))}</span>`
-          : '';
-
-        const assembleStatusHtml = isFirstSub
-          ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(shortStatus(item.type))}</span>`
-          : '';
-
-        const trClass = isFirstSub ? '' : 'sub-continuation';
-
-        const modFeeCellHtml = modFeeTotal > 0
-          ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
-          : '<span style="color:var(--muted);">—</span>';
-
-        const asmFeeCellHtml = asmFeeTotal > 0
-          ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
-          : '<span style="color:var(--muted);">—</span>';
-
-        rows.push(`
-          <tr class="${trClass}">
-            <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
-            <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
-            <td class="td-sku">${skuCellHtml}</td>
-            <td class="td-desc">${descCellHtml}</td>
-            <td style="font-size:11px;">${typeColHtml}</td>
-            <td class="td-type">${assembleStatusHtml}</td>
-            <td class="td-right">${subQty}</td>
-            <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
-            <td class="td-right">${modFeeCellHtml}</td>
-            <td class="td-right">${asmFeeCellHtml}</td>
-            <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
-          </tr>`);
+  // ── Google Places — new address ──
+  let newAutocompleteInited = false;
+  function initNewAddressAutocomplete() {
+    if (newAutocompleteInited) return;
+    newAutocompleteInited = true;
+    const input = document.getElementById('newAddress');
+    const ac = new google.maps.places.Autocomplete(input, {
+      componentRestrictions: { country: 'us' },
+      fields: ['address_components'],
+      types: ['address'],
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      let street = '', city = '', state = '', zip = '';
+      (place.address_components || []).forEach(c => {
+        if (c.types.includes('street_number'))               street = c.long_name + ' ';
+        if (c.types.includes('route'))                       street += c.long_name;
+        if (c.types.includes('locality'))                    city   = c.long_name;
+        if (c.types.includes('administrative_area_level_1')) state  = c.short_name;
+        if (c.types.includes('postal_code'))                 zip    = c.long_name;
       });
+      input.value                                    = street.trim();
+      document.getElementById('newCity').value       = city;
+      document.getElementById('newState').value      = state;
+      document.getElementById('newZip').value        = zip;
     });
-  });
-
-  return { rowsHtml: rows.join(''), notes: notes };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F-TAX (2026-05-11): Tax base now uses ONLY taxable mods, not all mods.
-//   - taxBase     = skuSubtotal + taxableModsSubtotal  (for tax × rate)
-//   - billingBase = skuSubtotal + modsSubtotal         (for shipping bracket /
-//                                                       persisted "subtotal")
-//
-// Grand total still includes all mods (taxable or not), since non-taxable mods
-// are still real money charged to the customer — they just don't attract tax.
-//
-// Shipping bracket uses billingBase so shipping tier doesn't shift based on
-// whether mods are taxable (would be confusing and not aligned with the spec).
-//
-// F-PROMOTIONS (2026-05-21): When `promoDiscount > 0`:
-//   - taxBase     = (skuSubtotal − promoDiscount) + taxableModsSubtotal
-//   - billingBase = (skuSubtotal − promoDiscount) + modsSubtotal
-//   - grand total uses post-discount billingBase
-//   - Discount row rendered between Subtotal and Modifications
-//   When `promoDiscount === 0` (no promo OR markup mode):
-//   - All math reverts to pre-F-PROMOTIONS behavior; discount row hidden.
-// ─────────────────────────────────────────────────────────────────────────────
-function applyTotals(opts) {
-  const skuSubtotal         = opts.skuSubtotal;
-  const modsSubtotal        = opts.modsSubtotal;
-  const taxableModsSubtotal = opts.taxableModsSubtotal || 0;
-  const assembleTotal       = opts.assembleTotal;
-  const showMarkupNote      = !!opts.showMarkupNote;
-  const markupPct           = opts.markupPct || 0;
-  const promoDiscount       = opts.promoDiscount || 0;     // F-PROMOTIONS
-  const promoLabel          = opts.promoLabel || null;     // F-PROMOTIONS
-  const promoMatchedCount   = opts.promoMatchedCount || 0; // F-PROMOTIONS
-
-  // F-PROMOTIONS: post-discount SKU subtotal feeds both tax and billing bases.
-  const skuAfterDiscount = skuSubtotal - promoDiscount;
-  const taxBase     = skuAfterDiscount + taxableModsSubtotal;
-  const billingBase = skuAfterDiscount + modsSubtotal;
-
-  const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-  const logisticType = step1Data?.logisticType || 'pickup';
-  const deliveryFee  = parseFloat(step1Data?.deliveryFee || 0);
-
-  const previewShippingForDb = resolveShippingForDb({
-    newLogistic:    logisticType,
-    newSubtotal:    billingBase,   // F-TAX + F-PROMOTIONS: shipping uses post-discount billing base
-    newDeliveryFee: deliveryFee,
-    isResuming:     _isResumingReturned,
-  });
-
-  let shippingForTotal = 0;
-  let shippingLabel = '';
-  let shippingNote  = '';
-  let isPendingShipping = false;
-
-  if (logisticType === 'pickup') {
-    shippingForTotal = 0;
-    shippingLabel    = 'FREE';
-    shippingNote     = '✓ Pick Up @ ProCraft DC';
-  } else if (logisticType === 'delivery') {
-    shippingForTotal = previewShippingForDb || 0;
-    shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
-    if (_isResumingReturned && _existingLogisticType === 'delivery' && _existingShippingCost != null
-        && _existingShippingCost === shippingForTotal && _existingShippingCost !== deliveryFee) {
-      shippingNote   = '✓ Sales-confirmed delivery fee';
-    } else {
-      shippingNote   = 'Delivery fee based on distance';
-    }
-  } else if (logisticType === 'shipping') {
-    if (previewShippingForDb === null) {
-      isPendingShipping = true;
-      shippingForTotal  = 0;
-      shippingLabel     = 'TBD';
-      shippingNote      = '⚠ Contact Sales Team to confirm shipping fee';
-    } else if (previewShippingForDb === 0 && billingBase > 12000) {
-      shippingForTotal = 0;
-      shippingLabel    = 'FREE';
-      shippingNote     = '✓ Free shipping on orders over $12,000';
-    } else if (previewShippingForDb === 0) {
-      shippingForTotal = 0;
-      shippingLabel    = 'FREE';
-      shippingNote     = '✓ Sales-confirmed free shipping';
-    } else {
-      shippingForTotal = previewShippingForDb;
-      shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
-      const isPreservedAdminValue = (
-        _isResumingReturned &&
-        _existingLogisticType === 'shipping' &&
-        getShippingBracket(_existingSubtotal) === getShippingBracket(billingBase) &&
-        _existingShippingCost === shippingForTotal
-      );
-      if (isPreservedAdminValue) {
-        shippingNote = '✓ Sales-confirmed shipping fee';
-      } else if (billingBase <= 6000)       shippingNote = '15% shipping rate';
-      else if (billingBase <= 9000)         shippingNote = '12% shipping rate';
-      else if (billingBase <= 12000)        shippingNote = '10% shipping rate';
-    }
   }
 
-  const tax   = taxBase * taxRate;
-  // F-PROMOTIONS: grand uses billingBase which already has discount subtracted
-  const grand = billingBase + assembleTotal + shippingForTotal + tax;
-
-  document.getElementById('totalSubtotal').textContent = `$${skuSubtotal.toFixed(2)}`;
-
-  // F-PROMOTIONS: Discount row rendering
-  const discountRow = document.getElementById('discountRow');
-  if (promoDiscount > 0) {
-    discountRow.style.display = 'flex';
-    document.getElementById('totalDiscount').textContent = `−$${promoDiscount.toFixed(2)}`;
-    document.getElementById('discountLabel').textContent = promoLabel || 'Promo Discount';
-    const sublabel = promoMatchedCount > 0
-      ? `${promoMatchedCount} eligible line${promoMatchedCount === 1 ? '' : 's'}`
-      : '';
-    document.getElementById('discountSublabel').textContent = sublabel;
-  } else {
-    discountRow.style.display = 'none';
-  }
-
-  const modsRow = document.getElementById('modsRow');
-  if (modsSubtotal > 0) {
-    modsRow.style.display = 'flex';
-    document.getElementById('totalMods').textContent = `+$${modsSubtotal.toFixed(2)}`;
-  } else {
-    modsRow.style.display = 'none';
-  }
-
-  if (assembleTotal > 0) {
-    document.getElementById('assembleRow').style.display = 'block';
-    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
-    const byType = calcAsmByType(step2Data);
-    renderAsmBreakdown(byType, true, 'assembleBreakdown');
-  } else {
-    document.getElementById('assembleRow').style.display = 'none';
-  }
-
-  const shipEl = document.getElementById('totalShipping');
-  shipEl.textContent = shippingLabel;
-  shipEl.classList.toggle('tbd', isPendingShipping);
-  document.getElementById('shippingNote').innerHTML = isPendingShipping
-    ? `<span style="color:#E07B39;font-size:11px;">${shippingNote}</span>`
-    : `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
-
-  if (dealer?.tax_exempt) {
-    document.getElementById('totalTax').textContent = '$0.00';
-    document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
-  } else {
-    document.getElementById('totalTax').textContent = `$${tax.toFixed(2)}`;
-    // F-TAX: note shows tax rate + taxable base hint when mods are partially taxable
-    const taxRateLabel = `${(taxRate * 100).toFixed(2)}% tax rate`;
-    if (modsSubtotal > 0 && taxableModsSubtotal !== modsSubtotal) {
-      const nonTaxableMods = modsSubtotal - taxableModsSubtotal;
-      document.getElementById('taxNote').innerHTML =
-        `${taxRateLabel}<br>` +
-        `<span style="color:#7A8C82;">Taxable base: $${taxBase.toFixed(2)} ` +
-        `(excludes $${nonTaxableMods.toFixed(2)} non-taxable mods)</span>`;
-    } else {
-      document.getElementById('taxNote').textContent = taxRateLabel;
-    }
-  }
-
-  document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
-  document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
-
-  let noteEl = document.getElementById('markupNote');
-  if (showMarkupNote && markupPct > 0) {
-    if (!noteEl) {
-      noteEl = document.createElement('div');
-      noteEl.id = 'markupNote';
-      noteEl.style.cssText = 'font-size:11px;color:var(--muted);font-style:italic;margin-top:8px;padding:0 20px 12px;';
-      document.querySelector('.totals-section').appendChild(noteEl);
-    }
-    noteEl.textContent = `* Preview includes ${(markupPct*100).toFixed(1)}% markup on Unit Price only. Modifications and Assembly are not marked up. Portal prices unchanged.`;
-  } else if (noteEl) {
-    noteEl.textContent = '';
-  }
-}
-
-function renderReview() {
-  const poDisplay = step1Data.poNumber || _existingPoNumber || '—';
-  document.getElementById('reviewPO').textContent       = poDisplay;
-  document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
-  document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
-  document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
-
-  const shippingEl = document.getElementById('reviewShipping');
-  if (step1Data.shippingMode === 'same') {
-    shippingEl.innerHTML = `
-      <strong>${dealer?.company_name}</strong><br>
-      ${dealer?.city || ''}, ${dealer?.state || ''}<br>
-      ${dealer?.phone || ''}`;
-  } else if (shippingAddress) {
-    const line2Html = shippingAddress.address_line2 ? `${shippingAddress.address_line2}<br>` : '';
-    shippingEl.innerHTML = `
-      <strong>${shippingAddress.recipient_name}</strong><br>
-      ${shippingAddress.address_line}<br>
-      ${line2Html}${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}<br>
-      ${shippingAddress.phone || ''}`;
-  }
-
-  if (step1Data.notes) {
-    document.getElementById('notesCard').style.display = 'block';
-    document.getElementById('reviewNotes').textContent = step1Data.notes;
-  }
-
-  const skuSubtotal          = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-  const modsSubtotal         = calcTotalModsCost(step2Data);
-  const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-  const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
-
-  // F-PROMOTIONS: in initial render markup is 0, so promo always applies
-  const promoResult = calculatePromotionDiscount(step2Data);
-
-  // F-TAX + F-PROMOTIONS: debug log for visibility
-  console.log('[F-TAX] renderReview totals:',
-    'sku=$' + skuSubtotal.toFixed(2),
-    'mods=$' + modsSubtotal.toFixed(2),
-    'taxableMods=$' + taxableModsSubtotal.toFixed(2),
-    'nonTaxableMods=$' + (modsSubtotal - taxableModsSubtotal).toFixed(2),
-    'assembly=$' + assembleTotal.toFixed(2)
-  );
-  if (promoResult.totalDiscount > 0) {
-    console.log('[F-PROMO] ' + (promoResult.appliedPromo ? promoResult.appliedPromo.id : '?')
-      + ' matched: ' + promoResult.matchedLineCount + ' line item(s),'
-      + ' subtotal $' + promoResult.matchedSubtotal.toFixed(2)
-      + ', discount $' + promoResult.totalDiscount.toFixed(2));
-  }
-
-  // F-CUSTOM: debug log for custom item count
-  const customCount = step2Data.filter(i => i.is_custom).length;
-  if (customCount > 0) {
-    console.log('[F-CUSTOM] renderReview: ' + customCount + ' custom item(s) in this quote');
-  }
-
-  const result = buildItemRowsHtml(0);
-  document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
-  document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
-
-  applyTotals({
-    skuSubtotal:          skuSubtotal,
-    modsSubtotal:         modsSubtotal,
-    taxableModsSubtotal:  taxableModsSubtotal,  // F-TAX
-    assembleTotal:        assembleTotal,
-    showMarkupNote:       false,
-    markupPct:            0,
-    // F-PROMOTIONS
-    promoDiscount:        promoResult.totalDiscount,
-    promoLabel:           promoResult.appliedPromo ? promoResult.appliedPromo.label : null,
-    promoMatchedCount:    promoResult.matchedLineCount,
-  });
-
-  // F-PROMOTIONS: warning banner is markup-mode only, hidden at initial render.
-  // updateMarkupPreview() controls its visibility based on markupPct.
-  const warning = document.getElementById('markupPromoWarning');
-  if (warning) warning.style.display = 'none';
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F-CUSTOM (Phase 4): buildItemsPayload now writes is_custom column to
-// quote_items so the DB knows which rows are admin-added custom items.
-// Schema: quote_items.is_custom BOOLEAN NOT NULL DEFAULT false (Phase 1)
-// ─────────────────────────────────────────────────────────────────────────────
-function buildItemsPayload(quoteId) {
-  const rows = [];
-
-  step2Data.forEach(function (item) {
-    let subs = item.sub_groups;
-    if (!Array.isArray(subs) || !subs.length) {
-      const legacyStatus = item.modification_status
-        || (item.type === 'RTA' ? 'skipped' : 'unprocessed');
-      const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
-      subs = [{
-        sub_index:           1,
-        qty:                 item.quantity,
-        modifications:       legacyMods,
-        modification_status: legacyStatus,
-      }];
-    }
-
-    subs.forEach(function (g, i) {
-      rows.push({
-        quote_id:            quoteId,
-        style_code:          item.style_code,
-        style_name:          item.style_name || null,
-        sku_code:            item.sku_code,
-        sku_desc:            item.sku_desc || null,
-        sku_type:            item.skuType || null,
-        assemble_status:     item.type,
-        sub_index:           g.sub_index || (i + 1),
-        quantity:            g.qty,
-        unit_price:          item.unit_price,
-        msrp:                item.msrp || null,
-        assemble_fee:        item.assemble_fee || 0,
-        // F-TAX: modifications array now includes tax_status per mod entry
-        // (snapshot from step2.5 handleMfSave). Step3 doesn't touch this — it
-        // just persists what step2.5 wrote.
-        //
-        // F-HIDDEN-MODS: We INTENTIONALLY do NOT filter MF01 No Skin here.
-        // The display-layer filter only suppresses visual rendering; DB still
-        // records "dealer actively chose No Skin" for audit/analytics.
-        modifications:       Array.isArray(g.modifications) ? g.modifications : [],
-        modification_status: g.modification_status || 'unprocessed',
-        // F-CUSTOM (Phase 4): all sub_groups of a custom item inherit is_custom
-        is_custom:           !!item.is_custom,
+  // ── Google Places — edit address modal ──
+  let editAutocompleteInited = false;
+  function initEditAddressAutocomplete() {
+    if (editAutocompleteInited) return;
+    editAutocompleteInited = true;
+    const input = document.getElementById('editAddressLine1');
+    const ac = new google.maps.places.Autocomplete(input, {
+      componentRestrictions: { country: 'us' },
+      fields: ['address_components'],
+      types: ['address'],
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      let street = '', city = '', state = '', zip = '';
+      (place.address_components || []).forEach(c => {
+        if (c.types.includes('street_number'))               street = c.long_name + ' ';
+        if (c.types.includes('route'))                       street += c.long_name;
+        if (c.types.includes('locality'))                    city   = c.long_name;
+        if (c.types.includes('administrative_area_level_1')) state  = c.short_name;
+        if (c.types.includes('postal_code'))                 zip    = c.long_name;
       });
-    });
-  });
-
-  return rows;
-}
-
-async function resolveDealerId(session) {
-  if (draftId) {
-    const { data: existingQuote, error: fetchErr } = await _supabase
-      .from('quotes').select('dealer_id').eq('id', draftId).single();
-    if (fetchErr) throw fetchErr;
-    if (!existingQuote || !existingQuote.dealer_id) {
-      throw new Error('Draft not found or missing dealer_id.');
-    }
-    return existingQuote.dealer_id;
-  }
-  if (step1Data.dealerIdForQuote) {
-    return step1Data.dealerIdForQuote;
-  }
-  return session.user.id;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// F-CUSTOM (Phase 4): items.map now includes is_custom so the PDF builder
-// (Phase 6) can render the [CUSTOM] badge and skip MSRP display for custom rows.
-//
-// F-PROMOTIONS (2026-05-21): Added _promo block on the payload for pdf-builder
-// consumption. When pdf-builder.js is updated, it reads quoteData._promo to
-// render the discount row in invoice/packing list. Markup mode zeros this out.
-// ─────────────────────────────────────────────────────────────────────────────
-function buildQuoteDataForPdf(opts) {
-  opts = opts || {};
-  const markupPct = opts.markupPercent || 0;  // F-PROMOTIONS: needed to decide promo applicability
-
-  const items = step2Data.map(function(i) {
-    return {
-      style_name:      i.style_name,
-      style_code:      i.style_code,
-      sku_code:        i.sku_code,
-      sku_desc:        i.sku_desc || '',
-      sku_type:        i.skuType || null,
-      assemble_status: i.type,
-      quantity:        i.quantity,
-      unit_price:      i.unit_price,
-      msrp:            i.msrp || null,
-      assemble_fee:    i.assemble_fee || 0,
-      sub_groups:      getNormalizedSubGroups(i),
-      is_custom:       !!i.is_custom,  // F-CUSTOM
-    };
-  });
-
-  const skuSubtotalNow         = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-  const modsSubtotalNow        = calcTotalModsCost(step2Data);
-  const taxableModsSubtotalNow = calcTaxableModsCost(step2Data);  // F-TAX
-
-  // F-PROMOTIONS: markup mode suppresses promo
-  const promoResult = (markupPct > 0)
-    ? { totalDiscount: 0, matchedLineCount: 0, matchedSubtotal: 0, breakdown: [], appliedPromo: null }
-    : calculatePromotionDiscount(step2Data);
-
-  const out = {
-    po_number:     step1Data?.poNumber || _existingPoNumber || null,
-    job_name:      step1Data?.jobName || null,
-    logistic_type: step1Data?.logisticType || 'pickup',
-    delivery_fee:  parseFloat(step1Data?.deliveryFee || 0),
-    items:         items,
-    _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
-    _taxExempt:  !!dealer?.tax_exempt,
-    modifications_total:         parseFloat(modsSubtotalNow.toFixed(2)),
-    modifications_total_taxable: parseFloat(taxableModsSubtotalNow.toFixed(2)),  // F-TAX
-    // F-PROMOTIONS: structured block for pdf-builder.js consumption.
-    // Future PDF code can iterate _promo.breakdown if multi-campaign support
-    // is added. Markup mode returns zero discount but still includes the block
-    // for shape consistency.
-    _promo: {
-      total_discount:      parseFloat(promoResult.totalDiscount.toFixed(2)),
-      matched_line_count:  promoResult.matchedLineCount,
-      matched_subtotal:    parseFloat(promoResult.matchedSubtotal.toFixed(2)),
-      label:               promoResult.appliedPromo ? promoResult.appliedPromo.label : null,
-      promo_id:            promoResult.appliedPromo ? promoResult.appliedPromo.id : null,
-      suppressed_by_markup: markupPct > 0 && calculatePromotionDiscount(step2Data).totalDiscount > 0,
-    },
-  };
-
-  if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
-    out.shipping_cost = opts.shippingCostOverride;
-  } else {
-    // F-TAX + F-PROMOTIONS: shipping uses post-discount billing base
-    const billingBaseNow = (skuSubtotalNow - promoResult.totalDiscount) + modsSubtotalNow;
-    out.shipping_cost = resolveShippingForDb({
-      newLogistic:    out.logistic_type,
-      newSubtotal:    billingBaseNow,
-      newDeliveryFee: out.delivery_fee,
-      isResuming:     _isResumingReturned,
+      input.value                                      = street.trim();
+      document.getElementById('editCity').value        = city;
+      document.getElementById('editState').value       = state;
+      document.getElementById('editZip').value         = zip;
     });
   }
-  out._isPendingShipping = (out.logistic_type === 'shipping' && out.shipping_cost === null);
 
-  return out;
-}
+  // ── Edit saved address ──
+  function openEditAddress(id) {
+    const a = savedAddresses.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('editAddrId').value       = id;
+    document.getElementById('editRecipient').value    = a.recipient_name || '';
+    document.getElementById('editAddressLine1').value = a.address_line   || '';
+    document.getElementById('editAddressLine2').value = a.address_line2  || '';
+    document.getElementById('editCity').value         = a.city           || '';
+    document.getElementById('editState').value        = a.state          || '';
+    document.getElementById('editZip').value          = a.zip_code       || '';
+    document.getElementById('editPhone').value        = a.phone          || '';
+    document.getElementById('editAddrModal').classList.add('show');
+    initEditAddressAutocomplete();
+  }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CB-3 (2026-05-29): saveDraft now generates PO# on FIRST save.
-//
-// PO# lifecycle:
-//   • _existingPoNumber empty → call generate_po_number(p_dealer_uid) RPC
-//     to get a random alphanumeric (e.g. PUWV8F3K2P), write to quotes.po_number
-//   • _existingPoNumber set    → reuse it (resume draft, second save, etc.)
-// After write, sync to _existingPoNumber + step1Data.poNumber so PDF/Step1
-// resume see it immediately.
-//
-// Resuming Returned quotes already have po_number → fallthrough reuses it,
-// no regeneration.
-// ─────────────────────────────────────────────────────────────────────────────
-async function saveDraft() {
-  const btn    = document.getElementById('btnDraft');
-  const errMsg = document.getElementById('errorMsg');
-  btn.classList.add('loading'); btn.disabled = true;
-  errMsg.classList.remove('show');
+  function closeEditModal() {
+    document.getElementById('editAddrModal').classList.remove('show');
+  }
 
-  try {
-    const { data:{ session } } = await _supabase.auth.getSession();
-    const dealerId = await resolveDealerId(session);
-
-    // CB-3: Obtain PO# — generate on first save, reuse otherwise.
-    let poNumberForDraft = _existingPoNumber;
-    if (!poNumberForDraft) {
-      poNumberForDraft = await obtainPoNumberForDealer(dealerId);
-      console.log('[CB-3] saveDraft: generated new PO#', poNumberForDraft);
-    } else {
-      console.log('[CB-3] saveDraft: reusing existing PO#', poNumberForDraft);
-    }
-
-    const skuSubtotal          = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
-    const modsSubtotal         = calcTotalModsCost(step2Data);
-    const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-    const assembleTotal        = step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0);
-
-    // F-PROMOTIONS: Draft/Submit always applies promo regardless of preview markup.
-    // Markup is a PDF-only preview concern; persisted quote always reflects true cost.
-    const promoResult   = calculatePromotionDiscount(step2Data);
-    const promoDiscount = promoResult.totalDiscount;
-
-    // F-TAX + F-PROMOTIONS: tax base = (SKU - discount) + taxable mods
-    //                       billing base = (SKU - discount) + all mods
-    const skuAfterDiscount = skuSubtotal - promoDiscount;
-    const taxBase     = skuAfterDiscount + taxableModsSubtotal;
-    const billingBase = skuAfterDiscount + modsSubtotal;
-
-    const logisticType  = step1Data.logisticType || 'pickup';
-    const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
-
-    const shippingForDb = resolveShippingForDb({
-      newLogistic:    logisticType,
-      newSubtotal:    billingBase,    // F-TAX + F-PROMOTIONS: shipping bracket uses billing base (post-discount)
-      newDeliveryFee: deliveryFee,
-      isResuming:     _isResumingReturned,
-    });
-    const shippingForTotal = shippingForDb || 0;
-
-    const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-    const tax     = taxBase * taxRate;
-    const grand   = billingBase + assembleTotal + shippingForTotal + tax;
-
-    console.log('[F-TAX] saveDraft:',
-      'sku=$' + skuSubtotal.toFixed(2),
-      'mods=$' + modsSubtotal.toFixed(2),
-      'taxableMods=$' + taxableModsSubtotal.toFixed(2),
-      'taxBase=$' + taxBase.toFixed(2),
-      'billingBase=$' + billingBase.toFixed(2),
-      'tax=$' + tax.toFixed(2),
-      'grand=$' + grand.toFixed(2)
-    );
-    if (promoDiscount > 0) {
-      console.log('[F-PROMO] saveDraft: discount=$' + promoDiscount.toFixed(2)
-        + ' (' + promoResult.matchedLineCount + ' lines, '
-        + (promoResult.appliedPromo ? promoResult.appliedPromo.id : '?') + ')');
-    }
-
-    const targetStatus = _isResumingReturned ? 'Returned' : 'Draft';
-
+  async function saveEditAddress() {
+    const id = document.getElementById('editAddrId').value;
     const payload = {
-      dealer_id:           dealerId,
-      job_name:            step1Data.jobName,
-      po_number:           poNumberForDraft,    // CB-3: PO# now persisted from draft stage
-      shipping_address_id: step1Data.shippingAddressId || null,
-      status:              targetStatus,
-      notes:               step1Data.notes || null,
-      logistic_type:       logisticType,
-      delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-      // F-PROMOTIONS: quotes.subtotal stays as RAW skuSubtotal (pre-discount).
-      // Per spec "不動 schema": no promo_discount column. Downstream can
-      // reconstruct discount from quote_items.style_code + the same PROMOTIONS
-      // const (mirrored in quote-detail.html / pdf-builder.js / Edge Function).
-      // grand_total below is POST-discount and is the source of truth for "$ owed".
-      subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-      assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-      shipping_cost:       (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2)),
-      tax_amount:          parseFloat(tax.toFixed(2)),
-      grand_total:         parseFloat(grand.toFixed(2)),
+      recipient_name: document.getElementById('editRecipient').value.trim(),
+      address_line:   document.getElementById('editAddressLine1').value.trim(),
+      address_line2:  document.getElementById('editAddressLine2').value.trim(),
+      city:           document.getElementById('editCity').value.trim(),
+      state:          document.getElementById('editState').value.trim(),
+      zip_code:       document.getElementById('editZip').value.trim(),
+      phone:          document.getElementById('editPhone').value.trim(),
     };
-
-    let quoteId;
-
-    if (draftId) {
-      const { error } = await _supabase.from('quotes').update(payload).eq('id', draftId);
-      if (error) throw error;
-      await _supabase.from('quote_items').delete().eq('quote_id', draftId);
-      quoteId = draftId;
-
-      _existingLogisticType = logisticType;
-      _existingShippingCost = payload.shipping_cost;
-      _existingSubtotal     = payload.subtotal;
-    } else {
-      const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
-      if (numError) throw numError;
-      payload.quote_number = numData;
-
-      const { data: quote, error: quoteError } = await _supabase
-        .from('quotes').insert(payload).select().single();
-      if (quoteError) throw quoteError;
-      quoteId = quote.id;
-      draftId = quoteId;
-    }
-
-    const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
-    if (itemsError) throw itemsError;
-
-    // CB-3: Sync PO# to module state + step1Data so PDF / Step1 resume see it.
-    _existingPoNumber  = poNumberForDraft;
-    step1Data.poNumber = poNumberForDraft;
-
-    sessionStorage.removeItem('quoteStep1');
-    sessionStorage.removeItem('quoteStep2');
-
-    if (_isResumingReturned) {
-      document.getElementById('draftTitle').textContent = 'Changes Saved';
-      document.getElementById('draftMsg').innerHTML =
-        'Your changes have been saved. The quote is still in <strong>Returned</strong> status.<br>' +
-        'You can continue editing later or resubmit when ready.';
-    }
-    document.getElementById('draftQuoteNum').textContent = step1Data.jobName || '';
-    document.getElementById('draftOverlay').classList.add('show');
-
-  } catch (err) {
-    console.error(err);
-    btn.classList.remove('loading'); btn.disabled = false;
-    errMsg.textContent = err.message || 'Something went wrong. Please try again.';
-    errMsg.classList.add('show');
-    window.scrollTo(0, 0);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CB-3 (2026-05-29): submitQuote no longer generates PO#.
-//
-// PO# resolution (in priority order):
-//   1. _existingPoNumber (normal case — set by saveDraft or by init() when
-//      resuming a draft / returned quote)
-//   2. If draftId exists but _existingPoNumber empty, refetch from DB
-//      (defensive — shouldn't happen, but cheap to check)
-//   3. A-mode fallback: dealer clicked Submit without ever saving and there's
-//      no draftId → generate PO# inline (one-shot, equivalent to auto-save)
-//
-// quote_number resolution:
-//   - Resuming Returned → fetch existing from DB
-//   - Draft → Submit    → fetch existing from DB (don't regenerate, draft
-//                         already has a quote_number from saveDraft)
-//   - Brand new (A-mode) → generate fresh
-//
-// Revisions: nextRevisionNumber logic unchanged from prior version.
-// ─────────────────────────────────────────────────────────────────────────────
-async function submitQuote() {
-  const btn     = document.getElementById('btnSubmit');
-  const errMsg  = document.getElementById('errorMsg');
-  const overlay = document.getElementById('progressOverlay');
-  const stepEl  = document.getElementById('progressStep');
-  const titleEl = document.getElementById('progressTitle');
-  const setStep = (txt) => { if (stepEl) stepEl.textContent = txt; };
-
-  btn.classList.add('loading');
-  btn.disabled = true;
-  errMsg.classList.remove('show');
-
-  if (_isResumingReturned) {
-    titleEl.textContent = 'Resubmitting Your Purchase Order';
-    setStep('Updating your quote...');
-  } else {
-    titleEl.textContent = 'Submitting Your Purchase Order';
-    setStep('Saving your quote...');
-  }
-  overlay.classList.add('show');
-
-  try {
-    const { data:{ session } } = await _supabase.auth.getSession();
-    const dealerId = await resolveDealerId(session);
-
-    const skuSubtotal          = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-    const modsSubtotal         = calcTotalModsCost(step2Data);
-    const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-    const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
-
-    // F-PROMOTIONS: Same as saveDraft — promo always applied on submit.
-    const promoResult   = calculatePromotionDiscount(step2Data);
-    const promoDiscount = promoResult.totalDiscount;
-
-    // F-TAX + F-PROMOTIONS
-    const skuAfterDiscount = skuSubtotal - promoDiscount;
-    const taxBase     = skuAfterDiscount + taxableModsSubtotal;
-    const billingBase = skuAfterDiscount + modsSubtotal;
-
-    const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-    const logisticType = step1Data.logisticType || 'pickup';
-    const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
-
-    const shippingForDb = resolveShippingForDb({
-      newLogistic:    logisticType,
-      newSubtotal:    billingBase,    // F-TAX + F-PROMOTIONS
-      newDeliveryFee: deliveryFee,
-      isResuming:     _isResumingReturned,
-    });
-    const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
-
-    const tax   = taxBase * taxRate;
-    const grand = billingBase + assembleTotal + shippingForTotal + tax;
-
-    console.log('[F-TAX] submitQuote:',
-      'sku=$' + skuSubtotal.toFixed(2),
-      'mods=$' + modsSubtotal.toFixed(2),
-      'taxableMods=$' + taxableModsSubtotal.toFixed(2),
-      'taxBase=$' + taxBase.toFixed(2),
-      'billingBase=$' + billingBase.toFixed(2),
-      'tax=$' + tax.toFixed(2),
-      'grand=$' + grand.toFixed(2)
-    );
-    if (promoDiscount > 0) {
-      console.log('[F-PROMO] submitQuote: discount=$' + promoDiscount.toFixed(2)
-        + ' (' + promoResult.matchedLineCount + ' lines, '
-        + (promoResult.appliedPromo ? promoResult.appliedPromo.id : '?') + ')');
-    }
-
-    // CB-3: Resolve PO# — reuse > DB fetch > A-mode inline generation.
-    let poNumber = _existingPoNumber;
-    let quoteNum;
-    let nextRevisionNumber = 1;
-
-    if (_isResumingReturned && draftId) {
-      // Returned-quote resubmit: PO# must already exist
-      if (!poNumber) {
-        const { data: q } = await _supabase
-          .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
-        poNumber = q?.po_number;
-        quoteNum = q?.quote_number;
-        _currentRevisionNumber = q?.revision_number || 1;
-      } else {
-        const { data: q } = await _supabase
-          .from('quotes').select('quote_number').eq('id', draftId).single();
-        quoteNum = q?.quote_number;
-      }
-      if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
-      nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
-
-    } else if (draftId) {
-      // Draft → Submit: PO# already set by saveDraft, quote_number too
-      if (!poNumber) {
-        // Defensive refetch (e.g. stale tab)
-        const { data: q } = await _supabase
-          .from('quotes').select('po_number, quote_number').eq('id', draftId).single();
-        poNumber = q?.po_number;
-        quoteNum = q?.quote_number;
-      } else {
-        const { data: q } = await _supabase
-          .from('quotes').select('quote_number').eq('id', draftId).single();
-        quoteNum = q?.quote_number;
-      }
-      if (!poNumber) {
-        // Extreme edge case: draft row exists but has no po_number.
-        // Generate one inline rather than error out.
-        console.warn('[CB-3] submitQuote: draft has no PO#, generating inline');
-        poNumber = await obtainPoNumberForDealer(dealerId);
-      }
-      if (!quoteNum) {
-        // Same defensive treatment for quote_number
-        const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
-        if (numError) throw numError;
-        quoteNum = numData;
-      }
-
-    } else {
-      // CB-3 A-mode: brand new submission, dealer skipped Save.
-      // Generate both PO# and quote_number inline.
-      console.log('[CB-3] submitQuote: A-mode (no prior save), generating PO# inline');
-      poNumber = await obtainPoNumberForDealer(dealerId);
-
-      const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
-      if (numError) throw numError;
-      quoteNum = numData;
-    }
-
-    const shippingCostWrite = (shippingForDb === null)
-      ? null
-      : parseFloat(shippingForDb.toFixed(2));
-
-    let quoteId;
-
-    if (draftId) {
-      const updatePayload = {
-        dealer_id:           dealerId,
-        job_name:            step1Data.jobName,
-        po_number:           poNumber,
-        shipping_address_id: step1Data.shippingAddressId || null,
-        status:              'Pending',
-        notes:               step1Data.notes || null,
-        logistic_type:       logisticType,
-        delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-        // F-PROMOTIONS: subtotal stays as raw skuSubtotal (pre-discount). See saveDraft note.
-        subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-        assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-        shipping_cost:       shippingCostWrite,
-        tax_amount:          parseFloat(tax.toFixed(2)),
-        grand_total:         parseFloat(grand.toFixed(2)),
-        quote_number:        quoteNum,
-      };
-
-      if (_isResumingReturned) {
-        updatePayload.revision_number = nextRevisionNumber;
-        updatePayload.return_reason   = null;
-      }
-
-      const { error: updateError } = await _supabase
-        .from('quotes').update(updatePayload).eq('id', draftId);
-      if (updateError) throw updateError;
-      await _supabase.from('quote_items').delete().eq('quote_id', draftId);
-      quoteId = draftId;
-    } else {
-      const { data: newQuote, error: quoteError } = await _supabase
-        .from('quotes')
-        .insert({
-          quote_number:        quoteNum,
-          dealer_id:           dealerId,
-          job_name:            step1Data.jobName,
-          po_number:           poNumber,
-          shipping_address_id: step1Data.shippingAddressId || null,
-          status:              'Pending',
-          notes:               step1Data.notes || null,
-          logistic_type:       logisticType,
-          delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-          subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-          assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-          shipping_cost:       shippingCostWrite,
-          tax_amount:          parseFloat(tax.toFixed(2)),
-          grand_total:         parseFloat(grand.toFixed(2)),
-        })
-        .select().single();
-      if (quoteError) throw quoteError;
-      quoteId = newQuote.id;
-    }
-
-    const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
-    if (itemsError) throw itemsError;
-
-    step1Data.poNumber = poNumber;
-    _existingPoNumber  = poNumber;  // CB-3: keep module state in sync
-
-    setStep('Generating PDF documents...');
-    // F-PROMOTIONS: submit-time PDFs are NOT markup'd (markupPercent: 0), so
-    // promo is applied normally. buildQuoteDataForPdf reads opts.markupPercent
-    // to decide whether to suppress promo.
-    const quoteDataForPdf = buildQuoteDataForPdf({
-      shippingCostOverride: shippingCostWrite,
-      markupPercent:        0,
-    });
-    quoteDataForPdf.po_number = poNumber;
-    const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress);
-    const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0 });
-
-    const pdfA = packingDoc.output('datauristring').split(',')[1];
-    const pdfB = invoiceDoc.output('datauristring').split(',')[1];
-
-    const pdfRevisionNumber = _isResumingReturned ? nextRevisionNumber : 1;
-    const packingFilename = ProCraftPDF.getPdfFilename('packing-list', { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
-    const invoiceFilename = ProCraftPDF.getPdfFilename('invoice',      { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
-
-    let shippingAddressPayload = null;
-    if (logisticType === 'pickup') {
-      shippingAddressPayload = { mode: 'pickup' };
-    } else if (step1Data.shippingMode === 'same') {
-      shippingAddressPayload = {
-        mode:           'same',
-        recipient_name: dealer.company_name,
-        address_line:   dealer.address_line1 || '',    
-        address_line2:  dealer.address_line2 || null,  
-        city:           dealer.city || '',
-        state:          dealer.state || '',
-        zip_code:       dealer.zip_code || dealer.zip || '',
-        phone:          dealer.phone || '',
-      };
-    } else if (shippingAddress) {
-      shippingAddressPayload = {
-        mode:           'different',
-        recipient_name: shippingAddress.recipient_name || '',
-        address_line:   shippingAddress.address_line || '',
-        address_line2:  shippingAddress.address_line2 || null,
-        city:           shippingAddress.city || '',
-        state:          shippingAddress.state || '',
-        zip_code:       shippingAddress.zip_code || '',
-        phone:          shippingAddress.phone || '',
-      };
-    }
-
-    setStep(_isResumingReturned ? 'Sending resubmission email...' : 'Sending confirmation email...');
-    const { data: { session: currentSession } } = await _supabase.auth.getSession();
-    await fetch(
-      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentSession.access_token}`,
-        },
-        body: JSON.stringify({
-          quote: {
-            id:                          quoteId,
-            quote_number:                quoteNum,
-            po_number:                   poNumber,
-            job_name:                    step1Data.jobName,
-            logistic_type:               logisticType,
-            shipping_address:            shippingAddressPayload,
-            assemble_total:              assembleTotal.toFixed(2),
-            subtotal:                    skuSubtotal.toFixed(2),
-            modifications_total:         modsSubtotal.toFixed(2),
-            modifications_total_taxable: taxableModsSubtotal.toFixed(2),  // F-TAX
-            tax_base:                    taxBase.toFixed(2),               // F-TAX
-            shipping_cost:               (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
-            shipping_pending:            (shippingCostWrite === null),
-            tax_amount:                  tax.toFixed(2),
-            grand_total:                 grand.toFixed(2),
-            revision_number:             pdfRevisionNumber,
-            is_resubmit:                 _isResumingReturned,
-            // F-PROMOTIONS: pre-embedded fields for upcoming Edge Function update.
-            // Today's send-quote-email Function will ignore unknown keys safely.
-            promo_discount:              promoDiscount.toFixed(2),
-            promo_label:                 promoResult.appliedPromo ? promoResult.appliedPromo.label : null,
-            promo_id:                    promoResult.appliedPromo ? promoResult.appliedPromo.id : null,
-            promo_matched_count:         promoResult.matchedLineCount,
-            promo_matched_subtotal:      promoResult.matchedSubtotal.toFixed(2),
-          },
-          dealer: {
-            company_name:           dealer.company_name,
-            contact_name:           dealer.contact_name,
-            email:                  dealer.email,
-            secondary_email:        dealer.secondary_email || null,
-            secondary_email_notify: dealer.secondary_email_notify || false,
-            optional_email_2:       dealer.optional_email_2 || null,
-            optional_email_2_notify: dealer.optional_email_2_notify || false,
-          },
-          // F-CUSTOM (Phase 4): is_custom flag synced to email payload so the
-          // Edge Function / email template can render [CUSTOM] badge and skip
-          // MSRP display for custom items.
-          items: step2Data.map(i => ({
-            style_code:   i.style_code,
-            style_name:   i.style_name || null,
-            sku_code:     i.sku_code,
-            sku_desc:     i.sku_desc || null,
-            sku_type:     i.skuType || null,
-            type:         i.type,
-            quantity:     i.quantity,
-            unit_price:   i.unit_price,
-            assemble_fee: i.assemble_fee || 0,
-            sub_groups:   getNormalizedSubGroups(i),
-            is_custom:    !!i.is_custom,  // F-CUSTOM
-          })),
-          attachments: [
-            { filename: packingFilename, content: pdfA, type: 'application/pdf' },
-            { filename: invoiceFilename, content: pdfB, type: 'application/pdf' },
-          ],
-        }),
-      }
-    );
-
-    sessionStorage.removeItem('quoteStep1');
-    sessionStorage.removeItem('quoteStep2');
-
-    overlay.classList.remove('show');
-
-    if (_isResumingReturned) {
-      document.getElementById('successTitle').textContent = 'Purchase Order Resubmitted!';
-      document.getElementById('successMsg').innerHTML =
-        'Thank you! Your revised quote has been resubmitted.<br>' +
-        'Our team will review it and get back to you shortly.<br>' +
-        'A confirmation has been sent to your email.';
-    }
-    document.getElementById('successQuoteNum').textContent = poNumber;
-    document.getElementById('successOverlay').classList.add('show');
-
-  } catch (err) {
-    console.error(err);
-    overlay.classList.remove('show');
-    btn.classList.remove('loading');
-    btn.disabled = false;
-    errMsg.textContent = err.message || 'Something went wrong. Please try again.';
-    errMsg.classList.add('show');
-    window.scrollTo(0,0);
-  }
-}
-
-function updateMarkupPreview() {
-  const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
-  if (!step2Data || !step2Data.length) return;
-
-  const result = buildItemRowsHtml(markupPct);
-  document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
-  document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
-
-  const markedSkuSubtotal    = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
-  const modsSubtotal         = calcTotalModsCost(step2Data);
-  const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-  const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
-
-  // F-PROMOTIONS: in markup mode (markupPct > 0), suppress promo entirely.
-  // Calculate raw promo result first to drive warning visibility, then zero it
-  // out before passing to applyTotals.
-  const rawPromoResult = calculatePromotionDiscount(step2Data);
-  const inMarkupMode   = markupPct > 0;
-  const effectivePromoDiscount     = inMarkupMode ? 0 : rawPromoResult.totalDiscount;
-  const effectivePromoLabel        = inMarkupMode ? null : (rawPromoResult.appliedPromo ? rawPromoResult.appliedPromo.label : null);
-  const effectivePromoMatchedCount = inMarkupMode ? 0 : rawPromoResult.matchedLineCount;
-
-  // F-PROMOTIONS: warning banner — show only when in markup mode AND quote
-  // contains eligible items (otherwise the warning is meaningless noise).
-  const warning = document.getElementById('markupPromoWarning');
-  if (warning) {
-    const shouldShowWarning = inMarkupMode && rawPromoResult.totalDiscount > 0;
-    warning.style.display = shouldShowWarning ? 'flex' : 'none';
+    const { error } = await _supabase.from('addresses').update(payload).eq('id', id);
+    if (error) { alert('Error saving address.'); return; }
+    const idx = savedAddresses.findIndex(x => x.id === id);
+    if (idx >= 0) savedAddresses[idx] = { ...savedAddresses[idx], ...payload };
+    closeEditModal();
+    renderAddresses();
   }
 
-  applyTotals({
-    skuSubtotal:          markedSkuSubtotal,
-    modsSubtotal:         modsSubtotal,
-    taxableModsSubtotal:  taxableModsSubtotal,  // F-TAX
-    assembleTotal:        assembleTotal,
-    showMarkupNote:       true,
-    markupPct:            markupPct,
-    // F-PROMOTIONS
-    promoDiscount:        effectivePromoDiscount,
-    promoLabel:           effectivePromoLabel,
-    promoMatchedCount:    effectivePromoMatchedCount,
-  });
-}
+  // ── Delete address ──
+  async function deleteAddress(id) {
+    if (!confirm('Delete this address?')) return;
+    const { error } = await _supabase.from('addresses').update({ is_deleted: true }).eq('id', id);
+    if (error) { alert('Error deleting address.'); return; }
+    savedAddresses = savedAddresses.filter(x => x.id !== id);
+    if (selectedAddressId === id) selectedAddressId = null;
+    renderAddresses();
+  }
 
-async function downloadPDF() {
-  const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
-  // F-PROMOTIONS: pass markupPercent into buildQuoteDataForPdf so the helper
-  // can suppress promo on the PDF payload when markup is active.
-  const quoteDataForPdf = buildQuoteDataForPdf({ markupPercent: markupPct });
-  const doc = await ProCraftPDF.buildDraftQuotePdf(
-    quoteDataForPdf, dealer, shippingAddress, { markupPercent: markupPct }
-  );
-  const previewRevisionNumber = _isResumingReturned ? (_currentRevisionNumber || 1) + 1 : 1;
-  const filename = ProCraftPDF.getPdfFilename('draft-quote', {
-    poNumber: step1Data?.poNumber || _existingPoNumber || 'Draft',
-    dealerUid: dealer?.uid,
-    revisionNumber: previewRevisionNumber,
-  });
-  doc.save(filename);
-}
+  // ── Set default address ──
+  async function setDefaultAddress(id) {
+    // Clear existing defaults for the OWNER dealer (not the logged-in user — admin may be acting on behalf)
+    await _supabase.from('addresses')
+      .update({ is_default: false })
+      .eq('dealer_id', dealer.id);
+    await _supabase.from('addresses').update({ is_default: true }).eq('id', id);
+    savedAddresses = savedAddresses.map(a => ({ ...a, is_default: a.id === id }));
+    selectedAddressId = id;
+    renderAddresses();
+  }
 
-init();
+  function handleLogisticChange() {
+    const type = document.getElementById('logisticType').value;
+    document.getElementById('deliveryDistanceField').style.display = type === 'delivery' ? 'block' : 'none';
+    document.getElementById('shippingTierNote').style.display = type === 'shipping' ? 'block' : 'none';
+  }
+
+  async function goNext() {
+    const errMsg   = document.getElementById('errorMsg');
+    const jobName  = document.getElementById('jobName').value.trim();
+    const notes    = document.getElementById('notes').value.trim();
+
+    if (!jobName) {
+      errMsg.textContent = 'Please fill in Job Name.';
+      errMsg.classList.add('show');
+      window.scrollTo(0, 0);
+      return;
+    }
+
+    errMsg.classList.remove('show');
+
+    let shippingAddressId = null;
+
+    if (shippingMode === 'different') {
+      const newAddrForm = document.getElementById('newAddressForm');
+      if (newAddrForm.classList.contains('show')) {
+        errMsg.textContent = 'Please save the new address before continuing.';
+        errMsg.classList.add('show');
+        window.scrollTo(0, 0);
+        return;
+      }
+      shippingAddressId = selectedAddressId;
+      if (!shippingAddressId) {
+        errMsg.textContent = 'Please select or add a shipping address.';
+        errMsg.classList.add('show');
+        window.scrollTo(0, 0);
+        return;
+      }
+    }
+
+    // Bug D-StepBilling fix: billingOverride removed.
+    // Billing address is now read-only on this page; edit in Profile.
+
+    // Save to sessionStorage and go to step 2
+    const logisticType = document.getElementById('logisticType').value;
+    const deliveryFee  = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
+
+    // 5.4-C fix A: when admin edits a dealer's quote (dealer != currentUser), pass owner dealer id
+    const isAdminEditingOtherDealer = isAdminViewer && dealer && currentUser && dealer.id !== currentUser.id;
+    let dealerIdForQuote = null;
+    if (isAdminEditingOtherDealer) dealerIdForQuote = dealer.id;
+    else if (adminDraft && adminDealerId) dealerIdForQuote = adminDealerId;
+
+    // CB-3 (2026-05-29): pass existing PO# (if any) to Step 2/3.
+    // Empty input = brand-new quote that hasn't been saved → Step 3 saveDraft
+    // will generate one on first save.
+    const poNumberFromInput = document.getElementById('poNumber').value.trim() || null;
+
+    const quoteData = {
+      poNumber: poNumberFromInput,
+      jobName, notes, shippingMode, shippingAddressId,
+      logisticType, deliveryFee,
+      adminDraft, dealerIdForQuote,
+      isResumingReturned, returnReason,
+    };
+    sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
+
+    let nextUrl = 'new-quote-step2.html';
+    if (draftId)         nextUrl += '?draft=' + draftId;
+    else if (adminDraft) nextUrl += '?adminDraft=1';
+    window.location.href = nextUrl;
+  }
+
+  async function saveNewAddress() {
+    const errMsg = document.getElementById('errorMsg');
+    const recipient = document.getElementById('newRecipient').value.trim();
+    const address   = document.getElementById('newAddress').value.trim();
+    const city      = document.getElementById('newCity').value.trim();
+    const state     = document.getElementById('newState').value.trim();
+    const zip       = document.getElementById('newZip').value.trim();
+
+    if (!recipient || !address || !city || !state || !zip) {
+      errMsg.textContent = 'Please fill in all required fields for the new address.';
+      errMsg.classList.add('show');
+      window.scrollTo(0, 0);
+      return;
+    }
+    errMsg.classList.remove('show');
+
+    const { data: newAddr, error } = await _supabase
+      .from('addresses')
+      .insert({
+        dealer_id:      dealer.id,
+        recipient_name: recipient,
+        address_line:   address,
+        address_line2:  document.getElementById('newAddressLine2').value.trim(),
+        city,
+        state,
+        zip_code:       zip,
+        phone:          document.getElementById('newPhone').value.trim(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      errMsg.textContent = 'Error saving address. Please try again.';
+      errMsg.classList.add('show');
+      return;
+    }
+
+    savedAddresses.push(newAddr);
+    selectedAddressId = newAddr.id;
+    document.getElementById('newAddressForm').classList.remove('show');
+    newAutocompleteInited = false;
+    renderAddresses();
+  }
+
+  init();
 </script>
 <script src="components/feedback-widget.js?v=1.0"></script>
 </body>
