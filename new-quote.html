@@ -38,11 +38,8 @@
       margin-bottom: 24px;
     }
 
-    /* ── Returned Revising Banner ── */
-    .returned-revising-banner {
-      background: rgba(224,123,57,0.07);
-      border: 1px solid rgba(224,123,57,0.3);
-      border-left: 4px solid #E07B39;
+    /* ── CB-4: Mode banners (review / admin-edit) ── */
+    .mode-banner {
       border-radius: 4px;
       padding: 16px 22px;
       margin-bottom: 24px;
@@ -50,46 +47,66 @@
       gap: 16px;
       align-items: flex-start;
     }
-    .returned-revising-banner .rrb-icon-wrap {
+    .mode-banner .mb-icon-wrap {
       flex-shrink: 0;
       width: 32px; height: 32px;
-      background: rgba(224,123,57,0.14);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       margin-top: 2px;
     }
-    .returned-revising-banner .rrb-icon-wrap svg {
-      width: 16px; height: 16px; fill: #E07B39;
+    .mode-banner .mb-icon-wrap svg {
+      width: 16px; height: 16px;
     }
-    .returned-revising-banner .rrb-body { flex: 1; min-width: 0; }
-    .returned-revising-banner .rrb-title {
+    .mode-banner .mb-body { flex: 1; min-width: 0; }
+    .mode-banner .mb-title {
       font-size: 11px; font-weight: 600;
       letter-spacing: 0.15em; text-transform: uppercase;
-      color: #E07B39;
       margin-bottom: 4px;
     }
-    .returned-revising-banner .rrb-msg {
+    .mode-banner .mb-msg {
       font-size: 13px;
       color: #2C3A32;
       line-height: 1.55;
     }
-    .returned-revising-banner .rrb-reason {
+    .mode-banner .mb-reason {
       font-size: 12px;
       color: #5e6962;
       line-height: 1.55;
       margin-top: 8px;
       padding: 8px 12px;
-      background: rgba(224,123,57,0.05);
       border-radius: 3px;
       white-space: pre-wrap;
       word-wrap: break-word;
     }
-    .returned-revising-banner .rrb-reason-label {
+    .mode-banner .mb-reason-label {
       font-size: 9px; font-weight: 600;
       letter-spacing: 0.15em; text-transform: uppercase;
-      color: #E07B39;
       margin-bottom: 4px;
     }
+
+    /* Review mode — orange */
+    .mode-banner.review {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid #E07B39;
+    }
+    .mode-banner.review .mb-icon-wrap { background: rgba(224,123,57,0.14); }
+    .mode-banner.review .mb-icon-wrap svg { fill: #E07B39; }
+    .mode-banner.review .mb-title { color: #E07B39; }
+    .mode-banner.review .mb-reason { background: rgba(224,123,57,0.05); }
+    .mode-banner.review .mb-reason-label { color: #E07B39; }
+
+    /* Admin-edit mode — gold */
+    .mode-banner.admin-edit {
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-left: 4px solid var(--gold);
+    }
+    .mode-banner.admin-edit .mb-icon-wrap { background: rgba(201,168,76,0.18); }
+    .mode-banner.admin-edit .mb-icon-wrap svg { fill: var(--gold); }
+    .mode-banner.admin-edit .mb-title { color: #8B6914; }
+    .mode-banner.admin-edit .mb-reason { background: rgba(201,168,76,0.05); }
+    .mode-banner.admin-edit .mb-reason-label { color: #8B6914; }
 
     /* ── Admin acting-as-dealer banner (Bug D-StepBilling fix) ── */
     .admin-acting-banner {
@@ -160,6 +177,16 @@
     }
     @media (max-width: 480px) { .field-row { grid-template-columns: 1fr; } }
 
+    /* ── CB-4: Review mode disabled visual ── */
+    .field input:disabled,
+    .field textarea:disabled,
+    .field select:disabled {
+      background: var(--cream);
+      color: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+
     /* ── Address Cards ── */
     .address-toggle {
       display: flex; gap: 12px; margin-bottom: 16px;
@@ -182,6 +209,10 @@
       background: rgba(62,90,66,0.04);
       color: var(--green-dark);
       font-weight: 500;
+    }
+    .toggle-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .address-grid {
@@ -215,6 +246,13 @@
       color: var(--muted);
       line-height: 1.5;
     }
+    /* CB-4: Review mode — address card is non-interactive */
+    .address-card.readonly {
+      cursor: default;
+      pointer-events: none;
+    }
+    .address-card.readonly:hover { border-color: var(--border); }
+    .address-card.readonly.selected { border-color: var(--green-dark); background: rgba(62,90,66,0.04); }
 
     .btn-add-address {
       display: inline-flex; align-items: center; gap: 6px;
@@ -413,11 +451,11 @@
 <div class="page">
   <div class="page-title">New Estimate</div>
 
+  <!-- CB-4: Mode banner mount (review / admin-edit) -->
+  <div id="modeBannerMount"></div>
+
   <!-- Admin acting-as-dealer banner (Bug D-StepBilling fix) -->
   <div id="adminActingBannerMount"></div>
-
-  <!-- Returned Banner mount point (populated by JS if applicable) -->
-  <div id="returnedBannerMount"></div>
 
   <div class="error-msg" id="errorMsg"></div>
 
@@ -497,7 +535,7 @@
   <div class="card">
     <div class="card-title">Shipping Address</div>
 
-    <div class="address-toggle">
+    <div class="address-toggle" id="addressToggle">
       <button class="toggle-btn active" id="btnSameBilling" onclick="setShippingMode('same')">
         Same as Billing
       </button>
@@ -511,7 +549,7 @@
       <div class="address-grid" id="addressGrid">
         <!-- populated by JS -->
       </div>
-      <button class="btn-add-address" onclick="toggleNewAddressForm()">
+      <button class="btn-add-address" id="btnAddNewAddress" onclick="toggleNewAddressForm()">
         + Add New Address
       </button>
 
@@ -628,8 +666,22 @@
   let draftId      = null;
   let adminDraft   = false;
   let adminDealerId = null;
-  let isResumingReturned = false;
   let returnReason       = null;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-4: viewMode — drives banners, locks, and Step 2/3 behavior.
+  //
+  // Possible values:
+  //   'normal'      — dealer building a fresh quote / editing own Draft
+  //   'admin-draft' — admin creating a quote on behalf of a dealer
+  //   'admin-edit'  — admin editing a dealer's Pending/Returned PO (revision flow)
+  //   'review'      — dealer reviewing a returned PO (read-only except Markup % in Step 3)
+  //
+  // resolveViewMode() is called inside init() AFTER the quote is loaded so we
+  // know the actual status + owner. URL ?mode= is a hint but never authoritative
+  // — server-side data + viewer role win.
+  // ─────────────────────────────────────────────────────────────────────────
+  let viewMode = 'normal';
 
   // ── Utility ──
   function escapeHtml(str) {
@@ -642,26 +694,50 @@
       .replace(/'/g, '&#39;');
   }
 
-  // ── Returned Banner builder ──
-  function buildReturnedBannerStep1(reason) {
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-4: Mode banner builders
+  // ─────────────────────────────────────────────────────────────────────────
+
+  function buildReviewBanner(reason) {
     return `
-      <div class="returned-revising-banner">
-        <div class="rrb-icon-wrap">
-          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      <div class="mode-banner review">
+        <div class="mb-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
         </div>
-        <div class="rrb-body">
-          <div class="rrb-title">Revising — Revision Requested</div>
-          <div class="rrb-msg">You are editing a returned quote. Make your changes and resubmit when ready.</div>
+        <div class="mb-body">
+          <div class="mb-title">Review Revised Purchase Order</div>
+          <div class="mb-msg">You are reviewing your revised Purchase Order. Click Next to review item details, then resubmit on the final step. Contact your sales rep if you have questions.</div>
           ${reason ? `
-            <div class="rrb-reason">
-              <div class="rrb-reason-label">Revision Note</div>
+            <div class="mb-reason">
+              <div class="mb-reason-label">Revision Note</div>
               ${escapeHtml(reason)}
             </div>` : ''}
         </div>
       </div>`;
   }
 
-  // ── Admin acting-as-dealer banner ──
+  function buildAdminEditBanner(ownerDealer, reason) {
+    const dealerName = ownerDealer
+      ? escapeHtml(ownerDealer.company_name || ownerDealer.contact_name || '—')
+      : '—';
+    return `
+      <div class="mode-banner admin-edit">
+        <div class="mb-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </div>
+        <div class="mb-body">
+          <div class="mb-title">Editing Dealer's Purchase Order</div>
+          <div class="mb-msg">You are editing the Purchase Order belonging to <strong>${dealerName}</strong>. Your changes are buffered locally and will only be saved when you click <strong>Request Revision</strong> on the final step.</div>
+          ${reason ? `
+            <div class="mb-reason">
+              <div class="mb-reason-label">Previous Revision Note</div>
+              ${escapeHtml(reason)}
+            </div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ── Admin acting-as-dealer banner (kept for admin-draft mode) ──
   function buildAdminActingBanner(targetDealer) {
     if (!targetDealer) return '';
     return `
@@ -671,6 +747,96 @@
         (${escapeHtml(targetDealer.contact_name || targetDealer.email || '—')}).
         Billing and shipping addresses below belong to this dealer.
       </div>`;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-4: Resolve effective viewMode from URL hint + viewer role + quote state.
+  //
+  // Authoritative rules (server data wins over URL):
+  //   - If quote is Returned + viewer is admin     → admin-edit  (Q2 decision)
+  //   - If quote is Returned + viewer is owner     → review      (Q1: defensive,
+  //     even if URL didn't carry ?mode=review)
+  //   - If quote is Pending  + viewer is admin     → admin-edit
+  //   - If quote is Draft    + adminDraft flag     → admin-draft
+  //   - Otherwise                                  → normal
+  //
+  // Note: dealer cannot enter admin-edit. URL hint is ignored if role mismatch.
+  // Returns the resolved mode string.
+  // ─────────────────────────────────────────────────────────────────────────
+  function resolveViewMode(urlMode, quote) {
+    // No quote loaded → only normal or admin-draft are possible
+    if (!quote) {
+      if (adminDraft) return 'admin-draft';
+      return 'normal';
+    }
+
+    const status = quote.status;
+    const isOwner = currentUser && quote.dealer_id === currentUser.id;
+
+    // Returned quote
+    if (status === 'Returned') {
+      if (isAdminViewer && !isOwner) return 'admin-edit';
+      if (isOwner) return 'review';
+      // Edge case: admin who happens to own the quote (rare) → still admin-edit
+      if (isAdminViewer) return 'admin-edit';
+      return 'review';
+    }
+
+    // Pending quote — admin can edit; dealer shouldn't be in Step 1 at all
+    // (Pending is locked from dealer's side), but if it happens, fall through
+    // to normal as a safety net.
+    if (status === 'Pending') {
+      if (isAdminViewer) return 'admin-edit';
+      return 'normal';
+    }
+
+    // Draft quote
+    if (status === 'Draft') {
+      if (adminDraft) return 'admin-draft';
+      return 'normal';
+    }
+
+    return 'normal';
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-4: Apply review-mode lock — disable all inputs except Next button.
+  //
+  // Markup % is a Step 3 concern, so this Step 1 lock disables everything.
+  // ─────────────────────────────────────────────────────────────────────────
+  function applyReviewModeLock() {
+    // Disable form fields
+    ['jobName', 'notes', 'logisticType', 'deliveryDistance'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+
+    // Disable shipping toggle
+    const sameBtn = document.getElementById('btnSameBilling');
+    const diffBtn = document.getElementById('btnDiffShipping');
+    if (sameBtn) sameBtn.disabled = true;
+    if (diffBtn) diffBtn.disabled = true;
+
+    // Hide "Add New Address" button + new address form
+    const addBtn = document.getElementById('btnAddNewAddress');
+    if (addBtn) addBtn.style.display = 'none';
+    const newForm = document.getElementById('newAddressForm');
+    if (newForm) newForm.style.display = 'none';
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-4: Mount the appropriate mode banner.
+  // ─────────────────────────────────────────────────────────────────────────
+  function mountModeBanner() {
+    const mount = document.getElementById('modeBannerMount');
+    if (!mount) return;
+    if (viewMode === 'review') {
+      mount.innerHTML = buildReviewBanner(returnReason);
+    } else if (viewMode === 'admin-edit') {
+      mount.innerHTML = buildAdminEditBanner(dealer, returnReason);
+    } else {
+      mount.innerHTML = '';
+    }
   }
 
   // ── Render billing display panel for the given dealer ──
@@ -721,15 +887,6 @@
   // ─────────────────────────────────────────────────────────────────────────
   // Bug D-StepBilling fix (path B):
   // Resolve the TARGET dealer when admin acts on behalf of someone else.
-  //
-  // Resolution order (first match wins):
-  //   1. URL ?adminDraft=1 + sessionStorage.adminDraftDealerId
-  //   2. (admin only) sessionStorage.adminDraftDealerId WITHOUT explicit flag
-  //      — defensive fallback for entry points that forget to set ?adminDraft=1
-  //   3. (admin only) sessionStorage.actingAsDealerId — alternative key some
-  //      admin dashboards may use
-  //
-  // Returns { targetId: string|null, source: string } for debug logging.
   // ─────────────────────────────────────────────────────────────────────────
   function resolveAdminTargetDealerId(userId, isAdmin, adminDraftFlag) {
     const adminDraftDealerId = sessionStorage.getItem('adminDraftDealerId');
@@ -755,6 +912,7 @@
     const params = new URLSearchParams(window.location.search);
     draftId    = params.get('draft') || null;
     adminDraft = params.get('adminDraft') === '1';
+    const urlModeHint = params.get('mode') || null;  // CB-4: URL hint, not authoritative
 
     // Load logged-in user (could be dealer or admin)
     const { data: me } = await _supabase
@@ -778,13 +936,10 @@
     // ─────────────────────────────────────────────────────────────────────
     // Bug D-StepBilling fix (path B):
     // Try to resolve admin target dealer regardless of ?adminDraft=1 flag.
-    // If found AND admin, override `dealer` so billing/addresses are correct.
     // ─────────────────────────────────────────────────────────────────────
     const resolution = resolveAdminTargetDealerId(userId, isAdminViewer, adminDraft);
     if (resolution.targetId) {
       adminDealerId = resolution.targetId;
-      // Treat as admin draft mode internally even if the URL flag wasn't set,
-      // so downstream sessionStorage / dealerIdForQuote logic still works.
       if (!adminDraft) {
         adminDraft = true;
         console.log('[StepBilling] Defensive: admin acting-as-dealer detected without ?adminDraft=1 flag. Source:', resolution.source);
@@ -800,9 +955,6 @@
           target_dealer_company: targetDealer.company_name,
           resolution_source: resolution.source,
         });
-        // Show acting-as banner
-        document.getElementById('adminActingBannerMount').innerHTML =
-          buildAdminActingBanner(targetDealer);
       } else {
         console.warn('[StepBilling] adminDealerId resolved but dealer fetch returned no row:', adminDealerId);
       }
@@ -816,17 +968,45 @@
 
     if (draftId) {
       // ── Resume Draft OR Returned: load from DB ──
-      // 5.4-C fix A: loadDraftData no longer filters by dealer_id (RLS handles permissions);
-      // it will resolve the actual quote owner and reload dealer/addresses if needed.
-      await loadDraftData();
+      // loadDraftData returns the quote so we can resolve viewMode after.
+      const draft = await loadDraftData();
+      viewMode = resolveViewMode(urlModeHint, draft);
+      console.log('[CB-4] Step 1 viewMode resolved:', {
+        viewMode,
+        urlModeHint,
+        quoteStatus: draft ? draft.status : null,
+        isAdminViewer,
+        isOwner: draft && currentUser && draft.dealer_id === currentUser.id,
+      });
+
+      // Admin-draft banner is incompatible with admin-edit (different surface);
+      // only show "acting-as" for admin-draft mode itself.
+      if (viewMode === 'admin-draft') {
+        document.getElementById('adminActingBannerMount').innerHTML =
+          buildAdminActingBanner(dealer);
+      }
+
+      mountModeBanner();
+
+      // Apply review lock if needed
+      if (viewMode === 'review') {
+        applyReviewModeLock();
+      }
     } else {
+      // ── No draft: brand new quote (normal or admin-draft) ──
+      viewMode = adminDraft ? 'admin-draft' : 'normal';
+      console.log('[CB-4] Step 1 viewMode (no draft):', viewMode);
+
+      if (viewMode === 'admin-draft') {
+        document.getElementById('adminActingBannerMount').innerHTML =
+          buildAdminActingBanner(dealer);
+      }
+
       // ── Restore Step 1 data if coming back from Step 2 Edit ──
       const saved = sessionStorage.getItem('quoteStep1');
       if (saved) {
         try {
           const s1 = JSON.parse(saved);
-          // CB-3 (2026-05-29): PO# now generated at first save — restore if present.
-          // (Empty string means brand-new quote that hasn't been saved yet.)
           document.getElementById('poNumber').value = s1.poNumber || '';
           document.getElementById('jobName').value  = s1.jobName  || '';
           document.getElementById('notes').value    = s1.notes    || '';
@@ -844,12 +1024,13 @@
               renderAddresses();
             }
           }
-          // Restore Returned-revision flag if present
-          if (s1.isResumingReturned) {
-            isResumingReturned = true;
+          // CB-4: If sessionStorage carries a mode (back-from-Step 2), restore it
+          if (s1.viewMode && ['review', 'admin-edit', 'admin-draft'].includes(s1.viewMode)) {
+            viewMode = s1.viewMode;
             returnReason = s1.returnReason || null;
-            document.getElementById('returnedBannerMount').innerHTML =
-              buildReturnedBannerStep1(returnReason);
+            mountModeBanner();
+            if (viewMode === 'review') applyReviewModeLock();
+            console.log('[CB-4] Step 1 viewMode restored from sessionStorage:', viewMode);
           }
         } catch(e) { /* ignore parse errors */ }
       }
@@ -866,24 +1047,28 @@
     }, 60000);
   }
 
-  // ── Load draft / returned data from DB → fill Step 1 form ──
-  // 5.4-C fix A: do NOT filter by dealer_id — rely on RLS so admins can also load.
-  // After fetching, switch `dealer` and saved addresses to the actual quote owner if needed.
+  // ─────────────────────────────────────────────────────────────────────────
+  // Load draft / returned data from DB → fill Step 1 form.
+  //
+  // CB-4: returns the loaded quote so init() can resolve viewMode after.
+  //       Now also accepts Pending status (for admin-edit flow), since admin
+  //       editing a dealer-submitted PO enters here with status=Pending.
+  // ─────────────────────────────────────────────────────────────────────────
   async function loadDraftData() {
     const { data: draft, error } = await _supabase
       .from('quotes')
       .select('*')
       .eq('id', draftId)
-      .in('status', ['Draft', 'Returned'])
+      .in('status', ['Draft', 'Returned', 'Pending'])  // CB-4: added Pending
       .single();
 
     if (error || !draft) {
-      console.warn('Draft/Returned quote not found, starting fresh.', error);
+      console.warn('Draft/Returned/Pending quote not found, starting fresh.', error);
       draftId = null;
-      return;
+      return null;
     }
 
-    // If the quote belongs to a different dealer (e.g., admin viewing dealer's Returned quote),
+    // If the quote belongs to a different dealer (admin viewing dealer's quote),
     // reload the owner dealer + their saved addresses so billing/shipping context is correct.
     if (draft.dealer_id && draft.dealer_id !== dealer.id) {
       const { data: ownerDealer } = await _supabase
@@ -892,26 +1077,12 @@
         dealer = ownerDealer;
         renderBillingDisplay(dealer);
         await loadSavedAddressesFor(dealer.id);
-        // Show acting-as banner if admin is editing someone else's quote
-        if (isAdminViewer && currentUser && draft.dealer_id !== currentUser.id) {
-          document.getElementById('adminActingBannerMount').innerHTML =
-            buildAdminActingBanner(ownerDealer);
-        }
       }
     }
 
-    // Detect Returned-revision mode
-    isResumingReturned = (draft.status === 'Returned');
-    returnReason       = isResumingReturned ? (draft.return_reason || null) : null;
+    // Store revision note for banner rendering (used by mountModeBanner)
+    returnReason = (draft.status === 'Returned') ? (draft.return_reason || null) : null;
 
-    // Show banner only if Returned (not for plain Draft)
-    if (isResumingReturned) {
-      document.getElementById('returnedBannerMount').innerHTML =
-        buildReturnedBannerStep1(returnReason);
-    }
-
-    // CB-3 (2026-05-29): PO# now generated at first save, so draft/returned
-    // quotes always have one. Display it.
     document.getElementById('poNumber').value = draft.po_number || '';
     document.getElementById('jobName').value  = draft.job_name  || '';
     document.getElementById('notes').value    = draft.notes     || '';
@@ -930,13 +1101,11 @@
       renderAddresses();
     }
 
-    // 5.4-C fix A: when admin edits a dealer's Returned/Draft quote, propagate the OWNER dealer id
-    // so Step 2/3 use the right pricing/PO/dealer context.
+    // CB-4: viewMode is resolved by caller (init) after this returns; we
+    // pre-stage sessionStorage with the loaded data but mark mode as TBD.
+    // The caller will overwrite with the resolved mode.
     const isAdminEditingOtherDealer = isAdminViewer && currentUser && draft.dealer_id && draft.dealer_id !== currentUser.id;
 
-    // Pre-populate sessionStorage for Step 2/3
-    // Bug D-StepBilling fix: billingOverride removed — billing is read-only here.
-    // CB-3: poNumber now sourced from draft.po_number (set at first save).
     sessionStorage.setItem('quoteStep1', JSON.stringify({
       poNumber:           draft.po_number || null,
       jobName:            draft.job_name,
@@ -947,9 +1116,12 @@
       deliveryFee:        draft.delivery_fee  || 0,
       dealerIdForQuote:   isAdminEditingOtherDealer ? draft.dealer_id : (adminDraft && adminDealerId ? adminDealerId : null),
       adminDraft:         adminDraft,
-      isResumingReturned: isResumingReturned,
       returnReason:       returnReason,
+      viewMode:           null,  // resolved by init() right after
+      quoteStatus:        draft.status,  // CB-4: pass status downstream for Step 2/3
     }));
+
+    return draft;
   }
 
   function renderAddresses() {
@@ -958,10 +1130,12 @@
       grid.innerHTML = '<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">No saved addresses yet.</p>';
       return;
     }
+    // CB-4: in review mode, address cards are non-interactive (no Edit/Delete buttons)
+    const isReadOnly = (viewMode === 'review');
     grid.innerHTML = savedAddresses.map(a => `
       <div class="address-card-wrap">
-        <div class="address-card ${selectedAddressId === a.id ? 'selected' : ''}"
-             onclick="selectAddress('${a.id}')">
+        <div class="address-card ${selectedAddressId === a.id ? 'selected' : ''}${isReadOnly ? ' readonly' : ''}"
+             ${isReadOnly ? '' : `onclick="selectAddress('${a.id}')"`}>
           ${a.is_default ? '<div class="addr-default-badge">★ Default</div>' : ''}
           <div class="addr-name">${a.recipient_name || dealer.contact_name}</div>
           <div class="addr-detail">
@@ -971,22 +1145,25 @@
             ${a.phone || ''}
           </div>
         </div>
+        ${isReadOnly ? '' : `
         <div class="address-card-actions">
           <button class="addr-action-btn" onclick="openEditAddress('${a.id}')">Edit</button>
           <button class="addr-action-btn delete" onclick="deleteAddress('${a.id}')">Delete</button>
           ${!a.is_default ? `<button class="addr-action-btn default-btn" onclick="setDefaultAddress('${a.id}')">Set Default</button>` : ''}
-        </div>
+        </div>`}
       </div>
     `).join('');
   }
 
   function selectAddress(id) {
+    if (viewMode === 'review') return;  // CB-4: safety net
     selectedAddressId = id;
     renderAddresses();
     document.getElementById('newAddressForm').classList.remove('show');
   }
 
   function setShippingMode(mode) {
+    if (viewMode === 'review') return;  // CB-4: safety net
     shippingMode = mode;
     document.getElementById('btnSameBilling').classList.toggle('active', mode === 'same');
     document.getElementById('btnDiffShipping').classList.toggle('active', mode === 'different');
@@ -994,11 +1171,11 @@
   }
 
   function toggleNewAddressForm() {
+    if (viewMode === 'review') return;  // CB-4: safety net
     const form = document.getElementById('newAddressForm');
     form.classList.toggle('show');
     selectedAddressId = null;
     renderAddresses();
-    // Init Places autocomplete on the new address field
     if (form.classList.contains('show')) initNewAddressAutocomplete();
   }
 
@@ -1060,6 +1237,7 @@
 
   // ── Edit saved address ──
   function openEditAddress(id) {
+    if (viewMode === 'review') return;  // CB-4: safety net
     const a = savedAddresses.find(x => x.id === id);
     if (!a) return;
     document.getElementById('editAddrId').value       = id;
@@ -1099,6 +1277,7 @@
 
   // ── Delete address ──
   async function deleteAddress(id) {
+    if (viewMode === 'review') return;  // CB-4: safety net
     if (!confirm('Delete this address?')) return;
     const { error } = await _supabase.from('addresses').update({ is_deleted: true }).eq('id', id);
     if (error) { alert('Error deleting address.'); return; }
@@ -1109,7 +1288,7 @@
 
   // ── Set default address ──
   async function setDefaultAddress(id) {
-    // Clear existing defaults for the OWNER dealer (not the logged-in user — admin may be acting on behalf)
+    if (viewMode === 'review') return;  // CB-4: safety net
     await _supabase.from('addresses')
       .update({ is_default: false })
       .eq('dealer_id', dealer.id);
@@ -1158,40 +1337,45 @@
       }
     }
 
-    // Bug D-StepBilling fix: billingOverride removed.
-    // Billing address is now read-only on this page; edit in Profile.
-
     // Save to sessionStorage and go to step 2
     const logisticType = document.getElementById('logisticType').value;
     const deliveryFee  = logisticType === 'delivery' ? parseFloat(document.getElementById('deliveryDistance').value) : 0;
 
-    // 5.4-C fix A: when admin edits a dealer's quote (dealer != currentUser), pass owner dealer id
     const isAdminEditingOtherDealer = isAdminViewer && dealer && currentUser && dealer.id !== currentUser.id;
     let dealerIdForQuote = null;
     if (isAdminEditingOtherDealer) dealerIdForQuote = dealer.id;
     else if (adminDraft && adminDealerId) dealerIdForQuote = adminDealerId;
 
-    // CB-3 (2026-05-29): pass existing PO# (if any) to Step 2/3.
-    // Empty input = brand-new quote that hasn't been saved → Step 3 saveDraft
-    // will generate one on first save.
     const poNumberFromInput = document.getElementById('poNumber').value.trim() || null;
 
+    // CB-4: Carry viewMode + returnReason forward to Step 2/3
     const quoteData = {
       poNumber: poNumberFromInput,
       jobName, notes, shippingMode, shippingAddressId,
       logisticType, deliveryFee,
       adminDraft, dealerIdForQuote,
-      isResumingReturned, returnReason,
+      viewMode,           // CB-4: 'normal' | 'admin-draft' | 'admin-edit' | 'review'
+      returnReason,       // CB-4: for re-display on Step 2/3 if needed
     };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
 
+    // CB-4: URL forwarding — keep mode so Step 2 picks it up on direct refresh.
+    // Mapping: viewMode → URL ?mode= param
+    let modeParam = '';
+    if (viewMode === 'admin-edit') modeParam = '&mode=admin-edit';
+    else if (viewMode === 'review') modeParam = '&mode=review';
+
     let nextUrl = 'new-quote-step2.html';
-    if (draftId)         nextUrl += '?draft=' + draftId;
-    else if (adminDraft) nextUrl += '?adminDraft=1';
+    if (draftId) {
+      nextUrl += '?draft=' + draftId + modeParam;
+    } else if (adminDraft) {
+      nextUrl += '?adminDraft=1';
+    }
     window.location.href = nextUrl;
   }
 
   async function saveNewAddress() {
+    if (viewMode === 'review') return;  // CB-4: safety net
     const errMsg = document.getElementById('errorMsg');
     const recipient = document.getElementById('newRecipient').value.trim();
     const address   = document.getElementById('newAddress').value.trim();
