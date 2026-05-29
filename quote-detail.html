@@ -51,8 +51,10 @@
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
     .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--green-dark); }
     .btn-action.secondary:hover { background: var(--green-dark); color: #fff; }
-    .btn-action.return-edit { background: var(--status-returned); color: #fff; }
-    .btn-action.return-edit:hover { background: #c66a30; }
+    .btn-action.review-resubmit { background: var(--status-returned); color: #fff; }
+    .btn-action.review-resubmit:hover { background: #c66a30; }
+    .btn-action.admin-edit { background: var(--gold); color: #fff; }
+    .btn-action.admin-edit:hover { background: #b69240; }
 
     /* ── Returned Reason Banner ── */
     .return-banner {
@@ -552,6 +554,12 @@ const statusLabel = {
 
 // ── C1: which statuses allow admin to edit shipping_cost ──
 const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
+
+// ── CB-4: which statuses allow admin to enter Edit mode (revision flow) ──
+// Admin can edit dealer-submitted POs in Pending, and previously-returned
+// POs in Returned (in case customer requests further changes). Draft has
+// its own admin-draft flow; Processing/Complete/Closed are locked.
+const ADMIN_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // F-PROMOTIONS (2026-05-21) — Module-level campaign config.
@@ -1219,6 +1227,24 @@ function renderQuote(quote, dealer, addr) {
     && SHIPPING_EDIT_ALLOWED_STATUSES.includes(quote.status)
     && quote.logistic_type !== 'pickup';
 
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-4: Admin "Edit" button — entry point for the new revision flow.
+  //
+  // Shows when admin views a Pending or Returned quote. Clicking takes
+  // admin to Step 1 in admin-edit mode, where edits are buffered in
+  // sessionStorage until Step 3's "Request Revision" writes to DB.
+  //
+  // Pending  → admin edits a freshly-submitted PO, then Request Revision
+  // Returned → admin re-edits a previously-returned PO (customer asked
+  //            for more changes after dealer was about to resubmit)
+  // ─────────────────────────────────────────────────────────────────────
+  const canAdminEdit = _isAdmin && ADMIN_EDIT_ALLOWED_STATUSES.includes(quote.status);
+  const adminEditButtonHtml = canAdminEdit ? `
+    <a href="new-quote.html?draft=${quote.id}&mode=admin-edit" class="btn-action admin-edit">
+      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      Edit
+    </a>` : '';
+
   const shippingHtml = addr
     ? `<strong>${escapeHtml(addr.recipient_name || dealer?.company_name)}</strong><br>${escapeHtml(addr.address_line)}<br>${addr.address_line2 ? escapeHtml(addr.address_line2)+'<br>' : ''}${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} ${escapeHtml(addr.zip_code)}`
     : `<strong>${escapeHtml(dealer?.company_name || '—')}</strong><br>${escapeHtml(dealer?.address_line1 || '')}<br>${dealer?.address_line2 ? escapeHtml(dealer.address_line2)+'<br>' : ''}${escapeHtml(dealer?.city || '')}, ${escapeHtml(dealer?.state || '')} ${escapeHtml(dealer?.zip_code || '')}`;
@@ -1412,22 +1438,36 @@ function renderQuote(quote, dealer, addr) {
       </button>`;
   }
 
-  // ── Returned banner（最上方）+ Edit & Resubmit 按鈕 ──
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-4: Returned banner — differs by viewer role.
+  //
+  // Dealer view: shows "Review & Resubmit" button → opens Step 1 in
+  //              read-only review mode. Markup % remains editable in step3.
+  // Admin view:  no button (admin uses the "Edit" button in the header to
+  //              re-enter admin-edit mode if a further revision is needed).
+  //              Banner becomes pure informational.
+  // ─────────────────────────────────────────────────────────────────────
   let returnedBannerHtml = '';
   if (isReturned) {
     const reasonText = quote.return_reason
       ? escapeHtml(quote.return_reason)
       : '<span style="color:var(--muted);font-style:italic;">No reason provided.</span>';
 
-    const editButtonHtml = `
-      <a href="new-quote.html?draft=${quote.id}" class="btn-action return-edit">
-        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-        Edit &amp; Resubmit
-      </a>`;
-
-    const adminViewMsg = _isAdmin
-      ? '<span class="return-banner-meta">As an admin, you can edit on the dealer\'s behalf and save as draft. The dealer will need to submit the quote.</span>'
-      : '';
+    let bannerActionHtml = '';
+    if (!_isAdmin) {
+      // Dealer-facing: Review & Resubmit
+      bannerActionHtml = `
+        <a href="new-quote.html?draft=${quote.id}&mode=review" class="btn-action review-resubmit">
+          <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          Review &amp; Resubmit
+        </a>`;
+    } else {
+      // Admin view: informational only. Edit button lives in the header.
+      bannerActionHtml = `
+        <span class="return-banner-meta">
+          Revision was sent to the dealer. They will review and resubmit. To make further changes, use the Edit button above.
+        </span>`;
+    }
 
     returnedBannerHtml = `
       <div class="return-banner">
@@ -1438,8 +1478,7 @@ function renderQuote(quote, dealer, addr) {
           <div class="return-banner-title">Revision Requested</div>
           <div class="return-banner-msg">${reasonText}</div>
           <div class="return-banner-action">
-            ${editButtonHtml}
-            ${adminViewMsg}
+            ${bannerActionHtml}
           </div>
         </div>
       </div>`;
@@ -1459,6 +1498,7 @@ function renderQuote(quote, dealer, addr) {
       </div>
       <div class="header-right">
         <span class="status-badge ${sc}">${statusText}</span>
+        ${adminEditButtonHtml}
         ${downloadButtonsHtml}
       </div>
     </div>
