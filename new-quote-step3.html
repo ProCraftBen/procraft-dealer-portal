@@ -769,12 +769,12 @@ function getActivePromoStyleCodes() {
 const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
 const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
-// ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
 // 7-/11-letter labels from wrapping in narrow table columns.
 // Underlying DB fields (item.sku_type / item.assemble_status) are unchanged.
 // Mirror with pdf-builder.js / quote-detail.html.
-// ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 const TYPE_SHORT_MAP = {
   'BASE':         'BAS',
   'WALL':         'WAL',
@@ -1087,6 +1087,31 @@ function resolveShippingForDb(opts) {
   }
 
   return 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-3 (2026-05-29): Shared helper to obtain a PO# for the current dealer.
+// Used by saveDraft() (first save → generate) and submitQuote() (A-mode
+// fallback when dealer skipped save). New RPC signature: (p_dealer_uid).
+// ─────────────────────────────────────────────────────────────────────────────
+async function obtainPoNumberForDealer(dealerId) {
+  let dealerUidForPO;
+  if (dealer && dealer.id === dealerId) {
+    dealerUidForPO = dealer.uid;
+  } else {
+    const { data: targetDealer, error: dealerErr } = await _supabase
+      .from('dealers').select('uid').eq('id', dealerId).single();
+    if (dealerErr) throw dealerErr;
+    dealerUidForPO = targetDealer ? targetDealer.uid : null;
+  }
+  if (!dealerUidForPO) {
+    throw new Error('Dealer UID is missing — cannot generate PO#. Please contact support.');
+  }
+  const { data: poData, error: poError } = await _supabase
+    .rpc('generate_po_number', { p_dealer_uid: dealerUidForPO });
+  if (poError) throw poError;
+  if (!poData) throw new Error('Failed to generate PO number.');
+  return poData;
 }
 
 async function init() {
@@ -1748,6 +1773,19 @@ function buildQuoteDataForPdf(opts) {
   return out;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-3 (2026-05-29): saveDraft now generates PO# on FIRST save.
+//
+// PO# lifecycle:
+//   • _existingPoNumber empty → call generate_po_number(p_dealer_uid) RPC
+//     to get a random alphanumeric (e.g. PUWV8F3K2P), write to quotes.po_number
+//   • _existingPoNumber set    → reuse it (resume draft, second save, etc.)
+// After write, sync to _existingPoNumber + step1Data.poNumber so PDF/Step1
+// resume see it immediately.
+//
+// Resuming Returned quotes already have po_number → fallthrough reuses it,
+// no regeneration.
+// ─────────────────────────────────────────────────────────────────────────────
 async function saveDraft() {
   const btn    = document.getElementById('btnDraft');
   const errMsg = document.getElementById('errorMsg');
@@ -1757,6 +1795,15 @@ async function saveDraft() {
   try {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
+
+    // CB-3: Obtain PO# — generate on first save, reuse otherwise.
+    let poNumberForDraft = _existingPoNumber;
+    if (!poNumberForDraft) {
+      poNumberForDraft = await obtainPoNumberForDealer(dealerId);
+      console.log('[CB-3] saveDraft: generated new PO#', poNumberForDraft);
+    } else {
+      console.log('[CB-3] saveDraft: reusing existing PO#', poNumberForDraft);
+    }
 
     const skuSubtotal          = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
     const modsSubtotal         = calcTotalModsCost(step2Data);
@@ -1809,6 +1856,7 @@ async function saveDraft() {
     const payload = {
       dealer_id:           dealerId,
       job_name:            step1Data.jobName,
+      po_number:           poNumberForDraft,    // CB-3: PO# now persisted from draft stage
       shipping_address_id: step1Data.shippingAddressId || null,
       status:              targetStatus,
       notes:               step1Data.notes || null,
@@ -1852,6 +1900,10 @@ async function saveDraft() {
     const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
     if (itemsError) throw itemsError;
 
+    // CB-3: Sync PO# to module state + step1Data so PDF / Step1 resume see it.
+    _existingPoNumber  = poNumberForDraft;
+    step1Data.poNumber = poNumberForDraft;
+
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
 
@@ -1873,6 +1925,25 @@ async function saveDraft() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-3 (2026-05-29): submitQuote no longer generates PO#.
+//
+// PO# resolution (in priority order):
+//   1. _existingPoNumber (normal case — set by saveDraft or by init() when
+//      resuming a draft / returned quote)
+//   2. If draftId exists but _existingPoNumber empty, refetch from DB
+//      (defensive — shouldn't happen, but cheap to check)
+//   3. A-mode fallback: dealer clicked Submit without ever saving and there's
+//      no draftId → generate PO# inline (one-shot, equivalent to auto-save)
+//
+// quote_number resolution:
+//   - Resuming Returned → fetch existing from DB
+//   - Draft → Submit    → fetch existing from DB (don't regenerate, draft
+//                         already has a quote_number from saveDraft)
+//   - Brand new (A-mode) → generate fresh
+//
+// Revisions: nextRevisionNumber logic unchanged from prior version.
+// ─────────────────────────────────────────────────────────────────────────────
 async function submitQuote() {
   const btn     = document.getElementById('btnSubmit');
   const errMsg  = document.getElementById('errorMsg');
@@ -1942,12 +2013,13 @@ async function submitQuote() {
         + (promoResult.appliedPromo ? promoResult.appliedPromo.id : '?') + ')');
     }
 
-    let poNumber;
+    // CB-3: Resolve PO# — reuse > DB fetch > A-mode inline generation.
+    let poNumber = _existingPoNumber;
     let quoteNum;
     let nextRevisionNumber = 1;
 
     if (_isResumingReturned && draftId) {
-      poNumber = _existingPoNumber;
+      // Returned-quote resubmit: PO# must already exist
       if (!poNumber) {
         const { data: q } = await _supabase
           .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
@@ -1961,32 +2033,42 @@ async function submitQuote() {
       }
       if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
       nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
-    } else {
-      let dealerUidForPO;
-      if (dealer && dealer.id === dealerId) {
-        dealerUidForPO = dealer.uid;
+
+    } else if (draftId) {
+      // Draft → Submit: PO# already set by saveDraft, quote_number too
+      if (!poNumber) {
+        // Defensive refetch (e.g. stale tab)
+        const { data: q } = await _supabase
+          .from('quotes').select('po_number, quote_number').eq('id', draftId).single();
+        poNumber = q?.po_number;
+        quoteNum = q?.quote_number;
       } else {
-        const { data: targetDealer, error: dealerErr } = await _supabase
-          .from('dealers').select('uid').eq('id', dealerId).single();
-        if (dealerErr) throw dealerErr;
-        dealerUidForPO = targetDealer ? targetDealer.uid : null;
+        const { data: q } = await _supabase
+          .from('quotes').select('quote_number').eq('id', draftId).single();
+        quoteNum = q?.quote_number;
       }
-      if (!dealerUidForPO) {
-        throw new Error('Dealer UID is missing — cannot generate PO#. Please contact support.');
+      if (!poNumber) {
+        // Extreme edge case: draft row exists but has no po_number.
+        // Generate one inline rather than error out.
+        console.warn('[CB-3] submitQuote: draft has no PO#, generating inline');
+        poNumber = await obtainPoNumberForDealer(dealerId);
       }
+      if (!quoteNum) {
+        // Same defensive treatment for quote_number
+        const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
+        if (numError) throw numError;
+        quoteNum = numData;
+      }
+
+    } else {
+      // CB-3 A-mode: brand new submission, dealer skipped Save.
+      // Generate both PO# and quote_number inline.
+      console.log('[CB-3] submitQuote: A-mode (no prior save), generating PO# inline');
+      poNumber = await obtainPoNumberForDealer(dealerId);
 
       const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
       if (numError) throw numError;
       quoteNum = numData;
-
-      const { data: poData, error: poError } = await _supabase
-        .rpc('generate_po_number', {
-          p_dealer_uid: dealerUidForPO,
-          p_dealer_id:  dealerId,
-        });
-      if (poError) throw poError;
-      if (!poData) throw new Error('Failed to generate PO number.');
-      poNumber = poData;
     }
 
     const shippingCostWrite = (shippingForDb === null)
@@ -2052,6 +2134,7 @@ async function submitQuote() {
     if (itemsError) throw itemsError;
 
     step1Data.poNumber = poNumber;
+    _existingPoNumber  = poNumber;  // CB-3: keep module state in sync
 
     setStep('Generating PDF documents...');
     // F-PROMOTIONS: submit-time PDFs are NOT markup'd (markupPercent: 0), so
