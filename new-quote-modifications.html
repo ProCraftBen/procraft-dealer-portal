@@ -810,6 +810,18 @@
     }
     .mf-row-admin-badge svg { width: 10px; height: 10px; fill: currentColor; }
     .mf-row-element { /* no padding */ }
+    /* CB-6: bundle material subline */
+    .mf-bundle-material {
+      margin-top: 8px; padding: 6px 10px;
+      background: rgba(62,90,66,0.06);
+      border-left: 3px solid var(--green-mid);
+      border-radius: 2px; font-size: 11px; color: var(--green-dark);
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .mf-bundle-material .bm-sku { font-weight: 600; letter-spacing: 0.03em; }
+    .mf-bundle-material .bm-sep { color: var(--muted); }
+    .mf-bundle-material .bm-qty { color: var(--muted); }
+    .mf-bundle-material .bm-mat { font-weight: 600; }
     .mf-readonly-body { padding: 4px 0; font-size: 13px; color: var(--text); line-height: 1.5; }
     .mf-readonly-body .mf-readonly-desc { white-space: pre-wrap; word-break: break-word; }
     .mf-readonly-body .mf-readonly-cost {
@@ -1486,6 +1498,10 @@ let doorStyleGroups  = [];
 let currentSortMode  = 'type';  // CB-5 需求4: type | az | price_asc | price_desc
 let draftId          = null;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
+// CB-6: Modification Bundle(材料費)用
+let modificationBundles = [];   // modification_bundles 全部 active 列
+let allSkusFramed       = [];   // SKU master(價格來源)— framed
+let allSkusFrameless    = [];   // SKU master(價格來源)— frameless  
 
 // Modal state
 let activeMfModalKey   = null;
@@ -1609,6 +1625,88 @@ function inferBindingFromMfCode(rule) {
   }
 
   return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-6: Modification Bundle — material cost
+// ═══════════════════════════════════════════════════════════════════
+const BUNDLE_RULES = [
+  { mf_code: 'MF01', label_contains: 'Skin' },
+  { mf_code: 'MF03', label_contains: 'Roll Out' },
+];
+
+function isBundleEligible(mfCode, displayLabel) {
+  const label = (displayLabel || '');
+  return BUNDLE_RULES.some(function (r) {
+    return r.mf_code === mfCode && label.indexOf(r.label_contains) !== -1;
+  });
+}
+
+function bundleMappingQty(mfCode, value) {
+  if (mfCode === 'MF01') {
+    if (value === 'both') return 2;
+    if (value === 'left' || value === 'right') return 1;
+    return 0;
+  }
+  if (mfCode === 'MF03') return value === true ? 1 : 0;
+  return 0;
+}
+
+function computeBundleMaterial(item, mfCode, displayLabel, value) {
+  const EMPTY = { material_cost: 0, mapping_sku: null, mapping_qty: 0 };
+  if (!item || !isBundleEligible(mfCode, displayLabel)) return EMPTY;
+
+  const qty = bundleMappingQty(mfCode, value);
+  if (qty <= 0) return EMPTY;
+
+  const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+  if (!styleRow) return EMPTY;
+
+  const ctype = (styleRow.construction_type || '').toLowerCase();
+  if (ctype !== 'framed' && ctype !== 'frameless') return EMPTY;
+
+  const bundle = modificationBundles.find(function (b) {
+    return b && (b.type || '').toLowerCase() === ctype
+        && b.source_sku === item.sku_code
+        && b.mf_code === mfCode;
+  });
+  if (!bundle) return EMPTY;
+
+  const skuMaster = (ctype === 'frameless') ? allSkusFrameless : allSkusFramed;
+  const mappingRow = skuMaster.find(function (s) { return s.sku_code === bundle.mapping_sku; });
+  if (!mappingRow) {
+    console.error('[CB-6] Mapping SKU "' + bundle.mapping_sku + '" not found in skus_' + ctype +
+                  ' (source=' + item.sku_code + ', ' + mfCode + ')');
+    return { material_cost: 0, mapping_sku: bundle.mapping_sku, mapping_qty: qty };
+  }
+
+  const groupPrice = getMsrpForStyleGroup(mappingRow, styleRow.grp);
+  if (groupPrice === null) {
+    return { material_cost: 0, mapping_sku: bundle.mapping_sku, mapping_qty: qty };
+  }
+
+  const multiplier = getMultiplierForStyle(styleRow);
+  return {
+    material_cost: groupPrice * multiplier * qty,
+    mapping_sku:   bundle.mapping_sku,
+    mapping_qty:   qty,
+  };
+}
+
+function renderBundleMaterialLine(row, mat) {
+  if (!row) return;
+  let line = row.querySelector('.mf-bundle-material');
+  const show = mat && mat.mapping_sku && mat.mapping_qty > 0;
+  if (!show) { if (line) line.remove(); return; }
+  if (!line) {
+    line = document.createElement('div');
+    line.className = 'mf-bundle-material';
+    row.appendChild(line);
+  }
+  line.innerHTML =
+    '<span class="bm-sku">' + esc(mat.mapping_sku) + '</span>' +
+    '<span class="bm-sep">·</span><span class="bm-qty">Qty ' + mat.mapping_qty + '</span>' +
+    '<span class="bm-sep">·</span><span class="bm-mat">Material $' + (mat.material_cost || 0).toFixed(2) + '</span>';
 }
 
 const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
@@ -2525,12 +2623,12 @@ function updateRunningTotal() {
   const activeSub = activeSubGroups[activeSubGroupIdx];
   if (!activeSub) { setRunningTotalDOM('Modifications subtotal', 0); return; }
 
-  let perUnit = 0;
+let perUnit = 0;
   Object.keys(activeSub.liveValues || {}).forEach(function (k) {
     const entry = activeSub.liveValues[k];
-    if (entry && typeof entry.cost === 'number' && isFinite(entry.cost)) {
-      perUnit += entry.cost;
-    }
+    if (!entry) return;
+    if (typeof entry.cost === 'number' && isFinite(entry.cost)) perUnit += entry.cost;
+    if (typeof entry.material === 'number' && isFinite(entry.material)) perUnit += entry.material;
   });
 
   const subQty = activeSub.qty || 0;
@@ -2953,13 +3051,17 @@ function renderMfElements(rules, savedByIdx, subRef) {
       lock_reason:   mfParams._lock_reason || 'Required',
     });
 
-    try {
+  try {
       const initVal  = (typeof instance.getValue === 'function') ? instance.getValue() : null;
       const initCost = (typeof instance.calculateCost === 'function') ? instance.calculateCost() : 0;
+      const safeCost = (typeof initCost === 'number' && isFinite(initCost)) ? initCost : 0;
+      const _bItem = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+      const _bMat  = computeBundleMaterial(_bItem, mfCode, rule.display_label || mfCode, initVal);
       subRef.liveValues[idx] = {
-        value: initVal,
-        cost: (typeof initCost === 'number' && isFinite(initCost)) ? initCost : 0
+        value: initVal, cost: safeCost,
+        material: _bMat.material_cost, mapping_sku: _bMat.mapping_sku, mapping_qty: _bMat.mapping_qty
       };
+      renderBundleMaterialLine(row, _bMat);
     } catch (err) {
       console.warn('[E4.7] Failed to seed live value for ' + mfCode, err);
     }
@@ -3062,7 +3164,16 @@ function onMfChangeDelegated(e) {
   const value   = e.detail.value;
   const cost    = (typeof e.detail.cost === 'number') ? e.detail.cost : 0;
 
-  activeSub.liveValues[ruleIdx] = { value: value, cost: cost };
+  const _bItem = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  const _bRule = (Array.isArray(activeMfModalRules) && ruleIdx != null)
+    ? activeMfModalRules[parseInt(ruleIdx, 10)] : null;
+  const _bLabel = (_bRule && _bRule.display_label) || mfCode;
+  const _bMat = computeBundleMaterial(_bItem, mfCode, _bLabel, value);
+  activeSub.liveValues[ruleIdx] = {
+    value: value, cost: cost,
+    material: _bMat.material_cost, mapping_sku: _bMat.mapping_sku, mapping_qty: _bMat.mapping_qty
+  };
+  renderBundleMaterialLine(row, _bMat);
 
   console.log('[E4.5] Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)) +
               ' · ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
@@ -3120,6 +3231,7 @@ function freezeActiveSub() {
   if (!activeSub) return;
 
   const snapshot = [];
+  const _bItemF = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   (activeSub.instances || []).forEach(function (rec) {
     let val, cost;
     try {
@@ -3130,9 +3242,11 @@ function freezeActiveSub() {
       return;
     }
     if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
+    const _bMatF = computeBundleMaterial(_bItemF, rec.mf_code, rec.display_label, val);
     snapshot.push({
       rule_idx: rec.rule_idx, mf_code: rec.mf_code,
       display_label: rec.display_label, value: val, cost: cost,
+      material_cost: _bMatF.material_cost, mapping_sku: _bMatF.mapping_sku, mapping_qty: _bMatF.mapping_qty,
     });
   });
   activeSub.frozenValues = snapshot;
@@ -3772,19 +3886,26 @@ function handleMfSave() {
       return shouldKeepModification(entry.value);
     }).map(function (entry) {
       const taxStatus = resolveTaxStatusForEntry(entry);
+      const laborCost    = (typeof entry.cost === 'number' && isFinite(entry.cost)) ? entry.cost : 0;
+      const materialCost = (typeof entry.material_cost === 'number' && isFinite(entry.material_cost)) ? entry.material_cost : 0;
       return {
         rule_idx:      entry.rule_idx,
         mf_code:       entry.mf_code,
         display_label: entry.display_label,
         value:         entry.value,
-        cost:          (typeof entry.cost === 'number' && isFinite(entry.cost)) ? entry.cost : 0,
+        cost:          laborCost,
+        material_cost: materialCost,
+        mapping_sku:   entry.mapping_sku || null,
+        mapping_qty:   entry.mapping_qty || 0,
+        total_cost:    laborCost + materialCost,
         tax_status:    taxStatus,
       };
     });
+    });
     const status = kept.length > 0 ? 'configured' : 'skipped';
-    const perUnit        = kept.reduce(function (s, m) { return s + (m.cost || 0); }, 0);
+    const perUnit        = kept.reduce(function (s, m) { return s + (m.cost || 0) + (m.material_cost || 0); }, 0);
     const perUnitTaxable = kept.reduce(function (s, m) {
-      return s + (m.tax_status === true ? (m.cost || 0) : 0);
+      return s + (m.tax_status === true ? ((m.cost || 0) + (m.material_cost || 0)) : 0);
     }, 0);
     totalLineCost   += perUnit        * (sub.qty || 0);
     taxableLineCost += perUnitTaxable * (sub.qty || 0);
@@ -3852,9 +3973,10 @@ function calculateAllModificationsTotal() {
       const subQty = (typeof sub.qty === 'number') ? sub.qty : 0;
       if (!Array.isArray(sub.modifications)) return;
       sub.modifications.forEach(function (m) {
-        const cost = (typeof m.cost === 'number' && isFinite(m.cost)) ? m.cost : 0;
-        total += cost * subQty;
-      });
+              const cost = (typeof m.cost === 'number' && isFinite(m.cost)) ? m.cost : 0;
+              const material = (typeof m.material_cost === 'number' && isFinite(m.material_cost)) ? m.material_cost : 0;
+              total += (cost + material) * subQty;
+       });
     });
   });
   return total;
@@ -4213,14 +4335,22 @@ async function init() {
   if (!d) { alert('Could not load dealer data. Please go back and try again.'); return; }
   dealer = d;
 
-  const [styleRes, framedRes, framelessRes] = await Promise.all([
+const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
     _supabase.from('door_styles').select('*').eq('is_active', true),
     _supabase.from('skus_framed').select('*').eq('active', true),
     _supabase.from('skus_frameless').select('*').eq('active', true),
+    _supabase.from('modification_bundles').select('type, source_sku, mf_code, mapping_sku').eq('is_active', true),
   ]);
   allDoorStyles = styleRes.data || [];
-  const allSkusFramed    = framedRes.data || [];
-  const allSkusFrameless = framelessRes.data || [];
+  allSkusFramed    = framedRes.data || [];
+  allSkusFrameless = framelessRes.data || [];
+  if (bundleRes && bundleRes.error) {
+    console.error('[CB-6] modification_bundles load failed:', bundleRes.error);
+    modificationBundles = [];
+  } else {
+    modificationBundles = (bundleRes && bundleRes.data) || [];
+  }
+  console.log('[CB-6] modification_bundles loaded:', modificationBundles.length, 'active row(s)');
 
   if (draftId) {
     const savedCart = sessionStorage.getItem('quoteStep2');
