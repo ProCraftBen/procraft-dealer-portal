@@ -3899,7 +3899,7 @@ function handleMfSave() {
         mapping_qty:   entry.mapping_qty || 0,
         total_cost:    laborCost + materialCost,
         tax_status:    taxStatus,
-    });
+    };
     });
     const status = kept.length > 0 ? 'configured' : 'skipped';
     const perUnit        = kept.reduce(function (s, m) { return s + (m.cost || 0) + (m.material_cost || 0); }, 0);
