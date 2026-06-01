@@ -576,6 +576,8 @@
       </table>
     </div>
 
+    <div id="leadTimeLine" style="display:none;margin-top:10px;text-align:right;"></div>
+
     <div id="notesTableMount"></div>
 
     <div class="totals-section">
@@ -761,6 +763,7 @@ let step1Data = null;
 let step2Data = null;
 let shippingAddress = null;
 let draftId   = null;
+let allDoorStyles = [];  // CB-5 需求1/2: door_styles 快取
 
 let _isResumingReturned     = false;
 let _currentRevisionNumber  = 1;
@@ -954,6 +957,50 @@ function shortStatus(s) {
   if (!s) return '—';
   const key = String(s).toUpperCase();
   return STATUS_SHORT_MAP[key] || key.slice(0, 3);
+}
+
+// CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
+function formatAssembleStatus(v) {
+  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+}
+
+// CB-5 需求1/2: 用 style_code join door_styles 判斷 non-stock / lead time
+function orderHasNonStock(items, doorStyles) {
+  if (!Array.isArray(items) || !Array.isArray(doorStyles)) return false;
+  return items.some(function (it) {
+    if (!it || !it.style_code) return false;
+    const s = doorStyles.find(function (d) { return d.style_code === it.style_code; });
+    return s ? (s.is_stock === false) : false;
+  });
+}
+
+// CB-5 需求1: 整單 lead time
+// 任何 frameless → ~5 Weeks;全 framed 全 stock → ~3 Business Days;全 framed 有 non-stock → ~2 Weeks
+// 查不到門花色(custom / accessory / 停產)的 item 不納入判斷
+function calculateLeadTime(items, doorStyles) {
+  let anyFrameless = false, anyNonStock = false, anyKnown = false;
+  (items || []).forEach(function (it) {
+    if (!it || !it.style_code || !Array.isArray(doorStyles)) return;
+    const s = doorStyles.find(function (d) { return d.style_code === it.style_code; });
+    if (!s) return;
+    const ct = (s.construction_type || '').toLowerCase();
+    if (ct === 'frameless') { anyFrameless = true; anyKnown = true; }
+    else if (ct === 'framed') { anyKnown = true; if (s.is_stock !== true) anyNonStock = true; }
+  });
+  if (!anyKnown) return null;
+  if (anyFrameless) return '~5 Weeks';
+  return anyNonStock ? '~2 Weeks' : '~3 Business Days';
+}
+
+function renderLeadTimeLine() {
+  const el = document.getElementById('leadTimeLine');
+  if (!el) return;
+  const lt = calculateLeadTime(step2Data, allDoorStyles);
+  if (!lt) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML =
+    '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">Estimated Lead Time</span>' +
+    '<span style="font-size:13px;font-weight:600;color:var(--green-mid);">' + escapeHtml(lt) + '</span>';
 }
 
 function shouldUseNotesTable(mod) {
@@ -1370,6 +1417,11 @@ let dealerIdToLoad = session.user.id;
   }
   dealer = d;
 
+  // CB-5 需求1/2: 載入 door_styles(整單 lead time + non-stock 判斷)
+  const { data: styleRows } = await _supabase
+    .from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true);
+  allDoorStyles = styleRows || [];
+
   setInterval(async () => {
     const { data: check } = await _supabase
       .from('dealers').select('is_active').eq('id', session.user.id).single();
@@ -1561,7 +1613,7 @@ function buildItemRowsHtml(markupPct) {
           : '';
 
         const assembleStatusHtml = isFirstSub
-          ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(shortStatus(item.type))}</span>`
+          ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(formatAssembleStatus(item.type))}</span>`
           : '';
 
         const trClass = isFirstSub ? '' : 'sub-continuation';
@@ -1829,6 +1881,7 @@ function renderReview() {
   const result = buildItemRowsHtml(0);
   document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
   document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
+  renderLeadTimeLine();  // CB-5 需求1
 
   applyTotals({
     skuSubtotal:          skuSubtotal,
