@@ -271,7 +271,7 @@
     .sku-table-wrap { overflow-x: auto; max-height: 400px; overflow-y: auto; }
     .sku-table-wrap::-webkit-scrollbar { width: 4px; height: 4px; }
     .sku-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    .sku-table { width: 100%; border-collapse: collapse; min-width: 500px; }
+    .sku-table { width: 100%; border-collapse: collapse; min-width: 620px; }
     .sku-table thead th { padding: 8px 14px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; position: sticky; top: 0; z-index: 1; }
     .sku-table thead th.th-right { text-align: right; }
     .sku-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
@@ -288,6 +288,30 @@
     .qty-input:focus { outline: none; border-color: var(--green-mid); }
     .btn-add { padding: 5px 10px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
     .btn-add:hover { background: var(--green-mid); }
+
+    /* ── CB-5: Sort by dropdown (SKU panel) ── */
+    .sku-sort-wrap { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .sku-sort-wrap label { font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+    .sku-sort-select {
+      font-family: 'DM Sans', sans-serif; font-size: 11px; color: var(--text);
+      background: var(--white); border: 1px solid var(--border); border-radius: 3px;
+      padding: 4px 8px; cursor: pointer; outline: none; transition: border-color 0.15s;
+    }
+    .sku-sort-select:focus { border-color: var(--green-mid); }
+
+    /* ── CB-5: Lead time badge on door card (top-left of image) ── */
+    .lead-time-badge {
+      position: absolute; top: 6px; left: 6px; z-index: 2;
+      background: rgba(62,90,66,0.92); color: #fff;
+      font-size: 8px; font-weight: 600; letter-spacing: 0.06em;
+      padding: 3px 6px; border-radius: 2px; line-height: 1.1; white-space: nowrap;
+    }
+
+    /* ── CB-5: Non-stock note below door image ── */
+    .nonstock-note {
+      margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--border);
+      font-size: 9px; line-height: 1.4; color: #B9892F;
+    }
     .sku-placeholder { padding: 28px; text-align: center; font-size: 12px; color: var(--muted); line-height: 1.6; }
 
     /* ── Floating Cart Button ── */
@@ -1102,6 +1126,15 @@
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
         <input type="text" id="skuSearch" placeholder="Search SKU / description..." oninput="renderSkuTable()"/>
       </div>
+      <div class="sku-sort-wrap">
+        <label for="skuSort">Sort</label>
+        <select class="sku-sort-select" id="skuSort" onchange="setSort(this.value)">
+          <option value="type">SKU Type group</option>
+          <option value="sku">SKU (A–Z)</option>
+          <option value="price_asc">Price (Low to High)</option>
+          <option value="price_desc">Price (High to Low)</option>
+        </select>
+      </div>
     </div>
     <div class="sku-table-wrap" id="skuTableWrap">
       <div class="sku-placeholder">Select a door style and click "Select This Style" to view available items.</div>
@@ -1198,7 +1231,7 @@
         <div class="custom-form-row">
           <label class="custom-form-label required">Assemble Status</label>
           <div class="custom-radio-group" id="customAsmStatusGroup">
-            <button type="button" class="custom-radio-btn active" data-value="RTA" onclick="setCustomAsmStatus('RTA')">RTA</button>
+            <button type="button" class="custom-radio-btn active" data-value="RTA" onclick="setCustomAsmStatus('RTA')">Unassembled</button>
             <button type="button" class="custom-radio-btn" data-value="Assembled" onclick="setCustomAsmStatus('Assembled')">Assembled</button>
           </div>
         </div>
@@ -1335,6 +1368,7 @@ let hoveredStyle = null;
 let activeStyle  = null;
 let currentType  = 'RTA';
 let currentCat   = 'All';
+let currentSort  = 'type';   // CB-5: 'type' | 'sku' | 'price_asc' | 'price_desc'
 let cartItems    = [];
 let draftId      = null; // set if resuming a draft
 
@@ -1654,6 +1688,9 @@ async function loadDraftItems() {
         skuType:      row.sku_type || '',
         category:     sku ? (sku.category    || '') : '',
         subcategory:  sku ? (sku.subcategory || '') : '',
+        // CB-5 需求1: carry door attributes (joined from door_styles) for lead time
+        construction_type: style ? (style.construction_type || null) : null,
+        is_stock:          style ? style.is_stock : null,
         type:         row.assemble_status,
         quantity:     0,
         unit_price:   parseFloat(row.unit_price),
@@ -1697,6 +1734,46 @@ function closeLightbox() {
 }
 
 function filterStyles() { renderStyleList(); }
+
+// ── CB-5 需求1: per-door lead time ──
+// Frameless                 → ~5 Weeks
+// Framed + stock            → ~3 Business Days
+// Framed + non-stock        → ~2 Weeks
+function leadTimeForDoor(constructionType, isStock) {
+  const ct = (constructionType || '').toLowerCase();
+  if (ct === 'frameless') return '~5 Weeks';
+  return isStock ? '~3 Business Days' : '~2 Weeks';
+}
+
+// ── CB-5 需求3: display mapping (DB value unchanged) ──
+// DB still stores 'RTA'; everywhere we DISPLAY it, show 'Unassembled'.
+function formatAssembleStatus(v) {
+  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+}
+
+// ── CB-5 需求2: non-stock advisory note text ──
+const NONSTOCK_NOTE_TEXT =
+  'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.';
+
+// ── CB-5 需求4: preferred SKU type group order (covers ProCraft + Milania) ──
+// Base → Tall → Wall → Vanity → ... → Accessories last; unknowns alphabetical at end.
+const SKU_TYPE_ORDER = [
+  'BASE', 'TALL', 'WALL', 'VANITY',
+  'DRAWER', 'ROLL OUT TRAY', 'BOX', 'MBOX',
+  'DOOR & FRAME', 'MOLDINGS', 'PANELS',
+  'ACCESSORIES'
+];
+function skuTypeRank(type) {
+  const t = (type || '').toUpperCase();
+  const i = SKU_TYPE_ORDER.indexOf(t);
+  return i === -1 ? SKU_TYPE_ORDER.length : i;
+}
+
+function setSort(v) {
+  currentSort = v;
+  renderSkuTable();
+}
+
 
 function selectAndConfirm(code) {
   if (isReviewLocked()) return;  // CB-4: read-only review — no style selection
@@ -1781,10 +1858,19 @@ function renderStyleList() {
     const badge = isComingSoon
       ? `<div style="position:absolute;top:6px;right:6px;background:var(--green-dark,#1b3022);color:#fff;font-size:8px;letter-spacing:0.1em;padding:3px 6px;border-radius:2px;font-weight:600;text-transform:uppercase;z-index:2;">Coming Soon</div>`
       : '';
+    // CB-5 需求1: per-door lead time badge (top-left of image)
+    const leadBadge = isComingSoon
+      ? ''
+      : `<div class="lead-time-badge">${leadTimeForDoor(s.construction_type, s.is_stock)}</div>`;
+    // CB-5 需求2 階段1: non-stock advisory note below image (frameless is_stock=false 自動涵蓋)
+    const nonStockNote = (!isComingSoon && s.is_stock === false)
+      ? `<div class="nonstock-note">${NONSTOCK_NOTE_TEXT}</div>`
+      : '';
     return `
       <div class="${cardClass}"${cardStyle} ${onClick}>
         <div class="style-img-card-img-wrap" style="position:relative;">
           ${badge}
+          ${leadBadge}
           ${s.image_url
             ? `<img src="${s.image_url}" alt="${s.style_name}" loading="lazy"/>`
             : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg>`
@@ -1793,6 +1879,7 @@ function renderStyleList() {
         <div class="style-img-card-info">
           <div class="style-img-card-name">${s.style_name}</div>
           <div class="style-img-card-code">${s.style_code}</div>
+          ${nonStockNote}
         </div>
       </div>`;
   }).join('');
@@ -1927,6 +2014,24 @@ function renderSkuTable() {
   // Filter out SKUs that have no price for the current style's group (N/A handling)
   skus = skus.filter(s => getMsrpForGroup(s, grp) !== null);
 
+  // CB-5 需求4: apply sort to the (filtered) list
+  skus = skus.slice().sort(function (a, b) {
+    if (currentSort === 'sku') {
+      return a.sku_code.localeCompare(b.sku_code);
+    }
+    if (currentSort === 'price_asc' || currentSort === 'price_desc') {
+      const pa = getMsrpForGroup(a, grp) * m;
+      const pb = getMsrpForGroup(b, grp) * m;
+      return currentSort === 'price_asc' ? pa - pb : pb - pa;
+    }
+    // default 'type': by preferred type-group order, then SKU code within group
+    const ra = skuTypeRank(a.type), rb = skuTypeRank(b.type);
+    if (ra !== rb) return ra - rb;
+    const ta = (a.type || '').toUpperCase(), tb = (b.type || '').toUpperCase();
+    if (ta !== tb) return ta.localeCompare(tb);
+    return a.sku_code.localeCompare(b.sku_code);
+  });
+
   const wrap = document.getElementById('skuTableWrap');
   if (!skus.length) { wrap.innerHTML = '<div class="sku-placeholder">No items found.</div>'; return; }
 
@@ -1964,8 +2069,8 @@ function renderSkuTable() {
             ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${sku.type}</span>`
             : '—';
           const asmButton = (asmAvailable && !locked)
-            ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${asmFee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);">ASM</button>`
-            : `<button class="btn-add" disabled title="Assembled service not available for this item type" style="background:#E5E5E5;color:#9CA3AF;border:1px solid #D4D4D4;cursor:not-allowed;">ASM</button>`;
+            ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${asmFee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);text-transform:none;">Assembled</button>`
+            : `<button class="btn-add" disabled title="Assembled service not available for this item type" style="background:#E5E5E5;color:#9CA3AF;border:1px solid #D4D4D4;cursor:not-allowed;text-transform:none;">Assembled</button>`;
           return `
             <tr>
               <td class="td-code">${sku.sku_code} ${stockTag}</td>
@@ -1978,7 +2083,7 @@ function renderSkuTable() {
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)"${disAttr}>−</button>
                   <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"${disAttr}/>
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)"${disAttr}>+</button>
-                  <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;"${disAttr}>RTA</button>
+                  <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;text-transform:none;"${disAttr}>Unassembled</button>
                   ${asmButton}
                 </div>
               </td>
@@ -2031,6 +2136,9 @@ const key = `${activeStyle.style_code}-${skuCode}-${type}`;
       category:    sku.category    || '',
       subcategory: sku.subcategory || '',
       skuType:     sku.type        || '',
+      // CB-5 需求1: carry door attributes for Step 3 / quote-detail lead time
+      construction_type: activeStyle.construction_type || null,
+      is_stock:          activeStyle.is_stock,
       quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue,
       assemble_fee: parseFloat(assembledFee||0),
       // E5: new cart items start as a single un-split sub-group
@@ -2425,6 +2533,7 @@ function saveCustomItem() {
     style_code:         finalStyleCode,
     style_name:         finalStyleName,
     construction_type:  construction,    // 'framed' / 'frameless' / null
+    is_stock:           false,           // CB-5 需求1: custom items treated as non-stock (special order)
     sku_code:           skuCode,
     sku_desc:           skuDesc,
     type:               finalAsmStatus,  // RTA / Assembled
@@ -2496,7 +2605,7 @@ function renderCustomItemsList() {
     if (item.skuType && item.skuType !== 'ACCESSORIES' && item.skuType !== 'OTHER') {
       metaParts.push(item.skuType);
     }
-    metaParts.push(item.type); // RTA / Assembled
+    metaParts.push(formatAssembleStatus(item.type)); // CB-5 需求3: display Unassembled/Assembled
     if ((item.assemble_fee || 0) > 0) metaParts.push('Asm +$' + item.assemble_fee.toFixed(2));
 
     const lineTotal = (item.unit_price * item.quantity);
@@ -2724,7 +2833,7 @@ function renderCart() {
       <div class="cart-item-top">
         <div style="flex:1; min-width:0;">
           <div class="cart-item-name">${nameLine}</div>
-          <div class="cart-item-detail">${item.type} · $${item.unit_price.toFixed(2)}/ea${item.assemble_fee > 0 ? ` · Assemble: +$${item.assemble_fee.toFixed(2)}/ea` : ''}</div>
+          <div class="cart-item-detail">${formatAssembleStatus(item.type)} · $${item.unit_price.toFixed(2)}/ea${item.assemble_fee > 0 ? ` · Assemble: +$${item.assemble_fee.toFixed(2)}/ea` : ''}</div>
           ${qtyControls}
         </div>
         <div class="cart-item-right">
