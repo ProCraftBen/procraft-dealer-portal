@@ -1170,6 +1170,59 @@
       .bottom-right { flex: 1 0 100%; justify-content: space-between; }
       .btn-back, .btn-next { padding: 9px 14px; font-size: 10px; letter-spacing: 0.12em; }
     }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CB-4: Revision flow — admin-edit banner + review read-only
+       ═══════════════════════════════════════════════════════════════ */
+    .admin-editing-banner {
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-left: 4px solid var(--gold);
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      display: flex; gap: 16px; align-items: flex-start;
+    }
+    .admin-editing-banner .aeb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(201,168,76,0.18);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .admin-editing-banner .aeb-icon-wrap svg { width: 16px; height: 16px; fill: var(--gold); }
+    .admin-editing-banner .aeb-body { flex: 1; min-width: 0; }
+    .admin-editing-banner .aeb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #8B6914; margin-bottom: 4px;
+    }
+    .admin-editing-banner .aeb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
+    .admin-editing-banner .aeb-msg strong { font-weight: 600; }
+
+    /* review mode: block interaction inside the mf modal (visuals stay) */
+    body.review-lock #mfSplitPanel,
+    body.review-lock #mfElementsContainer,
+    body.review-lock #mfSkuHead .mf-sku-head-qty {
+      pointer-events: none;
+      opacity: 0.72;
+    }
+    /* hide editing-only controls in review mode */
+    body.review-lock .ds-swap-btn,
+    body.review-lock .sku-asm-switch-btn,
+    body.review-lock .sku-delete-btn,
+    body.review-lock #mfBtnSave,
+    body.review-lock .mf-btn-skip,
+    body.review-lock .mf-split-row-delete,
+    body.review-lock #mfSplitAddBtn {
+      display: none !important;
+    }
+    /* review-mode read-only note in the modal footer */
+    .mf-review-note {
+      font-size: 11px; color: var(--info-blue);
+      font-style: italic; letter-spacing: 0.03em;
+    }
   </style>
 </head>
 <body>
@@ -1343,13 +1396,39 @@ let cartItems        = [];
 let allDoorStyles    = [];
 let doorStyleGroups  = [];
 let draftId          = null;
-let isResumingReturned = false;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
 
 // Modal state
 let activeMfModalKey   = null;
 let activeMfModalRules = [];
 let effectiveRole      = 'dealer';
+
+// CB-4: revision-flow view mode (server-resolved; never trusts URL/sessionStorage).
+//   'normal'      — dealer building / editing own Draft
+//   'admin-edit'  — admin editing a dealer's Pending/Returned PO
+//   'review'      — dealer reviewing a returned PO (read-only; can only proceed)
+let viewMode      = 'normal';
+let isAdminViewer = false;
+function isReviewLocked() { return viewMode === 'review'; }
+
+function resolveViewMode(status, isOwner, isAdmin) {
+  if (!status) return 'normal';
+  if (status === 'Returned') {
+    if (isAdmin && !isOwner) return 'admin-edit';
+    if (isOwner) return 'review';
+    if (isAdmin) return 'admin-edit';
+    return 'review';
+  }
+  if (status === 'Pending') return isAdmin ? 'admin-edit' : 'normal';
+  return 'normal';
+}
+
+function buildModeParam() {
+  if (viewMode === 'admin-edit') return '&mode=admin-edit';
+  if (viewMode === 'review')     return '&mode=review';
+  return '';
+}
+  
 
 // E5: sub-group state
 let activeSubGroups    = [];
@@ -1473,15 +1552,33 @@ function esc(s) {
   });
 }
 
-function buildReturnedBannerSimple(roleMsg) {
+// CB-4: review banner (dealer reviewing a returned PO — read-only)
+function buildReviewBanner() {
   return `
     <div class="returned-revising-banner">
       <div class="rrb-icon-wrap">
-        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
       </div>
       <div class="rrb-body">
-        <div class="rrb-title">Revising — Revision Requested</div>
-        <div class="rrb-msg">${roleMsg}</div>
+        <div class="rrb-title">Reviewing Revised Purchase Order</div>
+        <div class="rrb-msg">You are reviewing your revised Purchase Order. Modifications are shown for review only and cannot be changed here — click Review to continue and resubmit on the final step.</div>
+      </div>
+    </div>`;
+}
+
+// CB-4: admin-edit banner (admin editing a dealer's PO)
+function buildAdminEditBanner(ownerDealer) {
+  const name = ownerDealer
+    ? (ownerDealer.company_name || ownerDealer.contact_name || '—')
+    : '—';
+  return `
+    <div class="admin-editing-banner">
+      <div class="aeb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+      <div class="aeb-body">
+        <div class="aeb-title">Editing Dealer's Purchase Order</div>
+        <div class="aeb-msg">You are editing the Purchase Order belonging to <strong>${name}</strong>. Changes are buffered locally and only saved when you click <strong>Request Revision</strong> on the final step.</div>
       </div>
     </div>`;
 }
@@ -2041,6 +2138,7 @@ function onAssembledRowClick(evt, key) {
 }
 
 function onDeleteSkuClick(key) {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   const item = cartItems.find(function (i) { return i.key === key; });
   if (!item) return;
   const confirmed = confirm('Remove "' + item.sku_code + '" from your quote?');
@@ -2066,6 +2164,7 @@ function onDeleteSkuClick(key) {
 //   on the main page — no modal involved.
 // ═══════════════════════════════════════════════════════════════════
 function onMainPageAssemblyToggle(key, newType) {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   if (newType !== 'RTA' && newType !== 'Assembled') return;
 
   const item = cartItems.find(function (i) { return i.key === key; });
@@ -2215,7 +2314,9 @@ function goReview() {
   if (!isReady) { showToast('Please configure all assembled SKUs first', true); return; }
   if (cartItems.length === 0) { showToast('Cart is empty — add items first', true); return; }
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-  const nextUrl = draftId ? 'new-quote-step3.html?draft=' + draftId : 'new-quote-step3.html';
+  const nextUrl = draftId
+    ? 'new-quote-step3.html?draft=' + draftId + buildModeParam()
+    : 'new-quote-step3.html';
   window.location.href = nextUrl;
 }
 
@@ -3129,6 +3230,7 @@ async function openMfModal(key) {
 
   document.getElementById('mfModalOverlay').classList.add('show');
   document.body.classList.add('mf-modal-open');
+  if (isReviewLocked()) document.body.classList.add('review-lock');  // CB-4: open read-only
 
   console.log('[E3] openMfModal', key, '→ overall status was:', getItemOverallStatus(item));
   console.log('[E5] sub_groups loaded:', activeSubGroups.length, 'sub-group(s)');
@@ -3142,6 +3244,7 @@ function closeMfModal() {
   destroyActiveSubInstances();
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
+  document.body.classList.remove('review-lock');  // CB-4
   activeMfModalKey = null;
   activeMfModalRules = [];
   activeSubGroups = [];
@@ -3154,13 +3257,14 @@ function closeMfModalSilent() {
   destroyActiveSubInstances();
   document.getElementById('mfModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
+  document.body.classList.remove('review-lock');  // CB-4
   activeMfModalKey = null;
   activeMfModalRules = [];
   activeSubGroups = [];
   activeSubGroupIdx = 0;
   activeSkuQty = 1;
 }
-
+  
 function refreshAfterCartChange() {
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
@@ -3197,6 +3301,7 @@ function markInvalidRow(ruleIdx, errors) {
  * Modal only opens for Assembled items now, so no RTA branch.
  */
 function handleMfSave() {
+  if (isReviewLocked()) return;  // CB-4: read-only review (button hidden, defensive)
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
@@ -3333,6 +3438,7 @@ function handleMfSave() {
 }
 
 function handleMfSkip() {
+  if (isReviewLocked()) return;  // CB-4: read-only review (button hidden, defensive)
   if (!activeMfModalKey) return;
   const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
   if (!item) return;
@@ -3428,6 +3534,7 @@ async function ensureSwapSkuCache() {
 }
 
 async function openSwapModal(currentStyleCode) {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   const currentStyle = allDoorStyles.find(function (s) { return s.style_code === currentStyleCode; });
   if (!currentStyle) { showToast('Current style not found', true); return; }
 
@@ -3618,6 +3725,7 @@ function closeSwapModal() {
 }
 
 function confirmSwap() {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
     showToast('Please select a replacement style', true);
     return;
@@ -3691,19 +3799,20 @@ async function init() {
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
 
-  try {
-    const s1 = sessionStorage.getItem('quoteStep1');
-    if (s1) {
-      const parsed = JSON.parse(s1);
-      if (parsed?.isResumingReturned) isResumingReturned = true;
-    }
-  } catch (_) {}
+  const dbRoleEarly = (meRow.role || '').toLowerCase();
+  isAdminViewer = dbRoleEarly === 'admin' || dbRoleEarly === 'super_admin';
 
-  let quoteStatus = null;
+  let quoteStatus  = null;
+  let quoteOwnerId = null;
   if (draftId) {
     const { data: q } = await _supabase.from('quotes').select('dealer_id, status').eq('id', draftId).single();
-    if (q) quoteStatus = q.status || null;
+    if (q) { quoteStatus = q.status || null; quoteOwnerId = q.dealer_id || null; }
   }
+
+  // CB-4: resolve view mode from server data (status + owner + role)
+  const isOwner = quoteOwnerId && quoteOwnerId === session.user.id;
+  viewMode = resolveViewMode(quoteStatus, isOwner, isAdminViewer);
+  console.log('[CB-4] modifications viewMode:', { viewMode, quoteStatus, isAdminViewer, isOwner });
 
   let dealerIdToLoad = session.user.id;
   if (draftId) {
@@ -3721,7 +3830,7 @@ async function init() {
 
   if (draftId) {
     const backBtn = document.getElementById('btnBack');
-    if (backBtn) backBtn.href = 'new-quote-step2.html?draft=' + draftId;
+    if (backBtn) backBtn.href = 'new-quote-step2.html?draft=' + draftId + buildModeParam();
   }
 
   const { data: d } = await _supabase.from('dealers').select('*').eq('id', dealerIdToLoad).single();
@@ -3774,14 +3883,15 @@ async function init() {
   renderBottomBar(pageProgress);
   renderModsTotalBar();
 
-  if (isResumingReturned) {
-    document.getElementById('returnedBannerMount').innerHTML =
-      buildReturnedBannerSimple('You are revising a returned quote. Continue editing modifications as needed.');
+  if (viewMode === 'review') {
+    document.getElementById('returnedBannerMount').innerHTML = buildReviewBanner();
+  } else if (viewMode === 'admin-edit') {
+    document.getElementById('returnedBannerMount').innerHTML = buildAdminEditBanner(dealer);
   }
   if (pageProgress.total === 0) {
     document.getElementById('noAssembledBannerMount').innerHTML = buildNoAssembledBanner();
   }
-
+  
   // D09: role-aware effectiveRole resolution
   const dbRole = (meRow.role || '').toLowerCase();
   const isAdminRole = dbRole === 'admin' || dbRole === 'super_admin';
@@ -3801,7 +3911,7 @@ async function init() {
   } catch (_) {}
 
   if (!isAdminContext && isAdminRole) {
-    if (draftId && (quoteStatus === 'Draft' || quoteStatus === 'Returned')) {
+    if (draftId && (quoteStatus === 'Draft' || quoteStatus === 'Returned' || quoteStatus === 'Pending')) {
       isAdminContext = true;
       adminContextReason = 'admin editing ' + quoteStatus + ' quote';
     } else if (!draftId) {
