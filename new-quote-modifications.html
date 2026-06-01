@@ -193,6 +193,14 @@
       background: rgba(224,123,57,0.12);
       color: var(--warn-orange);
     }
+    /* CB-5 需求1: 單門 lead time */
+    .ds-lead-time {
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      color: var(--green-mid);
+      font-weight: 500;
+      white-space: nowrap;
+    }
     .ds-progress { flex-shrink: 0; text-align: right; }
     .ds-progress-count { font-size: 14px; font-weight: 500; color: var(--green-dark); }
     .ds-progress-count.complete::after { content: ' ✓'; color: var(--gold); font-weight: 700; }
@@ -214,6 +222,22 @@
     .ds-discontinued-banner-icon svg { width: 14px; height: 14px; fill: var(--warn-orange); }
     .ds-discontinued-banner-msg { font-size: 12px; color: #2C3A32; line-height: 1.5; flex: 1; }
 
+    /* CB-5 需求2: non-stock 提示(門卡片內) */
+    .ds-nonstock-banner {
+      background: rgba(90,122,149,0.06);
+      border-bottom: 1px solid rgba(90,122,149,0.22);
+      padding: 10px 18px;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .ds-nonstock-banner-icon {
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .ds-nonstock-banner-icon svg { width: 14px; height: 14px; fill: var(--info-blue); }
+    .ds-nonstock-banner-msg { font-size: 12px; color: #2C3A32; line-height: 1.5; flex: 1; }
+
     .ds-group { padding: 12px 18px; }
     .ds-group + .ds-group { border-top: 1px solid var(--border); }
     .ds-group-label {
@@ -225,6 +249,35 @@
       margin-bottom: 8px;
     }
     .ds-group.rta { background: #FAFAF8; }
+
+    /* CB-5 需求4: SKU 排序控制 */
+    .ds-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .ds-group-head .ds-group-label { margin-bottom: 0; }
+    .ds-sort-wrap { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .ds-sort-label {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .ds-sort-select {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px;
+      color: var(--text);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 3px 6px;
+      cursor: pointer;
+      outline: none;
+    }
+    .ds-sort-select:focus { border-color: var(--green-dark); }
 
     .sku-row {
       display: flex;
@@ -454,6 +507,41 @@
     .mf-modal-body { flex: 1; overflow-y: auto; padding: 20px 22px; }
     .mf-modal-body::-webkit-scrollbar { width: 6px; }
     .mf-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* CB-5 需求5: MF04 合併 dropdown(Increase/Reduce 互斥) */
+    .mf04-combined { font-family: 'DM Sans', sans-serif; }
+    .mf04-dir-select {
+      width: 100%; max-width: 280px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; color: var(--text);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 7px 10px;
+      cursor: pointer; outline: none;
+    }
+    .mf04-dir-select:focus { border-color: var(--green-dark); }
+    .mf04-input-area {
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #FAFAF8;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      max-width: 280px;
+    }
+    .mf04-input-label { display: block; font-size: 12px; color: #555; margin-bottom: 6px; }
+    .mf04-input-row { display: flex; align-items: center; gap: 8px; }
+    .mf04-number {
+      width: 90px; padding: 7px 8px;
+      font-family: inherit; font-size: 14px;
+      color: var(--text); background: var(--white);
+      border: 1px solid var(--gold);
+      border-radius: 4px; outline: none; text-align: center;
+    }
+    .mf04-number:focus { border-color: var(--green-dark); }
+    .mf04-unit { font-size: 13px; color: var(--muted); }
+    .mf04-range { margin-top: 6px; font-size: 11px; color: #888; }
+    .mf04-cost { margin-top: 6px; font-size: 12px; color: var(--green-mid); font-weight: 500; }
 
     .mf-sku-head {
       background: #FAFAF8;
@@ -1395,6 +1483,7 @@ let dealer           = null;
 let cartItems        = [];
 let allDoorStyles    = [];
 let doorStyleGroups  = [];
+let currentSortMode  = 'type';  // CB-5 需求4: type | az | price_asc | price_desc
 let draftId          = null;
 let pageProgress     = { done: 0, total: 0, percent: 0 };
 
@@ -1777,6 +1866,60 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   });
   return out;
 }
+// CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
+function formatAssembleStatus(v) {
+  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+}
+
+// CB-5 需求4: SKU 列排序(卡片內,不改變門花色分組結構)
+const SKU_TYPE_ORDER = ['BASE', 'TALL', 'WALL', 'DRAWER', 'ACCESSORIES', 'OTHER'];
+function skuTypeRank(t) {
+  const i = SKU_TYPE_ORDER.indexOf((t || '').toUpperCase());
+  return i === -1 ? 999 : i;
+}
+function sortSkuItems(items, mode) {
+  const arr = (items || []).slice();
+  switch (mode) {
+    case 'az':
+      arr.sort(function (a, b) { return (a.sku_code || '').localeCompare(b.sku_code || ''); });
+      break;
+    case 'price_asc':
+      arr.sort(function (a, b) { return (a.unit_price || 0) - (b.unit_price || 0); });
+      break;
+    case 'price_desc':
+      arr.sort(function (a, b) { return (b.unit_price || 0) - (a.unit_price || 0); });
+      break;
+    case 'type':
+    default:
+      arr.sort(function (a, b) {
+        const r = skuTypeRank(a.skuType) - skuTypeRank(b.skuType);
+        if (r !== 0) return r;
+        return (a.sku_code || '').localeCompare(b.sku_code || '');
+      });
+      break;
+  }
+  return arr;
+}
+function buildSortControlHtml() {
+  const opts = [
+    ['type', 'Type'],
+    ['az', 'SKU (A–Z)'],
+    ['price_asc', 'Price (Low–High)'],
+    ['price_desc', 'Price (High–Low)'],
+  ];
+  const optionsHtml = opts.map(function (o) {
+    const sel = (o[0] === currentSortMode) ? ' selected' : '';
+    return '<option value="' + o[0] + '"' + sel + '>' + o[1] + '</option>';
+  }).join('');
+  return '<div class="ds-sort-wrap">' +
+           '<span class="ds-sort-label">Sort</span>' +
+           '<select class="ds-sort-select" onchange="onSortChange(this.value)">' + optionsHtml + '</select>' +
+         '</div>';
+}
+function onSortChange(mode) {
+  currentSortMode = mode;
+  renderDoorStyleList();
+}
 
 function buildDoorStyleGroups(items, doorStyles) {
   const groups = [];
@@ -1804,6 +1947,7 @@ function buildDoorStyleGroups(items, doorStyles) {
         construction_type: (styleRow && styleRow.construction_type)
                             || item.construction_type
                             || 'unknown',
+        is_stock:          styleRow ? (styleRow.is_stock === true) : null,
         image_url:         (styleRow && styleRow.image_url) || null,
         color:             (styleRow && styleRow.color) || null,
         subcategory:       (styleRow && styleRow.subcategory) || null,
@@ -1913,6 +2057,13 @@ function renderDoorStyleList() {
     return buildDoorStyleCard(g, gIdx);
   }).join('');
 }
+// CB-5 需求1: 單門 lead time(frameless→5週 / framed+stock→3工作天 / framed+non-stock→2週)
+function leadTimeForDoor(construction_type, is_stock) {
+  const ct = (construction_type || '').toLowerCase();
+  if (ct === 'frameless') return '~5 Weeks';
+  if (ct === 'framed')     return is_stock ? '~3 Business Days' : '~2 Weeks';
+  return null;  // unknown / custom → 不顯示
+}
 
 function buildDoorStyleCard(group, gIdx) {
   if (group.is_custom_extras) return buildCustomExtrasCard(group);
@@ -1930,6 +2081,13 @@ function buildDoorStyleCard(group, gIdx) {
                   : group.construction_type === 'frameless' ? 'frameless'
                   : 'unknown';
   const ctypeLabel = group.construction_type === 'unknown' ? '—' : group.construction_type;
+
+  const leadTime = (!group.is_discontinued && !group.is_custom_style)
+    ? leadTimeForDoor(group.construction_type, group.is_stock)
+    : null;
+  const leadTimeHtml = leadTime
+    ? `<span class="ds-lead-time">Lead time: ${esc(leadTime)}</span>`
+    : '';
 
   const discTag = group.is_discontinued
     ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
@@ -1950,16 +2108,32 @@ function buildDoorStyleCard(group, gIdx) {
       </div>
     </div>` : '';
 
+  const nonStockBanner = (group.is_stock === false) ? `
+    <div class="ds-nonstock-banner">
+      <div class="ds-nonstock-banner-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      </div>
+      <div class="ds-nonstock-banner-msg">
+        This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.
+      </div>
+    </div>` : '';
+
   const assembledGroupHtml = group.assembledItems.length > 0 ? `
     <div class="ds-group">
-      <div class="ds-group-label">Assembled</div>
-      ${group.assembledItems.map(function (item) { return buildAssembledRow(item, gIdx); }).join('')}
+      <div class="ds-group-head">
+        <div class="ds-group-label">Assembled</div>
+        ${buildSortControlHtml()}
+      </div>
+      ${sortSkuItems(group.assembledItems, currentSortMode).map(function (item) { return buildAssembledRow(item, gIdx); }).join('')}
     </div>` : '';
 
   const rtaGroupHtml = group.rtaItems.length > 0 ? `
     <div class="ds-group rta">
-      <div class="ds-group-label">RTA</div>
-      ${group.rtaItems.map(function (item) { return buildRtaRow(item); }).join('')}
+      <div class="ds-group-head">
+        <div class="ds-group-label">${formatAssembleStatus('RTA')}</div>
+        ${buildSortControlHtml()}
+      </div>
+      ${sortSkuItems(group.rtaItems, currentSortMode).map(function (item) { return buildRtaRow(item); }).join('')}
     </div>` : '';
 
   const swapBtnHtml = group.is_custom_style ? '' : `
@@ -1979,6 +2153,7 @@ function buildDoorStyleCard(group, gIdx) {
           <div class="ds-meta">
             <span class="ds-code">${esc(group.style_code)}</span>
             <span class="ds-construction-tag ${ctypeClass}">${esc(ctypeLabel)}</span>
+            ${leadTimeHtml}
             ${discTag}
           </div>
         </div>
@@ -1986,6 +2161,7 @@ function buildDoorStyleCard(group, gIdx) {
         ${swapBtnHtml}
       </div>
       ${discBanner}
+      ${nonStockBanner}
       ${assembledGroupHtml}
       ${rtaGroupHtml}
     </div>`;
@@ -2043,7 +2219,7 @@ function buildGroupProgressDisplay(group) {
     return `
       <div class="ds-progress">
         <div class="ds-progress-count no-assembled">—</div>
-        <div class="ds-progress-label">RTA only</div>
+        <div class="ds-progress-label">Unassembled only</div>
       </div>`;
   }
   const completeClass = (done === total) ? ' complete' : '';
@@ -2070,9 +2246,9 @@ function buildAsmSwitchBtnHtml(item) {
   if (!shouldShowAsmSwitchBtn(item)) return '';
   // Assembled row → switches to RTA; RTA row → switches to Assembled
   const targetType = (item.type === 'Assembled') ? 'RTA' : 'Assembled';
-  const labelText  = (targetType === 'RTA') ? 'RTA' : 'Assembled';
+  const labelText  = formatAssembleStatus(targetType);
   const title = targetType === 'RTA'
-    ? 'Switch to RTA (knock-down shipment, clears modifications)'
+    ? 'Switch to Unassembled (knock-down shipment, clears modifications)'
     : 'Switch to Assembled (adds assembly fee, enables modifications)';
   return `
     <button class="sku-asm-switch-btn" type="button"
@@ -2176,7 +2352,7 @@ function onMainPageAssemblyToggle(key, newType) {
 
   // Guard: custom items shouldn't reach here (button hidden), but double-check.
   if (item.is_custom) {
-    showToast('Custom items cannot be switched between RTA and Assembled', true);
+    showToast('Custom items cannot be switched between Unassembled and Assembled', true);
     return;
   }
 
@@ -2239,8 +2415,8 @@ function onMainPageAssemblyToggle(key, newType) {
   }
 
   const warning = hasMods
-    ? 'Switch "' + item.sku_code + '" to RTA?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
-    : 'Switch "' + item.sku_code + '" to RTA?\n\nThe assembly fee will be removed and no modifications will be allowed.';
+    ? 'Switch "' + item.sku_code + '" to Unassembled?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
+    : 'Switch "' + item.sku_code + '" to Unassembled?\n\nThe assembly fee will be removed and no modifications will be allowed.';
   const ok = confirm(warning);
   if (!ok) return;
 
@@ -2250,7 +2426,7 @@ function onMainPageAssemblyToggle(key, newType) {
     return other !== item && other.key === newKey && other.style_code === item.style_code;
   });
   if (conflict) {
-    showToast('An RTA row already exists for this SKU. Please remove one first.', true);
+    showToast('An Unassembled row already exists for this SKU. Please remove one first.', true);
     console.warn('[F-RTA-SWITCH] Key collision aborted switch: ' + newKey);
     return;
   }
@@ -2279,7 +2455,7 @@ function onMainPageAssemblyToggle(key, newType) {
               (prevSubCount > 1 ? ' · sub_groups collapsed: ' + prevSubCount + ' → 1' : ''));
 
   refreshAfterCartChange();
-  showToast(item.sku_code + ' → RTA' + (hasMods ? ' (modifications cleared)' : ''));
+  showToast(item.sku_code + ' → ' + formatAssembleStatus(item.type) + (hasMods ? ' (modifications cleared)' : ''));
 }
 
 function renderBottomBar(progress) {
@@ -2467,6 +2643,190 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
 // ═══════════════════════════════════════════════════════════════════
 // F-BINDING-GROUP + F-GLASS-MULTIPLIER: renderMfElements
 // ═══════════════════════════════════════════════════════════════════
+// CB-5 需求5: MF04 Increase/Reduce 互斥
+// 偵測成對(inc + red)時,render 單一 dropdown + 條件輸入框;
+// 底層仍掛兩個 instance(各自 rule_idx / display_label),同時只有一個 enabled。
+// save 時未選方向回 {enabled:false} → shouldKeepModification 自動丟棄。
+function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
+  function dirOf(rule) {
+    const d = ((rule.mf_params && rule.mf_params.direction) || '').toLowerCase();
+    if (d === 'increase' || d === 'reduce') return d;
+    const lbl = (rule.display_label || '').toLowerCase();
+    if (lbl.indexOf('increase') !== -1) return 'increase';
+    if (lbl.indexOf('reduce')   !== -1) return 'reduce';
+    return null;
+  }
+
+  let incIdx = null, redIdx = null;
+  pairIdx.forEach(function (i) {
+    const d = dirOf(rules[i]);
+    if (d === 'increase') incIdx = i;
+    else if (d === 'reduce') redIdx = i;
+  });
+  if (incIdx === null || redIdx === null) return false;  // 判不出方向 → 退回獨立元件
+
+  const incRule = rules[incIdx];
+  const redRule = rules[redIdx];
+
+  function cfgOf(rule, dir) {
+    const p = rule.mf_params || {};
+    return {
+      min:  (typeof p.min_value === 'number') ? p.min_value : 1,
+      max:  (typeof p.max_value === 'number') ? p.max_value : 99,
+      step: (typeof p.step === 'number') ? p.step : 1,
+      unit: p.unit || 'inches',
+      inputLabel: p.input_label || (dir === 'increase' ? 'Increase to' : 'Reduce to'),
+    };
+  }
+  const incCfg = cfgOf(incRule, 'increase');
+  const redCfg = cfgOf(redRule, 'reduce');
+  const incCost = parseFloat(incRule.cost) || 0;
+  const redCost = parseFloat(redRule.cost) || 0;
+  function cfgFor(dir)  { return dir === 'reduce' ? redCfg : incCfg; }
+  function costFor(dir) { return dir === 'reduce' ? redCost : incCost; }
+
+  // 還原已存值
+  function savedNum(idx) {
+    const s = savedByIdx[idx];
+    if (s && s.value && typeof s.value === 'object' && s.value.enabled === true) {
+      return (typeof s.value.value === 'number') ? s.value.value : null;
+    }
+    return undefined;
+  }
+  let selectedDir = 'none';
+  let currentValue = null;
+  const sInc = savedNum(incIdx);
+  const sRed = savedNum(redIdx);
+  if (sInc !== undefined) { selectedDir = 'increase'; currentValue = sInc; }
+  else if (sRed !== undefined) { selectedDir = 'reduce'; currentValue = sRed; }
+
+  // 建列(單一 .mf-row)
+  const row = document.createElement('div');
+  row.className = 'mf-row';
+  row.setAttribute('data-mf-code', 'MF04');
+
+  const labelDiv = document.createElement('div');
+  labelDiv.className = 'mf-row-label';
+  labelDiv.innerHTML = '<span class="mf-row-label-text">Depth Adjustment</span>';
+  row.appendChild(labelDiv);
+
+  const elementDiv = document.createElement('div');
+  elementDiv.className = 'mf-row-element';
+  elementDiv.innerHTML =
+    '<div class="mf04-combined">' +
+      '<select class="mf04-dir-select">' +
+        '<option value="none">Don\'t adjust</option>' +
+        '<option value="increase">Increase depth</option>' +
+        '<option value="reduce">Reduce depth</option>' +
+      '</select>' +
+      '<div class="mf04-input-area"></div>' +
+    '</div>';
+  row.appendChild(elementDiv);
+  wrap.appendChild(row);
+
+  const selectEl = elementDiv.querySelector('.mf04-dir-select');
+  const areaEl   = elementDiv.querySelector('.mf04-input-area');
+  selectEl.value = selectedDir;
+
+  function syncRowRuleIdx() {
+    const i = (selectedDir === 'reduce') ? redIdx : incIdx;
+    row.setAttribute('data-rule-idx', String(i));
+  }
+  function clearRowInvalid() {
+    row.classList.remove('invalid');
+    const e = row.querySelector('.mf-row-error-msg');
+    if (e) e.remove();
+  }
+  function pushLive() {
+    subRef.liveValues[String(incIdx)] = {
+      value: (selectedDir === 'increase') ? { enabled: true, value: currentValue } : { enabled: false, value: null },
+      cost:  (selectedDir === 'increase') ? incCost : 0,
+    };
+    subRef.liveValues[String(redIdx)] = {
+      value: (selectedDir === 'reduce') ? { enabled: true, value: currentValue } : { enabled: false, value: null },
+      cost:  (selectedDir === 'reduce') ? redCost : 0,
+    };
+    updateRunningTotal();
+  }
+  function drawInputArea() {
+    if (selectedDir === 'none') { areaEl.innerHTML = ''; return; }
+    const cfg = cfgFor(selectedDir);
+    const cost = costFor(selectedDir);
+    const valAttr = (currentValue !== null) ? ('value="' + currentValue + '"') : '';
+    const costHtml = cost > 0 ? '<div class="mf04-cost">+$' + cost.toFixed(2) + '</div>' : '';
+    areaEl.innerHTML =
+      '<label class="mf04-input-label">' + esc(cfg.inputLabel) + ':</label>' +
+      '<div class="mf04-input-row">' +
+        '<input type="number" class="mf04-number" ' + valAttr +
+          ' min="' + cfg.min + '" max="' + cfg.max + '" step="' + cfg.step + '" placeholder="—" />' +
+        '<span class="mf04-unit">' + esc(cfg.unit) + '</span>' +
+      '</div>' +
+      '<div class="mf04-range">Allowed: ' + cfg.min + ' – ' + cfg.max + '</div>' +
+      costHtml;
+    const numEl = areaEl.querySelector('.mf04-number');
+    if (numEl) {
+      numEl.addEventListener('input', function (e) {
+        const raw = e.target.value;
+        currentValue = (raw === '') ? null : (isNaN(parseFloat(raw)) ? null : parseFloat(raw));
+        clearRowInvalid();
+        pushLive();
+      });
+    }
+  }
+
+  selectEl.addEventListener('change', function (e) {
+    selectedDir = e.target.value;
+    currentValue = null;     // 方向不同 range 不同 → 清空
+    clearRowInvalid();
+    syncRowRuleIdx();
+    drawInputArea();
+    pushLive();
+  });
+
+  // 兩個 adapter,共用同一 controller
+  function getValueFor(dir) { return (selectedDir === dir) ? { enabled: true, value: currentValue } : { enabled: false, value: null }; }
+  function validateFor(dir) {
+    if (selectedDir !== dir) return { valid: true, errors: [] };
+    const cfg = cfgFor(dir);
+    if (currentValue === null || isNaN(currentValue)) return { valid: false, errors: ['Please enter a value.'] };
+    if (currentValue < cfg.min) return { valid: false, errors: ['Value must be at least ' + cfg.min + '.'] };
+    if (currentValue > cfg.max) return { valid: false, errors: ['Value must not exceed ' + cfg.max + '.'] };
+    return { valid: true, errors: [] };
+  }
+  function calcCostFor(dir) { return (selectedDir === dir) ? costFor(dir) : 0; }
+
+  let destroyed = false;
+  function destroyController() {
+    if (destroyed) return;
+    destroyed = true;
+    if (elementDiv) elementDiv.innerHTML = '';
+  }
+  function makeAdapter(dir) {
+    return {
+      getValue:      function () { return getValueFor(dir); },
+      validate:      function () { return validateFor(dir); },
+      calculateCost: function () { return calcCostFor(dir); },
+      destroy:       destroyController,
+    };
+  }
+
+  subRef.instances.push({
+    rule_idx: incIdx, mf_code: 'MF04', display_label: incRule.display_label || 'Increase Depth',
+    container: elementDiv, instance: makeAdapter('increase'),
+    isReadOnly: false, isVirtual: false, binding_group: null, binding_role: null, lock_reason: 'Required',
+  });
+  subRef.instances.push({
+    rule_idx: redIdx, mf_code: 'MF04', display_label: redRule.display_label || 'Reduce Depth',
+    container: elementDiv, instance: makeAdapter('reduce'),
+    isReadOnly: false, isVirtual: false, binding_group: null, binding_role: null, lock_reason: 'Required',
+  });
+
+  syncRowRuleIdx();
+  drawInputArea();
+  pushLive();
+  return true;
+}
+
 function renderMfElements(rules, savedByIdx, subRef) {
   const wrap = document.getElementById('mfElementsContainer');
   savedByIdx = savedByIdx || {};
@@ -2492,6 +2852,12 @@ function renderMfElements(rules, savedByIdx, subRef) {
   let hiddenCount   = 0;
   let skippedCount  = 0;
 
+  // CB-5 需求5: 偵測 MF04 Increase/Reduce 成對
+  const mf04Indices = [];
+  rules.forEach(function (r, i) { if (r && r.mf_code === 'MF04') mf04Indices.push(i); });
+  const mf04Pair = (mf04Indices.length === 2) ? mf04Indices : null;
+  let mf04CombinedDone = false;
+
   rules.forEach(function (rule, idx) {
     const mfCode = rule.mf_code;
     const savedEntry = savedByIdx[idx] || null;
@@ -2500,10 +2866,20 @@ function renderMfElements(rules, savedByIdx, subRef) {
       && !rule.allowed_roles.some(function (r) { return (r || '').toLowerCase() === 'dealer'; });
     const isDealerViewingAdminMod = isAdminOnly && effectiveRole === 'dealer' && savedEntry;
 
-    if (isDealerViewingAdminMod) {
+  if (isDealerViewingAdminMod) {
       const wasRendered = renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef);
       if (wasRendered) readOnlyCount++; else hiddenCount++;
       return;
+    }
+
+    // CB-5 需求5: MF04 成對 → 合併單一 dropdown(第一條 render,第二條跳過)
+    if (mf04Pair && idx === mf04Pair[1] && mf04CombinedDone) {
+      return;  // 第二條已併入合併 UI
+    }
+    if (mf04Pair && idx === mf04Pair[0]) {
+      const ok = renderMf04Combined(wrap, rules, savedByIdx, subRef, mf04Pair);
+      if (ok) { mf04CombinedDone = true; renderedCount++; return; }
+      // 判方向失敗 → 落到下方原本獨立元件路徑
     }
 
     if (!window.MF || !window.MF[mfCode] || typeof window.MF[mfCode].create !== 'function') {
