@@ -275,6 +275,12 @@
       padding: 1px 0;
     }
     .mods-list .mod-line .mod-bullet { color: var(--gold); margin-right: 4px; }
+    .mods-list .mod-material {
+      font-size: 11px;
+      color: var(--green-mid);
+      line-height: 1.4;
+      padding: 0 0 1px 14px;
+    }
     .mods-list .mod-line .mod-note-ref {
       color: #E07B39;
       font-style: italic;
@@ -801,7 +807,9 @@ function formatModValue(v) {
 function calcPerSubModCost(sub) {
   const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
   return mods.reduce(function (s, m) {
-    var c = parseFloat(m && m.cost);
+    var c  = parseFloat(m && m.cost);
+    var mt = parseFloat(m && m.material_cost);   // CB-6: 加材料(per-unit)
+    return s + (isNaN(c) ? 0 : c) + (isNaN(mt) ? 0 : mt);
     return s + (isNaN(c) ? 0 : c);
   }, 0);
 }
@@ -810,7 +818,9 @@ function calcPerSubTaxableModCost(sub) {
   const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
   return mods.reduce(function (s, m) {
     if (!m || m.tax_status !== true) return s;
-    var c = parseFloat(m.cost);
+    var c  = parseFloat(m.cost);
+    var mt = parseFloat(m.material_cost);   // CB-6: 課稅 mod 才把材料計入稅基
+    return s + (isNaN(c) ? 0 : c) + (isNaN(mt) ? 0 : mt);
     return s + (isNaN(c) ? 0 : c);
   }, 0);
 }
@@ -969,12 +979,22 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
         label:      label,
         content:    formatModValue(m.value) || '(no detail)',
       });
-      return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
+      return `<div class="mod-line">${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
     }
 
     const value = formatModValue(m.value);
     const valStr = value ? `: ${escapeHtml(value)}` : '';
-    return `<div class="mod-line"><span class="mod-bullet">◆</span>${escapeHtml(label)}${valStr}</div>`;
+    // CB-6: 材料子行  N × MappingSKU: $Material  (N = mapping_qty × sub.qty)
+    let matHtml = '';
+    const _mq = parseInt(m.mapping_qty, 10) || 0;
+    if (m.mapping_sku && _mq > 0) {
+      const _subQty   = parseInt(sub.qty, 10) || 0;
+      const _mc       = parseFloat(m.material_cost);
+      const _n        = _mq * _subQty;
+      const _matTotal = (isNaN(_mc) ? 0 : _mc) * _subQty;
+      matHtml = `<div class="mod-material">${_n} × ${escapeHtml(m.mapping_sku)}: $${_matTotal.toFixed(2)}</div>`;
+    }
+    return `<div class="mod-line">${escapeHtml(label)}${valStr}</div>${matHtml}`;
   });
 
   return `<div class="mods-list">${lines.join('')}</div>`;
