@@ -299,13 +299,17 @@
     }
     .sku-sort-select:focus { border-color: var(--green-mid); }
 
-    /* ── CB-5: Lead time badge on door card (top-left of image) ── */
-    .lead-time-badge {
-      position: absolute; top: 6px; left: 6px; z-index: 2;
-      background: rgba(62,90,66,0.92); color: #fff;
-      font-size: 8px; font-weight: 600; letter-spacing: 0.06em;
-      padding: 3px 6px; border-radius: 2px; line-height: 1.1; white-space: nowrap;
+    /* ── CB-5: Lead time row ABOVE door image ── */
+    .lead-time-row {
+      font-size: 9px; font-weight: 600; letter-spacing: 0.04em;
+      color: var(--green-dark);
+      padding: 5px 8px; line-height: 1.2;
+      border-bottom: 1px solid var(--border);
+      background: rgba(62,90,66,0.05);
+      text-align: center; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
     }
+    .lead-time-row .lt-label { color: var(--muted); font-weight: 500; }
 
     /* ── CB-5: Non-stock note below door image ── */
     .nonstock-note {
@@ -1858,19 +1862,19 @@ function renderStyleList() {
     const badge = isComingSoon
       ? `<div style="position:absolute;top:6px;right:6px;background:var(--green-dark,#1b3022);color:#fff;font-size:8px;letter-spacing:0.1em;padding:3px 6px;border-radius:2px;font-weight:600;text-transform:uppercase;z-index:2;">Coming Soon</div>`
       : '';
-    // CB-5 需求1: per-door lead time badge (top-left of image)
-    const leadBadge = isComingSoon
+    // CB-5 需求1: per-door lead time row ABOVE the image, prefixed "Lead Time:"
+    const leadRow = isComingSoon
       ? ''
-      : `<div class="lead-time-badge">${leadTimeForDoor(s.construction_type, s.is_stock)}</div>`;
+      : `<div class="lead-time-row"><span class="lt-label">Lead Time:</span> ${leadTimeForDoor(s.construction_type, s.is_stock)}</div>`;
     // CB-5 需求2 階段1: non-stock advisory note below image (frameless is_stock=false 自動涵蓋)
     const nonStockNote = (!isComingSoon && s.is_stock === false)
       ? `<div class="nonstock-note">${NONSTOCK_NOTE_TEXT}</div>`
       : '';
     return `
       <div class="${cardClass}"${cardStyle} ${onClick}>
+        ${leadRow}
         <div class="style-img-card-img-wrap" style="position:relative;">
           ${badge}
-          ${leadBadge}
           ${s.image_url
             ? `<img src="${s.image_url}" alt="${s.style_name}" loading="lazy"/>`
             : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/></svg>`
