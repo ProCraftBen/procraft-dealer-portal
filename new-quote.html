@@ -822,6 +822,9 @@
     if (addBtn) addBtn.style.display = 'none';
     const newForm = document.getElementById('newAddressForm');
     if (newForm) newForm.style.display = 'none';
+    // CB-4 fix: viewMode 此時已是 'review',重繪地址卡讓它套上唯讀樣式
+    // (移除 Edit/Delete/Set Default、加上 .readonly)
+    renderAddresses();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
