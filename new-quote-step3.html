@@ -51,8 +51,36 @@
       color: #E07B39;
       margin-bottom: 4px;
     }
-    .returned-revising-banner .rrb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
+.returned-revising-banner .rrb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
     .returned-revising-banner .rrb-msg strong { color: #E07B39; }
+
+    /* CB-4: admin-edit banner (admin editing a dealer's PO) */
+    .admin-editing-banner {
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-left: 4px solid var(--gold);
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      display: flex; gap: 16px; align-items: flex-start;
+    }
+    .admin-editing-banner .aeb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(201,168,76,0.18);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .admin-editing-banner .aeb-icon-wrap svg { width: 16px; height: 16px; fill: var(--gold); }
+    .admin-editing-banner .aeb-body { flex: 1; min-width: 0; }
+    .admin-editing-banner .aeb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #8B6914; margin-bottom: 4px;
+    }
+    .admin-editing-banner .aeb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
+    .admin-editing-banner .aeb-msg strong { font-weight: 600; }
 
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
@@ -322,7 +350,62 @@
     .success-quote-num { font-size: 20px; color: var(--gold); font-weight: 500; margin-bottom: 16px; letter-spacing: 0.05em; }
     .success-msg { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 400px; margin-bottom: 32px; }
     .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
-    .btn-dashboard:hover { background: var(--green-mid); }
+.btn-dashboard:hover { background: var(--green-mid); }
+
+    /* CB-4: modal dialogs (Request Revision / Resubmit confirm) */
+    .cb4-modal {
+      position: fixed; inset: 0;
+      background: rgba(44,58,50,0.45);
+      backdrop-filter: blur(2px);
+      z-index: 700; display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .cb4-modal.show { display: flex; }
+    .cb4-modal-box {
+      background: var(--white);
+      border: 1px solid var(--border); border-radius: 6px;
+      width: 100%; max-width: 460px;
+      padding: 28px 26px 24px;
+      box-shadow: 0 12px 40px rgba(44,58,50,0.18);
+    }
+    .cb4-modal-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; font-weight: 400;
+      color: var(--green-dark); margin-bottom: 10px;
+    }
+    .cb4-modal-msg { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 18px; }
+    .cb4-modal-label {
+      display: block; font-size: 9px; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .cb4-modal-textarea {
+      width: 100%; min-height: 110px; resize: vertical;
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 10px 12px;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text);
+      line-height: 1.5; outline: none;
+    }
+    .cb4-modal-textarea:focus { border-color: var(--green-dark); }
+    .cb4-modal-error { font-size: 12px; color: var(--error); margin-top: 8px; display: none; }
+    .cb4-modal-error.show { display: block; }
+    .cb4-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .cb4-modal-btn {
+      border-radius: 3px; padding: 11px 22px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.2s; min-height: 44px;
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .cb4-modal-btn.cancel { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .cb4-modal-btn.cancel:hover { color: var(--text); border-color: var(--text); }
+    .cb4-modal-btn.confirm { background: var(--green-dark); color: #fff; border: none; }
+    .cb4-modal-btn.confirm:hover { background: var(--green-mid); }
+    .cb4-modal-btn.confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+    .cb4-modal-btn .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    .cb4-modal-btn.loading .cb4-btn-label { display: none; }
+    .cb4-modal-btn.loading .spinner { display: block; }
 
     .progress-overlay {
       position: fixed; inset: 0;
@@ -561,10 +644,14 @@
         <span class="draft-btn-text">Save Draft</span>
         <div class="draft-spinner"></div>
       </button>
-      <button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
+<button class="btn-submit" id="btnSubmit" onclick="submitQuote()">
         <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
         <span class="btn-text" id="btnSubmitText">Submit Purchase Order</span>
         <div class="spinner"></div>
+      </button>
+      <button class="btn-submit" id="btnRequestRevision" onclick="openRevisionModal()" style="display:none;">
+        <svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+        <span>Request Revision</span>
       </button>
     </div>
   </div>
@@ -611,9 +698,50 @@
     Your quote has been saved as a draft.<br>
     You can find it in My Quotes and continue editing anytime.
   </div>
-  <button class="btn-dashboard" onclick="window.location.href='quotes.html'">
+<button class="btn-dashboard" onclick="window.location.href='quotes.html'">
     View My Quotes
   </button>
+</div>
+
+<!-- CB-4: Request Revision modal (admin-edit mode) -->
+<div class="cb4-modal" id="revisionModal">
+  <div class="cb4-modal-box">
+    <div class="cb4-modal-title">Request Revision</div>
+    <div class="cb4-modal-msg">
+      Your changes will be saved and this Purchase Order will be sent back to the dealer
+      for review. Add a note explaining what changed or what the dealer should check.
+    </div>
+    <label class="cb4-modal-label" for="revisionNote">Revision Note</label>
+    <textarea class="cb4-modal-textarea" id="revisionNote"
+      placeholder="e.g. Updated door style on 3 line items and adjusted quantities — please review and resubmit."></textarea>
+    <div class="cb4-modal-error" id="revisionModalError"></div>
+    <div class="cb4-modal-actions">
+      <button class="cb4-modal-btn cancel" id="revisionCancelBtn" onclick="closeRevisionModal()">Cancel</button>
+      <button class="cb4-modal-btn confirm" id="revisionSendBtn" onclick="sendRevision()">
+        <span class="cb4-btn-label">Send to Dealer</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CB-4: Resubmit confirm modal (dealer review mode) -->
+<div class="cb4-modal" id="resubmitModal">
+  <div class="cb4-modal-box">
+    <div class="cb4-modal-title">Resubmit Purchase Order</div>
+    <div class="cb4-modal-msg">
+      Please confirm you have reviewed the revised Purchase Order. Resubmitting sends it
+      back to the ProCraft team for processing and generates an updated PDF.
+    </div>
+    <div class="cb4-modal-error" id="resubmitModalError"></div>
+    <div class="cb4-modal-actions">
+      <button class="cb4-modal-btn cancel" id="resubmitCancelBtn" onclick="closeResubmitModal()">Cancel</button>
+      <button class="cb4-modal-btn confirm" id="resubmitConfirmBtn" onclick="confirmResubmit()">
+        <span class="cb4-btn-label">Confirm &amp; Resubmit</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -642,6 +770,36 @@ let _isAdminContext         = false;
 let _existingLogisticType = null;
 let _existingShippingCost = null;
 let _existingSubtotal     = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-4: view-mode model (sync with new-quote.html / step2 / modifications)
+//   'normal'      — dealer creating/editing own Draft, or new quote
+//   'admin-draft' — admin creating a quote on a dealer's behalf (adminDraft=1)
+//   'admin-edit'  — admin editing a dealer's Pending/Returned PO
+//   'review'      — dealer reviewing a returned PO (read-only; can only resubmit)
+// admin-draft is layered on top in init() (not produced by resolveViewMode).
+// ─────────────────────────────────────────────────────────────────────────────
+let viewMode      = 'normal';
+let isAdminViewer = false;
+function isReviewLocked() { return viewMode === 'review'; }
+
+function resolveViewMode(status, isOwner, isAdmin) {
+  if (!status) return 'normal';
+  if (status === 'Returned') {
+    if (isAdmin && !isOwner) return 'admin-edit';
+    if (isOwner) return 'review';
+    if (isAdmin) return 'admin-edit';
+    return 'review';
+  }
+  if (status === 'Pending') return isAdmin ? 'admin-edit' : 'normal';
+  return 'normal';
+}
+
+function buildModeParam() {
+  if (viewMode === 'admin-edit') return '&mode=admin-edit';
+  if (viewMode === 'review')     return '&mode=review';
+  return '';
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // F-PROMOTIONS (2026-05-21) — Module-level campaign config.
@@ -833,7 +991,38 @@ function buildReturnedBannerStep3(roleMsg) {
       </div>
       <div class="rrb-body">
         <div class="rrb-title">Revising — Revision Requested</div>
-        <div class="rrb-msg">${roleMsg}</div>
+<div class="rrb-msg">${roleMsg}</div>
+      </div>
+    </div>`;
+}
+
+// CB-4: review banner (dealer reviewing a returned PO — read-only)
+function buildReviewBanner() {
+  return `
+    <div class="returned-revising-banner">
+      <div class="rrb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+      </div>
+      <div class="rrb-body">
+        <div class="rrb-title">Reviewing Revised Purchase Order</div>
+        <div class="rrb-msg">You are reviewing your revised Purchase Order. Details are shown for review only and cannot be changed here — confirm and resubmit below.</div>
+      </div>
+    </div>`;
+}
+
+// CB-4: admin-edit banner (admin editing a dealer's PO)
+function buildAdminEditBanner(ownerDealer) {
+  const name = ownerDealer
+    ? (ownerDealer.company_name || ownerDealer.contact_name || '—')
+    : '—';
+  return `
+    <div class="admin-editing-banner">
+      <div class="aeb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+      <div class="aeb-body">
+        <div class="aeb-title">Editing Dealer's Purchase Order</div>
+        <div class="aeb-msg">You are editing the Purchase Order belonging to <strong>${name}</strong>. Changes are buffered locally and only saved when you click <strong>Request Revision</strong> below.</div>
       </div>
     </div>`;
 }
@@ -1137,7 +1326,9 @@ async function init() {
 
   const isAdminRole = meRow?.role === 'admin' || meRow?.role === 'super_admin';
 
-  let dealerIdToLoad = session.user.id;
+let dealerIdToLoad = session.user.id;
+  let quoteStatus    = null;   // CB-4: server-side status drives viewMode
+  let quoteOwnerId   = null;   // CB-4: quote owner for isOwner check
   if (draftId) {
     const { data: q } = await _supabase
       .from('quotes')
@@ -1145,6 +1336,8 @@ async function init() {
       .eq('id', draftId).single();
     if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
     if (q) {
+      quoteStatus            = q.status || null;
+      quoteOwnerId           = q.dealer_id || null;
       _currentRevisionNumber = q.revision_number || 1;
       _existingPoNumber      = q.po_number || null;
       _existingLogisticType  = q.logistic_type || null;
@@ -1159,6 +1352,15 @@ async function init() {
   } else if (step1Data.dealerIdForQuote) {
     dealerIdToLoad = step1Data.dealerIdForQuote;
   }
+
+  // CB-4: resolve view mode from server data (status + owner + role).
+  // admin-draft is param-driven (not status-driven), so layer it on top.
+  isAdminViewer = isAdminRole;
+  const isOwner = quoteOwnerId && quoteOwnerId === session.user.id;
+  viewMode = resolveViewMode(quoteStatus, isOwner, isAdminRole);
+  const adminDraftMode = (adminDraft || step1Data.adminDraft);
+  if (adminDraftMode && viewMode === 'normal') viewMode = 'admin-draft';
+  console.log('[CB-4] step3 viewMode:', { viewMode, quoteStatus, isAdminRole, isOwner, adminDraftMode });
 
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
@@ -1179,39 +1381,62 @@ async function init() {
     shippingAddress = addr;
   }
 
-  if (draftId) {
-    document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId;
-    document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId;
-    document.getElementById('editStep2Link').href     = 'new-quote-modifications.html?draft=' + draftId;
-    document.getElementById('backToStep2').href       = 'new-quote-modifications.html?draft=' + draftId;
+if (draftId) {
+    const mp = buildModeParam();  // CB-4: carry mode across step navigation
+    document.getElementById('editStep1Link').href     = 'new-quote.html?draft=' + draftId + mp;
+    document.getElementById('editStep1LinkShip').href = 'new-quote.html?draft=' + draftId + mp;
+    document.getElementById('editStep2Link').href     = 'new-quote-modifications.html?draft=' + draftId + mp;
+    document.getElementById('backToStep2').href       = 'new-quote-modifications.html?draft=' + draftId + mp;
   }
 
-  const isAdminDraftMode = (adminDraft || step1Data.adminDraft);
-  _isAdminContext = isAdminDraftMode || (_isResumingReturned && isAdminRole);
+  // ───────────────────────────────────────────────────────────────────────────
+  // CB-4: drive banner + action buttons + read-only by viewMode.
+  //   normal       → Submit PO + Save as Quote (default HTML state)
+  //   admin-draft  → hide Submit, Save as Quote only (admin builds for dealer)
+  //   admin-edit   → hide Submit + Save, show Request Revision
+  //   review       → Resubmit PO only, read-only (hide Edit links + Save)
+  // Note: _isResumingReturned (engine flag) is left untouched — it still drives
+  // submitQuote / PDF / revision_number exactly as before.
+  // ───────────────────────────────────────────────────────────────────────────
+  const elBtnSubmit  = document.getElementById('btnSubmit');
+  const elBtnDraft   = document.getElementById('btnDraft');
+  const elBtnRev     = document.getElementById('btnRequestRevision');
+  const elSubmitNote = document.getElementById('submitNote');
+  const elDraftBan   = document.getElementById('draftBanner');
 
-  if (_isResumingReturned) {
-    document.getElementById('draftBanner').style.display = 'none';
-    const roleMsg = isAdminRole
-      ? '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.'
-      : 'You are revising a returned quote. <strong>Submit</strong> to resubmit, or <strong>Save Draft</strong> to keep working later.';
-    document.getElementById('returnedBannerMount').innerHTML = buildReturnedBannerStep3(roleMsg);
+  if (viewMode === 'admin-edit') {
+    document.getElementById('returnedBannerMount').innerHTML = buildAdminEditBanner(dealer);
+    elDraftBan.style.display  = 'none';
+    elBtnSubmit.style.display = 'none';
+    elBtnDraft.style.display  = 'none';
+    elBtnRev.style.display    = 'inline-flex';
+    elSubmitNote.innerHTML =
+      'Review the changes, then send this Purchase Order back to the dealer for confirmation.';
 
-    if (isAdminRole) {
-      document.getElementById('btnSubmit').style.display = 'none';
-      document.getElementById('submitNote').innerHTML =
-        'Save changes as a draft. The dealer will review and submit when ready.';
-    } else {
-      document.getElementById('btnSubmitText').textContent = 'Resubmit Purchase Order';
-      document.getElementById('submitNote').innerHTML =
-        'Please review your changes carefully before resubmitting.<br>You can also save as a draft to continue later.';
-    }
-  } else if (isAdminDraftMode) {
-    document.getElementById('btnSubmit').style.display = 'none';
-    document.getElementById('draftBanner').style.display = 'flex';
+  } else if (viewMode === 'review') {
+    document.getElementById('returnedBannerMount').innerHTML = buildReviewBanner();
+    elDraftBan.style.display = 'none';
+    elBtnDraft.style.display = 'none';   // no Save in review
+    elBtnRev.style.display   = 'none';
+    document.getElementById('btnSubmitText').textContent = 'Resubmit Purchase Order';
+    elBtnSubmit.onclick = openResubmitModal;   // CB-4: confirm before resubmit
+    elSubmitNote.innerHTML =
+      'Please review your revised Purchase Order carefully, then resubmit when ready.';
+    // read-only: hide the three Edit links (Markup % stays usable)
+    ['editStep1Link','editStep1LinkShip','editStep2Link'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+
+  } else if (viewMode === 'admin-draft') {
+    elBtnSubmit.style.display = 'none';
+    elDraftBan.style.display  = 'flex';
     document.getElementById('draftBannerText').innerHTML =
-      '<strong>Admin mode</strong> — Use <strong>Save Draft</strong> only. The dealer will review and submit this quote.';
+      '<strong>Admin mode</strong> — Use <strong>Save as Quote</strong> only. The dealer will review and submit this quote.';
+
   } else if (draftId) {
-    document.getElementById('draftBanner').style.display = 'flex';
+    // normal mode, editing an existing draft
+    elDraftBan.style.display = 'flex';
   }
 
   renderReview();
@@ -2273,9 +2498,283 @@ async function submitQuote() {
     btn.classList.remove('loading');
     btn.disabled = false;
     errMsg.textContent = err.message || 'Something went wrong. Please try again.';
-    errMsg.classList.add('show');
+errMsg.classList.add('show');
     window.scrollTo(0,0);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-4: Request Revision (admin-edit mode)
+//   Admin's edits live in sessionStorage. "Request Revision" snapshots
+//   them to DB (status=Returned + return_reason), regenerates the revised
+//   PDFs, and emails the dealer to review & resubmit.
+//   revision_number is NOT bumped here — the dealer's Resubmit bumps it.
+// ═══════════════════════════════════════════════════════════════════
+function openRevisionModal() {
+  const err = document.getElementById('revisionModalError');
+  err.textContent = ''; err.classList.remove('show');
+  document.getElementById('revisionSendBtn').classList.remove('loading');
+  document.getElementById('revisionSendBtn').disabled = false;
+  document.getElementById('revisionCancelBtn').disabled = false;
+  document.getElementById('revisionModal').classList.add('show');
+  const ta = document.getElementById('revisionNote');
+  setTimeout(function () { ta.focus(); }, 50);
+}
+
+function closeRevisionModal() {
+  // block closing while a send is in flight
+  if (document.getElementById('revisionSendBtn').classList.contains('loading')) return;
+  document.getElementById('revisionModal').classList.remove('show');
+}
+
+function sendRevision() {
+  const note = (document.getElementById('revisionNote').value || '').trim();
+  const err  = document.getElementById('revisionModalError');
+  if (!note) {
+    err.textContent = 'Please enter a revision note for the dealer.';
+    err.classList.add('show');
+    return;
+  }
+  err.classList.remove('show');
+  requestRevision(note);
+}
+
+async function requestRevision(note) {
+  const sendBtn   = document.getElementById('revisionSendBtn');
+  const cancelBtn = document.getElementById('revisionCancelBtn');
+  const errEl     = document.getElementById('revisionModalError');
+  sendBtn.classList.add('loading'); sendBtn.disabled = true; cancelBtn.disabled = true;
+
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const dealerId = await resolveDealerId(session);   // returns the quote OWNER, not admin
+
+    // ── financials (identical to submitQuote) ──
+    const skuSubtotal         = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+    const modsSubtotal        = calcTotalModsCost(step2Data);
+    const taxableModsSubtotal = calcTaxableModsCost(step2Data);
+    const assembleTotal       = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+
+    const promoResult   = calculatePromotionDiscount(step2Data);
+    const promoDiscount = promoResult.totalDiscount;
+
+    const skuAfterDiscount = skuSubtotal - promoDiscount;
+    const taxBase     = skuAfterDiscount + taxableModsSubtotal;
+    const billingBase = skuAfterDiscount + modsSubtotal;
+
+    const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+    const logisticType = step1Data.logisticType || 'pickup';
+    const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
+
+    const shippingForDb = resolveShippingForDb({
+      newLogistic:    logisticType,
+      newSubtotal:    billingBase,
+      newDeliveryFee: deliveryFee,
+      isResuming:     _isResumingReturned,
+    });
+    const shippingForTotal  = (shippingForDb === null) ? 0 : shippingForDb;
+    const shippingCostWrite = (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2));
+
+    const tax   = taxBase * taxRate;
+    const grand = billingBase + assembleTotal + shippingForTotal + tax;
+
+    // ── resolve PO# / quote_number (admin-edit always has an existing draft) ──
+    let poNumber = _existingPoNumber;
+    let quoteNum;
+    if (!poNumber) {
+      const { data: q } = await _supabase
+        .from('quotes').select('po_number, quote_number').eq('id', draftId).single();
+      poNumber = q?.po_number; quoteNum = q?.quote_number;
+    } else {
+      const { data: q } = await _supabase
+        .from('quotes').select('quote_number').eq('id', draftId).single();
+      quoteNum = q?.quote_number;
+    }
+    if (!poNumber) throw new Error('PO number missing — cannot request revision.');
+
+    // ── write DB: snapshot edits, send back to dealer (status=Returned) ──
+    const updatePayload = {
+      dealer_id:           dealerId,
+      job_name:            step1Data.jobName,
+      po_number:           poNumber,
+      shipping_address_id: step1Data.shippingAddressId || null,
+      status:              'Returned',        // CB-4: send back to dealer
+      return_reason:       note,              // CB-4: revision note
+      notes:               step1Data.notes || null,
+      logistic_type:       logisticType,
+      delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
+      subtotal:            parseFloat(skuSubtotal.toFixed(2)),
+      assemble_total:      parseFloat(assembleTotal.toFixed(2)),
+      shipping_cost:       shippingCostWrite,
+      tax_amount:          parseFloat(tax.toFixed(2)),
+      grand_total:         parseFloat(grand.toFixed(2)),
+      quote_number:        quoteNum,
+      // revision_number intentionally NOT changed — dealer's Resubmit bumps it.
+    };
+
+    const { error: updateError } = await _supabase
+      .from('quotes').update(updatePayload).eq('id', draftId);
+    if (updateError) throw updateError;
+    await _supabase.from('quote_items').delete().eq('quote_id', draftId);
+    const { error: itemsError } = await _supabase
+      .from('quote_items').insert(buildItemsPayload(draftId));
+    if (itemsError) throw itemsError;
+
+    // ── regenerate revised PDFs (no markup) ──
+    const quoteDataForPdf = buildQuoteDataForPdf({ shippingCostOverride: shippingCostWrite, markupPercent: 0 });
+    quoteDataForPdf.po_number = poNumber;
+    const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress);
+    const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0 });
+    const pdfA = packingDoc.output('datauristring').split(',')[1];
+    const pdfB = invoiceDoc.output('datauristring').split(',')[1];
+
+    const pdfRevisionNumber = _currentRevisionNumber || 1;
+    const packingFilename = ProCraftPDF.getPdfFilename('packing-list', { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
+    const invoiceFilename = ProCraftPDF.getPdfFilename('invoice',      { poNumber: poNumber, revisionNumber: pdfRevisionNumber });
+
+    let shippingAddressPayload = null;
+    if (logisticType === 'pickup') {
+      shippingAddressPayload = { mode: 'pickup' };
+    } else if (step1Data.shippingMode === 'same') {
+      shippingAddressPayload = {
+        mode:           'same',
+        recipient_name: dealer.company_name,
+        address_line:   dealer.address_line1 || '',
+        address_line2:  dealer.address_line2 || null,
+        city:           dealer.city || '',
+        state:          dealer.state || '',
+        zip_code:       dealer.zip_code || dealer.zip || '',
+        phone:          dealer.phone || '',
+      };
+    } else if (shippingAddress) {
+      shippingAddressPayload = {
+        mode:           'different',
+        recipient_name: shippingAddress.recipient_name || '',
+        address_line:   shippingAddress.address_line || '',
+        address_line2:  shippingAddress.address_line2 || null,
+        city:           shippingAddress.city || '',
+        state:          shippingAddress.state || '',
+        zip_code:       shippingAddress.zip_code || '',
+        phone:          shippingAddress.phone || '',
+      };
+    }
+
+    // ── email dealer (reuse send-quote-email; flagged as a revision request) ──
+    // ⬇⬇⬇ If a DB trigger already emails on status→Returned, delete this fetch block. ⬇⬇⬇
+    const { data: { session: currentSession } } = await _supabase.auth.getSession();
+    await fetch(
+      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({
+          quote: {
+            id:                          draftId,
+            quote_number:                quoteNum,
+            po_number:                   poNumber,
+            job_name:                    step1Data.jobName,
+            logistic_type:               logisticType,
+            shipping_address:            shippingAddressPayload,
+            assemble_total:              assembleTotal.toFixed(2),
+            subtotal:                    skuSubtotal.toFixed(2),
+            modifications_total:         modsSubtotal.toFixed(2),
+            modifications_total_taxable: taxableModsSubtotal.toFixed(2),
+            tax_base:                    taxBase.toFixed(2),
+            shipping_cost:               (shippingCostWrite === null) ? null : shippingCostWrite.toFixed(2),
+            shipping_pending:            (shippingCostWrite === null),
+            tax_amount:                  tax.toFixed(2),
+            grand_total:                 grand.toFixed(2),
+            revision_number:             pdfRevisionNumber,
+            is_resubmit:                 false,
+            // CB-4: revision-request signals for the email template
+            is_revision_request:         true,
+            revision_note:               note,
+            promo_discount:              promoDiscount.toFixed(2),
+            promo_label:                 promoResult.appliedPromo ? promoResult.appliedPromo.label : null,
+            promo_id:                    promoResult.appliedPromo ? promoResult.appliedPromo.id : null,
+            promo_matched_count:         promoResult.matchedLineCount,
+            promo_matched_subtotal:      promoResult.matchedSubtotal.toFixed(2),
+          },
+          dealer: {
+            company_name:            dealer.company_name,
+            contact_name:            dealer.contact_name,
+            email:                   dealer.email,
+            secondary_email:         dealer.secondary_email || null,
+            secondary_email_notify:  dealer.secondary_email_notify || false,
+            optional_email_2:        dealer.optional_email_2 || null,
+            optional_email_2_notify: dealer.optional_email_2_notify || false,
+          },
+          items: step2Data.map(i => ({
+            style_code:   i.style_code,
+            style_name:   i.style_name || null,
+            sku_code:     i.sku_code,
+            sku_desc:     i.sku_desc || null,
+            sku_type:     i.skuType || null,
+            type:         i.type,
+            quantity:     i.quantity,
+            unit_price:   i.unit_price,
+            assemble_fee: i.assemble_fee || 0,
+            sub_groups:   getNormalizedSubGroups(i),
+            is_custom:    !!i.is_custom,
+          })),
+          attachments: [
+            { filename: packingFilename, content: pdfA, type: 'application/pdf' },
+            { filename: invoiceFilename, content: pdfB, type: 'application/pdf' },
+          ],
+        }),
+      }
+    );
+    // ⬆⬆⬆ end deletable email block ⬆⬆⬆
+
+    sessionStorage.removeItem('quoteStep1');
+    sessionStorage.removeItem('quoteStep2');
+
+    document.getElementById('revisionModal').classList.remove('show');
+    document.getElementById('successTitle').textContent = 'Revision Sent to Dealer';
+    document.getElementById('successMsg').innerHTML =
+      'The dealer has been notified to review the revised Purchase Order and resubmit.<br>' +
+      'A copy with the updated documents has been emailed to them.';
+    document.getElementById('successQuoteNum').textContent = poNumber;
+    document.getElementById('successOverlay').classList.add('show');
+
+  } catch (err) {
+    console.error(err);
+    sendBtn.classList.remove('loading');
+    sendBtn.disabled = false;
+    cancelBtn.disabled = false;
+    errEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errEl.classList.add('show');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-4: Resubmit confirm (dealer review mode)
+//   The dealer's main button opens this confirm modal; Confirm hands off
+//   to the existing submitQuote() resubmit engine (status Returned→Pending
+//   + revision_number bump + PDF + email).
+// ═══════════════════════════════════════════════════════════════════
+function openResubmitModal() {
+  const err = document.getElementById('resubmitModalError');
+  err.textContent = ''; err.classList.remove('show');
+  document.getElementById('resubmitConfirmBtn').classList.remove('loading');
+  document.getElementById('resubmitConfirmBtn').disabled = false;
+  document.getElementById('resubmitCancelBtn').disabled = false;
+  document.getElementById('resubmitModal').classList.add('show');
+}
+
+function closeResubmitModal() {
+  if (document.getElementById('resubmitConfirmBtn').classList.contains('loading')) return;
+  document.getElementById('resubmitModal').classList.remove('show');
+}
+
+function confirmResubmit() {
+  // hand off to the existing submitQuote() engine — it shows the progress
+  // overlay and runs the resubmit path (status Returned→Pending + PDF + email).
+  document.getElementById('resubmitModal').classList.remove('show');
+  submitQuote();
 }
 
 function updateMarkupPreview() {
