@@ -968,6 +968,69 @@
       font-style: normal;
       flex-shrink: 0;
     }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CB-4: Revision flow — admin-edit banner + review-mode locked visuals
+       (review = dealer reviewing a returned PO; everything is read-only,
+        dealer can only proceed to the modifications step)
+       ═══════════════════════════════════════════════════════════════ */
+    .admin-editing-banner {
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.35);
+      border-left: 4px solid var(--gold);
+      border-radius: 4px;
+      padding: 16px 22px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .admin-editing-banner .aeb-icon-wrap {
+      flex-shrink: 0;
+      width: 32px; height: 32px;
+      background: rgba(201,168,76,0.18);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 2px;
+    }
+    .admin-editing-banner .aeb-icon-wrap svg { width: 16px; height: 16px; fill: var(--gold); }
+    .admin-editing-banner .aeb-body { flex: 1; min-width: 0; }
+    .admin-editing-banner .aeb-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: #8B6914;
+      margin-bottom: 4px;
+    }
+    .admin-editing-banner .aeb-msg { font-size: 13px; color: #2C3A32; line-height: 1.55; }
+    .admin-editing-banner .aeb-msg strong { font-weight: 600; }
+
+    /* Review-mode locked visuals (override inline button styles where needed) */
+    .style-img-card.locked { cursor: default; }
+    .style-img-card.locked:hover { border-color: var(--border); transform: none; }
+    .btn-add:disabled {
+      background: #E5E5E5 !important;
+      color: #9CA3AF !important;
+      border: 1px solid #D4D4D4 !important;
+      cursor: not-allowed !important;
+    }
+    .qty-input:disabled {
+      background: var(--cream);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .qty-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .qty-btn:disabled:hover { border-color: var(--border); color: var(--text); }
+    .cart-item-edit-btn:disabled,
+    .btn-remove:disabled,
+    .ci-action-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .btn-add-custom:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -977,7 +1040,7 @@
 
 <div class="page">
 
-  <!-- Returned Banner mount point (populated by JS if applicable) -->
+  <!-- Returned / mode banner mount point (populated by JS if applicable) -->
   <div id="returnedBannerMount"></div>
 
   <!-- Brand Tabs: dynamic -->
@@ -1274,12 +1337,22 @@ let currentType  = 'RTA';
 let currentCat   = 'All';
 let cartItems    = [];
 let draftId      = null; // set if resuming a draft
-let isResumingReturned = false;
 
 // F-CUSTOM: role of the LOGGED-IN user (not the target dealer).
 // In admin "create as dealer" flow, `dealer` is the TARGET dealer
 // (for pricing), but `currentUserRole` stays as the admin's role.
 let currentUserRole = 'dealer';
+
+// ─────────────────────────────────────────────────────────────────────────
+// CB-4: revision-flow view mode (server-resolved, never trusts URL/sessionStorage).
+//   'normal'      — dealer building / editing own Draft
+//   'admin-draft' — admin creating a quote on behalf of a dealer
+//   'admin-edit'  — admin editing a dealer's Pending/Returned PO (revision flow)
+//   'review'      — dealer reviewing a returned PO (read-only; can only proceed)
+// resolveViewMode() runs in init() AFTER the quote status + owner are known.
+// ─────────────────────────────────────────────────────────────────────────
+let viewMode      = 'normal';
+let isAdminViewer = false;
 
 const colorMap = {
   black:'#2C2C2C', blue:'#3B5A8A', brown:'#7B5C3E',
@@ -1289,16 +1362,58 @@ const colorMap = {
 // open subcats by default
 const openSubcats = new Set();
 
-// ── Returned Banner builder (no reason in Step 2) ──
-function buildReturnedBannerSimple(roleMsg) {
+// ── CB-4: convenience guard ──
+function isReviewLocked() { return viewMode === 'review'; }
+
+// ─────────────────────────────────────────────────────────────────
+// CB-4: Resolve effective viewMode from quote status + viewer role.
+// Server data wins; URL ?mode= is only a hint (used for logging).
+// ─────────────────────────────────────────────────────────────────
+function resolveViewMode(status, isOwner, isAdmin, adminDraftFlag) {
+  if (!status) return adminDraftFlag ? 'admin-draft' : 'normal';
+
+  if (status === 'Returned') {
+    if (isAdmin && !isOwner) return 'admin-edit';
+    if (isOwner) return 'review';
+    if (isAdmin) return 'admin-edit';
+    return 'review';
+  }
+  if (status === 'Pending') {
+    if (isAdmin) return 'admin-edit';
+    return 'normal';  // dealer shouldn't reach Pending in Step 2; safety net
+  }
+  if (status === 'Draft') {
+    return adminDraftFlag ? 'admin-draft' : 'normal';
+  }
+  return 'normal';
+}
+
+// ── CB-4: mode banners ──
+function buildReviewBanner() {
   return `
     <div class="returned-revising-banner">
       <div class="rrb-icon-wrap">
-        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
       </div>
       <div class="rrb-body">
-        <div class="rrb-title">Revising Returned Quote</div>
-        <div class="rrb-msg">${roleMsg}</div>
+        <div class="rrb-title">Reviewing Revised Purchase Order</div>
+        <div class="rrb-msg">You are reviewing your revised Purchase Order. Products are locked for review — click Continue to review the modifications, then resubmit on the final step.</div>
+      </div>
+    </div>`;
+}
+
+function buildAdminEditBanner(ownerDealer) {
+  const name = ownerDealer
+    ? (ownerDealer.company_name || ownerDealer.contact_name || '—')
+    : '—';
+  return `
+    <div class="admin-editing-banner">
+      <div class="aeb-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </div>
+      <div class="aeb-body">
+        <div class="aeb-title">Editing Dealer's Purchase Order</div>
+        <div class="aeb-msg">You are editing the Purchase Order belonging to <strong>${name}</strong>. Changes are buffered locally and only saved when you click <strong>Request Revision</strong> on the final step.</div>
       </div>
     </div>`;
 }
@@ -1310,6 +1425,8 @@ async function init() {
   // Check for draft resume mode + admin draft mode
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
+  const urlModeHint = params.get('mode') || null;  // CB-4: hint only
+  let adminDraftFlag = params.get('adminDraft') === '1';
 
   // ── Step 1: Verify the logged-in user is active + capture role ──
   // F-CUSTOM: also pull `role` so we can show admin-only UI even when
@@ -1323,15 +1440,29 @@ async function init() {
     return;
   }
   currentUserRole = (meRow.role || 'dealer').toLowerCase();
+  isAdminViewer   = currentUserRole === 'admin' || currentUserRole === 'super_admin';
   console.log('[F-CUSTOM] currentUserRole =', currentUserRole);
 
-  // ── Step 2: Resolve which dealer's data to load (for pricing/fees/multipliers) ──
+  // adminDraft can also come from Step 1 sessionStorage
+  try {
+    const s1 = sessionStorage.getItem('quoteStep1');
+    if (s1) {
+      const parsed = JSON.parse(s1);
+      if (parsed?.adminDraft === true) adminDraftFlag = true;
+    }
+  } catch (_) {}
+
+  // ── Step 2: Resolve which dealer's data to load + the quote status/owner ──
   // Priority: Resume Draft (DB) > Admin Draft (sessionStorage hint) > current session
   let dealerIdToLoad = session.user.id;
+  let quoteStatus    = null;
+  let isOwner        = false;
   if (draftId) {
     const { data: q } = await _supabase
-      .from('quotes').select('dealer_id').eq('id', draftId).single();
+      .from('quotes').select('dealer_id, status').eq('id', draftId).single();
     if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
+    quoteStatus = q?.status || null;
+    isOwner     = !!q && q.dealer_id === session.user.id;
   } else {
     // Look for admin-draft hint in sessionStorage (set by step1)
     try {
@@ -1343,26 +1474,16 @@ async function init() {
     } catch (_) { /* ignore parse errors */ }
   }
 
-  // ── Detect Returned-revision flag from Step 1 ──
-  try {
-    const s1 = sessionStorage.getItem('quoteStep1');
-    if (s1) {
-      const parsed = JSON.parse(s1);
-      if (parsed?.isResumingReturned) {
-        isResumingReturned = true;
-      }
-    }
-  } catch (_) { /* ignore */ }
+  // ── CB-4: resolve effective view mode (server data wins) ──
+  viewMode = resolveViewMode(quoteStatus, isOwner, isAdminViewer, adminDraftFlag);
+  console.log('[CB-4] Step 2 viewMode resolved:', {
+    viewMode, urlModeHint, quoteStatus, isAdminViewer, isOwner, adminDraftFlag,
+  });
 
-  // Render banner if applicable
-  if (isResumingReturned) {
-    document.getElementById('returnedBannerMount').innerHTML =
-      buildReturnedBannerSimple('You are revising a returned quote. Continue editing items as needed.');
-    // Update Back link to preserve draft id
-    if (draftId) {
-      const backBtn = document.getElementById('btnBack');
-      if (backBtn) backBtn.href = 'new-quote.html?draft=' + draftId;
-    }
+  // Update Back link to preserve draft id + mode
+  if (draftId) {
+    const backBtn = document.getElementById('btnBack');
+    if (backBtn) backBtn.href = 'new-quote.html?draft=' + draftId + buildModeParam();
   }
 
   const { data:d } = await _supabase
@@ -1372,6 +1493,14 @@ async function init() {
     return;
   }
   dealer = d;
+
+  // ── CB-4: render the appropriate mode banner ──
+  const bannerMount = document.getElementById('returnedBannerMount');
+  if (bannerMount) {
+    if (viewMode === 'review') bannerMount.innerHTML = buildReviewBanner();
+    else if (viewMode === 'admin-edit') bannerMount.innerHTML = buildAdminEditBanner(dealer);
+    else bannerMount.innerHTML = '';
+  }
 
   const [s, framedRes, framelessRes] = await Promise.all([
     _supabase.from('door_styles').select('*')
@@ -1456,7 +1585,8 @@ async function init() {
   renderCart(); // renders badge + cart drawer correctly
 
   // F-CUSTOM v1.1: show entire Custom Items section for admin / super_admin
-  if (isAdminRole()) {
+  // (review mode is always a dealer, so this never shows there)
+  if (isAdminRole() && !isReviewLocked()) {
     const section = document.getElementById('customItemsSection');
     if (section) section.style.display = 'block';
     renderCustomItemsList();
@@ -1472,6 +1602,13 @@ async function init() {
       window.location.href = 'login.html';
     }
   }, 60000);
+}
+
+// ── CB-4: map viewMode → URL ?mode= fragment for forwarding ──
+function buildModeParam() {
+  if (viewMode === 'admin-edit') return '&mode=admin-edit';
+  if (viewMode === 'review')     return '&mode=review';
+  return '';
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1562,6 +1699,7 @@ function closeLightbox() {
 function filterStyles() { renderStyleList(); }
 
 function selectAndConfirm(code) {
+  if (isReviewLocked()) return;  // CB-4: read-only review — no style selection
   hoveredStyle = allStyles.find(s => s.style_code === code);
   if (!hoveredStyle) return;
   if (hoveredStyle.is_coming_soon) return;  // Coming Soon styles are not selectable
@@ -1631,12 +1769,15 @@ function renderStyleList() {
     return;
   }
 
+  // CB-4: in review mode, cards are non-interactive (no selection)
+  const locked = isReviewLocked();
+
   grid.innerHTML = filtered.map(s => {
     const sel = activeStyle && activeStyle.style_code === s.style_code;
     const isComingSoon = !!s.is_coming_soon;
-    const cardClass = `style-img-card${sel ? ' selected' : ''}${isComingSoon ? ' coming-soon' : ''}`;
+    const cardClass = `style-img-card${sel ? ' selected' : ''}${isComingSoon ? ' coming-soon' : ''}${locked ? ' locked' : ''}`;
     const cardStyle = isComingSoon ? ' style="cursor:not-allowed;"' : '';
-    const onClick = isComingSoon ? '' : `onclick="selectAndConfirm('${s.style_code}')"`;
+    const onClick = (isComingSoon || locked) ? '' : `onclick="selectAndConfirm('${s.style_code}')"`;
     const badge = isComingSoon
       ? `<div style="position:absolute;top:6px;right:6px;background:var(--green-dark,#1b3022);color:#fff;font-size:8px;letter-spacing:0.1em;padding:3px 6px;border-radius:2px;font-weight:600;text-transform:uppercase;z-index:2;">Coming Soon</div>`
       : '';
@@ -1697,6 +1838,7 @@ function previewStyle(code) {
 }
 
 function confirmStyle() {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   if (!hoveredStyle) return;
   activeStyle = hoveredStyle;
   currentCat = 'All';
@@ -1795,6 +1937,11 @@ function renderSkuTable() {
         ? '<span style="font-size:9px;background:rgba(22,163,74,0.1);color:#16A34A;border-radius:2px;padding:1px 5px;">STOCK</span>'
         : '<span style="font-size:9px;background:rgba(59,130,246,0.1);color:#3B82F6;border-radius:2px;padding:1px 5px;">NON-STOCK</span>');
 
+  // CB-4: disable add controls in review mode (defensive — selection is blocked
+  // upstream, so this table normally never renders during review)
+  const locked   = isReviewLocked();
+  const disAttr  = locked ? ' disabled' : '';
+
   wrap.innerHTML = `
     <table class="sku-table">
       <thead>
@@ -1816,7 +1963,7 @@ function renderSkuTable() {
           const typeTag   = sku.type
             ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;">${sku.type}</span>`
             : '—';
-          const asmButton = asmAvailable
+          const asmButton = (asmAvailable && !locked)
             ? `<button class="btn-add" onclick="addToCart('${sku.sku_code}','Assembled',${unitPrice},${asmFee})" style="background:rgba(201,168,76,0.15);color:#8B6914;border:1px solid rgba(201,168,76,0.4);">ASM</button>`
             : `<button class="btn-add" disabled title="Assembled service not available for this item type" style="background:#E5E5E5;color:#9CA3AF;border:1px solid #D4D4D4;cursor:not-allowed;">ASM</button>`;
           return `
@@ -1828,10 +1975,10 @@ function renderSkuTable() {
               <td style="font-size:12px;color:var(--muted);">${asmAvailable ? `$${asmFee.toFixed(2)}` : '—'}</td>
               <td>
                 <div class="td-actions">
-                  <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)">−</button>
-                  <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"/>
-                  <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)">+</button>
-                  <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;">RTA</button>
+                  <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)"${disAttr}>−</button>
+                  <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"${disAttr}/>
+                  <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)"${disAttr}>+</button>
+                  <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;"${disAttr}>RTA</button>
                   ${asmButton}
                 </div>
               </td>
@@ -1842,11 +1989,13 @@ function renderSkuTable() {
 }
 
 function chgQty(code, d) {
+  if (isReviewLocked()) return;  // CB-4
   const el = document.getElementById('qty-'+code);
   if (el) el.value = Math.max(0, parseInt(el.value||0)+d);
 }
 
 function addToCart(skuCode, type, unitPrice, assembledFee) {
+  if (isReviewLocked()) return;  // CB-4: read-only review — no adding
   const el  = document.getElementById('qty-'+skuCode);
   const qty = parseInt(el?.value||0);
   if (qty<=0) { showToast('Please enter a quantity first'); return; }
@@ -1900,6 +2049,7 @@ const key = `${activeStyle.style_code}-${skuCode}-${type}`;
 }
 
 function removeFromCart(key) {
+  if (isReviewLocked()) return;  // CB-4: read-only review — no removing
   cartItems=cartItems.filter(i=>i.key!==key);
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
@@ -1997,6 +2147,7 @@ function recomputeCustomAsmFee() {
 }
 
 function openCustomModal(editKey) {
+  if (isReviewLocked()) return;  // CB-4: read-only review — no custom items
   // Reset state
   customModalState = {
     type:         null,
@@ -2134,6 +2285,7 @@ function setCustomAsmStatus(s) {
 }
 
 function saveCustomItem() {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   // ── Validate common fields ──
   const skuCode    = document.getElementById('customSkuCode').value.trim();
   const skuDesc    = document.getElementById('customSkuDesc').value.trim();
@@ -2464,6 +2616,7 @@ function syncCartQtyToSubGroups(item, newQty) {
 }
 
 function onCartQtyChange(key, newValRaw) {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   const item = cartItems.find(function (i) { return i.key === key; });
   if (!item) return;
   let q = parseInt(newValRaw, 10);
@@ -2492,6 +2645,7 @@ function onCartQtyChange(key, newValRaw) {
 }
 
 function bumpCartQty(key, delta) {
+  if (isReviewLocked()) return;  // CB-4: read-only review
   const item = cartItems.find(function (i) { return i.key === key; });
   if (!item) return;
   const newQty = Math.max(1, (item.quantity || 1) + delta);
@@ -2514,21 +2668,33 @@ function renderCart() {
     return;
   }
 
+  // CB-4: in review mode, cart is read-only (no qty edit / remove / custom edit)
+  const locked = isReviewLocked();
+
   document.getElementById('cartBody').innerHTML = cartItems.map(function (item) {
     // F-CUSTOM: gold [CUSTOM] badge for hand-entered items
     const customBadge = item.is_custom
       ? '<span class="custom-badge">CUSTOM</span>'
       : '';
 
-    // F-CUSTOM: edit pencil (custom items only — admin can re-open modal)
-    const editBtn = item.is_custom
+    // F-CUSTOM: edit pencil (custom items only — admin can re-open modal).
+    // CB-4: hidden in review mode.
+    const editBtn = (item.is_custom && !locked)
       ? `<button class="cart-item-edit-btn" type="button"
             onclick="openCustomModal('${item.key}')"
             title="Edit custom item">✏</button>`
       : '';
 
-    // Cart qty inline: − [input] + (always editable per Ben's spec)
-    const qtyControls = `
+    // Cart qty inline: − [input] + (locked & disabled in review mode)
+    const qtyControls = locked
+      ? `
+      <div class="cart-item-qty-controls">
+        <button class="cart-qty-btn" type="button" disabled>−</button>
+        <input class="cart-qty-input" type="number" min="1" step="1"
+          value="${item.quantity}" disabled/>
+        <button class="cart-qty-btn" type="button" disabled>+</button>
+      </div>`
+      : `
       <div class="cart-item-qty-controls">
         <button class="cart-qty-btn" type="button"
           onclick="bumpCartQty('${item.key}', -1)"
@@ -2548,6 +2714,11 @@ function renderCart() {
       ? `${styleLabel} · ${item.sku_code}${customBadge}`
       : `${item.sku_code}${customBadge}`;
 
+    // CB-4: remove button disabled in review mode
+    const removeBtn = locked
+      ? `<button class="btn-remove" disabled>×</button>`
+      : `<button class="btn-remove" onclick="removeFromCart('${item.key}')">×</button>`;
+
     return `
     <div class="cart-item">
       <div class="cart-item-top">
@@ -2559,7 +2730,7 @@ function renderCart() {
         <div class="cart-item-right">
           <div class="cart-item-price">$${(item.unit_price * item.quantity).toFixed(2)}</div>
           ${editBtn}
-          <button class="btn-remove" onclick="removeFromCart('${item.key}')">×</button>
+          ${removeBtn}
         </div>
       </div>
     </div>`;
@@ -2606,7 +2777,11 @@ function showToast(msg) {
 function goNext() {
   if (!cartItems.length) return;
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
-  const nextUrl = draftId ? 'new-quote-modifications.html?draft=' + draftId : 'new-quote-modifications.html';
+  // CB-4: forward mode so review / admin-edit survives direct refresh on the next step
+  const modeParam = buildModeParam();
+  const nextUrl = draftId
+    ? 'new-quote-modifications.html?draft=' + draftId + modeParam
+    : 'new-quote-modifications.html';
   window.location.href = nextUrl;
 }
 
