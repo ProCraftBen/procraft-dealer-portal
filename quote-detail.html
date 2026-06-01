@@ -683,6 +683,38 @@ function shortStatus(s) {
   return STATUS_SHORT_MAP[key] || key.slice(0, 3);
 }
 
+// CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
+function formatAssembleStatus(v) {
+  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+}
+
+// CB-5 需求1: 整單 lead time(用 style_code join door_styles)
+// 任何 frameless → ~5 Weeks;全 framed 全 stock → ~3 Business Days;全 framed 有 non-stock → ~2 Weeks
+// 查不到門花色(custom / accessory / 停產)的 item 不納入判斷
+function calculateLeadTime(items, doorStyles) {
+  let anyFrameless = false, anyNonStock = false, anyKnown = false;
+  (items || []).forEach(function (it) {
+    if (!it || !it.style_code || !Array.isArray(doorStyles)) return;
+    const s = doorStyles.find(function (d) { return d.style_code === it.style_code; });
+    if (!s) return;
+    const ct = (s.construction_type || '').toLowerCase();
+    if (ct === 'frameless') { anyFrameless = true; anyKnown = true; }
+    else if (ct === 'framed') { anyKnown = true; if (s.is_stock !== true) anyNonStock = true; }
+  });
+  if (!anyKnown) return null;
+  if (anyFrameless) return '~5 Weeks';
+  return anyNonStock ? '~2 Weeks' : '~3 Business Days';
+}
+
+function buildLeadTimeHtml(items, doorStyles) {
+  const lt = calculateLeadTime(items, doorStyles);
+  if (!lt) return '';
+  return '<div style="margin-top:10px;text-align:right;">' +
+    '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">Estimated Lead Time</span>' +
+    '<span style="font-size:13px;font-weight:600;color:var(--green-mid);">' + escapeHtml(lt) + '</span></div>';
+}
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2 — Notes table configuration (aligned with new-quote-step3.html)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -693,6 +725,7 @@ const NOTES_TABLE_FALLBACK_LENGTH = 40;
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false;
 let _returnHistory = [];
 let _groupedItems = null; // F4.1 v2: items reconstructed into per-SKU sub_groups
+let _allDoorStyles = [];  // CB-5 需求1: door_styles 快取(整單 lead time)
 
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
@@ -1048,9 +1081,9 @@ function buildItemRowsHtml(groupedItems) {
           ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(shortType(item.sku_type))}</span>`
           : '';
 
-        // F-COL-ABBREVIATIONS: shortStatus for Asm Status col
+        // CB-5 需求3: Asm Status 顯示全字(RTA→Unassembled)
         const assembleStatusHtml = isFirstSub
-          ? `<span class="type-badge ${(item.assemble_status||'').toLowerCase()}">${escapeHtml(shortStatus(item.assemble_status))}</span>`
+          ? `<span class="type-badge ${(item.assemble_status||'').toLowerCase()}">${escapeHtml(formatAssembleStatus(item.assemble_status))}</span>`
           : '';
 
         const trClass = isFirstSub ? '' : 'sub-continuation';
@@ -1142,6 +1175,11 @@ async function init() {
 
   // F4.1 v2: reconstruct sub_groups from flat quote_items rows
   _groupedItems = reconstructGroupedItems(quote.quote_items || []);
+
+  // CB-5 需求1: 載入 door_styles(整單 lead time;quote_items 沒有 construction_type/is_stock)
+  const { data: styleRows } = await _supabase
+    .from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true);
+  _allDoorStyles = styleRows || [];
 
   // F-CUSTOM (Phase 5): debug log for custom item count
   const customCount = _groupedItems.filter(i => i.is_custom).length;
@@ -1261,6 +1299,9 @@ function renderQuote(quote, dealer, addr) {
   } else {
     itemsTableHtml = `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
   }
+
+  // CB-5 需求1: 整單 lead time(顯示在 items 表格正下方)
+  const leadTimeHtml = buildLeadTimeHtml(_groupedItems, _allDoorStyles);
 
   // ─────────────────────────────────────────────────────────────────────
   // F-TAX + F-PROMOTIONS: Calculate totals for display.
@@ -1546,6 +1587,8 @@ function renderQuote(quote, dealer, addr) {
           <tbody>${itemsTableHtml}</tbody>
         </table>
       </div>
+
+      ${leadTimeHtml}
 
       ${notesTableHtml}
 
