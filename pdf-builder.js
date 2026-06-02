@@ -559,13 +559,13 @@
   
       const isPacking  = (mode === 'packing-list');
       const showPrices = !isPacking;
-      const colCount   = isPacking ? 5 : 9;
+      const colCount   = isPacking ? 5 : 10;
   
       const groups = _groupByTypeOrdered(items);
   
       const head = isPacking
         ? [['Item#', 'SKU', 'Description', 'Qty', 'Assembled?']]
-        : [['Item#', 'SKU', 'Description', 'Qty', 'Assembled?',
+        : [['Item#', 'Tag', 'SKU', 'Description', 'Qty', 'Assembled?',
             'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
   
       const body = [];
@@ -597,6 +597,8 @@
             itemNum++;
             const isFirstSub = subIdx === 0;
             const subQty = parseInt(sub.qty, 10) || 0;
+            // CB-9: Tag 只在主行顯示,子項留空(僅 invoice / draft-quote 用)
+            const tagCell = isFirstSub ? (item.tag || '') : '';
   
             const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
             const subLabelLine = isSplit ? `\nSub ${subIdx + 1} of ${subs.length}` : '';
@@ -619,7 +621,7 @@
               const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
               const lineTotal     = (markedUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
               body.push([
-                `#${itemNum}`, skuCell, skuDesc, subQty, assembledCell,
+                `#${itemNum}`, tagCell, skuCell, skuDesc, subQty, assembledCell,
                 `$${markedUnitPrice.toFixed(2)}`,
                 modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
                 asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
@@ -639,15 +641,16 @@
             4: { cellWidth: 22 },
           }
         : {
-            0: { cellWidth: 9 },
-            1: { cellWidth: 50, overflow: 'linebreak' },
-            2: { cellWidth: 34, overflow: 'linebreak' },
-            3: { halign: 'right', cellWidth: 9 },
-            4: { cellWidth: 16 },
-            5: { halign: 'right', cellWidth: 16 },
-            6: { halign: 'right', cellWidth: 13 },
-            7: { halign: 'right', cellWidth: 13 },
-            8: { halign: 'right', fontStyle: 'bold', cellWidth: 19 },
+            0: { cellWidth: 9 },                                     // Item#
+            1: { cellWidth: 14, overflow: 'linebreak' },             // CB-9: Tag
+            2: { cellWidth: 42, overflow: 'linebreak' },             // SKU (was 50)
+            3: { cellWidth: 28, overflow: 'linebreak' },             // Description (was 34)
+            4: { halign: 'right', cellWidth: 9 },                    // Qty
+            5: { cellWidth: 16 },                                    // Assembled?
+            6: { halign: 'right', cellWidth: 16 },                   // Unit Price
+            7: { halign: 'right', cellWidth: 13 },                   // Mod Fee
+            8: { halign: 'right', cellWidth: 13 },                   // Asm Fee
+            9: { halign: 'right', fontStyle: 'bold', cellWidth: 19 },// Total
           };
   
       const onDrawPage = (data) => {
