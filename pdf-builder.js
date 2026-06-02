@@ -1342,7 +1342,7 @@
     _calcTaxableModsCost:     _calcTaxableModsCost,
     _formatModValue:          _formatModValue,
     _shouldUseNotesTable:     _shouldUseNotesTable,
-    _buildDescriptionCellText: _buildDescriptionCellText,
+    _buildModsText:           _buildModsText,
 
     _drawHeader:             _drawHeader,
     _drawBillShipBlock:      _drawBillShipBlock,
