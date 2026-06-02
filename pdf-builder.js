@@ -1215,11 +1215,18 @@
     const { doc, quoteData, headerContext, tableEndY, notes } = args;
     const { pageW, margin } = LAYOUT;
 
-    let yAfterNotes = tableEndY;
+    // CB-9 後續: Estimated Lead Time 印在 items 表格下方(Notes 之前)
+    const yLead = _drawLeadTime(doc, {
+      leadTime:      quoteData.estimated_lead_time,
+      startY:        tableEndY,
+      headerContext: headerContext,
+    });
+
+    let yAfterNotes = yLead;
     if (notes && notes.length) {
       yAfterNotes = _drawNotesTable(doc, {
         notes:         notes,
-        startY:        tableEndY,
+        startY:        yLead,
         headerContext: headerContext,
       });
     }
