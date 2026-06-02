@@ -712,6 +712,25 @@ function formatAssembleStatus(v) {
   return v === 'RTA' ? 'Unassembled' : 'Assembled';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-9 (2026-06-02): Resolve a line-item's Tag from the SKU catalog.
+//   quote_items 沒有 construction_type,改用 style_code join door_styles(_allDoorStyles)
+//   推得 framed/frameless,再決定查 skus_framed 還是 skus_frameless;用 sku_code 比對拿 tag。
+//   construction_type 推不出(custom / 查不到門花色)→ 預設查 framed,仍查不到 → 回空字串。
+//   與 step3 getTagForItem() 同義(step3 的 item 自帶 construction_type,此處需反查)。
+// ─────────────────────────────────────────────────────────────────────────────
+function getTagForItem(item) {
+  if (!item || !item.sku_code) return '';
+  let ct = '';
+  if (item.style_code && Array.isArray(_allDoorStyles)) {
+    const ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
+    if (ds) ct = (ds.construction_type || '').toLowerCase();
+  }
+  const source = ct === 'frameless' ? _allSkusFrameless : _allSkusFramed;
+  const match  = source.find(function (s) { return s.sku_code === item.sku_code; });
+  return (match && match.tag) ? match.tag : '';
+}
+
 // CB-5 需求1: 整單 lead time(用 style_code join door_styles)
 // 任何 frameless → ~5 Weeks;全 framed 全 stock → ~3 Business Days;全 framed 有 non-stock → ~2 Weeks
 // 查不到門花色(custom / accessory / 停產)的 item 不納入判斷
@@ -750,6 +769,8 @@ let _quote = null, _dealer = null, _addr = null, _isAdmin = false;
 let _returnHistory = [];
 let _groupedItems = null; // F4.1 v2: items reconstructed into per-SKU sub_groups
 let _allDoorStyles = [];  // CB-5 需求1: door_styles 快取(整單 lead time)
+let _allSkusFramed    = [];  // CB-9: tag 查表用(skus_framed)
+let _allSkusFrameless = [];  // CB-9: tag 查表用(skus_frameless)
 
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
@@ -1081,6 +1102,7 @@ function renderNotesTable(notes) {
         <thead>
           <tr>
             <th>№</th>
+            <th>Tag</th>
             <th>Item</th>
             <th>Modification</th>
             <th>Detail / Note</th>
@@ -1110,10 +1132,10 @@ function buildItemRowsHtml(groupedItems) {
   const notesIndex = { counter: 0 };
 
   groups.forEach(function (group) {
-    // CB-7: 橫跨 9 欄的 type divider，不佔 Item 編號
+    // CB-7 / CB-9: 橫跨 10 欄的 type divider，不佔 Item 編號
     rows.push(`
       <tr class="type-divider">
-        <td colspan="9">========== ${escapeHtml(group.type)} ==========</td>
+        <td colspan="10">========== ${escapeHtml(group.type)} ==========</td>
       </tr>`);
 
     group.items.forEach(function (item) {
@@ -1142,6 +1164,9 @@ function buildItemRowsHtml(groupedItems) {
         const promoBadgeHtml = (isPromo && isFirstSub)
           ? `<span class="promo-badge">PROMO</span>` : '';
 
+        
+        // CB-9: Tag 只在主行(第一個 sub)顯示,子項留空
+        const tagCellHtml = isFirstSub ? escapeHtml(getTagForItem(item)) : '';
         const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
         const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
 
@@ -1163,6 +1188,7 @@ function buildItemRowsHtml(groupedItems) {
         rows.push(`
           <tr class="${trClass}">
             <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
+            <td style="font-size:12px;white-space:nowrap;">${tagCellHtml}</td>
             <td class="td-sku">${skuCellHtml}</td>
             <td class="td-desc">${descCellHtml}</td>
             <td class="td-right">${subQty}</td>
@@ -1239,9 +1265,16 @@ async function init() {
   _groupedItems = reconstructGroupedItems(quote.quote_items || []);
 
   // CB-5 需求1: 載入 door_styles(整單 lead time;quote_items 沒有 construction_type/is_stock)
-  const { data: styleRows } = await _supabase
-    .from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true);
-  _allDoorStyles = styleRows || [];
+  // CB-9: 同時載入 skus_framed / skus_frameless 的 tag(Order List Tag 欄查表用)。
+  //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
+  const [styleRes, framedRes, framelessRes] = await Promise.all([
+    _supabase.from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true),
+    _supabase.from('skus_framed').select('sku_code, tag'),
+    _supabase.from('skus_frameless').select('sku_code, tag'),
+  ]);
+  _allDoorStyles    = styleRes.data     || [];
+  _allSkusFramed    = framedRes.data    || [];
+  _allSkusFrameless = framelessRes.data || [];
 
   // F-CUSTOM (Phase 5): debug log for custom item count
   const customCount = _groupedItems.filter(i => i.is_custom).length;
@@ -1359,7 +1392,7 @@ function renderQuote(quote, dealer, addr) {
     itemsTableHtml = result.rowsHtml;
     notesTableHtml = renderNotesTable(result.notes);
   } else {
-    itemsTableHtml = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+    itemsTableHtml = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
   }
 
   // CB-5 需求1: 整單 lead time(顯示在 items 表格正下方)
