@@ -1221,6 +1221,13 @@ function formatModValue(v) {
   if (typeof v === 'number')  return String(v);
   if (typeof v === 'boolean') return v ? 'Yes' : 'No';
   if (typeof v === 'object') {
+    // F-QTY-SELECTOR: MF03 toggle-with-qty 的 value { enabled, qty }。
+    // 限定「有 enabled、且無 value/selected/label」才走這支,避免吃到
+    // MF04 {enabled,value} 或 MF07 {selected,...}。
+    if ('enabled' in v && !('value' in v) && !('selected' in v) && !('label' in v)) {
+      if (v.enabled !== true) return '';
+      return (typeof v.qty === 'number') ? ('Qty ' + v.qty) : 'Yes';
+    }
     const parts = [];
     if ('selected' in v && v.selected) parts.push(String(v.selected));
     else if ('label' in v && v.label)  parts.push(String(v.label));
