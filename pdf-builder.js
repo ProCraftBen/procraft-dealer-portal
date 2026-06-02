@@ -674,6 +674,38 @@
     }
 
   // ----------------------------------------
+  // CB-9 後續: Estimated Lead Time（items 表格下方、靠左）
+  //   字串由 caller 透過 quoteData.estimated_lead_time 帶入(pdf-builder 無 door_styles)。
+  //   無值則不印,回傳原 y。
+  // ----------------------------------------
+  function _drawLeadTime(doc, context) {
+    const { margin, headerH } = LAYOUT;
+    const { leadTime, startY, headerContext } = context;
+    if (!leadTime) return startY;
+
+    let y = startY + 6;
+    if (y > 275) {
+      doc.addPage();
+      if (headerContext) _drawHeader(doc, headerContext);
+      y = headerH + 8;
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...COLORS.muted);
+    doc.text('ESTIMATED LEAD TIME', margin, y);
+
+    const labelW = doc.getTextWidth('ESTIMATED LEAD TIME');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.modText);
+    doc.text(String(leadTime), margin + labelW + 4, y);
+
+    return y;
+  }
+  
+
+  // ----------------------------------------
   // F4.2: Notes Table
   // ----------------------------------------
 
@@ -1128,11 +1160,18 @@
     };
     const asmByType = _calcAsmByType(items);
 
-    let yAfterNotes = tableEndY;
+    // CB-9 後續: Estimated Lead Time 印在 items 表格下方(Notes 之前)
+    const yLead = _drawLeadTime(doc, {
+      leadTime:      quoteData.estimated_lead_time,
+      startY:        tableEndY,
+      headerContext: headerContext,
+    });
+
+    let yAfterNotes = yLead;
     if (notes && notes.length) {
       yAfterNotes = _drawNotesTable(doc, {
         notes:         notes,
-        startY:        tableEndY,
+        startY:        yLead,
         headerContext: headerContext,
       });
     }
@@ -1172,7 +1211,7 @@
    * F-PROMOTIONS: intentionally no discount info (warehouse workflow only).
    */
   function _finalizePackingListWithTcAndNotes(args) {
-    const { doc, headerContext, tableEndY, notes } = args;
+    const { doc, quoteData, headerContext, tableEndY, notes } = args;
     const { pageW, margin } = LAYOUT;
 
     let yAfterNotes = tableEndY;
@@ -1223,7 +1262,7 @@
       headerContext: headerContext,
     });
 
-    _finalizePackingListWithTcAndNotes({ doc, headerContext, tableEndY, notes });
+    _finalizePackingListWithTcAndNotes({ doc, quoteData, headerContext, tableEndY, notes });
 
     return doc;
   }
