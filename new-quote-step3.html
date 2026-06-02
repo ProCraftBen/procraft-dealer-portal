@@ -108,7 +108,7 @@
     .td-right { text-align: right; }
     .td-total { font-weight: 500; }
 
-    /* CB-7: type group divider row（橫跨 9 欄、不佔 Item 編號）*/
+    /* CB-7 / CB-9: type group divider row（橫跨 10 欄、不佔 Item 編號）*/
     .items-table tbody tr.type-divider td {
       padding: 8px 12px;
       background: rgba(62,90,66,0.06);
@@ -595,6 +595,7 @@
         <thead>
           <tr>
             <th>#</th>
+            <th>Tag</th>
             <th>SKU</th>
             <th>Description</th>
             <th class="th-right">Qty</th>
@@ -835,6 +836,8 @@ let step2Data = null;
 let shippingAddress = null;
 let draftId   = null;
 let allDoorStyles = [];  // CB-5 需求1/2: door_styles 快取
+let allSkusFramed    = [];  // CB-9: tag 查表用(skus_framed)
+let allSkusFrameless = [];  // CB-9: tag 查表用(skus_frameless)
 
 let _isResumingReturned     = false;
 let _currentRevisionNumber  = 1;
@@ -1034,6 +1037,21 @@ function shortStatus(s) {
 // CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
 function formatAssembleStatus(v) {
   return v === 'RTA' ? 'Unassembled' : 'Assembled';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-9 (2026-06-02): Resolve a line-item's Tag from the SKU catalog.
+//   依該 item 的 construction_type 決定查 skus_framed 還是 skus_frameless,
+//   用 sku_code 比對拿 tag。Custom item / 查不到 → 回空字串(Tag 欄留空)。
+//   construction_type 可能是 'Framed'/'Frameless'(door_styles)或
+//   'framed'/'frameless'(custom),統一 toLowerCase 比較。
+// ─────────────────────────────────────────────────────────────────────────────
+function getTagForItem(item) {
+  if (!item || !item.sku_code) return '';
+  const ct     = (item.construction_type || '').toLowerCase();
+  const source = ct === 'frameless' ? allSkusFrameless : allSkusFramed;
+  const match  = source.find(function (s) { return s.sku_code === item.sku_code; });
+  return (match && match.tag) ? match.tag : '';
 }
 
 // CB-5 需求1/2: 用 style_code join door_styles 判斷 non-stock / lead time
@@ -1509,9 +1527,16 @@ let dealerIdToLoad = session.user.id;
   dealer = d;
 
   // CB-5 需求1/2: 載入 door_styles(整單 lead time + non-stock 判斷)
-  const { data: styleRows } = await _supabase
-    .from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true);
-  allDoorStyles = styleRows || [];
+  // CB-9: 同時載入 skus_framed / skus_frameless 的 tag(Order List Tag 欄查表用)。
+  //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
+  const [styleRes, framedRes, framelessRes] = await Promise.all([
+    _supabase.from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true),
+    _supabase.from('skus_framed').select('sku_code, tag'),
+    _supabase.from('skus_frameless').select('sku_code, tag'),
+  ]);
+  allDoorStyles    = styleRes.data     || [];
+  allSkusFramed    = framedRes.data    || [];
+  allSkusFrameless = framelessRes.data || [];
 
   setInterval(async () => {
     const { data: check } = await _supabase
@@ -1675,10 +1700,11 @@ function groupByTypeOrdered(data) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CB-7: Order List 表格重構（9 欄 + type divider）。
-//   欄序：# / SKU / Description / Qty / Assembled? / Unit Price / Mod Fee /
-//         Assemble Fee / Total
+// CB-7 / CB-9: Order List 表格重構（10 欄 + type divider）。
+//   欄序：# / Tag / SKU / Description / Qty / Assembled? / Unit Price /
+//         Mod Fee / Assemble Fee / Total
 //   - 全單依 type 分組打 divider，Item 編號全單連續、divider 不佔號。
+//   - CB-9: Tag 欄在 # 與 SKU 中間,讀 getTagForItem();只有主行顯示,子項留空。
 //   - SKU 欄顯示 {style_code}-{sku_code}，並保留 CUSTOM/PROMO badge、Sub x of y。
 //   - Assembled?：Assembled → Yes、RTA → No（純文字）。
 //   - Total = (Unit Price × Qty) + Mod Fee + Assemble Fee
@@ -1695,10 +1721,10 @@ function buildItemRowsHtml(markupPct) {
   const notesIndex = { counter: 0 };
 
   groups.forEach(function (group) {
-    // CB-7: 橫跨 9 欄的 type divider，不佔 Item 編號
+    // CB-7 / CB-9: 橫跨 10 欄的 type divider，不佔 Item 編號
     rows.push(`
       <tr class="type-divider">
-        <td colspan="9">========== ${escapeHtml(group.type)} ==========</td>
+        <td colspan="10">========== ${escapeHtml(group.type)} ==========</td>
       </tr>`);
 
     group.items.forEach(function (item) {
@@ -1730,6 +1756,9 @@ function buildItemRowsHtml(markupPct) {
           ? `<span class="promo-badge">PROMO</span>`
           : '';
 
+        // CB-9: Tag 只在主行(第一個 sub)顯示,子項留空
+        const tagCellHtml = isFirstSub ? escapeHtml(getTagForItem(item)) : '';
+
         const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
         const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
 
@@ -1755,6 +1784,7 @@ function buildItemRowsHtml(markupPct) {
         rows.push(`
           <tr class="${trClass}">
             <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
+            <td style="font-size:12px;white-space:nowrap;">${tagCellHtml}</td>
             <td class="td-sku">${skuCellHtml}</td>
             <td class="td-desc">${descCellHtml}</td>
             <td class="td-right">${subQty}</td>
