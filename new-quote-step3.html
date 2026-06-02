@@ -2152,6 +2152,7 @@ function buildQuoteDataForPdf(opts) {
       assemble_fee:    i.assemble_fee || 0,
       sub_groups:      getNormalizedSubGroups(i),
       is_custom:       !!i.is_custom,  // F-CUSTOM
+      tag:             getTagForItem(i),  // CB-9: 帶 tag 給 PDF
     };
   });
 
