@@ -2171,6 +2171,7 @@ function buildQuoteDataForPdf(opts) {
     logistic_type: step1Data?.logisticType || 'pickup',
     delivery_fee:  parseFloat(step1Data?.deliveryFee || 0),
     items:         items,
+    estimated_lead_time: calculateLeadTime(step2Data, allDoorStyles),  // CB-9 後續: 帶 lead time 給 PDF
     _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
     _taxExempt:  !!dealer?.tax_exempt,
     modifications_total:         parseFloat(modsSubtotalNow.toFixed(2)),
