@@ -634,13 +634,14 @@
   
       const columnStyles = isPacking
         ? {
-            0: { cellWidth: 12 },                          // Item#
-            1: { cellWidth: 16, overflow: 'linebreak' },   // CB-9: Tag
-            2: { cellWidth: 64, overflow: 'linebreak' },   // SKU (was 75)
-            3: { cellWidth: 55, overflow: 'linebreak' },   // Description (was 60)
-            4: { halign: 'right', cellWidth: 13 },         // Qty
-            5: { cellWidth: 22 },                          // Assembled?
+            0: { cellWidth: 10 },                          // #
+            1: { cellWidth: 14, overflow: 'linebreak' },   // Tag
+            2: { cellWidth: 32, overflow: 'linebreak' },   // SKU (was 64 → 縮窄,Description 才不會被推到頁面中間)
+            3: { cellWidth: 88, overflow: 'linebreak' },   // Description (was 55 → 加寬,整段往左)
+            4: { halign: 'right', cellWidth: 12 },         // Qty
+            5: { cellWidth: 24 },                          // Assembled?
           }
+        
         : {
             0: { cellWidth: 8 },                                     // #
             1: { cellWidth: 12, overflow: 'linebreak' },             // Tag
