@@ -1838,6 +1838,7 @@ function buildQuoteDataForPdf() {
       assemble_fee:    item.assemble_fee,
       sub_groups:      item.sub_groups,
       is_custom:       !!item.is_custom,
+      tag:             getTagForItem(item),  // CB-9: 帶 tag 給 PDF
     };
   });
 
