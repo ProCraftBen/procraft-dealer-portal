@@ -559,12 +559,12 @@
   
       const isPacking  = (mode === 'packing-list');
       const showPrices = !isPacking;
-      const colCount   = isPacking ? 5 : 10;
+      const colCount   = isPacking ? 6 : 10;
   
       const groups = _groupByTypeOrdered(items);
   
       const head = isPacking
-        ? [['Item#', 'SKU', 'Description', 'Qty', 'Assembled?']]
+        ? [['Item#', 'Tag', 'SKU', 'Description', 'Qty', 'Assembled?']]
         : [['Item#', 'Tag', 'SKU', 'Description', 'Qty', 'Assembled?',
             'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
   
@@ -614,7 +614,7 @@
             const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
   
             if (isPacking) {
-              body.push([`#${itemNum}`, skuCell, skuDesc, subQty, assembledCell]);
+              body.push([`#${itemNum}`, tagCell, skuCell, skuDesc, subQty, assembledCell]);
             } else {
               const perSubModCost = _calcPerSubModCost(sub);
               const modFeeTotal   = perSubModCost * subQty;
@@ -634,11 +634,12 @@
   
       const columnStyles = isPacking
         ? {
-            0: { cellWidth: 12 },
-            1: { cellWidth: 75, overflow: 'linebreak' },
-            2: { cellWidth: 60, overflow: 'linebreak' },
-            3: { halign: 'right', cellWidth: 13 },
-            4: { cellWidth: 22 },
+            0: { cellWidth: 12 },                          // Item#
+            1: { cellWidth: 16, overflow: 'linebreak' },   // CB-9: Tag
+            2: { cellWidth: 64, overflow: 'linebreak' },   // SKU (was 75)
+            3: { cellWidth: 55, overflow: 'linebreak' },   // Description (was 60)
+            4: { halign: 'right', cellWidth: 13 },         // Qty
+            5: { cellWidth: 22 },                          // Assembled?
           }
         : {
             0: { cellWidth: 9 },                                     // Item#
