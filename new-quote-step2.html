@@ -2055,6 +2055,7 @@ function renderSkuTable() {
     <table class="sku-table">
       <thead>
         <tr>
+          <th>Tag</th>
           <th>SKU</th>
           <th>Description</th>
           <th>Type</th>
@@ -2077,6 +2078,7 @@ function renderSkuTable() {
             : `<button class="btn-add" disabled title="Assembled service not available for this item type" style="background:#E5E5E5;color:#9CA3AF;border:1px solid #D4D4D4;cursor:not-allowed;text-transform:none;">Assembled</button>`;
           return `
             <tr>
+              <td>${sku.tag || ''}</td>
               <td class="td-code">${sku.sku_code} ${stockTag}</td>
               <td class="td-desc">${sku.description}</td>
               <td>${typeTag}</td>
