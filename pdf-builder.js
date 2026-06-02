@@ -154,6 +154,36 @@
     return grouped;
   }
 
+  // CB-7: type-group ordering（BASE 最前 → 中間字母序 → ACCESSORIES → OTHER）
+  function _typeGroupTier(type) {
+    const t = (type || 'OTHER').toUpperCase();
+    if (t === 'BASE')        return 0;
+    if (t === 'ACCESSORIES') return 2;
+    if (t === 'OTHER')       return 3;
+    return 1;
+  }
+
+  function _groupByTypeOrdered(items) {
+    const buckets = {};
+    (items || []).forEach(function (item) {
+      const t = (item.sku_type || item.skuType || 'OTHER').toUpperCase();
+      if (!buckets[t]) buckets[t] = [];
+      buckets[t].push(item);
+    });
+    Object.keys(buckets).forEach(function (t) {
+      buckets[t].sort(function (a, b) {
+        const sa = String(a.style_code || '').toUpperCase();
+        const sb = String(b.style_code || '').toUpperCase();
+        if (sa < sb) return -1; if (sa > sb) return 1; return 0;
+      });
+    });
+    return Object.keys(buckets).sort(function (a, b) {
+      const ta = _typeGroupTier(a), tb = _typeGroupTier(b);
+      if (ta !== tb) return ta - tb;
+      if (a < b) return -1; if (a > b) return 1; return 0;
+    }).map(function (t) { return { type: t, items: buckets[t] }; });
+  }
+
   function _calcAsmByType(items) {
     const byType = {};
     items.forEach(item => {
@@ -201,21 +231,23 @@
   }
 
   function _calcPerSubModCost(sub) {
-    const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
-    return mods.reduce(function (s, m) {
-      const c = parseFloat(m && m.cost);
-      return s + (isNaN(c) ? 0 : c);
-    }, 0);
-  }
+      const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+      return mods.reduce(function (s, m) {
+        const c  = parseFloat(m && m.cost);
+        const mt = parseFloat(m && m.material_cost);   // CB-6: 補材料(per-unit)
+        return s + (isNaN(c) ? 0 : c) + (isNaN(mt) ? 0 : mt);
+      }, 0);
+    }
 
   function _calcPerSubTaxableModCost(sub) {
-    const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
-    return mods.reduce(function (s, m) {
-      if (!m || m.tax_status !== true) return s;
-      const c = parseFloat(m.cost);
-      return s + (isNaN(c) ? 0 : c);
-    }, 0);
-  }
+      const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+      return mods.reduce(function (s, m) {
+        if (!m || m.tax_status !== true) return s;
+        const c  = parseFloat(m.cost);
+        const mt = parseFloat(m.material_cost);   // CB-6: 課稅 mod 才把材料計入稅基
+        return s + (isNaN(c) ? 0 : c) + (isNaN(mt) ? 0 : mt);
+      }, 0);
+    }
 
   function _calcTotalModsCost(items) {
     let total = 0;
@@ -274,6 +306,11 @@
     if (typeof v === 'number')  return String(v);
     if (typeof v === 'boolean') return v ? 'Yes' : 'No';
     if (typeof v === 'object') {
+      // F-QTY-SELECTOR: MF03 toggle-with-qty 的 value { enabled, qty }
+      if ('enabled' in v && !('value' in v) && !('selected' in v) && !('label' in v)) {
+        if (v.enabled !== true) return '';
+        return (typeof v.qty === 'number') ? ('Qty ' + v.qty) : 'Yes';
+      }
       const parts = [];
       if ('selected' in v && v.selected) parts.push(String(v.selected));
       else if ('label' in v && v.label)  parts.push(String(v.label));
@@ -467,47 +504,49 @@
   // F4.2: Items 表格繪製
   // ----------------------------------------
 
-  function _buildDescriptionCellText(ctx) {
-    const { sub, item, skuDesc, totalSubs, notesIndex, notesCollector } = ctx;
+  // CB-7: 只回「mod 文字」放進 SKU 欄(skuDesc 改放 Description 欄)。
+  // showPrices=false（Packing List）→ 材料子行只顯示數量,不印 $。
+  function _buildModsText(ctx) {
+    const { sub, item, totalSubs, notesIndex, notesCollector, showPrices } = ctx;
     const rawMods     = Array.isArray(sub.modifications) ? sub.modifications : [];
     const visibleMods = rawMods.filter(function (m) { return !_isHiddenMod(m); });
     const status = sub.modification_status || 'unprocessed';
     const lines  = [];
 
-    if (skuDesc) lines.push(skuDesc);
-
     if (!visibleMods.length) {
-      if (rawMods.length > 0) {
-        return lines.join('\n');
-      }
-      if (status === 'skipped' || status === 'configured') {
-        return lines.join('\n');
-      }
-      lines.push('⚠ Modifications pending');
-      return lines.join('\n');
+      if (rawMods.length > 0) return '';
+      if (status === 'skipped' || status === 'configured') return '';
+      return '⚠ Modifications pending';
     }
 
     visibleMods.forEach(function (m) {
       const label = m.display_label || m.mf_code || 'Modification';
-      const useNotes = _shouldUseNotesTable(m);
-
-      if (useNotes) {
+      if (_shouldUseNotesTable(m)) {
         notesIndex.counter += 1;
         const noteNum = notesIndex.counter;
         notesCollector.push({
-          num:        noteNum,
-          skuCode:    item.sku_code,
-          subIndex:   sub.sub_index || 1,
-          subTotal:   totalSubs,
-          mfCode:     m.mf_code || '',
-          label:      label,
-          content:    _formatModValue(m.value) || '(no detail)',
+          num: noteNum, skuCode: item.sku_code,
+          subIndex: sub.sub_index || 1, subTotal: totalSubs,
+          mfCode: m.mf_code || '', label: label,
+          content: _formatModValue(m.value) || '(no detail)',
         });
         lines.push(`! See Note No.${noteNum} — ${label}`);
       } else {
         const value = _formatModValue(m.value);
-        const valStr = value ? `: ${value}` : '';
-        lines.push(`• ${label}${valStr}`);
+        lines.push(`• ${label}${value ? ': ' + value : ''}`);
+        // CB-6 材料子行:N × MappingSKU (有價才加 $)
+        const mq = parseInt(m.mapping_qty, 10) || 0;
+        if (m.mapping_sku && mq > 0) {
+          const subQty = parseInt(sub.qty, 10) || 0;
+          const n = mq * subQty;
+          if (showPrices) {
+            const mc = parseFloat(m.material_cost);
+            const matTotal = (isNaN(mc) ? 0 : mc) * subQty;
+            lines.push(`   ${n} × ${m.mapping_sku}: $${matTotal.toFixed(2)}`);
+          } else {
+            lines.push(`   ${n} × ${m.mapping_sku}`);
+          }
+        }
       }
     });
 
@@ -515,173 +554,120 @@
   }
 
   function _drawItemTable(doc, context) {
-    const { margin, headerH } = LAYOUT;
-    const {
-      items,
-      mode,
-      startY,
-      markupPercent = 0,
-      headerContext,
-    } = context;
-
-    const grouped = _groupAndSort(items);
-
-    let head;
-    if (mode === 'packing-list') {
-      head = [['Item#', 'Door Style', 'SKU', 'Qty', 'Description', 'Type', 'Asm Status']];
-    } else {
-      head = [['Item#', 'Door Style', 'Type', 'SKU', 'Description', 'Asm Status',
-               'Qty', 'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
-    }
-
-    const body = [];
-    let itemNum = 0;
-    let lastStyle = null;
-    const notes = [];
-    const notesIndex = { counter: 0 };
-
-    Object.entries(grouped).forEach(([styleName, styleItems]) => {
-      styleItems.forEach(item => {
-        const subs = _getNormalizedSubGroups(item);
-        const isSplit = subs.length > 1;
-        const isCustom = !!item.is_custom;
-        const skuType        = item.sku_type || item.skuType || '';
-        const skuTypeShort   = _shortType(skuType);
-        const assembleStatus = item.assemble_status || item.type || '';
-        const asmStatusShort = _shortStatus(assembleStatus);
-        const skuDesc        = item.sku_desc || '';
-        const markedUnitPrice = item.unit_price * (1 + markupPercent);
-
-        subs.forEach((sub, subIdx) => {
-          itemNum++;
-          const isFirstSub = subIdx === 0;
-
-          const showStyle = isFirstSub && (styleName !== lastStyle);
-          if (isFirstSub) lastStyle = styleName;
-          const styleCell = showStyle ? styleName : '';
-
-          const subQty = parseInt(sub.qty, 10) || 0;
-          const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
-          const subLabelLine = isSplit
-            ? `\nSub ${subIdx + 1} of ${subs.length}`
-            : '';
-          const skuCell = `${item.sku_code}${customSuffix}${subLabelLine}`;
-
-          const descCell = _buildDescriptionCellText({
-            sub: sub,
-            item: item,
-            skuDesc: skuDesc,
-            totalSubs: subs.length,
-            notesIndex: notesIndex,
-            notesCollector: notes,
+      const { margin, headerH } = LAYOUT;
+      const { items, mode, startY, markupPercent = 0, headerContext } = context;
+  
+      const isPacking  = (mode === 'packing-list');
+      const showPrices = !isPacking;
+      const colCount   = isPacking ? 5 : 9;
+  
+      const groups = _groupByTypeOrdered(items);
+  
+      const head = isPacking
+        ? [['Item#', 'SKU', 'Description', 'Qty', 'Assembled?']]
+        : [['Item#', 'SKU', 'Description', 'Qty', 'Assembled?',
+            'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
+  
+      const body = [];
+      let itemNum = 0;
+      const notes = [];
+      const notesIndex = { counter: 0 };
+  
+      groups.forEach(function (group) {
+        // CB-7: 橫跨全部欄的 type divider
+        body.push([{
+          content: '========== ' + group.type + ' ==========',
+          colSpan: colCount,
+          styles: {
+            halign: 'center', fontStyle: 'bold', fontSize: 7,
+            fillColor: [235, 240, 236], textColor: COLORS.modText,
+          },
+        }]);
+  
+        group.items.forEach(function (item) {
+          const subs = _getNormalizedSubGroups(item);
+          const isSplit = subs.length > 1;
+          const isCustom = !!item.is_custom;
+          const assembleStatus = item.assemble_status || item.type || '';
+          const skuDesc = item.sku_desc || '';
+          const markedUnitPrice = item.unit_price * (1 + markupPercent);
+          const skuPrefix = item.style_code ? item.style_code + '-' : '';
+  
+          subs.forEach(function (sub, subIdx) {
+            itemNum++;
+            const isFirstSub = subIdx === 0;
+            const subQty = parseInt(sub.qty, 10) || 0;
+  
+            const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
+            const subLabelLine = isSplit ? `\nSub ${subIdx + 1} of ${subs.length}` : '';
+  
+            const modsText = _buildModsText({
+              sub: sub, item: item, totalSubs: subs.length,
+              notesIndex: notesIndex, notesCollector: notes,
+              showPrices: showPrices,
+            });
+            const skuCell = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
+              + (modsText ? `\n${modsText}` : '');
+  
+            const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
+  
+            if (isPacking) {
+              body.push([`#${itemNum}`, skuCell, skuDesc, subQty, assembledCell]);
+            } else {
+              const perSubModCost = _calcPerSubModCost(sub);
+              const modFeeTotal   = perSubModCost * subQty;
+              const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
+              const lineTotal     = (markedUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
+              body.push([
+                `#${itemNum}`, skuCell, skuDesc, subQty, assembledCell,
+                `$${markedUnitPrice.toFixed(2)}`,
+                modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
+                asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
+                `$${lineTotal.toFixed(2)}`,
+              ]);
+            }
           });
-
-          if (mode === 'packing-list') {
-            body.push([
-              `#${itemNum}`,
-              styleCell,
-              skuCell,
-              subQty,
-              descCell,
-              isFirstSub ? skuTypeShort   : '',
-              isFirstSub ? asmStatusShort : '',
-            ]);
-          } else {
-            const perSubModCost = _calcPerSubModCost(sub);
-            const modFeeTotal   = perSubModCost * subQty;
-            const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
-            const skuLineTotal  = markedUnitPrice * subQty;
-            // F-LINE-TOTAL-INCLUDES-ASM: Total = Unit + Mod + Asm
-            const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
-
-            body.push([
-              `#${itemNum}`,
-              styleCell,
-              isFirstSub ? skuTypeShort   : '',
-              skuCell,
-              descCell,
-              isFirstSub ? asmStatusShort : '',
-              subQty,
-              `$${markedUnitPrice.toFixed(2)}`,
-              modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
-              asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
-              `$${lineTotal.toFixed(2)}`,
-            ]);
-          }
         });
       });
-    });
-
-    let columnStyles;
-    if (mode === 'packing-list') {
-      columnStyles = {
-        0: { cellWidth: 11 },
-        1: { cellWidth: 38 },
-        2: { cellWidth: 24 },
-        3: { halign: 'right', cellWidth: 11 },
-        4: { cellWidth: 60, overflow: 'linebreak' },
-        5: { cellWidth: 14 },
-        6: { cellWidth: 22 },
+  
+      const columnStyles = isPacking
+        ? {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 75, overflow: 'linebreak' },
+            2: { cellWidth: 60, overflow: 'linebreak' },
+            3: { halign: 'right', cellWidth: 13 },
+            4: { cellWidth: 22 },
+          }
+        : {
+            0: { cellWidth: 9 },
+            1: { cellWidth: 50, overflow: 'linebreak' },
+            2: { cellWidth: 34, overflow: 'linebreak' },
+            3: { halign: 'right', cellWidth: 9 },
+            4: { cellWidth: 16 },
+            5: { halign: 'right', cellWidth: 16 },
+            6: { halign: 'right', cellWidth: 13 },
+            7: { halign: 'right', cellWidth: 13 },
+            8: { halign: 'right', fontStyle: 'bold', cellWidth: 19 },
+          };
+  
+      const onDrawPage = (data) => {
+        if (data.pageNumber > 1 && headerContext) _drawHeader(doc, headerContext);
       };
-    } else {
-      columnStyles = {
-        0: { cellWidth: 9 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 10 },
-        3: { cellWidth: 16 },
-        4: { cellWidth: 33, overflow: 'linebreak' },
-        5: { cellWidth: 14 },
-        6: { halign: 'right', cellWidth: 8 },
-        7: { halign: 'right', cellWidth: 15 },
-        8: { halign: 'right', cellWidth: 13 },
-        9: { halign: 'right', cellWidth: 13 },
-        10: { halign: 'right', fontStyle: 'bold', cellWidth: 19 },
-      };
+  
+      doc.autoTable({
+        startY: startY,
+        head: head,
+        body: body,
+        margin: { left: margin, right: margin, top: headerH + 4 },
+        styles: { fontSize: 7, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+        columnStyles: columnStyles,
+        alternateRowStyles: { fillColor: [250, 248, 244] },
+        didDrawPage: onDrawPage,
+      });
+  
+      return { tableEndY: doc.lastAutoTable.finalY, notes: notes };
     }
-
-    const onDrawPage = (data) => {
-      if (data.pageNumber > 1 && headerContext) {
-        _drawHeader(doc, headerContext);
-      }
-    };
-
-    const didParseCell = function (data) {
-      if (data.section !== 'body') return;
-      const descColIdx = (mode === 'packing-list') ? 4 : 4;
-      if (data.column.index === descColIdx) {
-        // Mixed content; rely on "! See Note No.N —" prefix for visual distinction
-      }
-    };
-
-    doc.autoTable({
-      startY: startY,
-      head: head,
-      body: body,
-      margin: { left: margin, right: margin, top: headerH + 4 },
-      styles: {
-        fontSize:  7,
-        cellPadding: 2,
-        textColor: [30, 30, 30],
-        overflow:  'linebreak',
-        valign:    'top',
-      },
-      headStyles: {
-        fillColor: COLORS.darkGreen,
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-        fontSize:  7,
-      },
-      columnStyles: columnStyles,
-      alternateRowStyles: { fillColor: [250, 248, 244] },
-      didDrawPage: onDrawPage,
-      didParseCell: didParseCell,
-    });
-
-    return {
-      tableEndY: doc.lastAutoTable.finalY,
-      notes:     notes,
-    };
-  }
 
   // ----------------------------------------
   // F4.2: Notes Table
