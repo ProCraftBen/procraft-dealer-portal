@@ -752,7 +752,7 @@ function calculateLeadTime(items, doorStyles) {
 function buildLeadTimeHtml(items, doorStyles) {
   const lt = calculateLeadTime(items, doorStyles);
   if (!lt) return '';
-  return '<div style="margin-top:10px;text-align:right;">' +
+  return '<div style="margin-top:10px;text-align:left;padding:0 20px;">' +
     '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">Estimated Lead Time</span>' +
     '<span style="font-size:13px;font-weight:600;color:var(--green-mid);">' + escapeHtml(lt) + '</span></div>';
 }
