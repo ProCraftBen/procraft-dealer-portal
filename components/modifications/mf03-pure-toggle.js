@@ -31,11 +31,29 @@
  *     dealer 取消 Glass → 解鎖 (setLocked(false)),但不自動取消
  *     Prep For Glass(dealer 自己可以決定是否取消)。
  *
+ * F-QTY-SELECTOR (2026-06-02):
+ *   • 新增 optional mf_params.qty_selector,存在時在 toggle 勾起後
+ *     顯示數量加減 UI(C 方案:[-] N [+]);不存在則維持純 toggle,
+ *     完全向後相容。
+ *
+ *       qty_selector: {
+ *         min: number,        // 預設 1
+ *         max: number,        // 預設 = min
+ *         default: number,    // clamp 進 [min,max]
+ *         label: string       // 預設 "Quantity"
+ *       }
+ *
+ *   • 中間數字為 readonly,只能靠 [-] / [+] 改。[-] 到 min、[+] 到 max
+ *     時 disabled(灰化);locked 時兩顆皆 disabled。
+ *   • 取消勾後再勾起 → qty 重設為 default(不記憶上次)。
+ *   • calculateCost() 維持 flat(不乘 qty);qty 的 ×N(mapping SKU
+ *     材料費)由主頁面 bundle 邏輯處理。
+ *
  * 介面:
  *   create(container, mf_params, current_value) → instance
  *
  *   instance:
- *     getValue()             → boolean
+ *     getValue()             → boolean | { enabled, qty }   (F-QTY-SELECTOR)
  *     validate()             → { valid, errors }
  *     calculateCost()        → number
  *     setEnabled(bool)       → void  (F-BINDING-GROUP)
@@ -48,6 +66,9 @@
  *     _base_cost?: number,
  *     _binding_group?: string,   // F-BINDING-GROUP
  *     _binding_role?: string,    // F-BINDING-GROUP: 'primary' | 'dependent'
+ *     qty_selector?: {           // F-QTY-SELECTOR
+ *       min: number, max: number, default: number, label: string
+ *     },
  *   }
  *
  * current_value 結構:
@@ -61,6 +82,7 @@
  *   container.dispatchEvent(new CustomEvent('mf-change', {
  *     detail: {
  *       mf_code, value, cost,
+ *       qty?,                              // F-QTY-SELECTOR(有 qty_selector 時)
  *       _binding_group?, _binding_role?    // F-BINDING-GROUP
  *     }
  *   }))
@@ -72,7 +94,7 @@
   /**
    * Factory:建立一個 MF03 實例
    * @param {HTMLElement} container
-   * @param {Object} mf_params - { toggle_label, _base_cost? }
+   * @param {Object} mf_params - { toggle_label, _base_cost?, qty_selector? }
    * @param {boolean|null} current_value
    * @returns {Object} instance with { getValue, validate, calculateCost, setEnabled, setLocked, destroy }
    */
@@ -84,6 +106,12 @@
       current_value: current_value === true,
       cost: 0,
       checkbox: null,        // 保留 ref 以便 destroy() 移除 listener
+      // F-QTY-SELECTOR: 數量狀態
+      hasQty: false,         // qty_selector 是否存在且有效
+      qtyConf: null,         // { min, max, default, label }
+      qty: 1,                // 目前數量
+      minusBtn: null,        // 保留 ref 以便 destroy() 移除 listener
+      plusBtn: null,
       // F-BINDING-GROUP: lock state
       locked: false,
       lockReason: null,
@@ -94,6 +122,25 @@
       state.cost = state.mf_params._base_cost;
     }
 
+    // ──────────────────────────────────────────────────────────
+    // F-QTY-SELECTOR: 解析 qty_selector(沒有 / 非物件 → 維持純 toggle)
+    // ──────────────────────────────────────────────────────────
+    (function parseQtySelector() {
+      const qs = state.mf_params.qty_selector;
+      if (!qs || typeof qs !== 'object') return;
+
+      const min = (typeof qs.min === 'number' && isFinite(qs.min)) ? Math.floor(qs.min) : 1;
+      let max = (typeof qs.max === 'number' && isFinite(qs.max)) ? Math.floor(qs.max) : min;
+      if (max < min) max = min;
+      let def = (typeof qs.default === 'number' && isFinite(qs.default)) ? Math.floor(qs.default) : min;
+      def = clamp(def, min, max);
+      const label = (typeof qs.label === 'string' && qs.label) ? qs.label : 'Quantity';
+
+      state.hasQty = true;
+      state.qtyConf = { min: min, max: max, default: def, label: label };
+      state.qty = def;
+    })();
+
     function render() {
       const label = escapeHTML(state.mf_params.toggle_label || 'Enable');
 
@@ -103,10 +150,6 @@
         : '';
 
       // F-BINDING-GROUP: 鎖定時的視覺差異
-      //   - label 整體變灰
-      //   - checkbox disabled
-      //   - cursor 改 not-allowed
-      //   - label 旁顯示鎖定原因(例:"Required with Glass")
       const isLocked = state.locked;
       const labelCursor = isLocked ? 'not-allowed' : 'pointer';
       const labelOpacity = isLocked ? '0.7' : '1';
@@ -115,6 +158,45 @@
       const lockedReasonHTML = (isLocked && state.lockReason)
         ? `<span style="margin-left:8px;color:#8B6914;font-size:11px;font-style:italic;font-weight:500;">${escapeHTML(state.lockReason)}</span>`
         : '';
+
+      // ────────────────────────────────────────────────────────
+      // F-QTY-SELECTOR: 勾起且有 qty_selector 時才顯示數量列
+      //   - 縮排對齊 checkbox 右側(18px + 8px = 26px)
+      //   - [-] 到 min / [+] 到 max / locked → disabled 灰化
+      //   - 中間數字 readonly,只能靠 +/- 改
+      // ────────────────────────────────────────────────────────
+      let qtyRowHTML = '';
+      if (state.hasQty && state.current_value) {
+        const qLabel = escapeHTML(state.qtyConf.label);
+        const minusDisabled = isLocked || state.qty <= state.qtyConf.min;
+        const plusDisabled  = isLocked || state.qty >= state.qtyConf.max;
+
+        qtyRowHTML = `
+          <div style="
+            display:flex;
+            align-items:center;
+            margin-top:6px;
+            margin-left:26px;
+            font-family:'DM Sans',sans-serif;
+            font-size:14px;
+            color:#333;
+          ">
+            <span style="margin-right:10px;">${qLabel}:</span>
+            <button type="button" data-qty-act="minus" ${minusDisabled ? 'disabled' : ''}
+              style="${qtyBtnStyle(minusDisabled)}">&minus;</button>
+            <span style="
+              min-width:34px;
+              text-align:center;
+              font-size:14px;
+              font-weight:600;
+              color:#333;
+              padding:0 4px;
+            ">${state.qty}</span>
+            <button type="button" data-qty-act="plus" ${plusDisabled ? 'disabled' : ''}
+              style="${qtyBtnStyle(plusDisabled)}">+</button>
+          </div>
+        `;
+      }
 
       container.innerHTML = `
         <label style="
@@ -143,10 +225,21 @@
           ${costDisplay}
           ${lockedReasonHTML}
         </label>
+        ${qtyRowHTML}
       `;
 
       state.checkbox = container.querySelector('input[type="checkbox"]');
       state.checkbox.addEventListener('change', onToggle);
+
+      // F-QTY-SELECTOR: 綁定 +/- listener(只有數量列存在時才有按鈕)
+      state.minusBtn = null;
+      state.plusBtn = null;
+      if (state.hasQty && state.current_value) {
+        state.minusBtn = container.querySelector('button[data-qty-act="minus"]');
+        state.plusBtn  = container.querySelector('button[data-qty-act="plus"]');
+        if (state.minusBtn) state.minusBtn.addEventListener('click', onMinus);
+        if (state.plusBtn)  state.plusBtn.addEventListener('click', onPlus);
+      }
     }
 
     function onToggle(e) {
@@ -158,12 +251,47 @@
       }
 
       state.current_value = e.target.checked;
+
+      // F-QTY-SELECTOR: 取消勾 → qty 重設為 default(不記憶上次選的);
+      //                 有 qty_selector 時需 re-render 以顯示/隱藏數量列。
+      //                 無 qty_selector 的路徑維持原本行為(不 re-render)。
+      if (state.hasQty) {
+        if (!state.current_value) {
+          state.qty = state.qtyConf.default;
+        }
+        render();
+      }
+
       broadcast();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // F-QTY-SELECTOR: 數量 −/+(clamp 進 [min,max],之後 re-render + broadcast)
+    // ──────────────────────────────────────────────────────────
+    function onMinus() {
+      if (!state.hasQty || state.locked) return;
+      const min = state.qtyConf.min;
+      if (state.qty > min) {
+        state.qty = clamp(state.qty - 1, min, state.qtyConf.max);
+        render();
+        broadcast();
+      }
+    }
+
+    function onPlus() {
+      if (!state.hasQty || state.locked) return;
+      const max = state.qtyConf.max;
+      if (state.qty < max) {
+        state.qty = clamp(state.qty + 1, state.qtyConf.min, max);
+        render();
+        broadcast();
+      }
     }
 
     // ──────────────────────────────────────────────────────────
     // F-BINDING-GROUP: broadcast 時帶上 binding info(只在 mf_params
     // 有設 _binding_group 時才帶)
+    // F-QTY-SELECTOR: 有 qty_selector 時 detail 多帶 qty
     // ──────────────────────────────────────────────────────────
     function broadcast() {
       const detail = {
@@ -171,6 +299,11 @@
         value: state.current_value,
         cost: calculateCost()
       };
+
+      // F-QTY-SELECTOR: 有 qty_selector 時帶 qty
+      if (state.hasQty) {
+        detail.qty = state.qty;
+      }
 
       // F-BINDING-GROUP: 把 binding info 附加到 event detail
       const bindingGroup = state.mf_params._binding_group;
@@ -187,6 +320,10 @@
     }
 
     function getValue() {
+      // F-QTY-SELECTOR: 有 qty_selector → 回 object;沒有 → 回 boolean(向後相容)
+      if (state.hasQty) {
+        return { enabled: state.current_value, qty: state.qty };
+      }
       return state.current_value;
     }
 
@@ -195,26 +332,15 @@
     }
 
     function calculateCost() {
+      // 維持 flat:qty 的 ×N(mapping SKU 材料費)由主頁面 bundle 邏輯處理,
+      // MF03 自身 _base_cost 視為固定 modification 費,不隨 qty 變動。
       return state.current_value ? state.cost : 0;
     }
 
     // ──────────────────────────────────────────────────────────
-    // F-BINDING-GROUP: 程式化勾起/取消,不重複觸發 broadcast。
-    //
-    // 用途:協調者偵測到 primary (MF02 Glass) 被勾起 →
-    //       對 dependent (MF03 Prep For Glass) instance 呼叫
-    //       setEnabled(true) 強制勾起。
-    //
-    // 注意:
-    //   - 不 broadcast(避免協調者收到後再回頭呼叫自己 → 無限迴圈)
-    //   - 但要呼叫 broadcast 以更新 liveValues!
-    //
-    // 解法:setEnabled 改變後 broadcast,但帶上一個 _programmatic
-    //       flag,協調者收到後就知道不要再回呼。
-    //   → 簡化版:不管 _programmatic flag,直接 broadcast,協調者
-    //     用 same group + same role 就能判斷不要重複處理。
-    //     因為 setEnabled 是協調者主動呼叫,不會在它的 dependent
-    //     上反向呼叫(只有 primary 會觸發 dependent,反之不會)。
+    // F-BINDING-GROUP: 程式化勾起/取消。
+    //   不 broadcast 會導致 liveValues 不更新,所以仍 broadcast。
+    //   協調者用 same group + same role 判斷不重複處理,避免迴圈。
     // ──────────────────────────────────────────────────────────
     function setEnabled(bool) {
       const newVal = !!bool;
@@ -228,12 +354,8 @@
     // ──────────────────────────────────────────────────────────
     // F-BINDING-GROUP: 鎖定 / 解鎖 UI。
     //
-    // 用途:dependent 元件(MF03 Prep For Glass)在 primary
-    //       (MF02 Glass) 勾起時被鎖住,dealer 不能取消。
-    //
     // @param {boolean} bool    true = 鎖住, false = 解鎖
     // @param {string} [reason] 鎖定時顯示在 label 旁的原因
-    //                          (例如 "Required with Glass")
     // ──────────────────────────────────────────────────────────
     function setLocked(bool, reason) {
       const newLocked = !!bool;
@@ -252,11 +374,20 @@
       if (state.checkbox) {
         state.checkbox.removeEventListener('change', onToggle);
       }
+      // F-QTY-SELECTOR: 清 +/- listener
+      if (state.minusBtn) {
+        state.minusBtn.removeEventListener('click', onMinus);
+      }
+      if (state.plusBtn) {
+        state.plusBtn.removeEventListener('click', onPlus);
+      }
       if (state.container) {
         state.container.innerHTML = '';
       }
       state.container = null;
       state.checkbox = null;
+      state.minusBtn = null;
+      state.plusBtn = null;
     }
 
     // 初次渲染
@@ -280,6 +411,25 @@
     const div = document.createElement('div');
     div.textContent = String(str);
     return div.innerHTML;
+  }
+
+  /**
+   * F-QTY-SELECTOR: clamp 到 [min,max]
+   */
+  function clamp(n, min, max) {
+    return Math.min(max, Math.max(min, n));
+  }
+
+  /**
+   * F-QTY-SELECTOR: 數量按鈕樣式(disabled 時灰化,enabled 用品牌綠 #3e5a42)
+   */
+  function qtyBtnStyle(disabled) {
+    const base = 'width:28px;height:28px;padding:0;border-radius:4px;'
+      + 'font-size:18px;font-weight:600;line-height:1;'
+      + 'display:inline-flex;align-items:center;justify-content:center;margin:0 2px;';
+    return disabled
+      ? base + 'border:1px solid #ccc;background:#f3f3f3;color:#bbb;cursor:not-allowed;'
+      : base + 'border:1px solid #3e5a42;background:#fff;color:#3e5a42;cursor:pointer;';
   }
 
   // 全域註冊(只暴露 create)
