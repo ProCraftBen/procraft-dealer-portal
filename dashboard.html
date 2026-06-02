@@ -113,25 +113,13 @@
     </a>
   </div>
 
-  <div class="dashboard-grid">
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Recent Quotes</span>
-        <a href="quotes.html" class="panel-action">View All →</a>
-      </div>
-      <div class="quote-list" id="quoteList">
-        <div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div>
-      </div>
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Recent Quotes</span>
+      <a href="quotes.html" class="panel-action">View All →</a>
     </div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <span class="panel-title">Recent Orders</span>
-        <a href="orders.html" class="panel-action">View All →</a>
-      </div>
-      <div class="quote-list" id="orderList">
-        <div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div>
-      </div>
+    <div class="quote-list" id="quoteList">
+      <div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div>
     </div>
   </div>
 </div>
@@ -239,8 +227,6 @@
           </div>`;
       }).join('');
     }
-
-    document.getElementById('orderList').innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>No orders yet.</div>`;
   }
 
   init();
