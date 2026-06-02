@@ -564,8 +564,8 @@
       const groups = _groupByTypeOrdered(items);
   
       const head = isPacking
-        ? [['Item#', 'Tag', 'SKU', 'Description', 'Qty', 'Assembled?']]
-        : [['Item#', 'Tag', 'SKU', 'Description', 'Qty', 'Assembled?',
+        ? [['#', 'Type', 'SKU', 'Description', 'Qty', 'Assembled?']]
+        : [['#', 'Type', 'SKU', 'Description', 'Qty', 'Assembled?',
             'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
   
       const body = [];
@@ -642,16 +642,16 @@
             5: { cellWidth: 22 },                          // Assembled?
           }
         : {
-            0: { cellWidth: 9 },                                     // Item#
-            1: { cellWidth: 14, overflow: 'linebreak' },             // CB-9: Tag
-            2: { cellWidth: 42, overflow: 'linebreak' },             // SKU (was 50)
-            3: { cellWidth: 28, overflow: 'linebreak' },             // Description (was 34)
-            4: { halign: 'right', cellWidth: 9 },                    // Qty
-            5: { cellWidth: 16 },                                    // Assembled?
-            6: { halign: 'right', cellWidth: 16 },                   // Unit Price
-            7: { halign: 'right', cellWidth: 13 },                   // Mod Fee
-            8: { halign: 'right', cellWidth: 13 },                   // Asm Fee
-            9: { halign: 'right', fontStyle: 'bold', cellWidth: 19 },// Total
+            0: { cellWidth: 8 },                                     // #
+            1: { cellWidth: 12, overflow: 'linebreak' },             // Tag
+            2: { cellWidth: 24, overflow: 'linebreak' },             // SKU (was 42 → 縮窄,消掉與 Description 的空隙)
+            3: { cellWidth: 41, overflow: 'linebreak' },             // Description (was 28 → 加寬,少折行)
+            4: { halign: 'right', cellWidth: 10 },                   // Qty
+            5: { cellWidth: 19 },                                    // Assembled?(加寬,標題一行)
+            6: { halign: 'right', cellWidth: 18 },                   // Unit Price
+            7: { halign: 'right', cellWidth: 15 },                   // Mod Fee(加寬,標題一行)
+            8: { halign: 'right', cellWidth: 15 },                   // Asm Fee(加寬,標題一行)
+            9: { halign: 'right', fontStyle: 'bold', cellWidth: 18 },// Total
           };
   
       const onDrawPage = (data) => {
