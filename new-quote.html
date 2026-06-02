@@ -518,19 +518,6 @@
     </div>
   </div>
 
-  <!-- Billing Address — read-only (edit in Profile) -->
-  <div class="card">
-    <div class="card-title">Billing Address</div>
-    <div class="billing-display" id="billingDisplay">Loading...</div>
-    <div class="billing-hint" id="billingHint">
-      To update billing information, please edit it in <a href="profile.html">your Profile</a>.
-    </div>
-    <div class="billing-warning" id="billingWarning" style="display:none;">
-      ⚠ Your billing address appears incomplete. Please go to
-      <a href="profile.html">your Profile</a> to add Address Line 1 and ZIP Code before proceeding.
-    </div>
-  </div>
-
   <!-- Shipping Address -->
   <div class="card">
     <div class="card-title">Shipping Address</div>
@@ -593,6 +580,19 @@
           <button onclick="saveNewAddress()" style="background:var(--green-dark);color:#fff;border:none;border-radius:3px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:0.1em;cursor:pointer;">Save Address</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Billing Address — read-only (edit in Profile) -->
+  <div class="card">
+    <div class="card-title">Billing Address</div>
+    <div class="billing-display" id="billingDisplay">Loading...</div>
+    <div class="billing-hint" id="billingHint">
+      To update billing information, please edit it in <a href="profile.html">your Profile</a>.
+    </div>
+    <div class="billing-warning" id="billingWarning" style="display:none;">
+      ⚠ Your billing address appears incomplete. Please go to
+      <a href="profile.html">your Profile</a> to add Address Line 1 and ZIP Code before proceeding.
     </div>
   </div>
 </div>
