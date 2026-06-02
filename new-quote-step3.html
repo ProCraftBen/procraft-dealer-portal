@@ -119,6 +119,7 @@
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--green-dark);
+      text-align: center;
     }
     /* CB-7: mod 子項移入 SKU 欄後，需允許換行（td-sku 原為 nowrap）*/
     .items-table td.td-sku .mods-list,
@@ -608,7 +609,7 @@
       </table>
     </div>
 
-    <div id="leadTimeLine" style="display:none;margin-top:10px;text-align:right;"></div>
+    <div id="leadTimeLine" style="display:none;margin-top:10px;text-align:left;"></div>
 
     <div id="notesTableMount"></div>
 
@@ -1690,7 +1691,7 @@ function buildItemRowsHtml(markupPct) {
     // CB-7: 橫跨 9 欄的 type divider，不佔 Item 編號
     rows.push(`
       <tr class="type-divider">
-        <td colspan="9">${escapeHtml(group.type)}</td>
+        <td colspan="9">========== ${escapeHtml(group.type)} ==========</td>
       </tr>`);
 
     group.items.forEach(function (item) {
