@@ -108,6 +108,23 @@
     .td-right { text-align: right; }
     .td-total { font-weight: 500; }
 
+    /* CB-7: type group divider row（橫跨 9 欄、不佔 Item 編號）*/
+    .items-table tbody tr.type-divider td {
+      padding: 8px 12px;
+      background: rgba(62,90,66,0.06);
+      border-top: 1px solid var(--green-mid);
+      border-bottom: 1px solid var(--green-mid);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+    }
+    /* CB-7: mod 子項移入 SKU 欄後，需允許換行（td-sku 原為 nowrap）*/
+    .items-table td.td-sku .mods-list,
+    .items-table td.td-sku .mods-list * { white-space: normal; }
+    
+    
     /* F-CUSTOM: [CUSTOM] badge — gold bg + gold text, consistent with step2/2.5 */
     .custom-badge {
       display: inline-block;
@@ -577,12 +594,10 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Door Style</th>
             <th>SKU</th>
             <th>Description</th>
-            <th>Type</th>
-            <th>Assemble Status</th>
             <th class="th-right">Qty</th>
+            <th>Assembled?</th>
             <th class="th-right">Unit Price</th>
             <th class="th-right">Mod Fee</th>
             <th class="th-right">Assemble Fee</th>
@@ -1610,41 +1625,85 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// F4.1 v2 — Build item rows + collect notes for Notes table.
-// Returns { rowsHtml, notes } so caller can render the Notes table after.
-//
-// F-CUSTOM (Phase 4): Custom items get a gold [CUSTOM] badge next to SKU code.
-// Detected via item.is_custom === true (snapshot from step2 cartItems).
-//
-// F-PROMOTIONS (2026-05-21): Promo-eligible items get a red [PROMO] badge
-// next to SKU code (regardless of markup mode — the badge marks eligibility,
-// not whether the discount is applied this preview). Badge shown on first sub
-// only, mirroring CUSTOM badge logic.
+// CB-7: type-group ordering for the Order List dividers.
+//   BASE 最前 → 中間字母序 → ACCESSORIES → OTHER（最後）。
+//   組內排序：style_code 字母序（同單通常單一門型；多門型時 A→B），
+//   同 style_code 維持進 cart 原順序（stable sort）。
+//   空 group 不會出現（只有有東西的 type 才會被收進來）。
+// ─────────────────────────────────────────────────────────────────────────────
+function typeGroupTier(type) {
+  const t = (type || 'OTHER').toUpperCase();
+  if (t === 'BASE')        return 0;
+  if (t === 'ACCESSORIES') return 2;
+  if (t === 'OTHER')       return 3;
+  return 1;  // 中間：字母序
+}
+
+function groupByTypeOrdered(data) {
+  const buckets = {};
+  (data || []).forEach(function (item) {
+    const t = (item.skuType || 'OTHER').toUpperCase();
+    if (!buckets[t]) buckets[t] = [];
+    buckets[t].push(item);
+  });
+  Object.keys(buckets).forEach(function (t) {
+    buckets[t].sort(function (a, b) {
+      const sa = String(a.style_code || '').toUpperCase();
+      const sb = String(b.style_code || '').toUpperCase();
+      if (sa < sb) return -1;
+      if (sa > sb) return 1;
+      return 0;  // 同 style_code → stable sort 保留原順序
+    });
+  });
+  return Object.keys(buckets)
+    .sort(function (a, b) {
+      const ta = typeGroupTier(a), tb = typeGroupTier(b);
+      if (ta !== tb) return ta - tb;
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    })
+    .map(function (t) { return { type: t, items: buckets[t] }; });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-7: Order List 表格重構（9 欄 + type divider）。
+//   欄序：# / SKU / Description / Qty / Assembled? / Unit Price / Mod Fee /
+//         Assemble Fee / Total
+//   - 全單依 type 分組打 divider，Item 編號全單連續、divider 不佔號。
+//   - SKU 欄顯示 {style_code}-{sku_code}，並保留 CUSTOM/PROMO badge、Sub x of y。
+//   - Assembled?：Assembled → Yes、RTA → No（純文字）。
+//   - Total = (Unit Price × Qty) + Mod Fee + Assemble Fee
+//     （Mod/Asm Fee 已在前階段含 ×Qty，此處不再乘）。
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemRowsHtml(markupPct) {
   markupPct = markupPct || 0;
-  const grouped = groupAndSort(step2Data);
+  const groups = groupByTypeOrdered(step2Data);
   const promoStyleCodes = getActivePromoStyleCodes();  // F-PROMOTIONS
 
   let itemNum = 0;
-  let lastStyle = null;
   const rows = [];
   const notes = [];
   const notesIndex = { counter: 0 };
 
-  Object.entries(grouped).forEach(function ([styleName, items]) {
-    items.forEach(function (item) {
+  groups.forEach(function (group) {
+    // CB-7: 橫跨 9 欄的 type divider，不佔 Item 編號
+    rows.push(`
+      <tr class="type-divider">
+        <td colspan="9">${escapeHtml(group.type)}</td>
+      </tr>`);
+
+    group.items.forEach(function (item) {
       const subs = getNormalizedSubGroups(item);
       const isSplit = subs.length > 1;
       const markedUnitPrice = item.unit_price * (1 + markupPct);
       const isCustom = !!item.is_custom;  // F-CUSTOM
       const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase());  // F-PROMOTIONS
+      const skuPrefix = item.style_code ? escapeHtml(item.style_code) + '-' : '';
 
       subs.forEach(function (sub, subIdx) {
         itemNum++;
-        const isFirstSub  = subIdx === 0;
-        const showStyle   = isFirstSub && (styleName !== lastStyle);
-        if (isFirstSub) lastStyle = styleName;
+        const isFirstSub = subIdx === 0;
 
         const subQty = parseInt(sub.qty, 10) || 0;
         const perSubModCost = calcPerSubModCost(sub);
@@ -1656,34 +1715,25 @@ function buildItemRowsHtml(markupPct) {
         const subLabelHtml = isSplit
           ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
           : '';
-        // F-CUSTOM: gold [CUSTOM] badge on first sub only (avoids visual noise on split subs)
         const customBadgeHtml = (isCustom && isFirstSub)
           ? `<span class="custom-badge">CUSTOM</span>`
           : '';
-        // F-PROMOTIONS: red [PROMO] badge on first sub only
         const promoBadgeHtml = (isPromo && isFirstSub)
           ? `<span class="promo-badge">PROMO</span>`
           : '';
-        const skuCellHtml = `${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}`;
 
-        const itemContext = {
-          sku_code:  item.sku_code,
-          totalSubs: subs.length,
-        };
+        const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
         const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
-        const descMainHtml  = item.sku_desc
-          ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>`
-          : '';
-        const descCellHtml = `${descMainHtml}${modsBlockHtml}`;
 
-        const typeColHtml = isFirstSub && item.skuType
-          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(shortType(item.skuType))}</span>`
-          : '';
+        // ⬇⬇⬇ mod 子項放哪欄：預設照規格放「SKU 欄」⬇⬇⬇
+        const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}${modsBlockHtml}`;
+        const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
+        // 若要維持 CB-6 現況（mod 放 Description 欄），改成下面這兩行：
+        //   const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}`;
+        //   const descCellHtml = `${item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : ''}${modsBlockHtml}`;
+        // ⬆⬆⬆ 二選一 ⬆⬆⬆
 
-        const assembleStatusHtml = isFirstSub
-          ? `<span class="type-badge ${item.type.toLowerCase()}">${escapeHtml(formatAssembleStatus(item.type))}</span>`
-          : '';
-
+        const assembledHtml = isFirstSub ? (item.type === 'RTA' ? 'No' : 'Yes') : '';
         const trClass = isFirstSub ? '' : 'sub-continuation';
 
         const modFeeCellHtml = modFeeTotal > 0
@@ -1697,12 +1747,10 @@ function buildItemRowsHtml(markupPct) {
         rows.push(`
           <tr class="${trClass}">
             <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
-            <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
             <td class="td-sku">${skuCellHtml}</td>
             <td class="td-desc">${descCellHtml}</td>
-            <td style="font-size:11px;">${typeColHtml}</td>
-            <td class="td-type">${assembleStatusHtml}</td>
             <td class="td-right">${subQty}</td>
+            <td style="font-size:12px;">${assembledHtml}</td>
             <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
             <td class="td-right">${modFeeCellHtml}</td>
             <td class="td-right">${asmFeeCellHtml}</td>
