@@ -48,6 +48,9 @@
  *   • 取消勾後再勾起 → qty 重設為 default(不記憶上次)。
  *   • calculateCost() 維持 flat(不乘 qty);qty 的 ×N(mapping SKU
  *     材料費)由主頁面 bundle 邏輯處理。
+ *   • getValue() ↔ create() 對稱:getValue 回 { enabled, qty },
+ *     resume 時主頁面把這個物件原樣丟回 create 的 current_value 即可
+ *     完整還原勾選狀態 + 數量。
  *
  * 介面:
  *   create(container, mf_params, current_value) → instance
@@ -72,9 +75,13 @@
  *   }
  *
  * current_value 結構:
- *   true  → toggle 是開啟狀態
- *   false → toggle 是關閉狀態
- *   null  → 初次渲染預設關閉
+ *   無 qty_selector(純 toggle):
+ *     true  → toggle 開啟
+ *     false → toggle 關閉
+ *     null  → 初次渲染預設關閉
+ *   有 qty_selector(F-QTY-SELECTOR,resume 還原):
+ *     { enabled: bool, qty: number } → 還原勾選 + 數量(qty clamp 進 min/max)
+ *     boolean / null 仍可接受(此時 qty 用 default)
  *
  * 共通規則 1:toggle = false 時不寫 row(由主頁面在 save 時過濾)
  *
@@ -95,15 +102,30 @@
    * Factory:建立一個 MF03 實例
    * @param {HTMLElement} container
    * @param {Object} mf_params - { toggle_label, _base_cost?, qty_selector? }
-   * @param {boolean|null} current_value
+   * @param {boolean|null|{enabled:boolean,qty:number}} current_value
    * @returns {Object} instance with { getValue, validate, calculateCost, setEnabled, setLocked, destroy }
    */
   function create(container, mf_params, current_value) {
+    // ──────────────────────────────────────────────────────────
+    // current_value 可為 boolean(純 toggle)或 { enabled, qty }(qty_selector
+    // resume 還原)。先拆出初始勾選狀態 + 可能的還原數量。
+    // ──────────────────────────────────────────────────────────
+    let initEnabled = false;
+    let initQtyFromValue = null;
+    if (current_value === true) {
+      initEnabled = true;
+    } else if (current_value && typeof current_value === 'object') {
+      initEnabled = current_value.enabled === true;
+      if (typeof current_value.qty === 'number' && isFinite(current_value.qty)) {
+        initQtyFromValue = Math.floor(current_value.qty);
+      }
+    }
+
     // 每次 create 都是獨立 closure,state 不會跟其他實例共享
     const state = {
       container: container,
       mf_params: mf_params || {},
-      current_value: current_value === true,
+      current_value: initEnabled,
       cost: 0,
       checkbox: null,        // 保留 ref 以便 destroy() 移除 listener
       // F-QTY-SELECTOR: 數量狀態
@@ -124,6 +146,7 @@
 
     // ──────────────────────────────────────────────────────────
     // F-QTY-SELECTOR: 解析 qty_selector(沒有 / 非物件 → 維持純 toggle)
+    //   還原優先序:current_value.qty(resume) > qty_selector.default
     // ──────────────────────────────────────────────────────────
     (function parseQtySelector() {
       const qs = state.mf_params.qty_selector;
@@ -138,7 +161,8 @@
 
       state.hasQty = true;
       state.qtyConf = { min: min, max: max, default: def, label: label };
-      state.qty = def;
+      // resume:current_value 帶了 qty 就還原(clamp),否則用 default
+      state.qty = (initQtyFromValue !== null) ? clamp(initQtyFromValue, min, max) : def;
     })();
 
     function render() {
