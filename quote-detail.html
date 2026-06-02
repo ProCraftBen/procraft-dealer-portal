@@ -1874,6 +1874,7 @@ function buildQuoteDataForPdf() {
     delivery_fee:  parseFloat(_quote.delivery_fee || 0),
     shipping_cost: shippingCost,
     items:         items,
+    estimated_lead_time: calculateLeadTime(_groupedItems, _allDoorStyles),  // CB-9 後續: 帶 lead time 給 PDF
     modifications_total:         parseFloat(modsTotal.toFixed(2)),
     modifications_total_taxable: parseFloat(taxableModsTotal.toFixed(2)),
     _taxRate:      _taxRate,
