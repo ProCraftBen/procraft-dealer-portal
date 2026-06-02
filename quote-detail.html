@@ -294,6 +294,24 @@
     }
 
     .td-modfee { color: #8B6914; font-weight: 500; }
+    
+    /* CB-7: type divider row（橫跨 9 欄）*/
+    .items-table tbody tr.type-divider td {
+      padding: 8px 12px;
+      background: rgba(62,90,66,0.06);
+      border-top: 1px solid var(--green-mid);
+      border-bottom: 1px solid var(--green-mid);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+      text-align: center;
+    }
+    /* CB-7: mod 子項移入 SKU 欄後需允許換行（td-sku 原為 nowrap）*/
+    .items-table td.td-sku .mods-list,
+    .items-table td.td-sku .mods-list * { white-space: normal; }
+    
 
     /* ────────────────────────────────────────────────────────────────
        Notes table for MF06 / MF07 / long values
@@ -790,6 +808,11 @@ function formatModValue(v) {
   if (typeof v === 'number')  return String(v);
   if (typeof v === 'boolean') return v ? 'Yes' : 'No';
   if (typeof v === 'object') {
+    // F-QTY-SELECTOR: MF03 toggle-with-qty 的 value { enabled, qty }。
+    if ('enabled' in v && !('value' in v) && !('selected' in v) && !('label' in v)) {
+      if (v.enabled !== true) return '';
+      return (typeof v.qty === 'number') ? ('Qty ' + v.qty) : 'Yes';
+    }
     const parts = [];
     if ('selected' in v && v.selected) parts.push(String(v.selected));
     else if ('label' in v && v.label)  parts.push(String(v.label));
@@ -943,6 +966,42 @@ function groupAndSortByStyle(groupedItems) {
   return byStyle;
 }
 
+// CB-7: type-group ordering（BASE 最前 → 中間字母序 → ACCESSORIES → OTHER）
+function typeGroupTier(type) {
+  const t = (type || 'OTHER').toUpperCase();
+  if (t === 'BASE')        return 0;
+  if (t === 'ACCESSORIES') return 2;
+  if (t === 'OTHER')       return 3;
+  return 1;  // 中間：字母序
+}
+
+function groupByTypeOrdered(data) {
+  const buckets = {};
+  (data || []).forEach(function (item) {
+    const t = (item.sku_type || 'OTHER').toUpperCase();
+    if (!buckets[t]) buckets[t] = [];
+    buckets[t].push(item);
+  });
+  Object.keys(buckets).forEach(function (t) {
+    buckets[t].sort(function (a, b) {
+      const sa = String(a.style_code || '').toUpperCase();
+      const sb = String(b.style_code || '').toUpperCase();
+      if (sa < sb) return -1;
+      if (sa > sb) return 1;
+      return 0;
+    });
+  });
+  return Object.keys(buckets)
+    .sort(function (a, b) {
+      const ta = typeGroupTier(a), tb = typeGroupTier(b);
+      if (ta !== tb) return ta - tb;
+      if (a < b) return -1;
+      if (a > b) return 1;
+      return 0;
+    })
+    .map(function (t) { return { type: t, items: buckets[t] }; });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2.1 — Render mods inside Description column (NO fees).
 //
@@ -1042,70 +1101,55 @@ function renderNotesTable(notes) {
 // F-LINE-TOTAL-INCLUDES-ASM (2026-05-21): Total = Unit + Mod + Asm.
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemRowsHtml(groupedItems) {
-  const byStyle = groupAndSortByStyle(groupedItems);
+  const groups = groupByTypeOrdered(groupedItems);
   const promoStyleCodes = getActivePromoStyleCodes();  // F-PROMOTIONS
 
   let itemNum = 0;
-  let lastStyle = null;
   const rows = [];
   const notes = [];
   const notesIndex = { counter: 0 };
 
-  Object.entries(byStyle).forEach(function ([styleName, items]) {
-    items.forEach(function (item) {
+  groups.forEach(function (group) {
+    // CB-7: 橫跨 9 欄的 type divider，不佔 Item 編號
+    rows.push(`
+      <tr class="type-divider">
+        <td colspan="9">========== ${escapeHtml(group.type)} ==========</td>
+      </tr>`);
+
+    group.items.forEach(function (item) {
       const subs = item.sub_groups;
       const isSplit = subs.length > 1;
       const isCustom = !!item.is_custom;
-      const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase());  // F-PROMOTIONS
+      const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase());
+      const skuPrefix = item.style_code ? escapeHtml(item.style_code) + '-' : '';
 
       subs.forEach(function (sub, subIdx) {
         itemNum++;
-        const isFirstSub  = subIdx === 0;
-        const showStyle   = isFirstSub && (styleName !== lastStyle);
-        if (isFirstSub) lastStyle = styleName;
+        const isFirstSub = subIdx === 0;
 
         const subQty = parseInt(sub.qty, 10) || 0;
         const perSubModCost = calcPerSubModCost(sub);
         const modFeeTotal   = perSubModCost * subQty;
         const skuLineTotal  = item.unit_price * subQty;
-        const asmFeeTotal   = item.assemble_fee * subQty;
-        // F-LINE-TOTAL-INCLUDES-ASM: Total now includes asmFeeTotal so the row
-        // visibly sums Unit + Mod + Asm columns.
+        const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
         const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
 
         const subLabelHtml = isSplit
           ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
           : '';
-        // F-CUSTOM: gold [CUSTOM] badge on first sub only
         const customBadgeHtml = (isCustom && isFirstSub)
-          ? `<span class="custom-badge">CUSTOM</span>`
-          : '';
-        // F-PROMOTIONS: red [PROMO] badge on first sub only
+          ? `<span class="custom-badge">CUSTOM</span>` : '';
         const promoBadgeHtml = (isPromo && isFirstSub)
-          ? `<span class="promo-badge">PROMO</span>`
-          : '';
-        const skuCellHtml = `${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}`;
+          ? `<span class="promo-badge">PROMO</span>` : '';
 
-        const itemContext = {
-          sku_code:  item.sku_code,
-          totalSubs: subs.length,
-        };
+        const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
         const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
-        const descMainHtml  = item.sku_desc
-          ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>`
-          : '';
-        const descCellHtml = `${descMainHtml}${modsBlockHtml}`;
 
-        // F-COL-ABBREVIATIONS: shortType for Type col
-        const typeColHtml = isFirstSub && item.sku_type
-          ? `<span style="font-size:9px;background:rgba(201,168,76,0.12);color:#8B6914;border-radius:2px;padding:1px 5px;white-space:nowrap;">${escapeHtml(shortType(item.sku_type))}</span>`
-          : '';
+        // CB-7: mod 子項放 SKU 欄
+        const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}${modsBlockHtml}`;
+        const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
 
-        // CB-5 需求3: Asm Status 顯示全字(RTA→Unassembled)
-        const assembleStatusHtml = isFirstSub
-          ? `<span class="type-badge ${(item.assemble_status||'').toLowerCase()}">${escapeHtml(formatAssembleStatus(item.assemble_status))}</span>`
-          : '';
-
+        const assembledHtml = isFirstSub ? (item.assemble_status === 'RTA' ? 'No' : 'Yes') : '';
         const trClass = isFirstSub ? '' : 'sub-continuation';
 
         const modFeeCellHtml = modFeeTotal > 0
@@ -1119,12 +1163,10 @@ function buildItemRowsHtml(groupedItems) {
         rows.push(`
           <tr class="${trClass}">
             <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
-            <td class="td-style">${showStyle ? escapeHtml(styleName) : ''}</td>
             <td class="td-sku">${skuCellHtml}</td>
             <td class="td-desc">${descCellHtml}</td>
-            <td style="font-size:11px;">${typeColHtml}</td>
-            <td class="td-type">${assembleStatusHtml}</td>
             <td class="td-right">${subQty}</td>
+            <td style="font-size:12px;">${assembledHtml}</td>
             <td class="td-right">$${item.unit_price.toFixed(2)}</td>
             <td class="td-right">${modFeeCellHtml}</td>
             <td class="td-right">${asmFeeCellHtml}</td>
@@ -1317,7 +1359,7 @@ function renderQuote(quote, dealer, addr) {
     itemsTableHtml = result.rowsHtml;
     notesTableHtml = renderNotesTable(result.notes);
   } else {
-    itemsTableHtml = `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+    itemsTableHtml = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
   }
 
   // CB-5 需求1: 整單 lead time(顯示在 items 表格正下方)
@@ -1589,15 +1631,12 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-header"><span class="card-title">Items</span></div>
       <div style="overflow-x:auto;">
         <table class="items-table">
-          <thead>
-            <tr>
+        <tr>
               <th>#</th>
-              <th>Door Style</th>
               <th>SKU</th>
               <th>Description</th>
-              <th>Type</th>
-              <th>Assemble Status</th>
               <th class="th-right">Qty</th>
+              <th>Assembled?</th>
               <th class="th-right">Unit Price</th>
               <th class="th-right">Mod Fee</th>
               <th class="th-right">Assemble Fee</th>
