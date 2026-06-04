@@ -1055,6 +1055,11 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
 
   const lines = visibleMods.map(function (m) {
     const label = m.display_label || m.mf_code || 'Modification';
+    // CB-12: Matching Interior(required MF03)— value 決定顯示文字
+    const isRequiredMf03 = m.mf_code === 'MF03' && (m.value === 'yes' || m.value === 'no');
+    const effectiveLabel = (isRequiredMf03 && m.value === 'no' && m.no_label)
+      ? m.no_label
+      : label;
     const useNotes = shouldUseNotesTable(m);
 
     if (useNotes) {
@@ -1073,7 +1078,7 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
     }
 
     const value = formatModValue(m.value);
-    const valStr = value ? `: ${escapeHtml(value)}` : '';
+    const valStr = (!isRequiredMf03 && value) ? `: ${escapeHtml(value)}` : '';   // CB-12
     // CB-6: 材料子行  N × MappingSKU: $Material  (N = mapping_qty × sub.qty)
     let matHtml = '';
     const _mq = parseInt(m.mapping_qty, 10) || 0;
@@ -1084,7 +1089,7 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
       const _matTotal = (isNaN(_mc) ? 0 : _mc) * _subQty;
       matHtml = `<div class="mod-material">${_n} × ${escapeHtml(m.mapping_sku)}: $${_matTotal.toFixed(2)}</div>`;
     }
-    return `<div class="mod-line">${escapeHtml(label)}${valStr}</div>${matHtml}`;
+    return `<div class="mod-line">${escapeHtml(effectiveLabel)}${valStr}</div>${matHtml}`;   // CB-12
   });
 
   return `<div class="mods-list">${lines.join('')}</div>`;
