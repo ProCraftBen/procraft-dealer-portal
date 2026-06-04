@@ -3056,6 +3056,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
       isReadOnly: false, isVirtual: false,
       binding_group: bindingGroup,
       binding_role:  bindingRole,
+      lock_reason:   mfParams._lock_reason || 'Required',
       no_label:      mfParams.no_label || null,   // CB-12
     });
 
