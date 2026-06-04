@@ -3056,7 +3056,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
       isReadOnly: false, isVirtual: false,
       binding_group: bindingGroup,
       binding_role:  bindingRole,
-      lock_reason:   mfParams._lock_reason || 'Required',
+      no_label:      mfParams.no_label || null,   // CB-12
     });
 
   try {
@@ -3259,7 +3259,7 @@ function freezeActiveSub() {
     snapshot.push({
       rule_idx: rec.rule_idx, mf_code: rec.mf_code,
       display_label: rec.display_label, value: val, cost: cost,
-      material_cost: _bMatF.material_cost, mapping_sku: _bMatF.mapping_sku, mapping_qty: _bMatF.mapping_qty,
+      material_cost: _bMatF.material_cost, mapping_sku: _bMatF.mapping_sku, mapping_qty: _bMatF.mapping_qty, no_label: rec.no_label || null,   // CB-12
     });
   });
   activeSub.frozenValues = snapshot;
@@ -3856,6 +3856,17 @@ function handleMfSave() {
           };
           break;
         }
+                // CB-12: required MF03 未選 → frozen value === null
+        //   (toggle 回 false、qty 回 object,所以 null 唯一代表 required 未選)
+        if (entry.mf_code === 'MF03' && entry.value === null) {
+          firstFailure = {
+            subIdx: s, ruleIdx: entry.rule_idx,
+            mfCode: entry.mf_code, label: entry.display_label,
+            errors: ['Please select Yes or No for ' + (entry.display_label || 'this option')],
+            isActiveTab: false,
+          };
+          break;
+        }
       }
       if (firstFailure) break;
     }
@@ -3912,6 +3923,7 @@ function handleMfSave() {
         mapping_qty:   entry.mapping_qty || 0,
         total_cost:    laborCost + materialCost,
         tax_status:    taxStatus,
+        no_label:      entry.no_label || null,   // CB-12
     };
     });
     const status = kept.length > 0 ? 'configured' : 'skipped';
