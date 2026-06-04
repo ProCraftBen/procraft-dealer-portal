@@ -52,14 +52,30 @@
  *     resume 時主頁面把這個物件原樣丟回 create 的 current_value 即可
  *     完整還原勾選狀態 + 數量。
  *
+ * CB-12 — REQUIRED YES/NO 模式 (2026-06-04):
+ *   • 新增 optional mf_params.required,為 true 時啟用「必選 Yes/No」
+ *     模式:取代單一 checkbox,改成兩顆 radio(Yes / No),初始都不選。
+ *     業務範例:Matching Interior(WALL/TALL 共 22 筆)。
+ *   • 觸發後完全走獨立 render/handler 路徑(renderRequired / onRadioChange),
+ *     不碰純 toggle 與 qty_selector 的程式碼。
+ *   • 優先序:required > qty_selector(資料上不會同時出現,防禦性處理)。
+ *   • 兩顆 radio 共用「每 instance 唯一」的 name,避免同頁多實例互相干擾。
+ *   • getValue() → 'yes' | 'no' | null(null = 還沒選,會被 validate() 擋)。
+ *   • validate() → required 且 choice 為 null 時回 invalid,錯誤訊息用
+ *     mf_params._display_label || toggle_label 當顯示名。
+ *   • calculateCost() → Yes = _base_cost,No / 未選 = 0。
+ *   • broadcast 只在 dealer 點選 radio 時觸發(初次 render 不發),
+ *     所以主頁面不會收到 null。detail.value = 'yes' | 'no'。
+ *   • resume:current_value 接受字串 'yes' / 'no' 還原選擇。
+ *
  * 介面:
  *   create(container, mf_params, current_value) → instance
  *
  *   instance:
- *     getValue()             → boolean | { enabled, qty }   (F-QTY-SELECTOR)
+ *     getValue()             → boolean | { enabled, qty } | 'yes'|'no'|null
  *     validate()             → { valid, errors }
  *     calculateCost()        → number
- *     setEnabled(bool)       → void  (F-BINDING-GROUP)
+ *     setEnabled(bool)       → void  (F-BINDING-GROUP;required 模式為 no-op)
  *     setLocked(bool, msg?)  → void  (F-BINDING-GROUP)
  *     destroy()              → void
  *
@@ -67,6 +83,9 @@
  *   {
  *     toggle_label: string,
  *     _base_cost?: number,
+ *     _display_label?: string,   // CB-12: required 模式錯誤訊息用(選填)
+ *     required?: boolean,        // CB-12: true → Required Yes/No 模式
+ *     no_label?: string,         // CB-12: 主頁面 / step3 用,本元件不消費
  *     _binding_group?: string,   // F-BINDING-GROUP
  *     _binding_role?: string,    // F-BINDING-GROUP: 'primary' | 'dependent'
  *     qty_selector?: {           // F-QTY-SELECTOR
@@ -82,8 +101,13 @@
  *   有 qty_selector(F-QTY-SELECTOR,resume 還原):
  *     { enabled: bool, qty: number } → 還原勾選 + 數量(qty clamp 進 min/max)
  *     boolean / null 仍可接受(此時 qty 用 default)
+ *   有 required(CB-12,resume 還原):
+ *     'yes' / 'no' → 還原已選的 radio
+ *     其他(含 null)→ 初次渲染,兩顆 radio 都不選
  *
  * 共通規則 1:toggle = false 時不寫 row(由主頁面在 save 時過濾)
+ *   ⚠ CB-12 例外:required 模式不管選 Yes / No 都要寫 row(由主頁面處理),
+ *     才有資料給 step3 顯示 Wood Interior。
  *
  * 對外通知:
  *   container.dispatchEvent(new CustomEvent('mf-change', {
@@ -93,22 +117,29 @@
  *       _binding_group?, _binding_role?    // F-BINDING-GROUP
  *     }
  *   }))
+ *   CB-12:required 模式 value = 'yes' | 'no'(不帶 qty)
  * ============================================================
  */
 (function () {
   'use strict';
 
+  // CB-12: module 層 counter,給 required 模式產生每 instance 唯一的 radio name
+  let _mf03Uid = 0;
+
   /**
    * Factory:建立一個 MF03 實例
    * @param {HTMLElement} container
-   * @param {Object} mf_params - { toggle_label, _base_cost?, qty_selector? }
-   * @param {boolean|null|{enabled:boolean,qty:number}} current_value
+   * @param {Object} mf_params - { toggle_label, _base_cost?, required?, qty_selector? }
+   * @param {boolean|null|string|{enabled:boolean,qty:number}} current_value
    * @returns {Object} instance with { getValue, validate, calculateCost, setEnabled, setLocked, destroy }
    */
   function create(container, mf_params, current_value) {
     // ──────────────────────────────────────────────────────────
-    // current_value 可為 boolean(純 toggle)或 { enabled, qty }(qty_selector
-    // resume 還原)。先拆出初始勾選狀態 + 可能的還原數量。
+    // current_value 可為 boolean(純 toggle)、{ enabled, qty }(qty_selector
+    // resume)、或字串 'yes'/'no'(CB-12 required resume)。
+    // 先拆出 toggle/qty 初始狀態;required 的 choice 另外解析(見下方)。
+    // 註:字串 current_value 不會誤觸這裡 —— 'yes' !== true 且 typeof 非 object,
+    //     所以 initEnabled 維持 false,無汙染。
     // ──────────────────────────────────────────────────────────
     let initEnabled = false;
     let initQtyFromValue = null;
@@ -137,6 +168,11 @@
       // F-BINDING-GROUP: lock state
       locked: false,
       lockReason: null,
+      // CB-12: required Yes/No 模式狀態
+      isRequired: false,     // mf_params.required === true 時啟用
+      choice: null,          // 'yes' | 'no' | null(null = 還沒選)
+      radioName: '',         // 每 instance 唯一的 radio group name
+      radioInputs: [],       // 保留 ref 以便 destroy() 移除 listener
     };
 
     // base cost 從 mf_params._base_cost 讀(主頁面要把 modification.cost 設進去)
@@ -145,10 +181,25 @@
     }
 
     // ──────────────────────────────────────────────────────────
+    // CB-12: 解析 required 模式(優先序高於 qty_selector)。
+    //   啟用後產生唯一 radio name,並從字串 current_value 還原已選 radio。
+    // ──────────────────────────────────────────────────────────
+    state.isRequired = (state.mf_params.required === true);
+    if (state.isRequired) {
+      state.radioName = 'mf03-req-' + (++_mf03Uid);
+      if (current_value === 'yes' || current_value === 'no') {
+        state.choice = current_value;
+      }
+    }
+
+    // ──────────────────────────────────────────────────────────
     // F-QTY-SELECTOR: 解析 qty_selector(沒有 / 非物件 → 維持純 toggle)
     //   還原優先序:current_value.qty(resume) > qty_selector.default
+    //   CB-12:required 模式優先,直接跳過 qty_selector 解析。
     // ──────────────────────────────────────────────────────────
     (function parseQtySelector() {
+      if (state.isRequired) return;  // CB-12: required > qty_selector
+
       const qs = state.mf_params.qty_selector;
       if (!qs || typeof qs !== 'object') return;
 
@@ -166,6 +217,13 @@
     })();
 
     function render() {
+      // CB-12: required 模式走完全獨立的 render 路徑,早退避免碰到下方
+      //        純 toggle / qty_selector 的程式碼。
+      if (state.isRequired) {
+        renderRequired();
+        return;
+      }
+
       const label = escapeHTML(state.mf_params.toggle_label || 'Enable');
 
       // 顯示用 cost,$0 不顯示金額(避免 UI 雜亂)
@@ -264,6 +322,81 @@
         if (state.minusBtn) state.minusBtn.addEventListener('click', onMinus);
         if (state.plusBtn)  state.plusBtn.addEventListener('click', onPlus);
       }
+
+      // CB-12: 非 required 模式不會用到 radio,清掉 ref 保持一致
+      state.radioInputs = [];
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // CB-12: required Yes/No 模式 render。
+    //   - label + 紅色粗體 (Required) 標示
+    //   - 兩顆 radio 共用 state.radioName(唯一),初始都不選
+    //   - cost>0 比照 toggle 顯示 +$cost
+    //   - locked 時 radio disabled + 灰化 + 顯示 reason(防禦性,
+    //     Matching Interior 不在 binding group,實際不會被鎖)
+    // ──────────────────────────────────────────────────────────
+    function renderRequired() {
+      const label = escapeHTML(state.mf_params.toggle_label || 'Enable');
+      const isLocked = state.locked;
+
+      const costDisplay = state.cost > 0
+        ? `<span style="margin-left:8px;color:#666;font-size:13px;">+$${state.cost.toFixed(2)}</span>`
+        : '';
+
+      const lockedReasonHTML = (isLocked && state.lockReason)
+        ? `<span style="margin-left:8px;color:#8B6914;font-size:11px;font-style:italic;font-weight:500;">${escapeHTML(state.lockReason)}</span>`
+        : '';
+
+      const yesChecked = state.choice === 'yes' ? 'checked' : '';
+      const noChecked  = state.choice === 'no'  ? 'checked' : '';
+      const radioDisabled = isLocked ? 'disabled' : '';
+      const radioCursor = isLocked ? 'not-allowed' : 'pointer';
+      const groupOpacity = isLocked ? '0.7' : '1';
+
+      const radioStyle = `margin-right:6px;width:16px;height:16px;cursor:${radioCursor};accent-color:#3e5a42;`;
+      const optLabelStyle = `display:inline-flex;align-items:center;cursor:${radioCursor};user-select:none;`;
+
+      container.innerHTML = `
+        <div style="
+          font-family:'DM Sans',sans-serif;
+          font-size:14px;
+          color:#333;
+          padding:6px 0;
+          opacity:${groupOpacity};
+        ">
+          <div style="display:flex;align-items:center;margin-bottom:6px;">
+            <span>${label}</span>
+            <span style="margin-left:8px;color:#c0392b;font-size:12px;font-weight:700;">(Required)</span>
+            ${costDisplay}
+            ${lockedReasonHTML}
+          </div>
+          <div style="display:flex;align-items:center;gap:20px;margin-left:2px;">
+            <label style="${optLabelStyle}">
+              <input type="radio" name="${state.radioName}" value="yes" ${yesChecked} ${radioDisabled}
+                style="${radioStyle}" />
+              <span>Yes</span>
+            </label>
+            <label style="${optLabelStyle}">
+              <input type="radio" name="${state.radioName}" value="no" ${noChecked} ${radioDisabled}
+                style="${radioStyle}" />
+              <span>No</span>
+            </label>
+          </div>
+        </div>
+      `;
+
+      // 綁定兩顆 radio 的 change listener
+      state.radioInputs = Array.prototype.slice.call(
+        container.querySelectorAll('input[type="radio"]')
+      );
+      state.radioInputs.forEach(function (r) {
+        r.addEventListener('change', onRadioChange);
+      });
+
+      // required 模式不用 checkbox / qty 按鈕,清 ref
+      state.checkbox = null;
+      state.minusBtn = null;
+      state.plusBtn = null;
     }
 
     function onToggle(e) {
@@ -287,6 +420,24 @@
       }
 
       broadcast();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // CB-12: required radio 選擇 handler。
+    //   選 Yes/No → 更新 choice + broadcast(只在這裡發,初次 render 不發,
+    //   所以主頁面不會收到 null)。radio 的 checked 由瀏覽器原生維持,
+    //   不需 re-render(cost 顯示固定不隨選擇變)。
+    // ──────────────────────────────────────────────────────────
+    function onRadioChange(e) {
+      if (state.locked) {
+        e.preventDefault();
+        return;
+      }
+      const v = e.target.value;
+      if (v === 'yes' || v === 'no') {
+        state.choice = v;
+        broadcast();
+      }
     }
 
     // ──────────────────────────────────────────────────────────
@@ -316,16 +467,17 @@
     // F-BINDING-GROUP: broadcast 時帶上 binding info(只在 mf_params
     // 有設 _binding_group 時才帶)
     // F-QTY-SELECTOR: 有 qty_selector 時 detail 多帶 qty
+    // CB-12: required 模式 value = choice('yes'|'no'),不帶 qty
     // ──────────────────────────────────────────────────────────
     function broadcast() {
       const detail = {
         mf_code: 'MF03',
-        value: state.current_value,
+        value: state.isRequired ? state.choice : state.current_value,
         cost: calculateCost()
       };
 
-      // F-QTY-SELECTOR: 有 qty_selector 時帶 qty
-      if (state.hasQty) {
+      // F-QTY-SELECTOR: 有 qty_selector 時帶 qty(required 模式不帶)
+      if (!state.isRequired && state.hasQty) {
         detail.qty = state.qty;
       }
 
@@ -344,6 +496,10 @@
     }
 
     function getValue() {
+      // CB-12: required → 回 'yes' | 'no' | null(優先於 qty / boolean)
+      if (state.isRequired) {
+        return state.choice;
+      }
       // F-QTY-SELECTOR: 有 qty_selector → 回 object;沒有 → 回 boolean(向後相容)
       if (state.hasQty) {
         return { enabled: state.current_value, qty: state.qty };
@@ -352,10 +508,21 @@
     }
 
     function validate() {
+      // CB-12: required 且還沒選 → invalid。顯示名優先用 _display_label。
+      if (state.isRequired && state.choice === null) {
+        const lbl = state.mf_params._display_label
+          || state.mf_params.toggle_label
+          || 'this option';
+        return { valid: false, errors: ['Please select Yes or No for ' + lbl] };
+      }
       return { valid: true, errors: [] };
     }
 
     function calculateCost() {
+      // CB-12: required → Yes = _base_cost,No / 未選 = 0
+      if (state.isRequired) {
+        return state.choice === 'yes' ? state.cost : 0;
+      }
       // 維持 flat:qty 的 ×N(mapping SKU 材料費)由主頁面 bundle 邏輯處理,
       // MF03 自身 _base_cost 視為固定 modification 費,不隨 qty 變動。
       return state.current_value ? state.cost : 0;
@@ -365,8 +532,11 @@
     // F-BINDING-GROUP: 程式化勾起/取消。
     //   不 broadcast 會導致 liveValues 不更新,所以仍 broadcast。
     //   協調者用 same group + same role 判斷不重複處理,避免迴圈。
+    //   CB-12:required 模式為 no-op(enabled 對 tri-state radio 沒意義)。
     // ──────────────────────────────────────────────────────────
     function setEnabled(bool) {
+      if (state.isRequired) return;  // CB-12: required 模式不適用 setEnabled
+
       const newVal = !!bool;
       if (newVal === state.current_value) return;  // no-op
 
@@ -405,6 +575,12 @@
       if (state.plusBtn) {
         state.plusBtn.removeEventListener('click', onPlus);
       }
+      // CB-12: 清 radio listener
+      if (state.radioInputs && state.radioInputs.length) {
+        state.radioInputs.forEach(function (r) {
+          r.removeEventListener('change', onRadioChange);
+        });
+      }
       if (state.container) {
         state.container.innerHTML = '';
       }
@@ -412,6 +588,7 @@
       state.checkbox = null;
       state.minusBtn = null;
       state.plusBtn = null;
+      state.radioInputs = [];
     }
 
     // 初次渲染
