@@ -293,6 +293,15 @@
       font-style: italic;
     }
 
+    /* CB-11 任務B: DOOR & FRAME 固定註記「Hinge not included」(樣式比照 mod 子項) */
+    .items-table td.td-sku .hinge-note {
+      font-size: 11px;
+      color: var(--green-dark);
+      line-height: 1.5;
+      margin-top: 6px;
+      white-space: normal;
+    }
+
     .td-modfee { color: #8B6914; font-weight: 500; }
     
     /* CB-7: type divider row（橫跨 9 欄）*/
@@ -731,8 +740,8 @@ function getTagForItem(item) {
   return (match && match.tag) ? match.tag : '';
 }
 
-// CB-5 需求1: 整單 lead time(用 style_code join door_styles)
-// 任何 frameless → ~5 Weeks;全 framed 全 stock → ~3 Business Days;全 framed 有 non-stock → ~2 Weeks
+// CB-11 任務A: 整單 lead time(重寫 CB-5;用 style_code join door_styles)
+// 任何 frameless → ~5 Weeks;有 non-stock → ~2~3 Weeks;全 framed 全 stock → null(整塊不顯示)
 // 查不到門花色(custom / accessory / 停產)的 item 不納入判斷
 function calculateLeadTime(items, doorStyles) {
   let anyFrameless = false, anyNonStock = false, anyKnown = false;
@@ -746,7 +755,8 @@ function calculateLeadTime(items, doorStyles) {
   });
   if (!anyKnown) return null;
   if (anyFrameless) return '~5 Weeks';
-  return anyNonStock ? '~2 Weeks' : '~3 Business Days';
+  if (anyNonStock) return '~2~3 Weeks';
+  return null;  // CB-11: 全 framed 全 stock → 整塊不顯示
 }
 
 function buildLeadTimeHtml(items, doorStyles) {
@@ -1169,8 +1179,14 @@ function buildItemRowsHtml(groupedItems) {
         const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
         const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
 
+        // CB-11 任務B: DOOR & FRAME 固定顯示「Hinge not included」(每個 sub row 都出現,Hinge 在 mod 子項之前)
+        // 注意: 此頁 item 來自 DB,欄位為 sku_type(蛇底線),非 step3 的 skuType
+        const hingeNoteHtml = ((item.sku_type || '').toUpperCase() === 'DOOR & FRAME')
+          ? `<div class="hinge-note">Hinge not included</div>`
+          : '';
+
         // CB-7: mod 子項放 SKU 欄
-        const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}${modsBlockHtml}`;
+        const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
         const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
 
         const assembledHtml = isFirstSub ? (item.assemble_status === 'RTA' ? 'No' : 'Yes') : '';
