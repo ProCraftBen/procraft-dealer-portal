@@ -1488,6 +1488,14 @@ function renderQuote(quote, dealer, addr) {
     : '';
 
   // F-PROMOTIONS: Discount row, placed right after Subtotal
+  const discountRowHtml = promoDiscount > 0
+    ? `<div class="total-row discount">
+        <div>
+          <span class="total-label">${escapeHtml(promoLabel || 'Promo Discount')}</span>
+        </div>
+        <span class="total-val">−${fmt(promoDiscount)}</span>
+      </div>`
+    : '';
 
   // C1: Shipping row — handle pending case + admin edit link
   const freeShip  = !pendingShipping && parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
