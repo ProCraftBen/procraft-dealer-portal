@@ -275,29 +275,33 @@
     return total;
   }
 
+  
   // ─────────────────────────────────────────────────────────────────────────
-  // F-PROMOTIONS (2026-05-21): Extract promo info from quoteData._promo.
-  //
-  // step3 buildQuoteDataForPdf writes _promo = { total_discount, label,
-  // promo_id, matched_line_count, matched_subtotal, suppressed_by_markup }.
-  // Returns null when:
-  //   - quoteData._promo missing (legacy quote)
-  //   - total_discount <= 0
-  //   - suppressed_by_markup === true (markup mode overrides promo)
-  // ─────────────────────────────────────────────────────────────────────────
-  function _extractPromoInfo(quoteData) {
-    if (!quoteData || !quoteData._promo) return null;
-    const p = quoteData._promo;
-    if (p.suppressed_by_markup === true) return null;
-    const amount = parseFloat(p.total_discount);
-    if (isNaN(amount) || amount <= 0) return null;
-    return {
-      amount:           amount,
-      label:            String(p.label || 'Promo Discount'),
-      id:               String(p.promo_id || ''),
-      matchedCount:     parseInt(p.matched_line_count, 10) || 0,
-      matchedSubtotal:  parseFloat(p.matched_subtotal) || 0,
-    };
+  // CB-13 (改動 9): Kit Promo 20% — PDF 自算,完全取代 F-PROMOTIONS。
+  //   逐 SKU 判斷:style_code ∈ {LSW,LSG,LSA} 且 tag === 'kit'(小寫精確比對)
+  //   markupPercent > 0(Draft Quote markup 模式)整單不享折扣。
+  const KIT_PROMO_STYLES = ['LSW', 'LSG', 'LSA'];
+  const KIT_PROMO_RATE   = 0.20;
+
+  function _isKitPromoItem(item, markupPercent) {
+    if (markupPercent && markupPercent > 0) return false;
+    if (!item) return false;
+    const style = String(item.style_code || '').toUpperCase();
+    if (KIT_PROMO_STYLES.indexOf(style) === -1) return false;
+    return item.tag === 'kit';
+  }
+
+  function _calcKitPromoDiscount(items, markupPercent) {
+    let amount = 0;
+    let matchedCount = 0;
+    (items || []).forEach(function (item) {
+      if (!_isKitPromoItem(item, markupPercent)) return;
+      const unit = parseFloat(item.unit_price) || 0;
+      const qty  = parseInt(item.quantity, 10) || 0;
+      amount += unit * qty * KIT_PROMO_RATE;
+      matchedCount += 1;
+    });
+    return { amount: amount, matchedCount: matchedCount };
   }
 
   function _formatModValue(v) {
@@ -532,6 +536,17 @@
         });
         lines.push(`! See Note No.${noteNum} — ${label}`);
       } else {
+        // 改動 8 (CB-12): MF03 Matching Interior 特例
+        //   value==='no'  → 顯示 no_label(Wood Interior)
+        //   value!=='no'  → 顯示 display_label(Matching Interior)
+        //   只輸出單一 label,不接 value,也無 mapping 子行
+        if ((m.mf_code || '').toUpperCase() === 'MF03' && typeof m.value === 'string') {
+          const mf03Label = (m.value === 'no')
+            ? (m.no_label || 'Wood Interior')
+            : (m.display_label || 'Matching Interior');
+          lines.push(`• ${mf03Label}`);
+          return;
+        }
         const value = _formatModValue(m.value);
         lines.push(`• ${label}${value ? ': ' + value : ''}`);
         // CB-6 材料子行:N × MappingSKU (有價才加 $)
@@ -592,6 +607,11 @@
           const skuDesc = item.sku_desc || '';
           const markedUnitPrice = item.unit_price * (1 + markupPercent);
           const skuPrefix = item.style_code ? item.style_code + '-' : '';
+          // CB-13 (改動 9): 享 Kit Promo 的 line,Total 欄用折後 SKU 單價;
+          //   Unit Price 欄仍顯示原價(markedUnitPrice)。
+          const effUnitPrice = _isKitPromoItem(item, markupPercent)
+            ? markedUnitPrice * (1 - KIT_PROMO_RATE)
+            : markedUnitPrice;
   
           subs.forEach(function (sub, subIdx) {
             itemNum++;
@@ -603,13 +623,21 @@
             const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
             const subLabelLine = isSplit ? `\nSub ${subIdx + 1} of ${subs.length}` : '';
   
+            // 改動 7 (CB-11): DOOR & FRAME 門板 SKU 加註「Hinge not included」
+            //   依 item.sku_type === 'DOOR & FRAME' 判斷(只 framed 有此 type)
+            //   只在主行(isFirstSub)顯示,排在 mod 子項之前
+            const isDoorFrame =
+              (item.sku_type || item.skuType || '').toUpperCase() === 'DOOR & FRAME';
+            const hingeLine = (isDoorFrame && isFirstSub) ? '• Hinge not included' : '';
+
             const modsText = _buildModsText({
               sub: sub, item: item, totalSubs: subs.length,
               notesIndex: notesIndex, notesCollector: notes,
               showPrices: showPrices,
             });
+            const extraLines = [hingeLine, modsText].filter(Boolean).join('\n');
             const skuCell = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
-              + (modsText ? `\n${modsText}` : '');
+              + (extraLines ? `\n${extraLines}` : '');
   
             const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
   
@@ -619,7 +647,7 @@
               const perSubModCost = _calcPerSubModCost(sub);
               const modFeeTotal   = perSubModCost * subQty;
               const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
-              const lineTotal     = (markedUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
+              const lineTotal     = (effUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
               body.push([
                 `#${itemNum}`, tagCell, skuCell, skuDesc, subQty, assembledCell,
                 `$${markedUnitPrice.toFixed(2)}`,
@@ -1050,28 +1078,30 @@
         console.log('[F-CUSTOM] ' + documentTitle + ' PDF: ' + customCount + ' custom item(s)');
       }
     }
-    // F-PROMOTIONS: debug log for promo presence
-    const promoInfo = _extractPromoInfo(quoteData);
-    if (promoInfo) {
-      console.log('[F-PROMO] ' + documentTitle + ' PDF: ' + (promoInfo.id || '?')
-        + ' applied, -$' + promoInfo.amount.toFixed(2)
-        + ' across ' + promoInfo.matchedCount + ' line(s)');
-    } else if (quoteData && quoteData._promo && quoteData._promo.suppressed_by_markup) {
-      console.log('[F-PROMO] ' + documentTitle + ' PDF: promo suppressed by markup mode');
+    // CB-13 (改動 9): debug log for Kit Promo (PDF self-calc)
+    // Packing List 不顯示折扣,跳過 log 以免誤導。
+    if (documentTitle !== 'PACKING LIST') {
+      const _mkPct = (options && options.markupPercent) || 0;
+      const _kitDbg = _calcKitPromoDiscount(quoteData.items, _mkPct);
+      if (_kitDbg.amount > 0) {
+        console.log('[CB-13] ' + documentTitle + ' PDF: Kit Promo -$'
+          + _kitDbg.amount.toFixed(2) + ' across ' + _kitDbg.matchedCount + ' line(s)');
+      } else if (_mkPct > 0) {
+        console.log('[CB-13] ' + documentTitle + ' PDF: Kit Promo suppressed (markup mode)');
+      }
     }
-
     return { doc, logoImg, y, headerContext };
   }
 
   /**
-   * F4.2 + F-PROMOTIONS: Finalize with totals.
+   * F4.2 + CB-13: Finalize with totals.
    *
-   * F-PROMOTIONS (2026-05-21): When _promo present and not suppressed:
+   * CB-13 (改動 9): Kit Promo 折扣由 PDF 自算 _calcKitPromoDiscount(items,
+   * markupPercent),不讀 quoteData._promo。折扣 > 0 時:
    *   - taxBase     = (markedSubtotal - promoDiscount) + taxableModsTotal
    *   - billingBase = (markedSubtotal - promoDiscount) + modsTotal
    *   - grand       = billingBase + assembly + shipping + tax
-   *   Subtotal row in PDF still shows PRE-discount markedSubtotal so dealer
-   *   sees the original price before the deduction (as a separate row).
+   *   Subtotal 行仍顯示折扣前金額,折扣獨立一行。markupPercent > 0 整單不折。
    */
   function _finalizeWithTotals(args) {
     const {
@@ -1106,11 +1136,11 @@
       taxableModsTotal = _calcTaxableModsCost(items);
     }
 
-    // ── F-PROMOTIONS: discount info ──
-    const promoInfo = _extractPromoInfo(quoteData);
-    const promoDiscount     = promoInfo ? promoInfo.amount : 0;
-    const promoLabel        = promoInfo ? promoInfo.label : '';
-    const promoMatchedCount = promoInfo ? promoInfo.matchedCount : 0;
+    // ── CB-13 (改動 9): Kit Promo 20% — PDF 自算,不讀 quoteData._promo ──
+    const kitPromo          = _calcKitPromoDiscount(items, markupPercent);
+    const promoDiscount     = kitPromo.amount;
+    const promoLabel        = promoDiscount > 0 ? 'Discount (Kit Promo 20%)' : '';
+    const promoMatchedCount = kitPromo.matchedCount;
 
     const logisticType    = quoteData.logistic_type || 'pickup';
     const deliveryFee     = parseFloat(quoteData.delivery_fee || 0);
@@ -1254,7 +1284,7 @@
 
   /**
    * 建立 Packing List PDF（無價，給工廠用）
-   * F-PROMOTIONS: explicitly NOT showing promo info (warehouse-only doc).
+   * CB-13 (改動 9): 無價格欄、無總計區,折扣不顯示(工廠文件)。
    */
   async function buildPackingListPdf(quoteData, dealer, shippingAddress, options = {}) {
     const { doc, y, headerContext } = await _initDocAndDrawTop(
@@ -1277,7 +1307,8 @@
 
   /**
    * 建立 Invoice PDF（含價，給 dealer / 客戶用）
-   * F-PROMOTIONS: Discount row added when _promo present and not markup'd.
+   * CB-13 (改動 9): PDF 自算 Kit Promo 折扣(LSW/LSG/LSA + tag==='kit'),
+   *   不讀 quoteData._promo。
    */
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
@@ -1305,9 +1336,8 @@
 
   /**
    * 建立 Draft Quote PDF（Step 3 預覽用）
-   * F-PROMOTIONS: respects _promo.suppressed_by_markup — when dealer is
-   * previewing with markup>0, promo discount is suppressed (set by step3
-   * buildQuoteDataForPdf, this function just reads it).
+   * CB-13 (改動 9): markupPercent > 0 時 Kit Promo 折扣整單不顯示
+   *   (避免 dealer 下游客戶看到底價折扣);折扣由 PDF 自算,不讀 _promo。
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
@@ -1385,7 +1415,8 @@
     _loadImage:               _loadImage,
     _isPendingShipping:       _isPendingShipping,
     _isHiddenMod:             _isHiddenMod,
-    _extractPromoInfo:        _extractPromoInfo,                 // F-PROMOTIONS
+    _calcKitPromoDiscount:    _calcKitPromoDiscount,             // CB-13 (改動 9)
+    _isKitPromoItem:          _isKitPromoItem,                   // CB-13 (改動 9)
     _getNormalizedSubGroups:  _getNormalizedSubGroups,
     _calcPerSubModCost:       _calcPerSubModCost,
     _calcPerSubTaxableModCost: _calcPerSubTaxableModCost,
