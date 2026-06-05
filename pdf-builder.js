@@ -52,23 +52,27 @@
 //   • TYPE_SHORT_MAP / STATUS_SHORT_MAP centralise lookups for mirroring
 //     across step3.html and quote-detail.html.
 //
-// F-PROMOTIONS (2026-05-21):
-//   • Reads quoteData._promo (written by step3 buildQuoteDataForPdf) to
-//     render a "Promo Discount" row in totals of Invoice and Draft Quote
-//     PDFs (between Subtotal and Modifications, mirroring step3 UI layout).
-//     Discount value rendered in red.
-//   • Packing List PDF intentionally does NOT show promo info — it's for
-//     warehouse / assembly workflow, not pricing.
-//   • Tax base, billing base (shipping bracket), and grand total all factor
-//     in the discount: (markedSubtotal - promoDiscount) feeds taxBase and
-//     billingBase. The "Subtotal" row in PDF still shows PRE-discount value
-//     so dealer reads "Subtotal $X → Promo -$Y → ... → Total $Z" in order.
-//   • When _promo.suppressed_by_markup === true (set by step3 when markup>0
-//     on the Draft Quote PDF), promo is treated as zero — no discount row,
-//     no tax recalc. PDF reflects the marked-up price as the customer-facing
-//     number, consistent with step3 markup-mode behavior.
-//   • When quoteData._promo is absent (legacy quotes from before this feature
-//     went live), behavior is fully backward compatible.
+// F-PROMOTIONS (2026-05-21):  [legacy 命名,實際邏輯已由 CB-13 取代,見下]
+//   • (歷史)曾讀 quoteData._promo 顯示折扣。CB-13 後 PDF 改為自算,
+//     不再讀 _promo。此段保留僅為歷史紀錄。
+//
+// CB-11 / CB-12 / CB-13 (P1):
+//   • 改動 7: DOOR & FRAME SKU 加註「Hinge not included」。
+//   • 改動 8: MF03 Matching Interior(no→Wood Interior / yes→Matching Interior)。
+//   • 改動 9: Kit Promo 20%(LSW/LSG/LSA + tag==='kit'),PDF 自算,markup 不折。
+//
+// P2 LAYOUT (改動 10-17):
+//   • 改動 10: PO# 字體 = Invoice 標題(16pt),三種 PDF。
+//   • 改動 11: Header logo + Bill/Ship 放大 1.5x;維持兩列堆疊,header 加高
+//     (headerH 36→52),三種 PDF。
+//   • 改動 12 / 16: SKU 欄拓寬(Invoice / Packing List)。
+//   • 改動 13: Invoice/Draft 總計區 — Assemble Fee 併入 Subtotal(標籤維持
+//     "Subtotal"),不再有獨立 Assemble Fee 行。
+//   • 改動 14: Invoice/Draft — 移除 Assemble Fee 的 by-type 細項。
+//   • 改動 15: Packing List — T&C 右側顯示 "Assembled Items" 數量 summary
+//     (即 Invoice 移除 asm 細項的同一位置)。
+//   • 改動 17: Items 表格 body/head/divider 字體 7→10.5(1.5x),欄寬重配。
+//     Totals / Notes / T&C / 頁尾 維持原大小。
 // ============================================================
 
 (function (global) {
@@ -114,14 +118,15 @@
     pending:   [224, 123, 57],
     note:      [224, 123, 57],
     modText:   [62, 90, 66],
-    discount:  [192, 57, 43],   // F-PROMOTIONS: red for discount values
+    discount:  [192, 57, 43],   // red for discount values
   };
 
+  // 改動 11: headerH 36 → 52(header 區塊放大,上方更醒目)
   const LAYOUT = {
     pageW:    210,
     pageH:    297,
     margin:   14,
-    headerH:  36,
+    headerH:  52,
   };
 
   const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
@@ -194,6 +199,19 @@
       if (!byType[t]) byType[t] = { qty: 0, total: 0 };
       byType[t].qty   += item.quantity;
       byType[t].total += parseFloat(item.assemble_fee) * item.quantity;
+    });
+    return byType;
+  }
+
+  // 改動 15: 統計 Assembled 類型數量(不需 assemble_fee),給 Packing List summary 用。
+  //   只算 assemble_status === 'Assembled'(大小寫不敏感),RTA / Unassembled 不算。
+  function _calcAssembledQtyByType(items) {
+    const byType = {};
+    (items || []).forEach(function (item) {
+      const status = item.assemble_status || item.type || '';
+      if (String(status).toLowerCase() !== 'assembled') return;
+      const t = (item.sku_type || item.skuType || 'OTHER').toUpperCase();
+      byType[t] = (byType[t] || 0) + (parseInt(item.quantity, 10) || 0);
     });
     return byType;
   }
@@ -355,6 +373,12 @@
   // PDF 區塊繪製函式
   // ----------------------------------------
 
+  // 改動 10 + 11: Header 區塊放大。
+  //   - logo 放大(44×26 → 60×36)
+  //   - 公司資訊字體 1.5x(7→10.5 / 6.5→10),行距加大
+  //   - documentTitle 維持 16
+  //   - PO# 放大到 = documentTitle(16)
+  //   - date / jobName 1.5x(7→10.5)
   function _drawHeader(doc, context) {
     const { pageW, margin, headerH } = LAYOUT;
     const { logoImg, poNumber, jobName, date, documentTitle } = context;
@@ -366,24 +390,24 @@
     doc.line(0, headerH, pageW, headerH);
 
     if (logoImg) {
-      doc.addImage(logoImg, 'PNG', margin, 3, 44, 26);
+      doc.addImage(logoImg, 'PNG', margin, 6, 60, 36);
     } else {
       doc.setTextColor(...COLORS.darkGreen);
-      doc.setFontSize(11);
+      doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('ProCraft DC', margin, 15);
+      doc.text('ProCraft DC', margin, 22);
     }
 
-    const infoX = margin + 48;
-    let infoY = 7;
+    const infoX = margin + 66;
+    let infoY = 11;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(10.5);
     doc.setTextColor(...COLORS.darkGreen);
     doc.text('ProCraft Cabinetry DC LLC', infoX, infoY);
-    infoY += 3.8;
+    infoY += 5.5;
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
+    doc.setFontSize(10);
     doc.setTextColor(40, 40, 40);
     [
       '6750 Santa Barbara Court Suite B',
@@ -392,45 +416,51 @@
       'Email: sales@procraftdc.com',
     ].forEach(line => {
       doc.text(line, infoX, infoY);
-      infoY += 3.5;
+      infoY += 5;
     });
 
     if (documentTitle) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(...COLORS.darkGreen);
-      doc.text(documentTitle, pageW - margin, 9, { align: 'right' });
+      doc.text(documentTitle, pageW - margin, 13, { align: 'right' });
     }
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric',
     });
+
+    // 改動 10: PO# 字體 = documentTitle(16)
     doc.setTextColor(...COLORS.muted);
-    doc.setFontSize(7);
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'normal');
-    doc.text(`PO# ${poNumber || '—'}`, pageW - margin, 16, { align: 'right' });
-    doc.text(dateStr, pageW - margin, 22, { align: 'right' });
+    doc.text(`PO# ${poNumber || '—'}`, pageW - margin, 25, { align: 'right' });
+
+    // date / jobName 1.5x(7→10.5)
+    doc.setFontSize(10.5);
+    doc.text(dateStr, pageW - margin, 33, { align: 'right' });
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(10.5);
     doc.setTextColor(40, 40, 40);
-    doc.text(jobName || '—', pageW - margin, 28, { align: 'right' });
+    doc.text(jobName || '—', pageW - margin, 41, { align: 'right' });
   }
 
+  // 改動 11: Bill To / Ship To 區塊字體 1.5x(7.5→11),行距加大。
   function _drawBillShipBlock(doc, context) {
     const { pageW, margin } = LAYOUT;
     const { dealer, shippingAddress, startY } = context;
 
     const billX = margin;
     const shipX = pageW - margin;
-    let addrY = startY + 4;
+    let addrY = startY + 6;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(11);
     doc.setTextColor(...COLORS.muted);
     doc.text('BILL TO', billX, addrY);
     doc.text('SHIP TO', shipX, addrY, { align: 'right' });
-    addrY += 5;
+    addrY += 7;
 
     const billLines = [
       dealer?.company_name || '—',
@@ -455,11 +485,11 @@
     const maxLines = Math.max(billLines.length, shipLines.length);
     for (let i = 0; i < maxLines; i++) {
       doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
-      doc.setFontSize(7.5);
+      doc.setFontSize(11);
       doc.setTextColor(40, 40, 40);
       if (billLines[i]) doc.text(billLines[i], billX, addrY);
       if (shipLines[i]) doc.text(shipLines[i], shipX, addrY, { align: 'right' });
-      addrY += 4.5;
+      addrY += 6.5;
     }
 
     addrY += 3;
@@ -487,7 +517,7 @@
   }
 
   function _addPageNumbers(doc) {
-    const { pageW, margin } = LAYOUT;
+    const { pageW, margin, headerH } = LAYOUT;
     const totalPages = doc.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
@@ -497,7 +527,7 @@
       doc.text(
         `Page ${p} / ${totalPages}`,
         pageW - margin,
-        32,
+        headerH - 3,
         { align: 'right' }
       );
     }
@@ -589,12 +619,12 @@
       const notesIndex = { counter: 0 };
   
       groups.forEach(function (group) {
-        // CB-7: 橫跨全部欄的 type divider
+        // CB-7: 橫跨全部欄的 type divider(改動 17: 字體 7→10.5)
         body.push([{
           content: '========== ' + group.type + ' ==========',
           colSpan: colCount,
           styles: {
-            halign: 'center', fontStyle: 'bold', fontSize: 7,
+            halign: 'center', fontStyle: 'bold', fontSize: 10.5,
             fillColor: [235, 240, 236], textColor: COLORS.modText,
           },
         }]);
@@ -660,26 +690,27 @@
         });
       });
   
+      // 改動 12 / 16 / 17: 欄寬重配(SKU 拓寬;配合 10.5pt 字體)
       const columnStyles = isPacking
         ? {
             0: { cellWidth: 10 },                          // #
             1: { cellWidth: 14, overflow: 'linebreak' },   // Tag
-            2: { cellWidth: 32, overflow: 'linebreak' },   // SKU (was 64 → 縮窄,Description 才不會被推到頁面中間)
-            3: { cellWidth: 88, overflow: 'linebreak' },   // Description (was 55 → 加寬,整段往左)
-            4: { halign: 'right', cellWidth: 12 },         // Qty
+            2: { cellWidth: 60, overflow: 'linebreak' },   // SKU (改動16: 32→60 拓寬)
+            3: { cellWidth: 58, overflow: 'linebreak' },   // Description (擠 88→58)
+            4: { halign: 'right', cellWidth: 14 },         // Qty
             5: { cellWidth: 24 },                          // Assembled?
           }
         
         : {
             0: { cellWidth: 8 },                                     // #
             1: { cellWidth: 12, overflow: 'linebreak' },             // Tag
-            2: { cellWidth: 24, overflow: 'linebreak' },             // SKU (was 42 → 縮窄,消掉與 Description 的空隙)
-            3: { cellWidth: 41, overflow: 'linebreak' },             // Description (was 28 → 加寬,少折行)
+            2: { cellWidth: 46, overflow: 'linebreak' },             // SKU (改動12: 24→46 拓寬)
+            3: { cellWidth: 22, overflow: 'linebreak' },             // Description (擠 41→22)
             4: { halign: 'right', cellWidth: 10 },                   // Qty
-            5: { cellWidth: 19 },                                    // Assembled?(加寬,標題一行)
+            5: { cellWidth: 18 },                                    // Assembled?
             6: { halign: 'right', cellWidth: 18 },                   // Unit Price
-            7: { halign: 'right', cellWidth: 15 },                   // Mod Fee(加寬,標題一行)
-            8: { halign: 'right', cellWidth: 15 },                   // Asm Fee(加寬,標題一行)
+            7: { halign: 'right', cellWidth: 14 },                   // Mod Fee
+            8: { halign: 'right', cellWidth: 14 },                   // Asm Fee
             9: { halign: 'right', fontStyle: 'bold', cellWidth: 18 },// Total
           };
   
@@ -687,13 +718,14 @@
         if (data.pageNumber > 1 && headerContext) _drawHeader(doc, headerContext);
       };
   
+      // 改動 17: 表身 / 表頭字體 7→10.5
       doc.autoTable({
         startY: startY,
         head: head,
         body: body,
         margin: { left: margin, right: margin, top: headerH + 4 },
-        styles: { fontSize: 7, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
-        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+        styles: { fontSize: 10.5, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10.5 },
         columnStyles: columnStyles,
         alternateRowStyles: { fillColor: [250, 248, 244] },
         didDrawPage: onDrawPage,
@@ -811,73 +843,101 @@
   }
 
   // ----------------------------------------
+  // 改動 15: Packing List 右側 Assembled 數量 summary
+  //   位置對應 Invoice 移除 Asm Fee 細項的同一塊(T&C 右側)。
+  // ----------------------------------------
+  function _drawAssembledSummary(doc, context) {
+    const { pageW, margin } = LAYOUT;
+    const { byType, startY } = context;
+    const x = pageW - margin - 70;
+    let y = startY;
+
+    const keys = Object.keys(byType || {});
+    if (!keys.length) return y;
+
+    // 依 TYPE_ORDER 排序,其餘類型(如 VANITY)接在後面字母序
+    const ordered = keys.slice().sort(function (a, b) {
+      const ia = TYPE_ORDER.indexOf(a); const ib = TYPE_ORDER.indexOf(b);
+      const ra = ia === -1 ? 99 : ia;   const rb = ib === -1 ? 99 : ib;
+      if (ra !== rb) return ra - rb;
+      return a < b ? -1 : (a > b ? 1 : 0);
+    });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...COLORS.darkGreen);
+    doc.text('Assembled Items:', x, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(40, 40, 40);
+    ordered.forEach(function (t) {
+      doc.text(`  ${t} × ${byType[t]}`, x, y);
+      y += 4.5;
+    });
+
+    return y;
+  }
+
+  // ----------------------------------------
   // Totals 區塊
   // ----------------------------------------
 
   /**
-   * F4.2 + F-PROMOTIONS Totals layout:
-   *   Subtotal              $X       (PRE-discount)
-   *   Promo Discount       -$Y       (only when totals.promoDiscount > 0)
+   * Totals layout (Invoice / Draft Quote):
+   *   Subtotal              $X       (PRE-discount, 改動 13: 已含 Assemble Fee)
+   *   Discount             -$Y       (only when totals.promoDiscount > 0)
    *     N eligible lines
    *   Modifications        +$Z       (only when > 0)
-   *   Assemble Fee         +$A       (only when > 0)
-   *     BAS x2  / WAL x3  / etc.
    *   Shipping              $S
    *   Tax                   $T
    *   ────────────────
    *   Order Total           $G
+   *
+   * 改動 13: Assemble Fee 併入 Subtotal,不再有獨立 Assemble Fee 行。
+   * 改動 14: 移除 by-type Assemble Fee 細項。
    */
   function _drawTotals(doc, context) {
     const { pageW, margin } = LAYOUT;
     const {
       totals,
-      asmByType,
       taxExempt = false,
       freeShipping = false,
       pendingShipping = false,
       showPrices = true,
       startY,
-      items,
     } = context;
-
-    const byType = asmByType || (items ? _calcAsmByType(items) : {});
 
     const totalsX = pageW - margin - 70;
     const valX    = pageW - margin;
     let y = startY;
 
-    // ── Subtotal (PRE-discount) ──
+    // ── Subtotal (PRE-discount, 改動 13: 含 Assemble Fee) ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text('Subtotal', totalsX, y);
     doc.setTextColor(40, 40, 40);
     doc.text(
-      showPrices ? `$${totals.subtotal.toFixed(2)}` : '—',
+      showPrices ? `$${(totals.subtotal + totals.assembleTotal).toFixed(2)}` : '—',
       valX, y, { align: 'right' }
     );
     y += 6;
 
-    // ── F-PROMOTIONS: Promo Discount row ──
+    // ── CB-13: Discount row ──
     if (showPrices && totals.promoDiscount > 0) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.discount);
-      const label = totals.promoLabel || 'Promo Discount';
-      // Truncate label if too long for the totals column (~70mm wide).
-      // jsPDF doesn't auto-wrap small inline text without splitTextToSize;
-      // an ellipsis keeps things tidy.
+      const label = totals.promoLabel || 'Discount';
       const maxLabelChars = 40;
       const displayLabel = label.length > maxLabelChars
         ? label.slice(0, maxLabelChars - 1) + '…'
         : label;
       doc.text(displayLabel, totalsX, y);
-      // NOTE: use ASCII '-$' not Unicode minus '−$' (U+2212). jsPDF default
-      // Helvetica WinAnsi encoding doesn't render U+2212 cleanly — it shows
-      // as a different glyph and the subsequent digits get visually spaced
-      // out (e.g. "$ 1 1 0 . 0 0"). ASCII hyphen renders correctly.
+      // ASCII '-$'(非 U+2212),jsPDF WinAnsi 才能正確渲染。
       doc.text(`-$${totals.promoDiscount.toFixed(2)}`, valX, y, { align: 'right' });
-      // Sublabel "N eligible lines" below
       if (totals.promoMatchedCount > 0) {
         y += 3.3;
         doc.setFontSize(6);
@@ -891,7 +951,7 @@
       doc.setFontSize(8);
     }
 
-    // ── F4.2: Modifications ──
+    // ── Modifications ──
     if (showPrices && totals.modsTotal > 0) {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
@@ -902,33 +962,7 @@
       y += 6;
     }
 
-    // ── Assemble Fee ──
-    if (totals.assembleTotal > 0) {
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...COLORS.muted);
-      doc.text('Assemble Fee', totalsX, y);
-      if (showPrices) {
-        doc.setTextColor(40, 40, 40);
-        doc.text(`+$${totals.assembleTotal.toFixed(2)}`, valX, y, { align: 'right' });
-      }
-      y += 5;
-
-      // F-COL-ABBREVIATIONS: use short codes for the by-type breakdown
-      TYPE_ORDER.filter(t => byType[t]).forEach(t => {
-        const row = byType[t];
-        doc.setFontSize(6.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(...COLORS.muted);
-        doc.text(`  ${_shortType(t)} x${row.qty}`, totalsX, y);
-        if (showPrices) {
-          doc.setTextColor(140, 100, 20);
-          doc.text(`+$${row.total.toFixed(2)}`, valX, y, { align: 'right' });
-        }
-        y += 4;
-      });
-      y += 2;
-    }
+    // ── (改動 13/14: Assemble Fee 行 + by-type 細項已移除,併入 Subtotal) ──
 
     // ── Shipping ──
     doc.setFontSize(8);
@@ -1102,6 +1136,8 @@
    *   - billingBase = (markedSubtotal - promoDiscount) + modsTotal
    *   - grand       = billingBase + assembly + shipping + tax
    *   Subtotal 行仍顯示折扣前金額,折扣獨立一行。markupPercent > 0 整單不折。
+   *
+   * 改動 13: Subtotal 顯示值已在 _drawTotals 內併入 assembleTotal;grand 計算不變。
    */
   function _finalizeWithTotals(args) {
     const {
@@ -1147,8 +1183,6 @@
     const pendingShipping = _isPendingShipping(quoteData);
 
     // ── Shipping resolution — uses POST-discount billing base ──
-    // F-PROMOTIONS: shipping bracket uses post-discount base to avoid dealers
-    // hitting a higher shipping tier just because we hadn't deducted the promo.
     const billingBase = (markedSubtotal - promoDiscount) + modsTotal;
     let shipping;
     if (pendingShipping) {
@@ -1168,18 +1202,17 @@
       }
     }
 
-    // ── F4.2 + F-PROMOTIONS: Tax base = (SKU - promo) + TAXABLE mods ──
+    // ── Tax base = (SKU - promo) + TAXABLE mods ──
     const taxRate   = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
     const taxBase   = (markedSubtotal - promoDiscount) + taxableModsTotal;
     const tax       = taxExempt ? 0 : taxBase * taxRate;
 
     // ── Grand total = billing base + assembly + shipping + tax ──
-    // billingBase already has promoDiscount subtracted.
     const grand = billingBase + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
 
     const totals = {
-      subtotal:          markedSubtotal,     // PRE-discount (shown on its own row)
+      subtotal:          markedSubtotal,     // PRE-discount(顯示時併入 assembleTotal,見 _drawTotals)
       promoDiscount:     promoDiscount,
       promoLabel:        promoLabel,
       promoMatchedCount: promoMatchedCount,
@@ -1189,7 +1222,6 @@
       tax:               tax,
       grand:             grand,
     };
-    const asmByType = _calcAsmByType(items);
 
     // CB-9 後續: Estimated Lead Time 印在 items 表格下方(Notes 之前)
     const yLead = _drawLeadTime(doc, {
@@ -1209,9 +1241,9 @@
 
     let y = yAfterNotes + 8;
     const TC_BLOCK_H = 7 * 6 + 16;
-    // F-PROMOTIONS: account for extra discount row + sublabel height
+    // 改動 13/14 後 totals 少了 Assemble Fee 行 + 細項,所以高度需求變小
     const PROMO_H    = promoDiscount > 0 ? 9 : 0;
-    const TOTALS_H   = (assembleTotal > 0 ? 60 : 45) + (modsTotal > 0 ? 6 : 0) + PROMO_H;
+    const TOTALS_H   = 45 + (modsTotal > 0 ? 6 : 0) + PROMO_H;
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
     if (y + NEEDED > 275) {
       doc.addPage();
@@ -1228,9 +1260,9 @@
 
     const freeShipping = !pendingShipping && shipping === 0 && markedSubtotal > 0;
     _drawTotals(doc, {
-      totals, asmByType, taxExempt, freeShipping,
+      totals, taxExempt, freeShipping,
       pendingShipping,
-      showPrices, startY: y, items,
+      showPrices, startY: y,
     });
 
     _drawFooterBar(doc);
@@ -1239,7 +1271,7 @@
 
   /**
    * F4.2: Packing List finalize — Notes table + T&C, no totals.
-   * F-PROMOTIONS: intentionally no discount info (warehouse workflow only).
+   * 改動 15: T&C 變窄,右側加 Assembled 數量 summary。
    */
   function _finalizePackingListWithTcAndNotes(args) {
     const { doc, quoteData, headerContext, tableEndY, notes } = args;
@@ -1262,7 +1294,8 @@
     }
 
     let y = yAfterNotes + 8;
-    const TC_BLOCK_H = 7 * 6 + 16;
+    // 改動 15: T&C 變窄(maxWidth 105)會多折行,預留高一點
+    const TC_BLOCK_H = 7 * 8 + 16;
     const NEEDED     = TC_BLOCK_H + 20;
 
     if (y + NEEDED > 275) {
@@ -1276,7 +1309,12 @@
     doc.line(margin, y, pageW - margin, y);
     y += 6;
 
-    _drawTermsAndConditions(doc, { startY: y, maxWidth: 180 });
+    // 改動 15: 左 T&C(變窄) + 右 Assembled summary
+    _drawTermsAndConditions(doc, { startY: y, maxWidth: 105 });
+    _drawAssembledSummary(doc, {
+      byType: _calcAssembledQtyByType(quoteData.items),
+      startY: y,
+    });
 
     _drawFooterBar(doc);
     _addPageNumbers(doc);
@@ -1285,6 +1323,7 @@
   /**
    * 建立 Packing List PDF（無價，給工廠用）
    * CB-13 (改動 9): 無價格欄、無總計區,折扣不顯示(工廠文件)。
+   * 改動 15: 底部右側顯示 Assembled 數量 summary。
    */
   async function buildPackingListPdf(quoteData, dealer, shippingAddress, options = {}) {
     const { doc, y, headerContext } = await _initDocAndDrawTop(
@@ -1307,8 +1346,8 @@
 
   /**
    * 建立 Invoice PDF（含價，給 dealer / 客戶用）
-   * CB-13 (改動 9): PDF 自算 Kit Promo 折扣(LSW/LSG/LSA + tag==='kit'),
-   *   不讀 quoteData._promo。
+   * CB-13 (改動 9): PDF 自算 Kit Promo 折扣(LSW/LSG/LSA + tag==='kit'),不讀 _promo。
+   * 改動 13/14: Assemble Fee 併入 Subtotal,無獨立 Asm Fee 行與細項。
    */
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
@@ -1336,8 +1375,8 @@
 
   /**
    * 建立 Draft Quote PDF（Step 3 預覽用）
-   * CB-13 (改動 9): markupPercent > 0 時 Kit Promo 折扣整單不顯示
-   *   (避免 dealer 下游客戶看到底價折扣);折扣由 PDF 自算,不讀 _promo。
+   * CB-13 (改動 9): markupPercent > 0 時 Kit Promo 折扣整單不顯示;折扣 PDF 自算。
+   * 改動 13/14: 與 Invoice 同步 — Assemble Fee 併入 Subtotal,無細項。
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
@@ -1412,6 +1451,7 @@
     _typeRank:                _typeRank,
     _groupAndSort:            _groupAndSort,
     _calcAsmByType:           _calcAsmByType,
+    _calcAssembledQtyByType:  _calcAssembledQtyByType,           // 改動 15
     _loadImage:               _loadImage,
     _isPendingShipping:       _isPendingShipping,
     _isHiddenMod:             _isHiddenMod,
@@ -1432,6 +1472,7 @@
     _addPageNumbers:         _addPageNumbers,
     _drawItemTable:          _drawItemTable,
     _drawNotesTable:         _drawNotesTable,
+    _drawAssembledSummary:   _drawAssembledSummary,              // 改動 15
     _drawTotals:             _drawTotals,
     _drawTermsAndConditions: _drawTermsAndConditions,
 
