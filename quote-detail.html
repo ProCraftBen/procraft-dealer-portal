@@ -1156,7 +1156,8 @@ function buildItemRowsHtml(groupedItems) {
       const subs = item.sub_groups;
       const isSplit = subs.length > 1;
       const isCustom = !!item.is_custom;
-      const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase());
+      // CB-13: badge 收緊成 style 命中 AND tag==='Kit',與 step3 一致(純裝飾;權威數字是反推的 Discount 行)
+      const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase()) && getTagForItem(item) === 'Kit';
       const skuPrefix = item.style_code ? escapeHtml(item.style_code) + '-' : '';
 
       subs.forEach(function (sub, subIdx) {
@@ -1436,17 +1437,22 @@ function renderQuote(quote, dealer, addr) {
   const taxableMods       = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
   const nonTaxableMods    = modsSubtotal - taxableMods;
 
-  // F-PROMOTIONS: compute discount live for UI display
-  const promoResult = _groupedItems
-    ? calculatePromotionDiscount(groupedItemsToPromoShape(_groupedItems))
-    : { totalDiscount: 0, matchedLineCount: 0, appliedPromo: null };
-  const promoDiscount     = promoResult.totalDiscount;
-  const promoLabel        = promoResult.appliedPromo ? promoResult.appliedPromo.label : '';
-  const promoMatchedCount = promoResult.matchedLineCount;
+  // CB-13 (Approach A): Discount 不再用 PROMOTIONS/tag 即時重算,改從 DB 快照反推,
+  // 讓歷史單精準不變、且 Discount 行永遠跟快照 Order Total 對得起來:
+  //   grand = (subtotal − discount) + mods + assemble + shipping + tax
+  //   ⇒ discount = subtotal + mods + assemble + shipping + tax − grand
+  // 送單時 pending shipping 是以 0 計入 grand 的 → null 視為 0。
+  const _asmForDisc   = parseFloat(quote.assemble_total || 0);
+  const _shipForDisc  = (quote.shipping_cost == null) ? 0 : parseFloat(quote.shipping_cost || 0);
+  const _taxForDisc   = parseFloat(quote.tax_amount || 0);
+  const _grandForDisc = parseFloat(quote.grand_total || 0);
+  let promoDiscount = skuSubtotal + modsSubtotal + _asmForDisc + _shipForDisc + _taxForDisc - _grandForDisc;
+  promoDiscount = Math.round(promoDiscount * 100) / 100;
+  if (promoDiscount < 0.01) promoDiscount = 0;   // 反推噪訊 / 無折扣 → 不顯示
+  const promoLabel = 'Promo Discount';            // 快照無法得知當年的促銷名稱,用通用標籤
 
   if (promoDiscount > 0) {
-    console.log('[F-PROMO] quote-detail: ' + (promoResult.appliedPromo ? promoResult.appliedPromo.id : '?')
-      + ' matched ' + promoMatchedCount + ' line(s), discount=$' + promoDiscount.toFixed(2));
+    console.log('[CB-13] quote-detail back-solved discount=$' + promoDiscount.toFixed(2));
   }
 
   // Assemble breakdown by type
@@ -1482,17 +1488,6 @@ function renderQuote(quote, dealer, addr) {
     : '';
 
   // F-PROMOTIONS: Discount row, placed right after Subtotal
-  const discountRowHtml = promoDiscount > 0
-    ? `<div class="total-row discount">
-        <div>
-          <span class="total-label">${escapeHtml(promoLabel || 'Promo Discount')}</span>
-          ${promoMatchedCount > 0
-            ? `<div class="discount-sublabel">${promoMatchedCount} eligible line${promoMatchedCount === 1 ? '' : 's'}</div>`
-            : ''}
-        </div>
-        <span class="total-val">−${fmt(promoDiscount)}</span>
-      </div>`
-    : '';
 
   // C1: Shipping row — handle pending case + admin edit link
   const freeShip  = !pendingShipping && parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
@@ -1774,37 +1769,19 @@ async function saveShipping() {
     return;
   }
 
-  // F-PROMOTIONS bug fix (2026-05-21): grand_total recompute must subtract
-  // promo discount. Previously, admin shipping edits silently re-inflated
-  // grand_total by the discount amount, because subtotal here is the PRE-
-  // discount value but the original grand_total was POST-discount.
-  //
-  // Formula: grand = subtotal - promoDiscount + modsTotal + assembleTotal
-  //                  + newShipping + tax
-  // We don't recompute tax — keep the snapshot (matches step3 behavior).
-  const subtotal      = parseFloat(_quote.subtotal       || 0);
-  const assembleTotal = parseFloat(_quote.assemble_total || 0);
-  const taxAmount     = parseFloat(_quote.tax_amount     || 0);
-  const modsTotal     = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
-
-  // F-PROMOTIONS: compute discount the same way the rest of the page does
-  const promoResult = _groupedItems
-    ? calculatePromotionDiscount(groupedItemsToPromoShape(_groupedItems))
-    : { totalDiscount: 0 };
-  const promoDiscount = promoResult.totalDiscount;
-
+  // CB-13 (Approach A): 改運費只把運費差額換進快照 grand,絕不重算折扣
+  // (重算會抹掉 grand 裡內含的歷史促銷)。折扣維持快照原狀。
+  //   newGrand = oldGrand − oldShipping + newShipping
+  // 運費不進稅基、也不被折扣,所以這個差額式精準。pending(null)視為 0。
+  const oldGrand    = parseFloat(_quote.grand_total || 0);
+  const oldShipping = (_quote.shipping_cost == null) ? 0 : parseFloat(_quote.shipping_cost || 0);
   const newShippingRounded = parseFloat(newShipping.toFixed(2));
-  const newGrand = parseFloat(
-    (subtotal - promoDiscount + modsTotal + assembleTotal + newShippingRounded + taxAmount).toFixed(2)
-  );
+  const newGrand = parseFloat((oldGrand - oldShipping + newShippingRounded).toFixed(2));
 
-  console.log('[F-PROMO] saveShipping recompute:',
-    'subtotal=$' + subtotal.toFixed(2),
-    'promoDiscount=$' + promoDiscount.toFixed(2),
-    'modsTotal=$' + modsTotal.toFixed(2),
-    'assembleTotal=$' + assembleTotal.toFixed(2),
+  console.log('[CB-13] saveShipping delta:',
+    'oldGrand=$' + oldGrand.toFixed(2),
+    'oldShipping=$' + oldShipping.toFixed(2),
     'newShipping=$' + newShippingRounded.toFixed(2),
-    'tax=$' + taxAmount.toFixed(2),
     'newGrand=$' + newGrand.toFixed(2)
   );
 
