@@ -915,7 +915,7 @@ function buildModeParam() {
 const PROMOTIONS = [
   {
     id:           'LSW_LSG_LSA_20OFF',
-    label:        'LSW/LSG/LSA Promo Discount (20% off)',
+    label:        'Discount (Kit Promo 20%)',
     style_codes:  ['LSW', 'LSG', 'LSA'],
     discount_pct: 20,
     applies_to:   'line_items',
@@ -964,6 +964,9 @@ function calculatePromotionDiscount(items) {
       const code = String(item.style_code || '').toUpperCase();
       if (!styleSet.has(code)) return;
 
+      // CB-13: 雙條件 — 除了 style 命中,還必須 tag === 'Kit'(大寫 K、嚴格相等)
+      if (getTagForItem(item) !== 'Kit') return;
+
       const unitPrice = parseFloat(item.unit_price) || 0;
       const qty       = parseInt(item.quantity, 10) || 0;
       if (unitPrice <= 0 || qty <= 0) return;
@@ -1006,6 +1009,25 @@ function getActivePromoStyleCodes() {
     });
   });
   return set;
+}
+
+/**
+ * CB-13: 逐 item 的促銷折扣比率(單一真實來源,折扣計算 / Row Total / [PROMO] badge 共用)。
+ * 雙條件:style_code 命中 active campaign 的 style_codes,且 tag === 'Kit'(大寫 K、嚴格相等)。
+ * 回傳折扣比率(例如 0.20);不符合回 0。markup mode 的抑制由呼叫端處理。
+ */
+function getPromoDiscountPctForItem(item) {
+  if (!item) return 0;
+  if (getTagForItem(item) !== 'Kit') return 0;                 // CB-13 雙條件之一
+  const code = String(item.style_code || '').toUpperCase();
+  const promos = (PROMOTIONS || []).filter(function (p) { return p && p.active; });
+  for (let i = 0; i < promos.length; i++) {
+    const p = promos[i];
+    const styleSet = new Set((p.style_codes || []).map(function (c) { return String(c).toUpperCase(); }));
+    const pct = parseFloat(p.discount_pct) || 0;
+    if (styleSet.has(code) && pct > 0) return pct / 100;
+  }
+  return 0;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1728,7 +1750,7 @@ function groupByTypeOrdered(data) {
 function buildItemRowsHtml(markupPct) {
   markupPct = markupPct || 0;
   const groups = groupByTypeOrdered(step2Data);
-  const promoStyleCodes = getActivePromoStyleCodes();  // F-PROMOTIONS
+  // CB-13: 逐 item 促銷改用 getPromoDiscountPctForItem()(style AND tag==='Kit'),不再用 style-only Set
 
   let itemNum = 0;
   const rows = [];
@@ -1747,7 +1769,11 @@ function buildItemRowsHtml(markupPct) {
       const isSplit = subs.length > 1;
       const markedUnitPrice = item.unit_price * (1 + markupPct);
       const isCustom = !!item.is_custom;  // F-CUSTOM
-      const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase());  // F-PROMOTIONS
+      // CB-13: 逐 item 促銷 = style 命中 AND tag==='Kit';markup mode(markupPct>0)時整個促銷抑制。
+      const inMarkupMode = markupPct > 0;
+      const promoPct = inMarkupMode ? 0 : getPromoDiscountPctForItem(item);
+      const isPromo  = promoPct > 0;  // 驅動 [PROMO] badge + 折後 Total
+      const discountedUnitPrice = markedUnitPrice * (1 - promoPct);
       const skuPrefix = item.style_code ? escapeHtml(item.style_code) + '-' : '';
 
       subs.forEach(function (sub, subIdx) {
@@ -1757,7 +1783,7 @@ function buildItemRowsHtml(markupPct) {
         const subQty = parseInt(sub.qty, 10) || 0;
         const perSubModCost = calcPerSubModCost(sub);
         const modFeeTotal   = perSubModCost * subQty;
-        const skuLineTotal  = markedUnitPrice * subQty;
+        const skuLineTotal  = discountedUnitPrice * subQty;  // CB-13: Total 用折後價(Unit Price 欄仍顯示原價)
         const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
         const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
 
