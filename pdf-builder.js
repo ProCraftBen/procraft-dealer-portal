@@ -624,7 +624,7 @@
           content: '========== ' + group.type + ' ==========',
           colSpan: colCount,
           styles: {
-            halign: 'center', fontStyle: 'bold', fontSize: 10.5,
+            halign: 'center', fontStyle: 'bold', fontSize: 9,
             fillColor: [235, 240, 236], textColor: COLORS.modText,
           },
         }]);
@@ -724,8 +724,8 @@
         head: head,
         body: body,
         margin: { left: margin, right: margin, top: headerH + 4 },
-        styles: { fontSize: 10.5, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
-        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 10.5 },
+        styles: { fontSize: 9, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
         columnStyles: columnStyles,
         alternateRowStyles: { fillColor: [250, 248, 244] },
         didDrawPage: onDrawPage,
