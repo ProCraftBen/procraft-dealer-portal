@@ -1482,25 +1482,16 @@ function resolveShippingForDb(opts) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CB-3 (2026-05-29): Shared helper to obtain a PO# for the current dealer.
-// Used by saveDraft() (first save → generate) and submitQuote() (A-mode
-// fallback when dealer skipped save). New RPC signature: (p_dealer_uid).
+// CB-3 (2026-05-29): Shared helper to obtain a PO# on first save.
+// CB-14 (2026-06): PO# is now a company-wide sequential number (P + 5-digit
+//   zero-padded, e.g. P09001), aligned with the internal ERP. The RPC takes
+//   NO parameters and draws from a single company-wide pool, so no dealer uid
+//   is needed. The dealerId argument is kept only for call-site compatibility
+//   (it is now unused).
 // ─────────────────────────────────────────────────────────────────────────────
 async function obtainPoNumberForDealer(dealerId) {
-  let dealerUidForPO;
-  if (dealer && dealer.id === dealerId) {
-    dealerUidForPO = dealer.uid;
-  } else {
-    const { data: targetDealer, error: dealerErr } = await _supabase
-      .from('dealers').select('uid').eq('id', dealerId).single();
-    if (dealerErr) throw dealerErr;
-    dealerUidForPO = targetDealer ? targetDealer.uid : null;
-  }
-  if (!dealerUidForPO) {
-    throw new Error('Dealer UID is missing — cannot generate PO#. Please contact support.');
-  }
   const { data: poData, error: poError } = await _supabase
-    .rpc('generate_po_number', { p_dealer_uid: dealerUidForPO });
+    .rpc('generate_po_number');
   if (poError) throw poError;
   if (!poData) throw new Error('Failed to generate PO number.');
   return poData;
@@ -2272,10 +2263,12 @@ function buildQuoteDataForPdf(opts) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CB-3 (2026-05-29): saveDraft now generates PO# on FIRST save.
+// CB-14 (2026-06): PO# format changed to company-wide sequential (P + 5-digit
+//   zero-padded, e.g. P09001) via the no-arg generate_po_number() RPC.
 //
 // PO# lifecycle:
-//   • _existingPoNumber empty → call generate_po_number(p_dealer_uid) RPC
-//     to get a random alphanumeric (e.g. PUWV8F3K2P), write to quotes.po_number
+//   • _existingPoNumber empty → call generate_po_number() RPC to get the next
+//     sequential number (e.g. P09001), write to quotes.po_number
 //   • _existingPoNumber set    → reuse it (resume draft, second save, etc.)
 // After write, sync to _existingPoNumber + step1Data.poNumber so PDF/Step1
 // resume see it immediately.
