@@ -683,20 +683,29 @@
       Please review your purchase order carefully before submitting.<br>
       You can also save as a quote to continue later.
     </div>
+    <div id="termsAgreeRow" style="display:none;align-items:flex-start;justify-content:center;gap:8px;margin-bottom:18px;font-size:13px;color:var(--text);line-height:1.5;">
+        <input type="checkbox" id="agreeTerms" onchange="onAgreeTermsChange()"
+          style="margin-top:3px;width:16px;height:16px;cursor:pointer;accent-color:var(--green-dark);flex-shrink:0;"/>
+        <label for="agreeTerms" style="cursor:pointer;max-width:520px;text-align:left;">
+          I have read and agree to follow ProCraft DC's portal policy and
+          <a href="https://dc.procraftcabinetry.com/term-of-use/" target="_blank" rel="noopener"
+            style="color:var(--gold);text-decoration:underline;">Terms of Use</a>.
+        </label>
+      </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
       <button class="btn-draft" id="btnDraft" onclick="saveDraft()">
         <svg viewBox="0 0 24 24" class="draft-btn-text"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         <span class="draft-btn-text">Save Draft</span>
         <div class="draft-spinner"></div>
       </button>
-<button class="btn-submit" id="btnSubmit" onclick="openSubmitConfirmModal()">
+<button class="btn-submit" id="btnSubmit" onclick="openSubmitConfirmModal()" disabled>
         <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
         <span class="btn-text" id="btnSubmitText">Submit Purchase Order</span>
         <div class="spinner"></div>
       </button>
       <button class="btn-submit" id="btnRequestRevision" onclick="openRevisionModal()" style="display:none;">
         <svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
-        <span>Request Revision</span>
+        <span>Request Review &amp; Resubmit</span>
       </button>
     </div>
   </div>
@@ -808,6 +817,7 @@
   </div>
 </div>
 
+  
 <!-- CB-5 需求2 階段3: Submit 確認(永遠跳;含 Special Order 時加 ⚠) -->
 <div class="cb4-modal" id="submitConfirmModal">
   <div class="cb4-modal-box">
@@ -1644,6 +1654,13 @@ if (draftId) {
     elDraftBan.style.display = 'flex';
   }
 
+  // Terms-of-use gate:只在會出現「送出/重送 PO」按鈕的模式顯示勾選列
+  // (normal + review)。btnSubmit 已預設 disabled,勾了才放開。
+  if (viewMode === 'normal' || viewMode === 'review') {
+    const termsRow = document.getElementById('termsAgreeRow');
+    if (termsRow) termsRow.style.display = 'flex';
+  }
+  
   renderReview();
 }
 
@@ -3071,6 +3088,14 @@ function closeSubmitConfirmModal() {
 function confirmSubmitFromModal() {
   closeSubmitConfirmModal();
   submitQuote();
+}
+
+// Terms gate: dealer 必須先勾同意才能送出 / 重送 PO
+function onAgreeTermsChange() {
+  const cb  = document.getElementById('agreeTerms');
+  const btn = document.getElementById('btnSubmit');
+  if (!cb || !btn) return;
+  btn.disabled = !cb.checked;
 }
 
 function updateMarkupPreview() {
