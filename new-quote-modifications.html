@@ -1501,15 +1501,29 @@
 <div class="swap-modal-overlay swap-confirm-overlay" id="swapConfirmOverlay">
   <div class="swap-confirm-box" role="dialog" aria-modal="true" aria-labelledby="swapConfirmTitle">
     <div class="swap-confirm-head">
-      <span class="swap-confirm-title" id="swapConfirmTitle">Confirm Modification Cost Change</span>
+      <span class="swap-confirm-title" id="swapConfirmTitle">Confirm Door Style Change</span>
     </div>
-    <div class="swap-confirm-body">
+<div class="swap-confirm-body">
       <div class="swap-confirm-fromto" id="swapConfirmFromTo">—</div>
       <div class="swap-confirm-rows">
-        <div class="swap-confirm-row"><span>Old Total</span><span id="swapConfirmOldTotal">$0.00</span></div>
-        <div class="swap-confirm-row"><span>New Total</span><span id="swapConfirmNewTotal">$0.00</span></div>
+        <div class="swap-confirm-row">
+          <span>Unit Price</span>
+          <span><span id="swapConfirmOldUnit">$0.00</span> → <span id="swapConfirmNewUnit">$0.00</span></span>
+        </div>
+        <div class="swap-confirm-row">
+          <span>Modifications</span>
+          <span><span id="swapConfirmOldMod">$0.00</span> → <span id="swapConfirmNewMod">$0.00</span></span>
+        </div>
+        <div class="swap-confirm-row">
+          <span>Assembly Fee</span>
+          <span><span id="swapConfirmOldFee">$0.00</span> → <span id="swapConfirmNewFee">$0.00</span></span>
+        </div>
         <div class="swap-confirm-row diff-row">
-          <span>Difference</span>
+          <span>Group Total</span>
+          <span><span id="swapConfirmOldTotal">$0.00</span> → <span id="swapConfirmNewTotal">$0.00</span></span>
+        </div>
+        <div class="swap-confirm-row">
+          <span>Change</span>
           <span><span class="swap-confirm-diff" id="swapConfirmDiff">$0.00</span><span class="swap-confirm-note" id="swapConfirmNote"></span></span>
         </div>
       </div>
@@ -4207,9 +4221,11 @@ function onSwapStyleSelect(newStyleCode) {
 document.getElementById('swapConfirmBtn').disabled = false;
 }
 
-// F-SWAP: 計算換門型影響 — 只算「被換 group」的 modification 成本變化
-//   (CB-15 修訂:本頁聚焦 modification,不計 SKU 單價 / discount / tax)
-//   old = 既存 material_cost;new = 對新門型重算 bundle 材料費;labor 不變
+// F-SWAP: 計算換門型影響 — 被換 group 的成分明細 + 總計(CB-15 修訂)
+//   Unit Price:SKU 單價 × 數量(舊→新)
+//   Modifications:labor + bundle 材料費 × 數量(labor 不變,材料費對新門型重算)
+//   Assembly Fee:assemble_fee × 數量(同類型互換不變,舊=新)
+//   Group Total = Unit + Mod + Assembly Fee(= step3 subtotal 層級;不含 discount/tax)
 function computeSwapImpact(newStyleCode) {
   const currentStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.currentStyleCode; });
   const newStyle     = allDoorStyles.find(function (s) { return s.style_code === newStyleCode; });
@@ -4217,8 +4233,33 @@ function computeSwapImpact(newStyleCode) {
 
   const groupItems = cartItems.filter(function (item) { return item.style_code === swapState.currentStyleCode; });
 
-  let oldTotal = 0, newTotal = 0;
+  const ctype = (newStyle.construction_type || '').toLowerCase();
+  const skuMaster = ctype === 'frameless' ? _swapSkuCache.frameless : _swapSkuCache.framed;
+  const newMultiplier = getMultiplierForStyle(newStyle);
+  const newGrp = newStyle.grp || 'GROUP A';
+
+  let oldUnit = 0, newUnit = 0, oldMod = 0, newMod = 0, asmFee = 0, unpriced = 0;
+
   groupItems.forEach(function (item) {
+    const qty = item.quantity || 0;
+
+    // ── Unit Price ──
+    const oldUnitPrice = item.unit_price || 0;
+    const skuRow = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
+    let newUnitPrice = null;
+    if (skuRow) {
+      const msrp = getMsrpForStyleGroup(skuRow, newGrp);
+      if (msrp !== null) newUnitPrice = msrp * newMultiplier;
+    }
+    if (newUnitPrice === null) unpriced++;
+    const newUnitEff = (newUnitPrice === null) ? 0 : newUnitPrice;
+    oldUnit += oldUnitPrice * qty;
+    newUnit += newUnitEff   * qty;
+
+    // ── Assembly Fee(舊=新)──
+    asmFee += (item.assemble_fee || 0) * qty;
+
+    // ── Modifications ──
     const savedStyleCode = item.style_code;
     item.style_code = newStyleCode;            // 暫時切換,讓 computeBundleMaterial 用新門型
     if (Array.isArray(item.sub_groups)) {
@@ -4226,23 +4267,31 @@ function computeSwapImpact(newStyleCode) {
         const subQty = (typeof sub.qty === 'number') ? sub.qty : 0;
         if (!Array.isArray(sub.modifications)) return;
         sub.modifications.forEach(function (m) {
-          const labor  = (typeof m.cost === 'number' && isFinite(m.cost)) ? m.cost : 0;
-          const oldMat = (typeof m.material_cost === 'number' && isFinite(m.material_cost)) ? m.material_cost : 0;
-          let newMat = oldMat;
+          const labor = (typeof m.cost === 'number' && isFinite(m.cost)) ? m.cost : 0;
+          const oMat  = (typeof m.material_cost === 'number' && isFinite(m.material_cost)) ? m.material_cost : 0;
+          let nMat = oMat;
           if (isBundleEligible(m.mf_code, m.display_label)) {
-            newMat = computeBundleMaterial(item, m.mf_code, m.display_label, m.value).material_cost || 0;
+            nMat = computeBundleMaterial(item, m.mf_code, m.display_label, m.value).material_cost || 0;
           }
-          oldTotal += (labor + oldMat) * subQty;
-          newTotal += (labor + newMat) * subQty;
+          oldMod += (labor + oMat) * subQty;
+          newMod += (labor + nMat) * subQty;
         });
       });
     }
     item.style_code = savedStyleCode;          // 還原
   });
 
+  const oldGroup = oldUnit + oldMod + asmFee;
+  const newGroup = newUnit + newMod + asmFee;
+
   return {
     currentStyle: currentStyle, newStyle: newStyle,
-    oldTotal: oldTotal, newTotal: newTotal, delta: newTotal - oldTotal,
+    oldUnit: oldUnit, newUnit: newUnit,
+    oldMod: oldMod, newMod: newMod,
+    asmFee: asmFee,
+    oldGroup: oldGroup, newGroup: newGroup,
+    delta: newGroup - oldGroup,
+    unpriced: unpriced,
   };
 }
 
@@ -4269,15 +4318,22 @@ function confirmSwap() {
 }
 
 function openSwapConfirmPopup(impact) {
+  const f = function (n) { return '$' + n.toFixed(2); };
   document.getElementById('swapConfirmFromTo').textContent =
     impact.currentStyle.style_code + ' → ' + impact.newStyle.style_code;
-  document.getElementById('swapConfirmOldTotal').textContent = '$' + impact.oldTotal.toFixed(2);
-  document.getElementById('swapConfirmNewTotal').textContent = '$' + impact.newTotal.toFixed(2);
+  document.getElementById('swapConfirmOldUnit').textContent  = f(impact.oldUnit);
+  document.getElementById('swapConfirmNewUnit').textContent  = f(impact.newUnit);
+  document.getElementById('swapConfirmOldMod').textContent   = f(impact.oldMod);
+  document.getElementById('swapConfirmNewMod').textContent   = f(impact.newMod);
+  document.getElementById('swapConfirmOldFee').textContent   = f(impact.asmFee);
+  document.getElementById('swapConfirmNewFee').textContent   = f(impact.asmFee);
+  document.getElementById('swapConfirmOldTotal').textContent = f(impact.oldGroup);
+  document.getElementById('swapConfirmNewTotal').textContent = f(impact.newGroup);
 
   const d = impact.delta;
   const diffEl = document.getElementById('swapConfirmDiff');
   const noteEl = document.getElementById('swapConfirmNote');
-  // CB-15: 保留金額,拿掉 (more expensive)/(cheaper) 判斷字與紅/綠色(中性呈現)
+  // CB-15: 保留金額,中性色,不標 expensive/cheaper
   let diffText;
   if (Math.abs(d) < 0.005)  diffText = '$0.00';
   else if (d > 0)           diffText = '+$' + d.toFixed(2);
