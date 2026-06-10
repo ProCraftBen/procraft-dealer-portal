@@ -2679,7 +2679,7 @@ async function submitQuote() {
       };
     }
 
-    setStep(_isResumingReturned ? 'Sending resubmission email...' : 'Sending confirmation email...');
+  setStep(_isResumingReturned ? 'Sending resubmission email...' : 'Sending confirmation email...');
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
       'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
@@ -2690,9 +2690,8 @@ async function submitQuote() {
           'Authorization': `Bearer ${currentSession.access_token}`,
         },
         body: JSON.stringify({
-          notification_type: 'return',
           quote: {
-            id:                          draftId,
+            id:                          quoteId,
             quote_number:                quoteNum,
             po_number:                   poNumber,
             job_name:                    step1Data.jobName,
@@ -2944,6 +2943,7 @@ async function requestRevision(note) {
           'Authorization': `Bearer ${currentSession.access_token}`,
         },
         body: JSON.stringify({
+          notification_type: 'return',
           quote: {
             id:                          draftId,
             quote_number:                quoteNum,
