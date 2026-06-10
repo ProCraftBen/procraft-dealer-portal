@@ -4307,17 +4307,14 @@ function renderSwapPreview(newStyleCode) {
     '<th class="th-right">Δ Line Total</th>' +
     '</tr></thead><tbody>';
   impact.rows.forEach(function (r) {
+    // B: unpriced SKU 換後實際會被設為 $0.00,故 New Unit 顯示 $0.00(紅字),
+    //    Δ 欄一律顯示真實差異 → 各列 Δ 加總 = 底部 Total Change(與 popup 一致)
     const newCell = r.unpriced
-      ? '<span style="color:var(--error);font-size:11px;">N/A</span>'
+      ? '<span style="color:var(--error);">$0.00</span>'
       : '$' + r.newUnit.toFixed(2);
-    let deltaCell;
-    if (r.unpriced) {
-      deltaCell = '<span style="color:var(--error);font-size:11px;">—</span>';
-    } else {
-      const dClass = r.delta > 0 ? 'price-delta-pos' : r.delta < 0 ? 'price-delta-neg' : 'price-delta-zero';
-      const dSign  = r.delta > 0 ? '+' : '';
-      deltaCell = '<span class="' + dClass + '">' + dSign + '$' + r.delta.toFixed(2) + '</span>';
-    }
+    const dClass = r.delta > 0 ? 'price-delta-pos' : r.delta < 0 ? 'price-delta-neg' : 'price-delta-zero';
+    const dSign  = r.delta > 0 ? '+' : '';
+    const deltaCell = '<span class="' + dClass + '">' + dSign + '$' + r.delta.toFixed(2) + '</span>';
     html += '<tr>' +
       '<td class="td-sku">' + esc(r.sku_code) + '</td>' +
       '<td class="td-desc">' + esc(r.sku_desc || '') + '</td>' +
@@ -4346,6 +4343,7 @@ function renderSwapPreview(newStyleCode) {
 }
 
 function closeSwapModal() {
+  closeSwapConfirmPopup();   // 保險:一併關掉最終確認 popup
   document.getElementById('swapModalOverlay').classList.remove('show');
   document.body.classList.remove('mf-modal-open');
   swapState.currentStyleCode = null;
