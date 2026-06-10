@@ -2708,6 +2708,7 @@ async function submitQuote() {
             grand_total:                 grand.toFixed(2),
             revision_number:             pdfRevisionNumber,
             is_resubmit:                 _isResumingReturned,
+            estimated_lead_time:         calculateLeadTime(step2Data, allDoorStyles),  // email 顯示交期(NEW)
             // F-PROMOTIONS: pre-embedded fields for upcoming Edge Function update.
             // Today's send-quote-email Function will ignore unknown keys safely.
             promo_discount:              promoDiscount.toFixed(2),
