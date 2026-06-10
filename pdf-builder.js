@@ -306,7 +306,7 @@
     if (!item) return false;
     const style = String(item.style_code || '').toUpperCase();
     if (KIT_PROMO_STYLES.indexOf(style) === -1) return false;
-    return item.tag === 'kit';
+    return item.tag === 'Kit';
   }
 
   function _calcKitPromoDiscount(items, markupPercent) {
