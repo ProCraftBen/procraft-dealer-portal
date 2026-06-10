@@ -1487,13 +1487,8 @@
         </div>
       </div>
 
-      <div class="swap-section-label" id="swapPickLabel">Pick a replacement style (same construction type)</div>
+    <div class="swap-section-label" id="swapPickLabel">Pick a replacement style (same construction type)</div>
       <div class="swap-style-grid" id="swapStyleGrid"></div>
-
-      <div class="swap-section-label">Price Preview</div>
-      <div id="swapPreviewMount">
-        <div class="swap-preview-empty">Select a style above to see the price changes.</div>
-      </div>
     </div>
 <div class="swap-modal-footer">
       <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapModal()">Cancel</button>
@@ -4149,8 +4144,6 @@ async function openSwapModal(currentStyleCode) {
 
   renderSwapStyleGrid(currentStyle);
 
-  document.getElementById('swapPreviewMount').innerHTML =
-    '<div class="swap-preview-empty">Select a style above to see the price changes.</div>';
   document.getElementById('swapConfirmBtn').disabled = true;
 
   document.getElementById('swapModalOverlay').classList.add('show');
@@ -4211,14 +4204,12 @@ function onSwapStyleSelect(newStyleCode) {
     const code = card.getAttribute('data-style-code');
     card.classList.toggle('selected', code === newStyleCode);
   });
-  renderSwapPreview(newStyleCode);
-  document.getElementById('swapConfirmBtn').disabled = false;
+document.getElementById('swapConfirmBtn').disabled = false;
 }
 
-// F-SWAP: 計算換門型影響(只算被換 group;不改 cart)
-//   - SKU 單價:getMsrpForStyleGroup × getMultiplierForStyle
-//   - mod 材料費:暫時切 item.style_code 後呼叫既有 computeBundleMaterial,算完還原
-//   - 範圍:SKU 線 + mod cost(不含 discount/tax,那些在 step3 重算)
+// F-SWAP: 計算換門型影響 — 只算「被換 group」的 modification 成本變化
+//   (CB-15 修訂:本頁聚焦 modification,不計 SKU 單價 / discount / tax)
+//   old = 既存 material_cost;new = 對新門型重算 bundle 材料費;labor 不變
 function computeSwapImpact(newStyleCode) {
   const currentStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.currentStyleCode; });
   const newStyle     = allDoorStyles.find(function (s) { return s.style_code === newStyleCode; });
@@ -4226,31 +4217,8 @@ function computeSwapImpact(newStyleCode) {
 
   const groupItems = cartItems.filter(function (item) { return item.style_code === swapState.currentStyleCode; });
 
-  const ctype = (newStyle.construction_type || '').toLowerCase();
-  const skuMaster = ctype === 'frameless' ? _swapSkuCache.frameless : _swapSkuCache.framed;
-  const newMultiplier = getMultiplierForStyle(newStyle);
-  const newGrp = newStyle.grp || 'GROUP A';
-
-  let oldTotal = 0, newTotal = 0, unpriced = 0;
-  const rows = [];
-
+  let oldTotal = 0, newTotal = 0;
   groupItems.forEach(function (item) {
-    const qty = item.quantity || 0;
-
-    // ── SKU 單價 ──
-    const oldUnitPrice = item.unit_price || 0;
-    const skuRow = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
-    let newUnitPrice = null;
-    if (skuRow) {
-      const newMsrp = getMsrpForStyleGroup(skuRow, newGrp);
-      if (newMsrp !== null) newUnitPrice = newMsrp * newMultiplier;
-    }
-    const skuUnpriced = (newUnitPrice === null);
-    if (skuUnpriced) unpriced++;
-    const newUnitEff = skuUnpriced ? 0 : newUnitPrice;
-
-    // ── mod cost(old = 既存;new = 對新門型重算 bundle 材料費)──
-    let oldModPerLine = 0, newModPerLine = 0;
     const savedStyleCode = item.style_code;
     item.style_code = newStyleCode;            // 暫時切換,讓 computeBundleMaterial 用新門型
     if (Array.isArray(item.sub_groups)) {
@@ -4264,83 +4232,21 @@ function computeSwapImpact(newStyleCode) {
           if (isBundleEligible(m.mf_code, m.display_label)) {
             newMat = computeBundleMaterial(item, m.mf_code, m.display_label, m.value).material_cost || 0;
           }
-          oldModPerLine += (labor + oldMat) * subQty;
-          newModPerLine += (labor + newMat) * subQty;
+          oldTotal += (labor + oldMat) * subQty;
+          newTotal += (labor + newMat) * subQty;
         });
       });
     }
     item.style_code = savedStyleCode;          // 還原
-
-    const oldLine = oldUnitPrice * qty + oldModPerLine;
-    const newLine = newUnitEff   * qty + newModPerLine;
-    oldTotal += oldLine;
-    newTotal += newLine;
-
-    rows.push({
-      sku_code: item.sku_code, sku_desc: item.sku_desc, qty: qty,
-      oldUnit: oldUnitPrice, newUnit: newUnitPrice,    // newUnit === null → unpriced
-      delta: newLine - oldLine, unpriced: skuUnpriced,
-    });
   });
 
   return {
-    currentStyle: currentStyle, newStyle: newStyle, rows: rows,
-    oldTotal: oldTotal, newTotal: newTotal, delta: newTotal - oldTotal, unpriced: unpriced,
+    currentStyle: currentStyle, newStyle: newStyle,
+    oldTotal: oldTotal, newTotal: newTotal, delta: newTotal - oldTotal,
   };
 }
 
-function renderSwapPreview(newStyleCode) {
-  const impact = computeSwapImpact(newStyleCode);
-  const mount = document.getElementById('swapPreviewMount');
-  if (!impact) { mount.innerHTML = '<div class="swap-preview-empty">Unable to preview.</div>'; return; }
-  if (!impact.rows.length) { mount.innerHTML = '<div class="swap-preview-empty">No items in this group.</div>'; return; }
-
-  const totalDelta = impact.delta;
-  const deltaClass = totalDelta > 0 ? 'pos' : (totalDelta < 0 ? 'neg' : '');
-  const deltaSign  = totalDelta > 0 ? '+' : '';
-
-  let html = '<table class="swap-preview-table"><thead><tr>' +
-    '<th>SKU</th><th>Description</th>' +
-    '<th class="th-right">Qty</th>' +
-    '<th class="th-right">Old Unit</th>' +
-    '<th class="th-right">New Unit</th>' +
-    '<th class="th-right">Δ Line Total</th>' +
-    '</tr></thead><tbody>';
-  impact.rows.forEach(function (r) {
-    // B: unpriced SKU 換後實際會被設為 $0.00,故 New Unit 顯示 $0.00(紅字),
-    //    Δ 欄一律顯示真實差異 → 各列 Δ 加總 = 底部 Total Change(與 popup 一致)
-    const newCell = r.unpriced
-      ? '<span style="color:var(--error);">$0.00</span>'
-      : '$' + r.newUnit.toFixed(2);
-    const dClass = r.delta > 0 ? 'price-delta-pos' : r.delta < 0 ? 'price-delta-neg' : 'price-delta-zero';
-    const dSign  = r.delta > 0 ? '+' : '';
-    const deltaCell = '<span class="' + dClass + '">' + dSign + '$' + r.delta.toFixed(2) + '</span>';
-    html += '<tr>' +
-      '<td class="td-sku">' + esc(r.sku_code) + '</td>' +
-      '<td class="td-desc">' + esc(r.sku_desc || '') + '</td>' +
-      '<td class="td-right">' + r.qty + '</td>' +
-      '<td class="td-right">$' + r.oldUnit.toFixed(2) + '</td>' +
-      '<td class="td-right">' + newCell + '</td>' +
-      '<td class="td-right">' + deltaCell + '</td>' +
-    '</tr>';
-  });
-  html += '</tbody></table>';
-
-  html += '<div class="swap-preview-summary">' +
-    '<span class="swap-preview-summary-label">Total Change (incl. modifications)</span>' +
-    '<span class="swap-preview-summary-value ' + deltaClass + '">' + deltaSign + '$' + totalDelta.toFixed(2) + '</span>' +
-  '</div>';
-
-  if (impact.unpriced > 0) {
-    html += '<div style="margin-top:10px;padding:10px 14px;background:rgba(192,57,43,0.06);' +
-      'border-left:3px solid var(--error);border-radius:3px;font-size:11px;line-height:1.5;color:var(--text);">' +
-      '⚠ ' + impact.unpriced + ' SKU(s) have no price for ' + esc(impact.newStyle.style_name) + '\'s ' +
-      esc(impact.newStyle.grp || 'GROUP A') +
-      '. Their unit prices will be set to $0.00 after swap — please review carefully.</div>';
-  }
-
-  mount.innerHTML = html;
-}
+// (CB-15) renderSwapPreview / inline 預覽表已移除 — 預覽改由 Confirm 後的 popup 呈現
 
 function closeSwapModal() {
   closeSwapConfirmPopup();   // 保險:一併關掉最終確認 popup
@@ -4371,16 +4277,15 @@ function openSwapConfirmPopup(impact) {
   const d = impact.delta;
   const diffEl = document.getElementById('swapConfirmDiff');
   const noteEl = document.getElementById('swapConfirmNote');
-  if (Math.abs(d) < 0.005) {
-    diffEl.textContent = '$0.00';      diffEl.className = 'swap-confirm-diff zero';
-    noteEl.textContent = 'No price change'; noteEl.className = 'swap-confirm-note zero';
-  } else if (d > 0) {
-    diffEl.textContent = '+$' + d.toFixed(2);          diffEl.className = 'swap-confirm-diff pos';
-    noteEl.textContent = '(more expensive)';           noteEl.className = 'swap-confirm-note pos';
-  } else {
-    diffEl.textContent = '-$' + Math.abs(d).toFixed(2); diffEl.className = 'swap-confirm-diff neg';
-    noteEl.textContent = '(cheaper)';                   noteEl.className = 'swap-confirm-note neg';
-  }
+  // CB-15: 保留金額,拿掉 (more expensive)/(cheaper) 判斷字與紅/綠色(中性呈現)
+  let diffText;
+  if (Math.abs(d) < 0.005)  diffText = '$0.00';
+  else if (d > 0)           diffText = '+$' + d.toFixed(2);
+  else                      diffText = '-$' + Math.abs(d).toFixed(2);
+  diffEl.textContent = diffText;
+  diffEl.className   = 'swap-confirm-diff';
+  noteEl.textContent = '';
+  noteEl.className   = 'swap-confirm-note';
   document.getElementById('swapConfirmOverlay').classList.add('show');
 }
 
