@@ -1184,8 +1184,47 @@
       .swap-modal-container { max-height: 92vh; }
       .swap-modal-header { padding: 12px 16px; }
       .swap-modal-body { padding: 14px 16px; }
-      .swap-modal-footer { padding: 12px 16px; flex-direction: column; align-items: stretch; }
+.swap-modal-footer { padding: 12px 16px; flex-direction: column; align-items: stretch; }
       .swap-modal-footer .mf-btn { flex: 1; }
+    }
+
+    /* F-SWAP: 最終確認 popup (CB-15) */
+    .swap-confirm-overlay { z-index: 1200; }
+    .swap-confirm-box {
+      width: 100%; max-width: 380px;
+      background: var(--white);
+      border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.22);
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    .swap-confirm-head { padding: 16px 20px 0; }
+    .swap-confirm-title { font-size: 15px; font-weight: 600; color: var(--green-dark); }
+    .swap-confirm-body { padding: 12px 20px 4px; }
+    .swap-confirm-fromto {
+      font-size: 13px; font-weight: 500; color: var(--text);
+      margin-bottom: 14px; letter-spacing: 0.02em;
+    }
+    .swap-confirm-rows { display: flex; flex-direction: column; gap: 8px; }
+    .swap-confirm-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 13px; color: var(--text);
+    }
+    .swap-confirm-row span:first-child { color: var(--muted); letter-spacing: 0.04em; }
+    .swap-confirm-row.diff-row {
+      margin-top: 6px; padding-top: 10px;
+      border-top: 1px solid var(--border); font-weight: 600;
+    }
+    .swap-confirm-diff { font-size: 15px; font-weight: 700; }
+    .swap-confirm-diff.pos { color: var(--error); }
+    .swap-confirm-diff.neg { color: var(--green-mid); }
+    .swap-confirm-diff.zero { color: var(--muted); }
+    .swap-confirm-note { font-size: 11px; margin-left: 6px; }
+    .swap-confirm-note.pos { color: var(--error); }
+    .swap-confirm-note.neg { color: var(--green-mid); }
+    .swap-confirm-note.zero { color: var(--muted); }
+    .swap-confirm-foot {
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      background: #FAFAF8; display: flex; justify-content: flex-end; gap: 10px;
     }
 
     .bottom-left { font-size: 12px; color: var(--muted); }
@@ -1456,9 +1495,33 @@
         <div class="swap-preview-empty">Select a style above to see the price changes.</div>
       </div>
     </div>
-    <div class="swap-modal-footer">
+<div class="swap-modal-footer">
       <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapModal()">Cancel</button>
       <button class="mf-btn mf-btn-save" type="button" id="swapConfirmBtn" onclick="confirmSwap()" disabled>Confirm Swap</button>
+    </div>
+  </div>
+</div>
+
+<!-- F-SWAP: 最終確認 popup (CB-15) -->
+<div class="swap-modal-overlay swap-confirm-overlay" id="swapConfirmOverlay">
+  <div class="swap-confirm-box" role="dialog" aria-modal="true" aria-labelledby="swapConfirmTitle">
+    <div class="swap-confirm-head">
+      <span class="swap-confirm-title" id="swapConfirmTitle">Confirm Door Style Change</span>
+    </div>
+    <div class="swap-confirm-body">
+      <div class="swap-confirm-fromto" id="swapConfirmFromTo">—</div>
+      <div class="swap-confirm-rows">
+        <div class="swap-confirm-row"><span>Old Total</span><span id="swapConfirmOldTotal">$0.00</span></div>
+        <div class="swap-confirm-row"><span>New Total</span><span id="swapConfirmNewTotal">$0.00</span></div>
+        <div class="swap-confirm-row diff-row">
+          <span>Difference</span>
+          <span><span class="swap-confirm-diff" id="swapConfirmDiff">$0.00</span><span class="swap-confirm-note" id="swapConfirmNote"></span></span>
+        </div>
+      </div>
+    </div>
+    <div class="swap-confirm-foot">
+      <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapConfirmPopup()">Cancel</button>
+      <button class="mf-btn mf-btn-save" type="button" onclick="commitSwap()">Confirm Change</button>
     </div>
   </div>
 </div>
@@ -4152,47 +4215,87 @@ function onSwapStyleSelect(newStyleCode) {
   document.getElementById('swapConfirmBtn').disabled = false;
 }
 
-function renderSwapPreview(newStyleCode) {
+// F-SWAP: 計算換門型影響(只算被換 group;不改 cart)
+//   - SKU 單價:getMsrpForStyleGroup × getMultiplierForStyle
+//   - mod 材料費:暫時切 item.style_code 後呼叫既有 computeBundleMaterial,算完還原
+//   - 範圍:SKU 線 + mod cost(不含 discount/tax,那些在 step3 重算)
+function computeSwapImpact(newStyleCode) {
   const currentStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.currentStyleCode; });
-  const newStyle = allDoorStyles.find(function (s) { return s.style_code === newStyleCode; });
-  if (!currentStyle || !newStyle) return;
+  const newStyle     = allDoorStyles.find(function (s) { return s.style_code === newStyleCode; });
+  if (!currentStyle || !newStyle) return null;
 
   const groupItems = cartItems.filter(function (item) { return item.style_code === swapState.currentStyleCode; });
-  if (!groupItems.length) {
-    document.getElementById('swapPreviewMount').innerHTML = '<div class="swap-preview-empty">No items in this group.</div>';
-    return;
-  }
 
   const ctype = (newStyle.construction_type || '').toLowerCase();
   const skuMaster = ctype === 'frameless' ? _swapSkuCache.frameless : _swapSkuCache.framed;
   const newMultiplier = getMultiplierForStyle(newStyle);
   const newGrp = newStyle.grp || 'GROUP A';
 
-  let totalDelta = 0;
+  let oldTotal = 0, newTotal = 0, unpriced = 0;
   const rows = [];
-  let unpriced = 0;
 
   groupItems.forEach(function (item) {
-    const sku = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
+    const qty = item.quantity || 0;
+
+    // ── SKU 單價 ──
+    const oldUnitPrice = item.unit_price || 0;
+    const skuRow = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
     let newUnitPrice = null;
-    if (sku) {
-      const newMsrp = getMsrpForStyleGroup(sku, newGrp);
+    if (skuRow) {
+      const newMsrp = getMsrpForStyleGroup(skuRow, newGrp);
       if (newMsrp !== null) newUnitPrice = newMsrp * newMultiplier;
     }
-    const oldUnitPrice = item.unit_price || 0;
-    const qty = item.quantity || 0;
-    const oldLine = oldUnitPrice * qty;
-    const newLine = (newUnitPrice !== null) ? newUnitPrice * qty : null;
-    const delta = (newLine !== null) ? newLine - oldLine : 0;
-    if (newUnitPrice === null) unpriced++;
-    if (newUnitPrice !== null) totalDelta += delta;
+    const skuUnpriced = (newUnitPrice === null);
+    if (skuUnpriced) unpriced++;
+    const newUnitEff = skuUnpriced ? 0 : newUnitPrice;
+
+    // ── mod cost(old = 既存;new = 對新門型重算 bundle 材料費)──
+    let oldModPerLine = 0, newModPerLine = 0;
+    const savedStyleCode = item.style_code;
+    item.style_code = newStyleCode;            // 暫時切換,讓 computeBundleMaterial 用新門型
+    if (Array.isArray(item.sub_groups)) {
+      item.sub_groups.forEach(function (sub) {
+        const subQty = (typeof sub.qty === 'number') ? sub.qty : 0;
+        if (!Array.isArray(sub.modifications)) return;
+        sub.modifications.forEach(function (m) {
+          const labor  = (typeof m.cost === 'number' && isFinite(m.cost)) ? m.cost : 0;
+          const oldMat = (typeof m.material_cost === 'number' && isFinite(m.material_cost)) ? m.material_cost : 0;
+          let newMat = oldMat;
+          if (isBundleEligible(m.mf_code, m.display_label)) {
+            newMat = computeBundleMaterial(item, m.mf_code, m.display_label, m.value).material_cost || 0;
+          }
+          oldModPerLine += (labor + oldMat) * subQty;
+          newModPerLine += (labor + newMat) * subQty;
+        });
+      });
+    }
+    item.style_code = savedStyleCode;          // 還原
+
+    const oldLine = oldUnitPrice * qty + oldModPerLine;
+    const newLine = newUnitEff   * qty + newModPerLine;
+    oldTotal += oldLine;
+    newTotal += newLine;
+
     rows.push({
       sku_code: item.sku_code, sku_desc: item.sku_desc, qty: qty,
-      oldPrice: oldUnitPrice, newPrice: newUnitPrice, delta: delta,
-      unpriced: newUnitPrice === null,
+      oldUnit: oldUnitPrice, newUnit: newUnitPrice,    // newUnit === null → unpriced
+      delta: newLine - oldLine, unpriced: skuUnpriced,
     });
   });
 
+  return {
+    currentStyle: currentStyle, newStyle: newStyle, rows: rows,
+    oldTotal: oldTotal, newTotal: newTotal, delta: newTotal - oldTotal, unpriced: unpriced,
+  };
+}
+
+function renderSwapPreview(newStyleCode) {
+  const impact = computeSwapImpact(newStyleCode);
+  const mount = document.getElementById('swapPreviewMount');
+  if (!impact) { mount.innerHTML = '<div class="swap-preview-empty">Unable to preview.</div>'; return; }
+  if (!impact.rows.length) { mount.innerHTML = '<div class="swap-preview-empty">No items in this group.</div>'; return; }
+
+  const totalDelta = impact.delta;
   const deltaClass = totalDelta > 0 ? 'pos' : (totalDelta < 0 ? 'neg' : '');
   const deltaSign  = totalDelta > 0 ? '+' : '';
 
@@ -4203,22 +4306,23 @@ function renderSwapPreview(newStyleCode) {
     '<th class="th-right">New Unit</th>' +
     '<th class="th-right">Δ Line Total</th>' +
     '</tr></thead><tbody>';
-  rows.forEach(function (r) {
-    let newCell, deltaCell;
+  impact.rows.forEach(function (r) {
+    const newCell = r.unpriced
+      ? '<span style="color:var(--error);font-size:11px;">N/A</span>'
+      : '$' + r.newUnit.toFixed(2);
+    let deltaCell;
     if (r.unpriced) {
-      newCell = '<span style="color:var(--error);font-size:11px;">N/A</span>';
       deltaCell = '<span style="color:var(--error);font-size:11px;">—</span>';
     } else {
-      newCell = '$' + r.newPrice.toFixed(2);
       const dClass = r.delta > 0 ? 'price-delta-pos' : r.delta < 0 ? 'price-delta-neg' : 'price-delta-zero';
-      const dSign = r.delta > 0 ? '+' : '';
+      const dSign  = r.delta > 0 ? '+' : '';
       deltaCell = '<span class="' + dClass + '">' + dSign + '$' + r.delta.toFixed(2) + '</span>';
     }
     html += '<tr>' +
       '<td class="td-sku">' + esc(r.sku_code) + '</td>' +
       '<td class="td-desc">' + esc(r.sku_desc || '') + '</td>' +
       '<td class="td-right">' + r.qty + '</td>' +
-      '<td class="td-right">$' + r.oldPrice.toFixed(2) + '</td>' +
+      '<td class="td-right">$' + r.oldUnit.toFixed(2) + '</td>' +
       '<td class="td-right">' + newCell + '</td>' +
       '<td class="td-right">' + deltaCell + '</td>' +
     '</tr>';
@@ -4226,18 +4330,19 @@ function renderSwapPreview(newStyleCode) {
   html += '</tbody></table>';
 
   html += '<div class="swap-preview-summary">' +
-    '<span class="swap-preview-summary-label">Total Change</span>' +
+    '<span class="swap-preview-summary-label">Total Change (incl. modifications)</span>' +
     '<span class="swap-preview-summary-value ' + deltaClass + '">' + deltaSign + '$' + totalDelta.toFixed(2) + '</span>' +
   '</div>';
 
-  if (unpriced > 0) {
+  if (impact.unpriced > 0) {
     html += '<div style="margin-top:10px;padding:10px 14px;background:rgba(192,57,43,0.06);' +
       'border-left:3px solid var(--error);border-radius:3px;font-size:11px;line-height:1.5;color:var(--text);">' +
-      '⚠ ' + unpriced + ' SKU(s) have no price for ' + esc(newStyle.style_name) + '\'s ' + esc(newGrp) +
+      '⚠ ' + impact.unpriced + ' SKU(s) have no price for ' + esc(impact.newStyle.style_name) + '\'s ' +
+      esc(impact.newStyle.grp || 'GROUP A') +
       '. Their unit prices will be set to $0.00 after swap — please review carefully.</div>';
   }
 
-  document.getElementById('swapPreviewMount').innerHTML = html;
+  mount.innerHTML = html;
 }
 
 function closeSwapModal() {
@@ -4247,7 +4352,46 @@ function closeSwapModal() {
   swapState.selectedNewStyleCode = null;
 }
 
+// 第一段:Confirm Swap → 算 impact → 跳最終確認 popup(不寫入)
 function confirmSwap() {
+  if (isReviewLocked()) return;  // CB-4: read-only review
+  if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
+    showToast('Please select a replacement style', true);
+    return;
+  }
+  const impact = computeSwapImpact(swapState.selectedNewStyleCode);
+  if (!impact) { showToast('Unable to compute price change', true); return; }
+  openSwapConfirmPopup(impact);
+}
+
+function openSwapConfirmPopup(impact) {
+  document.getElementById('swapConfirmFromTo').textContent =
+    impact.currentStyle.style_code + ' → ' + impact.newStyle.style_code;
+  document.getElementById('swapConfirmOldTotal').textContent = '$' + impact.oldTotal.toFixed(2);
+  document.getElementById('swapConfirmNewTotal').textContent = '$' + impact.newTotal.toFixed(2);
+
+  const d = impact.delta;
+  const diffEl = document.getElementById('swapConfirmDiff');
+  const noteEl = document.getElementById('swapConfirmNote');
+  if (Math.abs(d) < 0.005) {
+    diffEl.textContent = '$0.00';      diffEl.className = 'swap-confirm-diff zero';
+    noteEl.textContent = 'No price change'; noteEl.className = 'swap-confirm-note zero';
+  } else if (d > 0) {
+    diffEl.textContent = '+$' + d.toFixed(2);          diffEl.className = 'swap-confirm-diff pos';
+    noteEl.textContent = '(more expensive)';           noteEl.className = 'swap-confirm-note pos';
+  } else {
+    diffEl.textContent = '-$' + Math.abs(d).toFixed(2); diffEl.className = 'swap-confirm-diff neg';
+    noteEl.textContent = '(cheaper)';                   noteEl.className = 'swap-confirm-note neg';
+  }
+  document.getElementById('swapConfirmOverlay').classList.add('show');
+}
+
+function closeSwapConfirmPopup() {
+  document.getElementById('swapConfirmOverlay').classList.remove('show');
+}
+
+// 第二段:Confirm Change → 正式寫入(SKU 單價 + 逐 mod 材料費全重算)+ 存 sessionStorage
+function commitSwap() {
   if (isReviewLocked()) return;  // CB-4: read-only review
   if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
     showToast('Please select a replacement style', true);
@@ -4272,6 +4416,8 @@ function confirmSwap() {
   let unpriced = 0;
   cartItems.forEach(function (item) {
     if (item.style_code !== swapState.currentStyleCode) return;
+
+    // ── SKU 單價 ──
     const sku = skuMaster.find(function (s) { return s.sku_code === item.sku_code; });
     let newUnitPrice = 0;
     let newMsrp = 0;
@@ -4285,11 +4431,30 @@ function confirmSwap() {
     item.style_name = newStyle.style_name;
     item.unit_price = newUnitPrice;
     item.msrp       = newMsrp;
+
+    // ── 逐 mod 重算 bundle 材料費(此時 item.style_code 已是新門型)──
+    if (Array.isArray(item.sub_groups)) {
+      item.sub_groups.forEach(function (sub) {
+        if (!Array.isArray(sub.modifications)) return;
+        sub.modifications.forEach(function (m) {
+          const labor = (typeof m.cost === 'number' && isFinite(m.cost)) ? m.cost : 0;
+          if (isBundleEligible(m.mf_code, m.display_label)) {
+            const mat = computeBundleMaterial(item, m.mf_code, m.display_label, m.value);
+            m.material_cost = mat.material_cost || 0;
+            m.mapping_sku   = mat.mapping_sku || null;
+            m.mapping_qty   = mat.mapping_qty || 0;
+          }
+          const matCost = (typeof m.material_cost === 'number' && isFinite(m.material_cost)) ? m.material_cost : 0;
+          m.total_cost = labor + matCost;
+        });
+      });
+    }
+
     swappedCount++;
   });
 
-  console.log('[F-SWAP] CONFIRM:', oldStyle.style_code, '→', newStyle.style_code,
-              '·', swappedCount, 'item(s) re-priced');
+  console.log('[F-SWAP] COMMIT:', oldStyle.style_code, '→', newStyle.style_code,
+              '·', swappedCount, 'item(s) re-priced (SKU + modifications)');
 
   doorStyleGroups = buildDoorStyleGroups(cartItems, allDoorStyles);
   pageProgress    = calculateProgress(doorStyleGroups);
@@ -4299,6 +4464,7 @@ function confirmSwap() {
   renderModsTotalBar();
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
+  closeSwapConfirmPopup();
   closeSwapModal();
   showToast('Swapped to ' + newStyle.style_name + (unpriced > 0 ? ' (' + unpriced + ' unpriced — please review)' : ''));
 }
