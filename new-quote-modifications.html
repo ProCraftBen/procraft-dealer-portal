@@ -1650,6 +1650,12 @@ const BINDING_RULES = [
   // Future bindings (e.g. DRAWER_FRONT) — add here, no logic change.
 ];
 
+// F-GLASS-MULTIPLIER (2026-06-10): Glass 雙門價拆解的倍率對照。
+//   與 binding 解耦 —— Glass 已不是 binding primary,multiplier 注入不再
+//   寄生在 inferBindingFromMfCode 的 primary 分支,改由獨立 pass 依此表
+//   注入 _unit_price/_multiplier(見 RPC 後的注入段)。
+const GLASS_MULTIPLIER_BY_SUBCATEGORY = { '1Dr': 1, '2Dr': 2 };
+
 function inferBindingFromMfCode(rule) {
   if (!rule || !rule.mf_code) return null;
   const label = (rule.display_label || '').trim();
@@ -3124,8 +3130,10 @@ function renderMfElements(rules, savedByIdx, subRef) {
       rule_idx: idx, mf_code: mfCode,
       display_label: rule.display_label || mfCode,
       container: elementDiv,
+      row: row,                       // F-BINDING-GROUP: 整個 mf-row,供協調者顯示/隱藏 dependent
       instance: instance,
       isReadOnly: false, isVirtual: false,
+      binding_hidden: false,          // F-BINDING-GROUP: dependent 因 primary 沒勾被隱藏時 = true
       binding_group: bindingGroup,
       binding_role:  bindingRole,
       lock_reason:   mfParams._lock_reason || 'Required',
@@ -3198,34 +3206,54 @@ function syncBindingGroups(subRef) {
     const dependents = findBindingPeers(subRef, primary.binding_group, 'dependent')
       .filter(function (rec) { return !rec.isVirtual; });
     if (!dependents.length) return;
-    dependents.forEach(function (dep) { applyDependentState(dep, isOn); });
+    dependents.forEach(function (dep) { applyDependentState(subRef, dep, isOn); });
     console.log('[F-BINDING-GROUP] Initial sync — group "' + primary.binding_group +
                 '" primary ' + primary.mf_code + '=' + (isOn ? 'ON' : 'OFF') +
                 ', synced ' + dependents.length + ' dependent(s)');
   });
 }
 
-function applyDependentState(dep, primaryIsOn) {
+function applyDependentState(subRef, dep, primaryIsOn) {
   if (!dep || !dep.instance) return;
-  const inst = dep.instance;
 
   if (primaryIsOn) {
-    if (typeof inst.setEnabled === 'function') {
-      try { inst.setEnabled(true); }
-      catch (e) { console.warn('[F-BINDING-GROUP] setEnabled(true) threw for', dep.mf_code, e); }
-    }
-    if (typeof inst.setLocked === 'function') {
-      try { inst.setLocked(true, dep.lock_reason || 'Required'); }
-      catch (e) { console.warn('[F-BINDING-GROUP] setLocked(true) threw for', dep.mf_code, e); }
-    }
+    // primary 勾起 → 顯示 dependent 的 row,不動值
+    //   (初次載入保留存檔值;OFF→ON 因先前已 reset,值本來就空)
+    if (dep.row) dep.row.style.display = '';
+    dep.binding_hidden = false;
   } else {
-    if (typeof inst.setLocked === 'function') {
-      try { inst.setLocked(false); }
-      catch (e) { console.warn('[F-BINDING-GROUP] setLocked(false) threw for', dep.mf_code, e); }
+    // primary 沒勾 → 重置 dependent 的值,隱藏整個 row
+    if (typeof dep.instance.reset === 'function') {
+      try { dep.instance.reset(); }
+      catch (e) { console.warn('[F-BINDING-GROUP] reset() threw for', dep.mf_code, e); }
     }
+    if (dep.row) dep.row.style.display = 'none';
+    dep.binding_hidden = true;
   }
+
+  // 同步 liveValues —— running total 讀 liveValues(非即時 query instance),
+  // 隱藏/重置後必須更新,否則小計殘留舊值;顯示時也重算確保一致。
+  refreshDependentLiveValue(subRef, dep);
 }
 
+// F-BINDING-GROUP: 依 dependent 目前 instance 值重算其 liveValues + bundle 材料行
+function refreshDependentLiveValue(subRef, dep) {
+  if (!subRef || !dep || !dep.instance) return;
+  try {
+    const v = (typeof dep.instance.getValue === 'function') ? dep.instance.getValue() : null;
+    const c = (typeof dep.instance.calculateCost === 'function') ? dep.instance.calculateCost() : 0;
+    const safeCost = (typeof c === 'number' && isFinite(c)) ? c : 0;
+    const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+    const mat = computeBundleMaterial(item, dep.mf_code, dep.display_label, v);
+    subRef.liveValues[dep.rule_idx] = {
+      value: v, cost: safeCost,
+      material: mat.material_cost, mapping_sku: mat.mapping_sku, mapping_qty: mat.mapping_qty
+    };
+    if (dep.row) renderBundleMaterialLine(dep.row, mat);
+  } catch (e) {
+    console.warn('[F-BINDING-GROUP] refreshDependentLiveValue threw for', dep.mf_code, e);
+  }
+}
 function onMfChangeDelegated(e) {
   if (!e || !e.detail) return;
   const activeSub = activeSubGroups[activeSubGroupIdx];
@@ -3277,7 +3305,7 @@ function onMfChangeDelegated(e) {
     );
     const dependents = findBindingPeers(activeSub, detailGroup, 'dependent')
       .filter(function (rec) { return !rec.isVirtual; });
-    dependents.forEach(function (dep) { applyDependentState(dep, isOn); });
+    dependents.forEach(function (dep) { applyDependentState(activeSub, dep, isOn); });
     if (dependents.length) {
       console.log('[F-BINDING-GROUP] Primary ' + mfCode + ' (group "' + detailGroup + '") → ' +
                   (isOn ? 'ON' : 'OFF') + '; updated ' + dependents.length + ' dependent(s)');
@@ -3333,6 +3361,7 @@ function freezeActiveSub() {
       rule_idx: rec.rule_idx, mf_code: rec.mf_code,
       display_label: rec.display_label, value: val, cost: cost,
       material_cost: _bMatF.material_cost, mapping_sku: _bMatF.mapping_sku, mapping_qty: _bMatF.mapping_qty, no_label: rec.no_label || null,   // CB-12
+      binding_hidden: rec.binding_hidden || false,   // F-BINDING-GROUP: 帶進 frozen,讓非作用中分頁 validate 跳過
     });
   });
   activeSub.frozenValues = snapshot;
@@ -3649,6 +3678,28 @@ async function fetchModRulesForActiveItem() {
                   multiplierNote);
     });
 
+    // F-GLASS-MULTIPLIER (2026-06-10 解耦):
+    //   Glass row 帶 DB 的 _binding_group → inferBindingFromMfCode 被
+    //   「respect manual tag」跳過,連帶 _unit_price/_multiplier 也不再注入。
+    //   這裡獨立補上(與 binding 無關):只看 MF02 + subcategory,
+    //   讓「$25 × 2 = $50」拆解顯示維持運作。
+    finalRules.forEach(function (rule) {
+      if (rule.mf_code !== 'MF02') return;
+      const p = rule.mf_params || {};
+      if (typeof p._multiplier !== 'undefined' && p._multiplier !== null) return;  // DB 已寫就尊重
+      const sub = (rule.matched_subcategory || rule.subcategory || '').trim();
+      const m = sub ? GLASS_MULTIPLIER_BY_SUBCATEGORY[sub] : null;
+      if (typeof m === 'number' && m > 1) {
+        const cost = parseFloat(rule.cost);
+        if (isFinite(cost) && cost > 0) {
+          rule.mf_params = Object.assign({}, p, { _multiplier: m, _unit_price: cost / m });
+          console.log('[F-GLASS-MULTIPLIER] injected MF02 "' + (rule.display_label || '') +
+                      '" → ×' + m + ', unit $' + (cost / m).toFixed(2) +
+                      ' (cost $' + rule.cost + ' / ' + sub + ')');
+        }
+      }
+    });
+
     finalRules = sortRulesByBindingGroup(finalRules);
 
     activeMfModalRules = finalRules;
@@ -3895,6 +3946,7 @@ function handleMfSave() {
     for (let i = 0; i < activeSub.instances.length; i++) {
       const rec = activeSub.instances[i];
       if (rec.isReadOnly || rec.isVirtual) continue;
+      if (rec.binding_hidden) continue;   // F-BINDING-GROUP: 隱藏的 dependent 不驗證(primary 沒勾)
       if (typeof rec.instance.validate !== 'function') continue;
       let result;
       try { result = rec.instance.validate(); }
@@ -3931,7 +3983,7 @@ function handleMfSave() {
         }
                 // CB-12: required MF03 未選 → frozen value === null
         //   (toggle 回 false、qty 回 object,所以 null 唯一代表 required 未選)
-        if (entry.mf_code === 'MF03' && entry.value === null) {
+        if (entry.mf_code === 'MF03' && entry.value === null && !entry.binding_hidden) {
           firstFailure = {
             subIdx: s, ruleIdx: entry.rule_idx,
             mfCode: entry.mf_code, label: entry.display_label,
