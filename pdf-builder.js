@@ -59,7 +59,16 @@
 // CB-11 / CB-12 / CB-13 (P1):
 //   • 改動 7: DOOR & FRAME SKU 加註「Hinge not included」。
 //   • 改動 8: MF03 Matching Interior(no→Wood Interior / yes→Matching Interior)。
-//   • 改動 9: Kit Promo 20%(LSW/LSG/LSA + tag==='kit'),PDF 自算,markup 不折。
+//   • 改動 9: Kit Promo 20%(LSW/LSG/LSA + tag==='Kit'),PDF 自算。
+//
+// CB-13-FIX (2026-06-10): Invoice 折扣 bug 修復。
+//   • tag 比對更正為 'Kit'(大寫,與 DB / step3 / quote-detail / email 一致)。
+//     原本寫死小寫 'kit',永遠 match 不到 → Invoice 不顯示折扣。
+//   • Invoice 與 Draft 的折扣套用「按身分拆開」,不再靠 markupPercent 當開關:
+//       - Invoice    → applyPromo = true (一律套 Kit Promo,tax/grand 折後)
+//       - Draft Quote→ applyPromo = false(一律不套,subtotal/tax/grand 全折前)
+//     新增 applyPromo 旗標貫穿 _drawItemTable / _finalizeWithTotals /
+//     _calcKitPromoDiscount。markupPercent 只影響 Unit Price 顯示,與折扣脫鉤。
 //
 // P2 LAYOUT (改動 10-17):
 //   • 改動 10: PO# 字體 = Invoice 標題(16pt),三種 PDF。
@@ -295,25 +304,27 @@
 
   
   // ─────────────────────────────────────────────────────────────────────────
-  // CB-13 (改動 9): Kit Promo 20% — PDF 自算,完全取代 F-PROMOTIONS。
-  //   逐 SKU 判斷:style_code ∈ {LSW,LSG,LSA} 且 tag === 'kit'(小寫精確比對)
-  //   markupPercent > 0(Draft Quote markup 模式)整單不享折扣。
+  // CB-13 (改動 9) + CB-13-FIX (2026-06-10): Kit Promo 20% — PDF 自算。
+  //   逐 SKU 判斷:style_code ∈ {LSW,LSG,LSA} 且 tag === 'Kit'(大寫精確比對,
+  //   與 DB / step3 / quote-detail / email 一致)。
+  //   折扣「是否套用」由 applyPromo 旗標決定(Invoice=true / Draft=false),
+  //   不再用 markupPercent 當開關 —— Draft 一律不折,Invoice 一律折。
   const KIT_PROMO_STYLES = ['LSW', 'LSG', 'LSA'];
   const KIT_PROMO_RATE   = 0.20;
 
-  function _isKitPromoItem(item, markupPercent) {
-    if (markupPercent && markupPercent > 0) return false;
+  function _isKitPromoItem(item) {
     if (!item) return false;
     const style = String(item.style_code || '').toUpperCase();
     if (KIT_PROMO_STYLES.indexOf(style) === -1) return false;
     return item.tag === 'Kit';
   }
 
-  function _calcKitPromoDiscount(items, markupPercent) {
+  function _calcKitPromoDiscount(items, applyPromo) {
+    if (!applyPromo) return { amount: 0, matchedCount: 0 };
     let amount = 0;
     let matchedCount = 0;
     (items || []).forEach(function (item) {
-      if (!_isKitPromoItem(item, markupPercent)) return;
+      if (!_isKitPromoItem(item)) return;
       const unit = parseFloat(item.unit_price) || 0;
       const qty  = parseInt(item.quantity, 10) || 0;
       amount += unit * qty * KIT_PROMO_RATE;
@@ -600,7 +611,12 @@
 
   function _drawItemTable(doc, context) {
       const { margin, headerH } = LAYOUT;
-      const { items, mode, startY, markupPercent = 0, headerContext } = context;
+      const {
+        items, mode, startY,
+        markupPercent = 0,
+        applyPromo = false,          // CB-13-FIX: Invoice=true / Draft=false
+        headerContext,
+      } = context;
   
       const isPacking  = (mode === 'packing-list');
       const showPrices = !isPacking;
@@ -637,9 +653,10 @@
           const skuDesc = item.sku_desc || '';
           const markedUnitPrice = item.unit_price * (1 + markupPercent);
           const skuPrefix = item.style_code ? item.style_code + '-' : '';
-          // CB-13 (改動 9): 享 Kit Promo 的 line,Total 欄用折後 SKU 單價;
+          // CB-13 (改動 9) + CB-13-FIX: 享 Kit Promo 的 line,Total 欄用折後 SKU 單價;
           //   Unit Price 欄仍顯示原價(markedUnitPrice)。
-          const effUnitPrice = _isKitPromoItem(item, markupPercent)
+          //   折扣只在 applyPromo=true(Invoice)套用;Draft 一律不折。
+          const effUnitPrice = (applyPromo && _isKitPromoItem(item))
             ? markedUnitPrice * (1 - KIT_PROMO_RATE)
             : markedUnitPrice;
   
@@ -897,6 +914,9 @@
    *
    * 改動 13: Assemble Fee 併入 Subtotal,不再有獨立 Assemble Fee 行。
    * 改動 14: 移除 by-type Assemble Fee 細項。
+   *
+   * CB-13-FIX: Discount 行只在 Invoice(applyPromo=true 且有符合 SKU)出現;
+   *   Draft 因 _finalizeWithTotals 傳 applyPromo=false → promoDiscount=0 → 不顯示。
    */
   function _drawTotals(doc, context) {
     const { pageW, margin } = LAYOUT;
@@ -1112,30 +1132,38 @@
         console.log('[F-CUSTOM] ' + documentTitle + ' PDF: ' + customCount + ' custom item(s)');
       }
     }
-    // CB-13 (改動 9): debug log for Kit Promo (PDF self-calc)
-    // Packing List 不顯示折扣,跳過 log 以免誤導。
-    if (documentTitle !== 'PACKING LIST') {
-      const _mkPct = (options && options.markupPercent) || 0;
-      const _kitDbg = _calcKitPromoDiscount(quoteData.items, _mkPct);
+    // CB-13 (改動 9) + CB-13-FIX: debug log for Kit Promo (PDF self-calc)
+    //   折扣只在 Invoice 套用;Draft 一律不折;Packing List 無金額不顯示。
+    if (documentTitle === 'INVOICE') {
+      const _kitDbg = _calcKitPromoDiscount(quoteData.items, true);
       if (_kitDbg.amount > 0) {
-        console.log('[CB-13] ' + documentTitle + ' PDF: Kit Promo -$'
+        console.log('[CB-13] INVOICE PDF: Kit Promo -$'
           + _kitDbg.amount.toFixed(2) + ' across ' + _kitDbg.matchedCount + ' line(s)');
-      } else if (_mkPct > 0) {
-        console.log('[CB-13] ' + documentTitle + ' PDF: Kit Promo suppressed (markup mode)');
+      } else {
+        console.log('[CB-13] INVOICE PDF: Kit Promo not applicable (no eligible line)');
       }
+    } else if (documentTitle === 'DRAFT QUOTE') {
+      console.log('[CB-13] DRAFT QUOTE PDF: Kit Promo not applied (draft never discounts)');
     }
     return { doc, logoImg, y, headerContext };
   }
 
   /**
-   * F4.2 + CB-13: Finalize with totals.
+   * F4.2 + CB-13 + CB-13-FIX: Finalize with totals.
    *
    * CB-13 (改動 9): Kit Promo 折扣由 PDF 自算 _calcKitPromoDiscount(items,
-   * markupPercent),不讀 quoteData._promo。折扣 > 0 時:
+   * applyPromo),不讀 quoteData._promo。
+   *
+   * CB-13-FIX (2026-06-10): 折扣是否套用由 applyPromo 旗標決定,與 markup 脫鉤。
+   *   - Invoice    : applyPromo = true  → 套折扣
+   *   - Draft Quote: applyPromo = false → 不套折扣(promoDiscount=0)
+   *
+   * 套折扣時(promoDiscount > 0):
    *   - taxBase     = (markedSubtotal - promoDiscount) + taxableModsTotal
    *   - billingBase = (markedSubtotal - promoDiscount) + modsTotal
    *   - grand       = billingBase + assembly + shipping + tax
-   *   Subtotal 行仍顯示折扣前金額,折扣獨立一行。markupPercent > 0 整單不折。
+   *   Subtotal 行仍顯示折扣前金額,折扣獨立一行。
+   * 不套折扣時(Draft 或無符合 SKU):promoDiscount=0,subtotal/tax/grand 全用折前。
    *
    * 改動 13: Subtotal 顯示值已在 _drawTotals 內併入 assembleTotal;grand 計算不變。
    */
@@ -1143,6 +1171,7 @@
     const {
       doc, quoteData, items, headerContext, tableEndY, notes,
       showPrices, markupPercent = 0,
+      applyPromo = false,          // CB-13-FIX: Invoice=true / Draft=false
     } = args;
     const { pageW, margin } = LAYOUT;
 
@@ -1172,8 +1201,8 @@
       taxableModsTotal = _calcTaxableModsCost(items);
     }
 
-    // ── CB-13 (改動 9): Kit Promo 20% — PDF 自算,不讀 quoteData._promo ──
-    const kitPromo          = _calcKitPromoDiscount(items, markupPercent);
+    // ── CB-13 (改動 9) + CB-13-FIX: Kit Promo 20% — PDF 自算,applyPromo 控制套用 ──
+    const kitPromo          = _calcKitPromoDiscount(items, applyPromo);
     const promoDiscount     = kitPromo.amount;
     const promoLabel        = promoDiscount > 0 ? 'Discount (Kit Promo 20%)' : '';
     const promoMatchedCount = kitPromo.matchedCount;
@@ -1183,6 +1212,7 @@
     const pendingShipping = _isPendingShipping(quoteData);
 
     // ── Shipping resolution — uses POST-discount billing base ──
+    //   Draft(applyPromo=false): promoDiscount=0 → billingBase 即折前,符合 Draft 用原價。
     const billingBase = (markedSubtotal - promoDiscount) + modsTotal;
     let shipping;
     if (pendingShipping) {
@@ -1203,6 +1233,7 @@
     }
 
     // ── Tax base = (SKU - promo) + TAXABLE mods ──
+    //   Draft(promoDiscount=0): tax 用折前,符合 Draft 規則。
     const taxRate   = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
     const taxBase   = (markedSubtotal - promoDiscount) + taxableModsTotal;
@@ -1336,6 +1367,7 @@
       mode:          'packing-list',
       startY:        y,
       markupPercent: 0,
+      applyPromo:    false,        // Packing List 無金額,折扣不適用
       headerContext: headerContext,
     });
 
@@ -1346,7 +1378,8 @@
 
   /**
    * 建立 Invoice PDF（含價，給 dealer / 客戶用）
-   * CB-13 (改動 9): PDF 自算 Kit Promo 折扣(LSW/LSG/LSA + tag==='kit'),不讀 _promo。
+   * CB-13 (改動 9) + CB-13-FIX: PDF 自算 Kit Promo 折扣(LSW/LSG/LSA + tag==='Kit'),
+   *   不讀 _promo。Invoice 一律套折扣(applyPromo=true),tax/grand 折後。
    * 改動 13/14: Assemble Fee 併入 Subtotal,無獨立 Asm Fee 行與細項。
    */
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
@@ -1361,6 +1394,7 @@
       mode:          'invoice',
       startY:        y,
       markupPercent: markupPercent,
+      applyPromo:    true,         // CB-13-FIX: Invoice 一律套 Kit Promo
       headerContext: headerContext,
     });
 
@@ -1368,6 +1402,7 @@
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
+      applyPromo: true,            // CB-13-FIX
     });
 
     return doc;
@@ -1375,7 +1410,8 @@
 
   /**
    * 建立 Draft Quote PDF（Step 3 預覽用）
-   * CB-13 (改動 9): markupPercent > 0 時 Kit Promo 折扣整單不顯示;折扣 PDF 自算。
+   * CB-13 (改動 9) + CB-13-FIX: Draft 一律不套 Kit Promo(applyPromo=false),
+   *   不論 markup 多少 —— subtotal / tax / grand 全用折前(原價),不顯示 Discount 行。
    * 改動 13/14: 與 Invoice 同步 — Assemble Fee 併入 Subtotal,無細項。
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
@@ -1390,6 +1426,7 @@
       mode:          'draft-quote',
       startY:        y,
       markupPercent: markupPercent,
+      applyPromo:    false,        // CB-13-FIX: Draft 一律不折
       headerContext: headerContext,
     });
 
@@ -1397,6 +1434,7 @@
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
+      applyPromo: false,           // CB-13-FIX: Draft 一律不折
     });
 
     return doc;
@@ -1455,8 +1493,8 @@
     _loadImage:               _loadImage,
     _isPendingShipping:       _isPendingShipping,
     _isHiddenMod:             _isHiddenMod,
-    _calcKitPromoDiscount:    _calcKitPromoDiscount,             // CB-13 (改動 9)
-    _isKitPromoItem:          _isKitPromoItem,                   // CB-13 (改動 9)
+    _calcKitPromoDiscount:    _calcKitPromoDiscount,             // CB-13 (改動 9) / CB-13-FIX
+    _isKitPromoItem:          _isKitPromoItem,                   // CB-13 (改動 9) / CB-13-FIX
     _getNormalizedSubGroups:  _getNormalizedSubGroups,
     _calcPerSubModCost:       _calcPerSubModCost,
     _calcPerSubTaxableModCost: _calcPerSubTaxableModCost,
