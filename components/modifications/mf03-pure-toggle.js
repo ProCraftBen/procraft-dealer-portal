@@ -11,25 +11,32 @@
  *
  * 同一頁面可建立多個獨立實例,state 不共享。
  *
- * F-BINDING-GROUP (2026-05-18):
+ * F-BINDING-GROUP (2026-05-18,2026-06-10 改規格):
  *   • 新增 optional mf_params:
  *       _binding_group: string   綁定群組名(例如 "GLASS")
  *       _binding_role: 'primary' | 'dependent'
  *   • broadcast 的 mf-change event detail 多帶 _binding_group +
  *     _binding_role,讓協調者(new-quote-modifications.html)能依此判斷。
  *
- *   • 新增 2 個 instance method,供協調者操控 dependent 元件:
- *       setEnabled(bool)            程式化勾起/取消,不重複 broadcast
- *       setLocked(bool, reason?)    鎖住 UI:checkbox disabled,
- *                                   灰底,label 旁顯示 reason
+ *   ⚠ 規格更新(2026-06-10):GLASS 群組的角色與行為如下——
+ *       primary   = MF03「Prep For Glass」(純 toggle,永遠顯示)
+ *       dependent = MF02「Glass」+ MF03「Matching Interior」(required 模式)
+ *     行為(由協調者驅動,本元件只提供 reset()):
+ *       - primary 沒勾 → 協調者把 dependent 的整個 row 隱藏,並呼叫
+ *         dependent 的 reset() 清空值。
+ *       - primary 勾起 → 協調者顯示 dependent 的 row,dealer 自由勾/選,
+ *         **不自動勾、不鎖**。
+ *     (舊註解曾寫「Glass 勾 → Prep For Glass 自動勾 + 鎖住」,且把 Glass
+ *      當 primary —— 該設計已廢棄,不再適用。)
  *
- *   業務範例:
- *     dealer 在 MF02 Glass 勾起 → 協調者收到 mf-change(detail 含
- *     _binding_group: "GLASS", _binding_role: "primary")
- *       → 找同 group 的 dependent (MF03 Prep For Glass) instance
- *       → 呼叫 setEnabled(true) + setLocked(true, "Required with Glass")
- *     dealer 取消 Glass → 解鎖 (setLocked(false)),但不自動取消
- *     Prep For Glass(dealer 自己可以決定是否取消)。
+ *   • 新增 instance method 供協調者操控 dependent:
+ *       reset()                     程式化重置值(依模式回初始)+ 重繪,
+ *                                   不 broadcast(liveValues 由協調者重算)。
+ *   • 保留(但新規格協調者不再呼叫)的 method:
+ *       setEnabled(bool)            程式化勾起/取消,不重複 broadcast
+ *       setLocked(bool, reason?)    鎖住 UI:checkbox disabled,灰底,
+ *                                   label 旁顯示 reason
+ *     兩者仍可用(向後相容),只是新的 GLASS 規格不靠它們達成聯動。
  *
  * F-QTY-SELECTOR (2026-06-02):
  *   • 新增 optional mf_params.qty_selector,存在時在 toggle 勾起後
@@ -75,6 +82,7 @@
  *     getValue()             → boolean | { enabled, qty } | 'yes'|'no'|null
  *     validate()             → { valid, errors }
  *     calculateCost()        → number
+ *     reset()                → void  (F-BINDING-GROUP;依模式回初始值)
  *     setEnabled(bool)       → void  (F-BINDING-GROUP;required 模式為 no-op)
  *     setLocked(bool, msg?)  → void  (F-BINDING-GROUP)
  *     destroy()              → void
@@ -131,7 +139,7 @@
    * @param {HTMLElement} container
    * @param {Object} mf_params - { toggle_label, _base_cost?, required?, qty_selector? }
    * @param {boolean|null|string|{enabled:boolean,qty:number}} current_value
-   * @returns {Object} instance with { getValue, validate, calculateCost, setEnabled, setLocked, destroy }
+   * @returns {Object} instance with { getValue, validate, calculateCost, reset, setEnabled, setLocked, destroy }
    */
   function create(container, mf_params, current_value) {
     // ──────────────────────────────────────────────────────────
@@ -529,10 +537,41 @@
     }
 
     // ──────────────────────────────────────────────────────────
+    // F-BINDING-GROUP (2026-06-10 新規格): 程式化重置(供協調者用)。
+    //   primary(Prep For Glass)取消勾時,協調者把此 dependent 的整個
+    //   row 隱藏,並呼叫 reset() 把值清回初始,確保:
+    //     1. 下次 primary 再勾起、row 重新顯示時,值是空的(不是上次選的)。
+    //     2. save 時 getValue() 回初始值(required→null、toggle→false),
+    //        被主頁面 shouldKeepModification 濾掉,不寫入 stale row。
+    //   依模式重置,共用現有 render() 重繪分流(完全不碰三模式邏輯):
+    //     • required(CB-12)→ choice=null(兩顆 radio 都不選)
+    //     • qty_selector(F-QTY-SELECTOR)→ current_value=false,qty 回 default
+    //     • 純 toggle → current_value=false
+    //   一併清掉 lock 狀態(防禦性:新規格不再鎖,但避免殘留)。
+    //   不 broadcast —— liveValues 由協調者在呼叫 reset() 後自行重算,
+    //   避免事件迴圈。
+    // ──────────────────────────────────────────────────────────
+    function reset() {
+      if (state.isRequired) {
+        state.choice = null;
+      } else {
+        state.current_value = false;
+        if (state.hasQty) {
+          state.qty = state.qtyConf.default;
+        }
+      }
+      state.locked = false;
+      state.lockReason = null;
+      render();
+    }
+
+    // ──────────────────────────────────────────────────────────
     // F-BINDING-GROUP: 程式化勾起/取消。
     //   不 broadcast 會導致 liveValues 不更新,所以仍 broadcast。
     //   協調者用 same group + same role 判斷不重複處理,避免迴圈。
     //   CB-12:required 模式為 no-op(enabled 對 tri-state radio 沒意義)。
+    //   ⚠ 2026-06-10 新規格:GLASS 群組不再透過此 method 聯動(改用
+    //     reset() + 協調者控制 row 顯示)。保留此 method 僅為向後相容。
     // ──────────────────────────────────────────────────────────
     function setEnabled(bool) {
       if (state.isRequired) return;  // CB-12: required 模式不適用 setEnabled
@@ -550,6 +589,9 @@
     //
     // @param {boolean} bool    true = 鎖住, false = 解鎖
     // @param {string} [reason] 鎖定時顯示在 label 旁的原因
+    //
+    // ⚠ 2026-06-10 新規格:GLASS 群組不再鎖 dependent。保留此 method
+    //   僅為向後相容,新流程不會呼叫到。
     // ──────────────────────────────────────────────────────────
     function setLocked(bool, reason) {
       const newLocked = !!bool;
@@ -599,8 +641,9 @@
       getValue:       getValue,
       validate:       validate,
       calculateCost:  calculateCost,
-      setEnabled:     setEnabled,    // F-BINDING-GROUP
-      setLocked:      setLocked,     // F-BINDING-GROUP
+      reset:          reset,         // F-BINDING-GROUP (2026-06-10)
+      setEnabled:     setEnabled,    // F-BINDING-GROUP(保留,新規格未使用)
+      setLocked:      setLocked,     // F-BINDING-GROUP(保留,新規格未使用)
       destroy:        destroy
     };
   }
