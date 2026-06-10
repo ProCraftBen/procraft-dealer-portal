@@ -22,16 +22,32 @@
  *   • 沒有這兩個 param → 跟以前一模一樣,顯示 +$base_cost。
  *   • 不影響 calculateCost() / getValue() / validate()(那些都用
  *     _base_cost,跟以前一樣)。
+ *   • 註:_unit_price / _multiplier 的來源由主頁面
+ *     (new-quote-modifications.html)依 Glass 的 subcategory 注入,
+ *     與 binding 邏輯解耦;MF02 只負責「有就拆解顯示」。
  *
- * F-BINDING-GROUP (2026-05-18):
+ * F-BINDING-GROUP (2026-05-18,2026-06-10 改規格):
  *   • 新增 optional mf_params:
  *       _binding_group: string   綁定群組名(例如 "GLASS")
  *       _binding_role: 'primary' | 'dependent'
  *   • broadcast 的 mf-change event detail 多帶 _binding_group +
- *     _binding_role,讓協調者(new-quote-modifications.html)能
- *     依此聯動同 group 的其他元件(例如 MF02 Glass 勾 →
- *     觸發 MF03 Prep For Glass 自動勾 + 鎖住)。
- *   • MF02 本身不處理鎖定邏輯(它總是 primary,不會被鎖)。
+ *     _binding_role,讓協調者(new-quote-modifications.html)能依此
+ *     判斷同 group 的聯動關係。
+ *
+ *   ⚠ 規格更新(2026-06-10):GLASS 群組中,**MF02 Glass 是 dependent**,
+ *     primary 是 MF03「Prep For Glass」。行為如下(由協調者驅動):
+ *       - primary 沒勾 → 協調者把此 dependent 的整個 row 隱藏,
+ *         並呼叫 reset() 清空值(enabled=false / selected=null)。
+ *       - primary 勾起 → 協調者顯示 row,dealer 自由勾、自由選,
+ *         **不自動勾、不鎖**。
+ *     (舊註解曾寫「Glass 勾 → Prep 自動勾 + 鎖住」,且把 Glass 當
+ *      primary —— 該設計已廢棄,不再適用。)
+ *
+ *   • 新增 1 個 instance method 供協調者操控 dependent:
+ *       reset()   程式化重置值(enabled=false / selected=null + 重繪),
+ *                 不 broadcast(liveValues 由協調者在呼叫後自行更新)。
+ *   • MF02 本身不處理「整個 row 的顯示/隱藏」——那是協調者的職責
+ *     (MF02 只擁有自己的 element container,不擁有外層 row)。
  *
  * 介面:
  *   create(container, mf_params, current_value) → instance
@@ -40,6 +56,7 @@
  *     getValue()       → { enabled, selected }
  *     validate()       → { valid, errors }
  *     calculateCost()  → number
+ *     reset()          → void   (F-BINDING-GROUP)
  *     destroy()        → void
  *
  * mf_params 結構:
@@ -325,6 +342,22 @@
       return state.enabled ? state.cost : 0;
     }
 
+    // ──────────────────────────────────────────────────────────
+    // F-BINDING-GROUP: 程式化重置(供協調者用)。
+    //   primary(Prep For Glass)取消勾時,協調者會把此 dependent 的
+    //   整個 row 隱藏,並呼叫 reset() 把值清空,確保:
+    //     1. 下次 primary 再勾起、row 重新顯示時,值是空的(不是上次選的)。
+    //     2. save 時 getValue() 回 { enabled:false },被主頁面
+    //        shouldKeepModification 濾掉,不寫入 stale row。
+    //   不 broadcast —— liveValues 由協調者在呼叫 reset() 後自行重算,
+    //   避免事件迴圈。
+    // ──────────────────────────────────────────────────────────
+    function reset() {
+      state.enabled = false;
+      state.selected = null;
+      drawUI();
+    }
+
     function destroy() {
       if (state.toggleEl) {
         state.toggleEl.removeEventListener('change', onToggle);
@@ -348,6 +381,7 @@
       getValue: getValue,
       validate: validate,
       calculateCost: calculateCost,
+      reset: reset,          // F-BINDING-GROUP
       destroy: destroy
     };
   }
