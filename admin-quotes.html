@@ -341,6 +341,10 @@
       <label class="filter-label">To</label>
       <input type="date" class="filter-input" id="filterTo"/>
     </div>
+    <div class="filter-group">
+      <label class="filter-label">Search</label>
+      <input type="text" class="filter-input" id="filterSearch" placeholder="PO# / Draft ID / Job Name"/>
+    </div>
     <div class="filter-group" style="flex-direction:row;gap:8px;">
       <button class="btn-filter" onclick="applyFilters()">Filter</button>
       <button class="btn-reset" onclick="resetFilters()">Reset</button>
@@ -601,6 +605,19 @@ async function loadQuotes() {
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
 
+  // 雙編號制 + 選項 C: 完整編號精確比對;否則模糊比對兩個編號 + Job Name
+  const search = (document.getElementById('filterSearch').value || '').trim();
+  if (search) {
+    if (/^D\d{5}$/i.test(search)) {
+      query = query.eq('draft_number', search.toUpperCase());
+    } else if (/^P\d{5}$/i.test(search)) {
+      query = query.eq('po_number', search.toUpperCase());
+    } else {
+      const safe = search.replace(/[,()*]/g, '');  // 去掉會破壞 PostgREST or() 的字元
+      query = query.or('draft_number.ilike.%' + safe + '%,po_number.ilike.%' + safe + '%,job_name.ilike.%' + safe + '%');
+    }
+  }
+
   const { data: quotes } = await query;
   allQuotes = quotes || [];
   renderStats();
@@ -818,8 +835,8 @@ function renderTable() {
     html +=
       '<tr class="' + rowClass + '" onclick="toggleDetail(' + idx + ')">' +
         '<td>' +
-          '<div class="td-po">' + escapeHtml(q.po_number || '—') + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
-          '<div style="font-size:11px;color:var(--muted);">' + escapeHtml(q.job_name || '—') + '</div>' +
+            '<div class="td-po">' + escapeHtml(q.po_number || q.draft_number || '—') + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
+            (q.po_number && q.draft_number ? '<div style="font-size:10px;color:var(--muted);">Draft ID: ' + escapeHtml(q.draft_number) + '</div>' : '') +
         '</td>' +
         '<td><div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
@@ -836,6 +853,7 @@ function renderTable() {
                 '<div class="detail-section-title">Order Info</div>' +
                 '<div class="detail-value">' +
                   '<strong>PO#:</strong> ' + escapeHtml(q.po_number || '—') + '<br>' +
+                  (q.draft_number ? '<strong>Draft ID:</strong> ' + escapeHtml(q.draft_number) + '<br>' : '') +
                   '<strong>Job:</strong> ' + escapeHtml(q.job_name || '—') + '<br>' +
                   notesHtml +
                 '</div>' +
@@ -1466,6 +1484,7 @@ function resetFilters() {
   document.getElementById('filterDealer').value = '';
   document.getElementById('filterFrom').value   = '';
   document.getElementById('filterTo').value     = '';
+  document.getElementById('filterSearch').value = '';
   loadQuotes();
 }
 
