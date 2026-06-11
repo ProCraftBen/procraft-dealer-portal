@@ -1086,7 +1086,7 @@
     // Store revision note for banner rendering (used by mountModeBanner)
     returnReason = (draft.status === 'Returned') ? (draft.return_reason || null) : null;
 
-    document.getElementById('poNumber').value = draft.po_number || '';
+    document.getElementById('poNumber').value = draft.po_number || draft.draft_number || '';  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
     document.getElementById('jobName').value  = draft.job_name  || '';
     document.getElementById('notes').value    = draft.notes     || '';
 
@@ -1110,7 +1110,7 @@
     const isAdminEditingOtherDealer = isAdminViewer && currentUser && draft.dealer_id && draft.dealer_id !== currentUser.id;
 
     sessionStorage.setItem('quoteStep1', JSON.stringify({
-      poNumber:           draft.po_number || null,
+      poNumber:           draft.po_number || draft.draft_number || null,  // 雙編號制: 帶顯示編號給返回 restore
       jobName:            draft.job_name,
       notes:              draft.notes || '',
       shippingMode:       draft.shipping_address_id ? 'different' : 'same',
