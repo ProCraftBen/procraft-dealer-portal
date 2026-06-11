@@ -782,7 +782,6 @@ function renderTable() {
             '<option value="Processing"' + (q.status === 'Processing' ? ' selected' : '') + '>Processing</option>' +
             '<option value="Complete"'   + (q.status === 'Complete'   ? ' selected' : '') + '>Complete</option>' +
             '<option value="Closed" class="close-option">✕ Close Quote</option>' +
-            '<option value="Returned" class="return-option">↩ Request Revision</option>' +
           '</select>' +
           '<button id="save-' + q.id + '" onclick="saveStatus(\'' + q.id + '\')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>' +
         '</td>';
