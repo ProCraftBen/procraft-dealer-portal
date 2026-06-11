@@ -1652,7 +1652,7 @@ function renderQuote(quote, dealer, addr) {
     ${returnHistoryHtml}
     <div class="quote-header">
       <div>
-        <div class="quote-number">${escapeHtml(quote.po_number||'—')}</div>
+        <div class="quote-number">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div>
         <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
       </div>
       <div class="header-right">
@@ -1666,7 +1666,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-header"><span class="card-title">Order Information</span></div>
       <div class="card-body">
         <div class="info-grid">
-          <div><div class="info-label">PO Number</div><div class="info-value">${escapeHtml(quote.po_number||'—')}</div></div>
+          <div><div class="info-label">${quote.po_number ? 'PO Number' : 'Draft ID'}</div><div class="info-value">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div></div>
           <div><div class="info-label">Job Name</div><div class="info-value">${escapeHtml(quote.job_name||'—')}</div></div>
           <div><div class="info-label">Dealer</div><div class="info-value">${escapeHtml(dealer?.company_name||'—')}</div></div>
           <div><div class="info-label">Contact</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
@@ -1873,6 +1873,7 @@ function buildQuoteDataForPdf() {
 
   return {
     po_number:     _quote.po_number || null,
+    draft_number:  _quote.draft_number || null,   // 雙編號制: Draft Quote PDF 用(D/P 切換在階段 6)
     job_name:      _quote.job_name || null,
     status:        _quote.status,
     created_at:    _quote.created_at,
@@ -1907,7 +1908,7 @@ async function downloadDraftQuote() {
     quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
   );
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
-    poNumber:       _quote.po_number || 'Draft',
+    poNumber:       _quote.po_number || _quote.draft_number || 'Draft',  // 雙編號制
     dealerUid:      _dealer.uid,
     revisionNumber: _quote.revision_number || 1,
   });
