@@ -1435,11 +1435,14 @@ function getShippingBracket(subtotal) {
 }
 
 function calcShippingByFormula(subtotal) {
-  if (subtotal <= 3000)  return null;
-  if (subtotal <= 6000)  return subtotal * 0.15;
-  if (subtotal <= 9000)  return subtotal * 0.12;
-  if (subtotal <= 12000) return subtotal * 0.10;
-  return 0;
+  // 新規格 (2026-06): Shipping 一律由 Sales Team 報價,不再依 subtotal 級距自動算。
+  // 一律回 null → 走既有 pending / "Contact Sales Team" 路徑:shipping_cost 存 null、
+  // 不計入 Grand Total;admin 之後可在 quote-detail 手填覆寫(override 邏輯不變)。
+  // resolveShippingForDb 的 resuming 分支(oldBracket===newBracket → 保留 oldShipping)
+  // 不受影響,既有單與 admin 值安全。
+  // 廢棄的舊級距保留註解供歷史參考:
+  //   <=3000 → null / <=6000 → ×0.15 / <=9000 → ×0.12 / <=12000 → ×0.10 / >12000 → 0
+  return null;
 }
 
 function resolveShippingForDb(opts) {
@@ -1927,8 +1930,8 @@ function applyTotals(opts) {
     if (previewShippingForDb === null) {
       isPendingShipping = true;
       shippingForTotal  = 0;
-      shippingLabel     = 'TBD';
-      shippingNote      = '⚠ Contact Sales Team to confirm shipping fee';
+      shippingLabel     = 'Contact Sales Team';
+      shippingNote      = '⚠ Shipping fee quoted separately by our Sales Team';
     } else if (previewShippingForDb === 0 && billingBase > 12000) {
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
