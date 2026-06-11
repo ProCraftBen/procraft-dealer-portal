@@ -168,22 +168,37 @@
     return grouped;
   }
 
-  // CB-7: type-group ordering（BASE 最前 → 中間字母序 → ACCESSORIES → OTHER）
-  function _typeGroupTier(type) {
-    const t = (type || 'OTHER').toUpperCase();
-    if (t === 'BASE')        return 0;
-    if (t === 'ACCESSORIES') return 2;
-    if (t === 'OTHER')       return 3;
-    return 1;
+// ─────────────────────────────────────────────────────────────────────────
+  // CB-22 (2026-06-11): Order List type-group 排序 — 業務指定固定順序。
+  //   廢棄 CB-7 的（BASE 最前 / ACCESSORIES 最後 / 中間字母序）。
+  //   依 construction 走固定清單；不在清單的 type → OTHER，放最後。
+  //   組內維持 style_code 字母序 stable sort。空 group 仍只在有 item 時才 push。
+  //   constructionType 由 caller 經 quoteData.construction_type 傳入
+  //   （pdf-builder 無 door_styles，無法自行反查）。缺值 → 預設 framed。
+  //   ⚠ 與 new-quote-step3.html / quote-detail.html 邏輯同步。
+  // ─────────────────────────────────────────────────────────────────────────
+  const FRAMED_TYPE_ORDER    = ['BASE', 'WALL', 'TALL', 'DOOR & FRAME', 'BOX', 'ROLL OUT TRAY', 'ACCESSORIES'];
+  const FRAMELESS_TYPE_ORDER = ['BASE', 'VANITY', 'WALL', 'TALL', 'MBOX', 'ROLL OUT TRAY', 'PANELS', 'MOLDINGS'];
+  const OTHER_GROUP_LABEL    = 'OTHER';
+
+  function _getTypeOrder(constructionType) {
+    return (String(constructionType || '').toLowerCase() === 'frameless')
+      ? FRAMELESS_TYPE_ORDER
+      : FRAMED_TYPE_ORDER;   // 預設 framed
   }
 
-  function _groupByTypeOrdered(items) {
+  function _groupByTypeOrdered(items, constructionType) {
+    const order    = _getTypeOrder(constructionType).map(function (t) { return t.toUpperCase(); });
+    const orderSet = new Set(order);
+
     const buckets = {};
     (items || []).forEach(function (item) {
-      const t = (item.sku_type || item.skuType || 'OTHER').toUpperCase();
+      let t = (item.sku_type || item.skuType || OTHER_GROUP_LABEL).toUpperCase();
+      if (!orderSet.has(t)) t = OTHER_GROUP_LABEL;   // 不在清單 → 併入 OTHER
       if (!buckets[t]) buckets[t] = [];
       buckets[t].push(item);
     });
+
     Object.keys(buckets).forEach(function (t) {
       buckets[t].sort(function (a, b) {
         const sa = String(a.style_code || '').toUpperCase();
@@ -191,11 +206,15 @@
         if (sa < sb) return -1; if (sa > sb) return 1; return 0;
       });
     });
-    return Object.keys(buckets).sort(function (a, b) {
-      const ta = _typeGroupTier(a), tb = _typeGroupTier(b);
-      if (ta !== tb) return ta - tb;
-      if (a < b) return -1; if (a > b) return 1; return 0;
-    }).map(function (t) { return { type: t, items: buckets[t] }; });
+
+    const result = [];
+    order.forEach(function (t) {
+      if (buckets[t] && buckets[t].length) result.push({ type: t, items: buckets[t] });
+    });
+    if (buckets[OTHER_GROUP_LABEL] && buckets[OTHER_GROUP_LABEL].length) {
+      result.push({ type: OTHER_GROUP_LABEL, items: buckets[OTHER_GROUP_LABEL] });
+    }
+    return result;
   }
 
   function _calcAsmByType(items) {
@@ -612,17 +631,18 @@
   function _drawItemTable(doc, context) {
       const { margin, headerH } = LAYOUT;
       const {
-        items, mode, startY,
-        markupPercent = 0,
-        applyPromo = false,          // CB-13-FIX: Invoice=true / Draft=false
-        headerContext,
-      } = context;
-  
-      const isPacking  = (mode === 'packing-list');
-      const showPrices = !isPacking;
-      const colCount   = isPacking ? 6 : 10;
-  
-      const groups = _groupByTypeOrdered(items);
+              items, mode, startY,
+              markupPercent = 0,
+              applyPromo = false,          // CB-13-FIX: Invoice=true / Draft=false
+              constructionType = 'framed', // CB-22: Order List 排序依據(caller 帶入)
+              headerContext,
+            } = context;
+        
+            const isPacking  = (mode === 'packing-list');
+            const showPrices = !isPacking;
+            const colCount   = isPacking ? 6 : 10;
+        
+            const groups = _groupByTypeOrdered(items, constructionType);
   
       const head = isPacking
         ? [['#', 'Type', 'SKU', 'Description', 'Qty', 'Assembled?']]
@@ -1361,14 +1381,15 @@
       'PACKING LIST'
     );
 
-    const { tableEndY, notes } = _drawItemTable(doc, {
-      items:         quoteData.items,
-      mode:          'packing-list',
-      startY:        y,
-      markupPercent: 0,
-      applyPromo:    false,        // Packing List 無金額,折扣不適用
-      headerContext: headerContext,
-    });
+  const { tableEndY, notes } = _drawItemTable(doc, {
+        items:            quoteData.items,
+        mode:             'packing-list',
+        startY:           y,
+        markupPercent:    0,
+        applyPromo:       false,        // Packing List 無金額,折扣不適用
+        constructionType: quoteData.construction_type,   // CB-22
+        headerContext:    headerContext,
+      });
 
     _finalizePackingListWithTcAndNotes({ doc, quoteData, headerContext, tableEndY, notes });
 
@@ -1389,13 +1410,14 @@
     );
 
     const { tableEndY, notes } = _drawItemTable(doc, {
-      items:         quoteData.items,
-      mode:          'invoice',
-      startY:        y,
-      markupPercent: markupPercent,
-      applyPromo:    true,         // CB-13-FIX: Invoice 一律套 Kit Promo
-      headerContext: headerContext,
-    });
+          items:            quoteData.items,
+          mode:             'invoice',
+          startY:           y,
+          markupPercent:    markupPercent,
+          applyPromo:       true,         // CB-13-FIX: Invoice 一律套 Kit Promo
+          constructionType: quoteData.construction_type,   // CB-22
+          headerContext:    headerContext,
+        });
 
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
@@ -1420,14 +1442,15 @@
       'DRAFT QUOTE'
     );
 
-    const { tableEndY, notes } = _drawItemTable(doc, {
-      items:         quoteData.items,
-      mode:          'draft-quote',
-      startY:        y,
-      markupPercent: markupPercent,
-      applyPromo:    false,        // CB-13-FIX: Draft 一律不折
-      headerContext: headerContext,
-    });
+  const { tableEndY, notes } = _drawItemTable(doc, {
+        items:            quoteData.items,
+        mode:             'draft-quote',
+        startY:           y,
+        markupPercent:    markupPercent,
+        applyPromo:       false,        // CB-13-FIX: Draft 一律不折
+        constructionType: quoteData.construction_type,   // CB-22
+        headerContext:    headerContext,
+      });
 
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
