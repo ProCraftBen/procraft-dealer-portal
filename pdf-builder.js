@@ -1225,16 +1225,10 @@
     } else if (quoteData.shipping_cost !== null && quoteData.shipping_cost !== undefined) {
       shipping = parseFloat(quoteData.shipping_cost) || 0;
     } else {
-      shipping = 0;
-      if (logisticType === 'delivery') {
-        shipping = deliveryFee;
-      } else if (logisticType === 'shipping') {
-        if      (billingBase <= 3000)  shipping = 0;
-        else if (billingBase <= 6000)  shipping = billingBase * 0.15;
-        else if (billingBase <= 9000)  shipping = billingBase * 0.12;
-        else if (billingBase <= 12000) shipping = billingBase * 0.10;
-        else                            shipping = 0;
-      }
+      // shipping_cost 為 null 且非 pending → 只可能是 delivery 的防呆 fallback。
+      // 新規格 (2026-06): 'shipping' 一律 null → 必為 pending(上面第一分支),
+      // 不會進到這裡,故移除已廢棄的 shipping 級距自算(15%/12%/10%)。
+      shipping = (logisticType === 'delivery') ? deliveryFee : 0;
     }
 
     // ── Tax base = (SKU - promo) + TAXABLE mods ──
