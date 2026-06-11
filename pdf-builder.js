@@ -392,7 +392,7 @@
   //   - date / jobName 1.5x(7→10.5)
   function _drawHeader(doc, context) {
     const { pageW, margin, headerH } = LAYOUT;
-    const { logoImg, poNumber, jobName, date, documentTitle } = context;
+    const { logoImg, poNumber, numberLabel, jobName, date, documentTitle } = context;
 
     doc.setFillColor(...COLORS.white);
     doc.rect(0, 0, pageW, headerH, 'F');
@@ -445,7 +445,7 @@
     doc.setTextColor(...COLORS.muted);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'normal');
-    doc.text(`PO# ${poNumber || '—'}`, pageW - margin, 25, { align: 'right' });
+    doc.text(`${numberLabel || 'PO#'} ${poNumber || '—'}`, pageW - margin, 25, { align: 'right' });
 
     // date / jobName 1.5x(7→10.5)
     doc.setFontSize(10.5);
@@ -1109,9 +1109,14 @@
       ? new Date(quoteData.created_at)
       : new Date();
 
+    // 雙編號制: Draft Quote 顯 Draft ID (D);Invoice / Packing List 顯 PO# (P)。
+    const isDraftQuote = (documentTitle === 'DRAFT QUOTE');
     const headerContext = {
       logoImg,
-      poNumber:      quoteData.po_number || '—',
+      poNumber:      isDraftQuote
+                       ? (quoteData.draft_number || '—')
+                       : (quoteData.po_number || '—'),
+      numberLabel:   isDraftQuote ? 'Draft ID' : 'PO#',
       jobName:       quoteData.job_name  || '—',
       date,
       documentTitle: documentTitle,
