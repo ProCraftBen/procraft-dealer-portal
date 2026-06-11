@@ -464,7 +464,7 @@
     <div class="card-title">Order Information</div>
     <div class="field-row">
       <div class="field">
-        <label>PO Number</label>
+        <label id="poNumberLabel">Draft ID</label>
         <!-- CB-3 (2026-05-29): PO# now generated at first Save as Quote (random
              alphanumeric P{uid}XXXXXX, e.g. PUWV8F3K2P). On resume of a saved
              draft / returned quote, this field is populated by loadDraftData()
@@ -1011,6 +1011,7 @@
         try {
           const s1 = JSON.parse(saved);
           document.getElementById('poNumber').value = s1.poNumber || '';
+          setPoNumberLabel(s1.poNumber);   // 雙編號制: 動態 label
           document.getElementById('jobName').value  = s1.jobName  || '';
           document.getElementById('notes').value    = s1.notes    || '';
           if (s1.logisticType) {
@@ -1057,6 +1058,14 @@
   //       Now also accepts Pending status (for admin-edit flow), since admin
   //       editing a dealer-submitted PO enters here with status=Pending.
   // ─────────────────────────────────────────────────────────────────────────
+
+  // 雙編號制: 依顯示編號字首決定 label。P → PO Number;D 或空白 → Draft ID。
+  function setPoNumberLabel(value) {
+    const lbl = document.getElementById('poNumberLabel');
+    if (!lbl) return;
+    lbl.textContent = (value && /^P/i.test(value)) ? 'PO Number' : 'Draft ID';
+  }
+
   async function loadDraftData() {
     const { data: draft, error } = await _supabase
       .from('quotes')
@@ -1087,6 +1096,7 @@
     returnReason = (draft.status === 'Returned') ? (draft.return_reason || null) : null;
 
     document.getElementById('poNumber').value = draft.po_number || draft.draft_number || '';  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
+    setPoNumberLabel(draft.po_number || draft.draft_number);  // 雙編號制: 動態 label
     document.getElementById('jobName').value  = draft.job_name  || '';
     document.getElementById('notes').value    = draft.notes     || '';
 
