@@ -2298,6 +2298,7 @@ async function saveDraft() {
     const dealerId = await resolveDealerId(session);
 
     // 雙編號制: 首次儲存生成 Draft ID (D)。po_number 保持 null,直到 Submit。
+    const _wasFirstDraftSave = !_existingDraftNumber;   // CB-20: 首存判斷(必須在 reassign 前抓)
     let draftNumberForSave = _existingDraftNumber;
     if (!draftNumberForSave) {
       draftNumberForSave = await obtainDraftNumber();
@@ -2376,6 +2377,7 @@ async function saveDraft() {
     };
 
     let quoteId;
+    let _savedCreatedAt = null;   // CB-20: 從 insert 回傳抓 created_at(僅首存走 insert 分支)
 
     if (draftId) {
       const { error } = await _supabase.from('quotes').update(payload).eq('id', draftId);
@@ -2396,6 +2398,7 @@ async function saveDraft() {
       if (quoteError) throw quoteError;
       quoteId = quote.id;
       draftId = quoteId;
+      _savedCreatedAt = quote.created_at || null;   // CB-20: admin-draft email 用
     }
 
     const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
@@ -2415,6 +2418,46 @@ async function saveDraft() {
     }
     document.getElementById('draftQuoteNum').textContent = step1Data.jobName || '';
     document.getElementById('draftOverlay').classList.add('show');
+
+    // ── CB-20: Admin 首次幫 dealer 建 draft → 通知 dealer 進來 review ──
+    // 條件: viewMode==='admin-draft' 且本次首次儲存(剛拿到 draft_number)。
+    // 發信失敗只 log,不影響 saveDraft(DB 此時已寫入成功)。
+    if (viewMode === 'admin-draft' && _wasFirstDraftSave) {
+      try {
+        await fetch(
+          'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              notification_type: 'admin_draft_created',
+              quote: {
+                id:           quoteId,
+                draft_number: draftNumberForSave,
+                job_name:     step1Data.jobName,
+                created_at:   _savedCreatedAt,
+              },
+              dealer: {
+                company_name:            dealer.company_name,
+                contact_name:            dealer.contact_name,
+                email:                   dealer.email,
+                secondary_email:         dealer.secondary_email || null,
+                secondary_email_notify:  dealer.secondary_email_notify || false,
+                optional_email_2:        dealer.optional_email_2 || null,
+                optional_email_2_notify: dealer.optional_email_2_notify || false,
+              },
+            }),
+          }
+        );
+        console.log('[CB-20] admin draft created email sent:', draftNumberForSave);
+      } catch (emailError) {
+        console.error('[CB-20] Failed to send admin draft email:', emailError);
+        // 不 rethrow — email 失敗不擋 saveDraft
+      }
+    }
 
   } catch (err) {
     console.error(err);
