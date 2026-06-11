@@ -2513,121 +2513,106 @@ async function submitQuote() {
         + (promoResult.appliedPromo ? promoResult.appliedPromo.id : '?') + ')');
     }
 
-    // CB-3: Resolve PO# — reuse > DB fetch > A-mode inline generation.
-    let poNumber = _existingPoNumber;
+    // ── 雙編號制: 解析編號 + 寫入 ──
+    //   Resubmit (Returned→重送): 保留原 po_number,plain UPDATE,不呼叫 RPC。
+    //   Draft→Submit: 先存內容(不含 po_number/status)→ submit_purchase_order 生 P# + 設 status='Pending'。
+    //   A-mode (沒按 Save 直接 Submit): 先生 Draft ID + INSERT row → 再 submit_purchase_order。
+    const shippingCostWrite = (shippingForDb === null)
+      ? null
+      : parseFloat(shippingForDb.toFixed(2));
+
+    const baseFields = {
+      dealer_id:           dealerId,
+      job_name:            step1Data.jobName,
+      shipping_address_id: step1Data.shippingAddressId || null,
+      notes:               step1Data.notes || null,
+      logistic_type:       logisticType,
+      delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
+      // F-PROMOTIONS: subtotal stays as raw skuSubtotal (pre-discount).
+      subtotal:            parseFloat(skuSubtotal.toFixed(2)),
+      assemble_total:      parseFloat(assembleTotal.toFixed(2)),
+      shipping_cost:       shippingCostWrite,
+      tax_amount:          parseFloat(tax.toFixed(2)),
+      grand_total:         parseFloat(grand.toFixed(2)),
+    };
+
+    let poNumber;
     let quoteNum;
+    let quoteId;
     let nextRevisionNumber = 1;
 
     if (_isResumingReturned && draftId) {
-      // Returned-quote resubmit: PO# must already exist
-      if (!poNumber) {
-        const { data: q } = await _supabase
-          .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
-        poNumber = q?.po_number;
-        quoteNum = q?.quote_number;
-        _currentRevisionNumber = q?.revision_number || 1;
-      } else {
-        const { data: q } = await _supabase
-          .from('quotes').select('quote_number').eq('id', draftId).single();
-        quoteNum = q?.quote_number;
-      }
+      // ── Resubmit: 保留原 po_number,不生新號 ──
+      const { data: q } = await _supabase
+        .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
+      poNumber = _existingPoNumber || q?.po_number;
+      quoteNum = q?.quote_number;
+      _currentRevisionNumber = q?.revision_number || _currentRevisionNumber || 1;
       if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
       nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
 
+      const { error: updateError } = await _supabase.from('quotes').update({
+        ...baseFields,
+        po_number:       poNumber,
+        status:          'Pending',
+        quote_number:    quoteNum,
+        revision_number: nextRevisionNumber,
+        return_reason:   null,
+      }).eq('id', draftId);
+      if (updateError) throw updateError;
+      await _supabase.from('quote_items').delete().eq('quote_id', draftId);
+      quoteId = draftId;
+
     } else if (draftId) {
-      // Draft → Submit: PO# already set by saveDraft, quote_number too
-      if (!poNumber) {
-        // Defensive refetch (e.g. stale tab)
-        const { data: q } = await _supabase
-          .from('quotes').select('po_number, quote_number').eq('id', draftId).single();
-        poNumber = q?.po_number;
-        quoteNum = q?.quote_number;
-      } else {
-        const { data: q } = await _supabase
-          .from('quotes').select('quote_number').eq('id', draftId).single();
-        quoteNum = q?.quote_number;
-      }
-      if (!poNumber) {
-        // Extreme edge case: draft row exists but has no po_number.
-        // Generate one inline rather than error out.
-        console.warn('[CB-3] submitQuote: draft has no PO#, generating inline');
-        poNumber = await obtainPoNumberForDealer(dealerId);
-      }
+      // ── Draft → Submit: 先存內容,再 atomic 生 P# ──
+      const { data: q } = await _supabase
+        .from('quotes').select('quote_number').eq('id', draftId).single();
+      quoteNum = q?.quote_number;
       if (!quoteNum) {
-        // Same defensive treatment for quote_number
         const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
         if (numError) throw numError;
         quoteNum = numData;
       }
 
-    } else {
-      // CB-3 A-mode: brand new submission, dealer skipped Save.
-      // Generate both PO# and quote_number inline.
-      console.log('[CB-3] submitQuote: A-mode (no prior save), generating PO# inline');
-      poNumber = await obtainPoNumberForDealer(dealerId);
-
-      const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
-      if (numError) throw numError;
-      quoteNum = numData;
-    }
-
-    const shippingCostWrite = (shippingForDb === null)
-      ? null
-      : parseFloat(shippingForDb.toFixed(2));
-
-    let quoteId;
-
-    if (draftId) {
-      const updatePayload = {
-        dealer_id:           dealerId,
-        job_name:            step1Data.jobName,
-        po_number:           poNumber,
-        shipping_address_id: step1Data.shippingAddressId || null,
-        status:              'Pending',
-        notes:               step1Data.notes || null,
-        logistic_type:       logisticType,
-        delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-        // F-PROMOTIONS: subtotal stays as raw skuSubtotal (pre-discount). See saveDraft note.
-        subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-        assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-        shipping_cost:       shippingCostWrite,
-        tax_amount:          parseFloat(tax.toFixed(2)),
-        grand_total:         parseFloat(grand.toFixed(2)),
-        quote_number:        quoteNum,
-      };
-
-      if (_isResumingReturned) {
-        updatePayload.revision_number = nextRevisionNumber;
-        updatePayload.return_reason   = null;
-      }
-
-      const { error: updateError } = await _supabase
-        .from('quotes').update(updatePayload).eq('id', draftId);
+      const { error: updateError } = await _supabase.from('quotes').update({
+        ...baseFields,
+        quote_number: quoteNum,
+        // po_number + status='Pending' 由 submit_purchase_order RPC 設定
+      }).eq('id', draftId);
       if (updateError) throw updateError;
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
+
+      const { data: poData, error: poError } = await _supabase
+        .rpc('submit_purchase_order', { p_quote_id: quoteId });
+      if (poError) throw poError;
+      poNumber = poData;
+      console.log('[雙編號] submitQuote: Draft→Submit, PO#', poNumber);
+
     } else {
-      const { data: newQuote, error: quoteError } = await _supabase
-        .from('quotes')
-        .insert({
-          quote_number:        quoteNum,
-          dealer_id:           dealerId,
-          job_name:            step1Data.jobName,
-          po_number:           poNumber,
-          shipping_address_id: step1Data.shippingAddressId || null,
-          status:              'Pending',
-          notes:               step1Data.notes || null,
-          logistic_type:       logisticType,
-          delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-          subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-          assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-          shipping_cost:       shippingCostWrite,
-          tax_amount:          parseFloat(tax.toFixed(2)),
-          grand_total:         parseFloat(grand.toFixed(2)),
-        })
-        .select().single();
-      if (quoteError) throw quoteError;
-      quoteId = newQuote.id;
+      // ── A-mode: 沒按過 Save 直接 Submit ──
+      //   先生 Draft ID(供內部存檔)+ INSERT row 拿 id,再 atomic 生 P#。
+      const draftNumberForSave = await obtainDraftNumber();
+      const { data: numData, error: numError } = await _supabase.rpc('generate_quote_number');
+      if (numError) throw numError;
+      quoteNum = numData;
+
+      const { data: newQuote, error: insError } = await _supabase.from('quotes').insert({
+        ...baseFields,
+        quote_number: quoteNum,
+        draft_number: draftNumberForSave,
+        status:       'Draft',   // 立刻被 submit_purchase_order 翻成 'Pending'
+      }).select().single();
+      if (insError) throw insError;
+      quoteId  = newQuote.id;
+      draftId  = quoteId;
+      _existingDraftNumber = draftNumberForSave;
+
+      const { data: poData, error: poError } = await _supabase
+        .rpc('submit_purchase_order', { p_quote_id: quoteId });
+      if (poError) throw poError;
+      poNumber = poData;
+      console.log('[雙編號] submitQuote: A-mode, Draft ID', draftNumberForSave, 'PO#', poNumber);
     }
 
     const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
