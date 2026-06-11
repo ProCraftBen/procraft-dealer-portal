@@ -491,11 +491,10 @@
     <div class="field" id="deliveryDistanceField" style="display:none;">
       <label>Delivery Distance</label>
       <select id="deliveryDistance" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
-        <option value="100">Less than 30 minutes — $100</option>
-        <option value="200">31 to 90 minutes — $200</option>
-        <option value="300">91 to 120 minutes — $300</option>
-        <option value="400">121 to 150 minutes — $400</option>
-        <option value="500">151 to 180 minutes — $500</option>
+        <option value="150">0-30 mins — $150</option>
+        <option value="250">30-60 mins — $250</option>
+        <option value="350">1 hr - 2 hr — $350</option>
+        <option value="500">2 hr - 3 hr — $500</option>
       </select>
     </div>
     <div id="shippingTierNote" style="display:none;font-size:12px;color:var(--muted);margin-top:8px;">
@@ -1005,8 +1004,8 @@
           if (s1.logisticType) {
             document.getElementById('logisticType').value = s1.logisticType;
             handleLogisticChange();
-            if (s1.logisticType === 'delivery' && s1.deliveryFee) {
-              document.getElementById('deliveryDistance').value = s1.deliveryFee;
+          if (s1.logisticType === 'delivery' && s1.deliveryFee) {
+              setDeliveryDistanceValue(s1.deliveryFee);
             }
           }
           if (s1.shippingMode === 'different') {
@@ -1091,8 +1090,8 @@
     if (draft.logistic_type) {
       document.getElementById('logisticType').value = draft.logistic_type;
       handleLogisticChange();
-      if (draft.logistic_type === 'delivery' && draft.delivery_fee) {
-        document.getElementById('deliveryDistance').value = draft.delivery_fee;
+    if (draft.logistic_type === 'delivery' && draft.delivery_fee) {
+        setDeliveryDistanceValue(draft.delivery_fee);
       }
     }
 
@@ -1299,6 +1298,24 @@
     renderAddresses();
   }
 
+  
+// 既有 draft 相容:若存的 delivery_fee 不在目前選單(改價後的舊單),
+// 動態補一個 option 保住原金額,避免下拉變未選取 → goNext 讀到 NaN → 靜默變 $0。
+function setDeliveryDistanceValue(fee) {
+  const sel = document.getElementById('deliveryDistance');
+  if (!sel) return;
+  const val = String(fee);
+  const exists = Array.from(sel.options).some(function (o) { return o.value === val; });
+  if (!exists) {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = 'Previous delivery fee — $' + (parseFloat(fee) || 0).toFixed(0);
+    sel.appendChild(opt);
+  }
+  sel.value = val;
+}
+
+  
   function handleLogisticChange() {
     const type = document.getElementById('logisticType').value;
     document.getElementById('deliveryDistanceField').style.display = type === 'delivery' ? 'block' : 'none';
