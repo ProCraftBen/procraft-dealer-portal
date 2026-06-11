@@ -1709,27 +1709,48 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CB-7: type-group ordering for the Order List dividers.
-//   BASE 最前 → 中間字母序 → ACCESSORIES → OTHER（最後）。
-//   組內排序：style_code 字母序（同單通常單一門型；多門型時 A→B），
-//   同 style_code 維持進 cart 原順序（stable sort）。
-//   空 group 不會出現（只有有東西的 type 才會被收進來）。
+// CB-22 (2026-06-11): Order List type-group 排序 — 業務指定固定順序。
+//   廢棄 CB-7 的（BASE 最前 / ACCESSORIES 最後 / 中間字母序）。
+//   改為依 construction 走固定清單；不在清單的 type → OTHER，放最後。
+//   組內排序維持 style_code 字母序 stable sort（CB-7 行為不變）。
+//   空 group 仍只在有 item 時才 push。
+//   ⚠ 三檔逐字同步：new-quote-step3.html / quote-detail.html / pdf-builder.js
 // ─────────────────────────────────────────────────────────────────────────────
-function typeGroupTier(type) {
-  const t = (type || 'OTHER').toUpperCase();
-  if (t === 'BASE')        return 0;
-  if (t === 'ACCESSORIES') return 2;
-  if (t === 'OTHER')       return 3;
-  return 1;  // 中間：字母序
+const FRAMED_TYPE_ORDER    = ['BASE','WALL','TALL','DOOR & FRAME','BOX','ROLL OUT TRAY','ACCESSORIES'];
+const FRAMELESS_TYPE_ORDER = ['BASE','VANITY','WALL','TALL','MBOX','ROLL OUT TRAY','PANELS','MOLDINGS'];
+const OTHER_GROUP_LABEL    = 'OTHER';
+
+function getTypeOrder(constructionType) {
+  return (String(constructionType || '').toLowerCase() === 'frameless')
+    ? FRAMELESS_TYPE_ORDER
+    : FRAMED_TYPE_ORDER;   // 預設 framed
 }
 
-function groupByTypeOrdered(data) {
+// 掃第一個能在 door_styles 對到的 item，取其 construction_type 當整單依據。
+// （frameless / framed 不混單；accessory / custom 對不到 → 跳過；全對不到 → framed）
+function resolveQuoteConstructionType(items, doorStyles) {
+  if (!Array.isArray(items) || !Array.isArray(doorStyles)) return 'framed';
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it || !it.style_code) continue;
+    const ds = doorStyles.find(function (d) { return d.style_code === it.style_code; });
+    if (ds && ds.construction_type) return String(ds.construction_type).toLowerCase();
+  }
+  return 'framed';
+}
+
+function groupByTypeOrdered(data, constructionType) {
+  const order    = getTypeOrder(constructionType).map(function (t) { return t.toUpperCase(); });
+  const orderSet = new Set(order);
+
   const buckets = {};
   (data || []).forEach(function (item) {
-    const t = (item.skuType || 'OTHER').toUpperCase();
+    let t = (item.skuType || OTHER_GROUP_LABEL).toUpperCase();
+    if (!orderSet.has(t)) t = OTHER_GROUP_LABEL;   // 不在清單 → 併入 OTHER
     if (!buckets[t]) buckets[t] = [];
     buckets[t].push(item);
   });
+
   Object.keys(buckets).forEach(function (t) {
     buckets[t].sort(function (a, b) {
       const sa = String(a.style_code || '').toUpperCase();
@@ -1739,15 +1760,15 @@ function groupByTypeOrdered(data) {
       return 0;  // 同 style_code → stable sort 保留原順序
     });
   });
-  return Object.keys(buckets)
-    .sort(function (a, b) {
-      const ta = typeGroupTier(a), tb = typeGroupTier(b);
-      if (ta !== tb) return ta - tb;
-      if (a < b) return -1;
-      if (a > b) return 1;
-      return 0;
-    })
-    .map(function (t) { return { type: t, items: buckets[t] }; });
+
+  const result = [];
+  order.forEach(function (t) {
+    if (buckets[t] && buckets[t].length) result.push({ type: t, items: buckets[t] });
+  });
+  if (buckets[OTHER_GROUP_LABEL] && buckets[OTHER_GROUP_LABEL].length) {
+    result.push({ type: OTHER_GROUP_LABEL, items: buckets[OTHER_GROUP_LABEL] });
+  }
+  return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1763,7 +1784,8 @@ function groupByTypeOrdered(data) {
 // ─────────────────────────────────────────────────────────────────────────────
 function buildItemRowsHtml(markupPct) {
   markupPct = markupPct || 0;
-  const groups = groupByTypeOrdered(step2Data);
+  const _constructionType = resolveQuoteConstructionType(step2Data, allDoorStyles);  // CB-22
+  const groups = groupByTypeOrdered(step2Data, _constructionType);
   // CB-13: 逐 item 促銷改用 getPromoDiscountPctForItem()(style AND tag==='Kit'),不再用 style-only Set
 
   let itemNum = 0;
@@ -2233,6 +2255,7 @@ function buildQuoteDataForPdf(opts) {
     delivery_fee:  parseFloat(step1Data?.deliveryFee || 0),
     items:         items,
     estimated_lead_time: calculateLeadTime(step2Data, allDoorStyles),  // CB-9 後續: 帶 lead time 給 PDF
+    construction_type:   resolveQuoteConstructionType(step2Data, allDoorStyles),  // CB-22: PDF Order List 排序依據
     _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
     _taxExempt:  !!dealer?.tax_exempt,
     modifications_total:         parseFloat(modsSubtotalNow.toFixed(2)),
