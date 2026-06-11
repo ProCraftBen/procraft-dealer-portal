@@ -861,6 +861,7 @@ let allSkusFrameless = [];  // CB-9: tag 查表用(skus_frameless)
 let _isResumingReturned     = false;
 let _currentRevisionNumber  = 1;
 let _existingPoNumber       = null;
+let _existingDraftNumber    = null;   // 雙編號制: Draft ID (D + 5碼)
 let _isAdminContext         = false;
 
 let _existingLogisticType = null;
@@ -1489,12 +1490,13 @@ function resolveShippingForDb(opts) {
 //   is needed. The dealerId argument is kept only for call-site compatibility
 //   (it is now unused).
 // ─────────────────────────────────────────────────────────────────────────────
-async function obtainPoNumberForDealer(dealerId) {
-  const { data: poData, error: poError } = await _supabase
-    .rpc('generate_po_number');
-  if (poError) throw poError;
-  if (!poData) throw new Error('Failed to generate PO number.');
-  return poData;
+// 雙編號制: 取得 Draft ID (D + 5碼)。全公司同一池流水號 (generate_draft_number RPC)。
+// 舊 generate_po_number RPC 不再呼叫(保留在 DB 當保險)。
+async function obtainDraftNumber() {
+  const { data, error } = await _supabase.rpc('generate_draft_number');
+  if (error) throw error;
+  if (!data) throw new Error('Failed to generate Draft ID.');
+  return data;
 }
 
 async function init() {
@@ -1526,7 +1528,7 @@ let dealerIdToLoad = session.user.id;
   if (draftId) {
     const { data: q } = await _supabase
       .from('quotes')
-      .select('dealer_id, revision_number, po_number, status, logistic_type, shipping_cost, subtotal')
+      .select('dealer_id, revision_number, po_number, draft_number, status, logistic_type, shipping_cost, subtotal')
       .eq('id', draftId).single();
     if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
     if (q) {
@@ -1534,6 +1536,7 @@ let dealerIdToLoad = session.user.id;
       quoteOwnerId           = q.dealer_id || null;
       _currentRevisionNumber = q.revision_number || 1;
       _existingPoNumber      = q.po_number || null;
+      _existingDraftNumber   = q.draft_number || null;   // 雙編號制
       _existingLogisticType  = q.logistic_type || null;
       _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
                                  ? null
@@ -2031,7 +2034,7 @@ function applyTotals(opts) {
 }
 
 function renderReview() {
-  const poDisplay = step1Data.poNumber || _existingPoNumber || '—';
+  const poDisplay = _existingPoNumber || _existingDraftNumber || '—';  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
   document.getElementById('reviewPO').textContent       = poDisplay;
   document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
   document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
@@ -2220,7 +2223,8 @@ function buildQuoteDataForPdf(opts) {
     : calculatePromotionDiscount(step2Data);
 
   const out = {
-    po_number:     step1Data?.poNumber || _existingPoNumber || null,
+    po_number:     _existingPoNumber || null,           // submit 後才有
+    draft_number:  _existingDraftNumber || null,         // 雙編號制: Draft Quote PDF 用(實際 D/P 切換在階段 6 pdf-builder)
     job_name:      step1Data?.jobName || null,
     logistic_type: step1Data?.logisticType || 'pickup',
     delivery_fee:  parseFloat(step1Data?.deliveryFee || 0),
@@ -2293,13 +2297,13 @@ async function saveDraft() {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
 
-    // CB-3: Obtain PO# — generate on first save, reuse otherwise.
-    let poNumberForDraft = _existingPoNumber;
-    if (!poNumberForDraft) {
-      poNumberForDraft = await obtainPoNumberForDealer(dealerId);
-      console.log('[CB-3] saveDraft: generated new PO#', poNumberForDraft);
+    // 雙編號制: 首次儲存生成 Draft ID (D)。po_number 保持 null,直到 Submit。
+    let draftNumberForSave = _existingDraftNumber;
+    if (!draftNumberForSave) {
+      draftNumberForSave = await obtainDraftNumber();
+      console.log('[雙編號] saveDraft: generated new Draft ID', draftNumberForSave);
     } else {
-      console.log('[CB-3] saveDraft: reusing existing PO#', poNumberForDraft);
+      console.log('[雙編號] saveDraft: reusing existing Draft ID', draftNumberForSave);
     }
 
     const skuSubtotal          = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
@@ -2353,7 +2357,7 @@ async function saveDraft() {
     const payload = {
       dealer_id:           dealerId,
       job_name:            step1Data.jobName,
-      po_number:           poNumberForDraft,    // CB-3: PO# now persisted from draft stage
+      draft_number:        draftNumberForSave,  // 雙編號制: Draft ID 從首次儲存寫入;po_number 留待 Submit
       shipping_address_id: step1Data.shippingAddressId || null,
       status:              targetStatus,
       notes:               step1Data.notes || null,
@@ -2397,9 +2401,8 @@ async function saveDraft() {
     const { error: itemsError } = await _supabase.from('quote_items').insert(buildItemsPayload(quoteId));
     if (itemsError) throw itemsError;
 
-    // CB-3: Sync PO# to module state + step1Data so PDF / Step1 resume see it.
-    _existingPoNumber  = poNumberForDraft;
-    step1Data.poNumber = poNumberForDraft;
+    // 雙編號制: sync Draft ID 到 module state,讓本頁 review / Draft PDF 看得到。
+    _existingDraftNumber = draftNumberForSave;
 
     sessionStorage.removeItem('quoteStep1');
     sessionStorage.removeItem('quoteStep2');
@@ -3148,7 +3151,7 @@ async function downloadPDF() {
   );
   const previewRevisionNumber = _isResumingReturned ? (_currentRevisionNumber || 1) + 1 : 1;
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
-    poNumber: step1Data?.poNumber || _existingPoNumber || 'Draft',
+    poNumber: _existingPoNumber || _existingDraftNumber || 'Draft',  // 雙編號制
     dealerUid: dealer?.uid,
     revisionNumber: previewRevisionNumber,
   });
