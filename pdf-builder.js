@@ -672,7 +672,9 @@
           const assembleStatus = item.assemble_status || item.type || '';
           const skuDesc = item.sku_desc || '';
           const markedUnitPrice = item.unit_price * (1 + markupPercent);
-          const skuPrefix = item.style_code ? item.style_code + '-' : '';
+          const _noPrefixType = (item.sku_type || item.skuType || '').toUpperCase();
+          const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
+          const skuPrefix = (item.style_code && !_skipStylePrefix) ? item.style_code + '-' : '';
           // CB-13 (改動 9) + CB-13-FIX: 享 Kit Promo 的 line,Total 欄用折後 SKU 單價;
           //   Unit Price 欄仍顯示原價(markedUnitPrice)。
           //   折扣只在 applyPromo=true(Invoice)套用;Draft 一律不折。
