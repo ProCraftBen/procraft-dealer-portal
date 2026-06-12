@@ -1186,7 +1186,9 @@ function buildItemRowsHtml(groupedItems) {
       const isCustom = !!item.is_custom;
       // CB-13: badge 收緊成 style 命中 AND tag==='Kit',與 step3 一致(純裝飾;權威數字是反推的 Discount 行)
       const isPromo  = promoStyleCodes.has(String(item.style_code || '').toUpperCase()) && getTagForItem(item) === 'Kit';
-      const skuPrefix = item.style_code ? escapeHtml(item.style_code) + '-' : '';
+      const _noPrefixType = (item.sku_type || '').toUpperCase();
+      const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
+      const skuPrefix = (item.style_code && !_skipStylePrefix) ? escapeHtml(item.style_code) + '-' : '';
 
       subs.forEach(function (sub, subIdx) {
         itemNum++;
