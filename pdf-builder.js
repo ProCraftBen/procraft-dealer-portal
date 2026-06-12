@@ -571,7 +571,7 @@
   // CB-7: 只回「mod 文字」放進 SKU 欄(skuDesc 改放 Description 欄)。
   // showPrices=false（Packing List）→ 材料子行只顯示數量,不印 $。
   function _buildModsText(ctx) {
-    const { sub, item, totalSubs, notesIndex, notesCollector, showPrices } = ctx;
+    const { sub, item, totalSubs, notesIndex, notesCollector, showPrices, mappingCollector } = ctx;
     const rawMods     = Array.isArray(sub.modifications) ? sub.modifications : [];
     const visibleMods = rawMods.filter(function (m) { return !_isHiddenMod(m); });
     const status = sub.modification_status || 'unprocessed';
@@ -611,17 +611,20 @@
         lines.push(`• ${label}${value ? ': ' + value : ''}`);
         // CB-6 材料子行:N × MappingSKU (有價才加 $)
         const mq = parseInt(m.mapping_qty, 10) || 0;
-        if (m.mapping_sku && mq > 0) {
-          const subQty = parseInt(sub.qty, 10) || 0;
-          const n = mq * subQty;
-          if (showPrices) {
-            const mc = parseFloat(m.material_cost);
-            const matTotal = (isNaN(mc) ? 0 : mc) * subQty;
-            lines.push(`   ${n} × ${m.mapping_sku}: $${matTotal.toFixed(2)}`);
-          } else {
-            lines.push(`   ${n} × ${m.mapping_sku}`);
-          }
-        }
+                if (m.mapping_sku && mq > 0) {
+                  const subQty = parseInt(sub.qty, 10) || 0;
+                  const n = mq * subQty;
+                  let mapLine;
+                  if (showPrices) {
+                    const mc = parseFloat(m.material_cost);
+                    const matTotal = (isNaN(mc) ? 0 : mc) * subQty;
+                    mapLine = `   ${n} × ${m.mapping_sku}: $${matTotal.toFixed(2)}`;
+                  } else {
+                    mapLine = `   ${n} × ${m.mapping_sku}`;
+                  }
+                  lines.push(mapLine);
+                  if (mappingCollector) mappingCollector.push(mapLine);
+                }
       }
     });
 
@@ -701,14 +704,19 @@
               (item.sku_type || item.skuType || '').toUpperCase() === 'DOOR & FRAME';
             const hingeLine = (isDoorFrame && isFirstSub) ? '• Hinge not included' : '';
 
-            const modsText = _buildModsText({
-              sub: sub, item: item, totalSubs: subs.length,
-              notesIndex: notesIndex, notesCollector: notes,
-              showPrices: showPrices,
-            });
-            const extraLines = [hingeLine, modsText].filter(Boolean).join('\n');
-            const skuCell = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
-              + (extraLines ? `\n${extraLines}` : '');
+            const mappingLines = [];
+                        const modsText = _buildModsText({
+                          sub: sub, item: item, totalSubs: subs.length,
+                          notesIndex: notesIndex, notesCollector: notes,
+                          showPrices: showPrices,
+                          mappingCollector: mappingLines,
+                        });
+                        const extraLines = [hingeLine, modsText].filter(Boolean).join('\n');
+                        const skuCellText = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
+                          + (extraLines ? `\n${extraLines}` : '');
+                        const skuCell = mappingLines.length
+                          ? { content: skuCellText, _mappingLines: mappingLines }
+                          : skuCellText;
   
             const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
   
@@ -755,10 +763,45 @@
             9: { halign: 'right', fontStyle: 'bold', cellWidth: 18 },// Total
           };
   
-      const onDrawPage = (data) => {
+const onDrawPage = (data) => {
         if (data.pageNumber > 1 && headerContext) _drawHeader(doc, headerContext);
       };
-  
+
+      // 本次改動: Bundle mapping SKU 行黑底白字。
+      //   SKU 欄(col index 2)那格是多行文字;把 _mappingLines 收集到的 mapping 行
+      //   在 didDrawCell 內覆蓋黑底白字。垂直位置用該格實際 fontSize 推算
+      //   (所以 Packing 11pt / Invoice·Draft 9pt 都能對齊)。
+      //   ⚠ 若部署後黑條上下沒對準那一行,調 ROW_TUNE(mm,正值往下)。
+      const onDrawMappingHighlight = (data) => {
+        if (data.section !== 'body') return;
+        if (!data.column || data.column.index !== 2) return;
+        const raw = data.cell.raw;
+        const mapLines = raw && raw._mappingLines;
+        if (!mapLines || !mapLines.length) return;
+
+        const cell = data.cell;
+        const fs   = cell.styles.fontSize;
+        const lineHeight = fs * doc.getLineHeightFactor() / doc.internal.scaleFactor;
+        const pad     = cell.styles.cellPadding;
+        const padTop  = (typeof pad === 'number') ? pad : ((pad && pad.top)  || 0);
+        const padLeft = (typeof pad === 'number') ? pad : ((pad && pad.left) || 0);
+        const ROW_TUNE = 0;   // ← 微調用:整條黑底+白字一起上下移(mm,正=往下)
+
+        const textLines = cell.text || [];
+        textLines.forEach((lineStr, idx) => {
+          const norm = String(lineStr).trim();
+          const hit  = mapLines.some((ml) => String(ml).trim() === norm);
+          if (!hit) return;
+          const top = cell.y + padTop + idx * lineHeight + ROW_TUNE;
+          doc.setFillColor(0, 0, 0);
+          doc.rect(cell.x, top, cell.width, lineHeight, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(fs);
+          doc.text(String(lineStr), cell.x + padLeft, top + lineHeight * 0.78);
+        });
+      };
+
       // 改動 17: 表身 / 表頭字體 7→10.5
       doc.autoTable({
         startY: startY,
@@ -770,6 +813,7 @@
         columnStyles: columnStyles,
         alternateRowStyles: { fillColor: [250, 248, 244] },
         didDrawPage: onDrawPage,
+        didDrawCell: onDrawMappingHighlight,
       });
   
       return { tableEndY: doc.lastAutoTable.finalY, notes: notes };
