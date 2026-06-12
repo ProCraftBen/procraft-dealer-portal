@@ -1810,7 +1810,9 @@ function buildItemRowsHtml(markupPct) {
       const promoPct = inMarkupMode ? 0 : getPromoDiscountPctForItem(item);
       const isPromo  = promoPct > 0;  // 驅動 [PROMO] badge + 折後 Total
       const discountedUnitPrice = markedUnitPrice * (1 - promoPct);
-      const skuPrefix = item.style_code ? escapeHtml(item.style_code) + '-' : '';
+      const _noPrefixType = (item.skuType || '').toUpperCase();
+      const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
+      const skuPrefix = (item.style_code && !_skipStylePrefix) ? escapeHtml(item.style_code) + '-' : '';
 
       subs.forEach(function (sub, subIdx) {
         itemNum++;
