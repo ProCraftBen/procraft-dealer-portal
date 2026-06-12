@@ -641,6 +641,7 @@
             const isPacking  = (mode === 'packing-list');
             const showPrices = !isPacking;
             const colCount   = isPacking ? 6 : 10;
+            const bodyFs     = isPacking ? 11 : 9;
         
             const groups = _groupByTypeOrdered(items, constructionType);
   
@@ -660,7 +661,7 @@
           content: '========== ' + group.type + ' ==========',
           colSpan: colCount,
           styles: {
-            halign: 'center', fontStyle: 'bold', fontSize: 9,
+            halign: 'center', fontStyle: 'bold', fontSize: bodyFs,
             fillColor: [235, 240, 236], textColor: COLORS.modText,
           },
         }]);
@@ -764,8 +765,8 @@
         head: head,
         body: body,
         margin: { left: margin, right: margin, top: headerH + 4 },
-        styles: { fontSize: 9, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
-        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        styles: { fontSize: bodyFs, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: bodyFs },
         columnStyles: columnStyles,
         alternateRowStyles: { fillColor: [250, 248, 244] },
         didDrawPage: onDrawPage,
@@ -904,13 +905,13 @@
     });
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(11);
     doc.setTextColor(...COLORS.darkGreen);
     doc.text('Assembled Items:', x, y);
-    y += 5;
+    y += 6;
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(11);
     doc.setTextColor(40, 40, 40);
     ordered.forEach(function (t) {
       doc.text(`  ${t} × ${byType[t]}`, x, y);
