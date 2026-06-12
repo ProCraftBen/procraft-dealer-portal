@@ -684,6 +684,7 @@
   
           subs.forEach(function (sub, subIdx) {
             itemNum++;
+            const numCell = String(itemNum);
             const isFirstSub = subIdx === 0;
             const subQty = parseInt(sub.qty, 10) || 0;
             // CB-9: Tag 只在主行顯示,子項留空(僅 invoice / draft-quote 用)
@@ -711,14 +712,14 @@
             const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
   
             if (isPacking) {
-              body.push([`#${itemNum}`, tagCell, skuCell, skuDesc, subQty, assembledCell]);
+              body.push([numCell, tagCell, skuCell, skuDesc, subQty, assembledCell]);
             } else {
               const perSubModCost = _calcPerSubModCost(sub);
               const modFeeTotal   = perSubModCost * subQty;
               const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
               const lineTotal     = (effUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
-              body.push([
-                `#${itemNum}`, tagCell, skuCell, skuDesc, subQty, assembledCell,
+            body.push([
+                numCell, tagCell, skuCell, skuDesc, subQty, assembledCell,
                 `$${markedUnitPrice.toFixed(2)}`,
                 modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
                 asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
