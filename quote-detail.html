@@ -1155,13 +1155,14 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
     }
 
     const value = formatModValue(m.value);
-        const valStr = (!isRequiredMf03 && value) ? `: ${escapeHtml(value)}` : '';   // CB-12
-        // CB-25: 材料金額子行(N × MappingSKU: $...)移除 — material 改在獨立 mapping SKU row 顯示。
-        //        此處只保留 mod 說明文字(label[: value]),金額不再出現在父 row 子項。
-        return `<div class="mod-line">${escapeHtml(effectiveLabel)}${valStr}</div>`;   // CB-12
-    
-      return `<div class="mods-list">${lines.join('')}</div>`;
-    }
+    const valStr = (!isRequiredMf03 && value) ? `: ${escapeHtml(value)}` : '';   // CB-12
+    // CB-25: 材料金額子行(N × MappingSKU: $...)移除 — material 改在獨立 mapping SKU row 顯示。
+    //        此處只保留 mod 說明文字(label[: value]),金額不再出現在父 row 子項。
+    return `<div class="mod-line">${escapeHtml(effectiveLabel)}${valStr}</div>`;   // CB-12
+  });
+
+  return `<div class="mods-list">${lines.join('')}</div>`;
+}
 
 function renderNotesTable(notes) {
   if (!notes.length) return '';
