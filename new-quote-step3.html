@@ -1138,13 +1138,34 @@ function getTagForItem(item) {
     const source = ct === 'frameless' ? allSkusFrameless : allSkusFramed;
     const match  = source.find(function (s) { return s.sku_code === mappingCode; });
     if (!match) return empty;
-    return {
+return {
       type:        match.type || '',
       description: match.description || '',
       tag:         match.tag || '',
     };
   }
-  
+
+  // CB-25 (PDF): 把每個 mapping mod 的 type/description/tag 掛進 payload。
+  //   pdf-builder.js 無 DB,需由此處用 getMappingSkuInfo 查好後餵進去。
+  //   非破壞性:複製 sub_groups / modifications,不動 live step2Data
+  //   (避免多餘欄位被 saveDraft 寫進 DB)。
+  //   constructionType 用整單解析值(Framed/Frameless 不混單),與 on-screen 對齊。
+  function enrichSubGroupsForPdf(subGroups, constructionType) {
+    return (Array.isArray(subGroups) ? subGroups : []).map(function (sub) {
+      const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+      const enrichedMods = mods.map(function (m) {
+        if (!m || !m.mapping_sku) return m;
+        const info = getMappingSkuInfo(m.mapping_sku, constructionType);
+        return Object.assign({}, m, {
+          mapping_type:        info.type,
+          mapping_description: info.description,
+          mapping_tag:         info.tag,
+        });
+      });
+      return Object.assign({}, sub, { modifications: enrichedMods });
+    });
+  }
+
   // CB-5 需求1/2: 用 style_code join door_styles 判斷 non-stock / lead time
 function orderHasNonStock(items, doorStyles) {
   if (!Array.isArray(items) || !Array.isArray(doorStyles)) return false;
@@ -1973,7 +1994,7 @@ function buildItemRowsHtml(markupPct) {
 
             // ── CB-25 改動 B:mapping SKU 獨立 row,緊跟父 row,編號 parentNum.N ──
             mappingList.forEach(function (map, k) {
-              const info = getMappingSkuInfo(map.code, item.construction_type);
+              const info = getMappingSkuInfo(map.code, _constructionType);  // CB-25-FIX: item.construction_type 未賦值,改用整單 construction(frameless 才不會查錯表)
               const mt2 = (info.type || '').toUpperCase();
               const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');   // CB-23 #1:mapping 也適用
               const mapPrefix = (item.style_code && !mapSkip) ? escapeHtml(item.style_code) + '-' : '';
@@ -2339,6 +2360,7 @@ async function resolveDealerId(session) {
 function buildQuoteDataForPdf(opts) {
   opts = opts || {};
   const markupPct = opts.markupPercent || 0;  // F-PROMOTIONS: needed to decide promo applicability
+  const _pdfConstructionType = resolveQuoteConstructionType(step2Data, allDoorStyles);  // CB-25: mapping enrich 用(與整單排序同源)
 
   const items = step2Data.map(function(i) {
     return {
@@ -2352,7 +2374,7 @@ function buildQuoteDataForPdf(opts) {
       unit_price:      i.unit_price,
       msrp:            i.msrp || null,
       assemble_fee:    i.assemble_fee || 0,
-      sub_groups:      getNormalizedSubGroups(i),
+      sub_groups:      enrichSubGroupsForPdf(getNormalizedSubGroups(i), _pdfConstructionType),  // CB-25: 掛 mapping type/desc/tag 給 PDF
       is_custom:       !!i.is_custom,  // F-CUSTOM
       tag:             getTagForItem(i),  // CB-9: 帶 tag 給 PDF
     };
