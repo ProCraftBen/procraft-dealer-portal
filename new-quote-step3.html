@@ -118,9 +118,42 @@
       font-weight: 600;
       letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: var(--green-dark);
+color: var(--green-dark);
       text-align: center;
     }
+    /* CB-25: 三層分組 divider — Section(Assembled/Unassembled)最重, Style 次之, Type 沿用上方 */
+    .items-table tbody tr.section-divider td {
+      padding: 10px 12px;
+      background: var(--green-mid);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+    .items-table tbody tr.style-divider td {
+      padding: 7px 12px;
+      background: rgba(201,168,76,0.14);
+      border-top: 1px solid rgba(201,168,76,0.45);
+      border-bottom: 1px solid rgba(201,168,76,0.45);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #8B6914;
+      text-align: center;
+    }
+    /* CB-25: mapping SKU 獨立 row — 緊跟父 row,縮排呈現附屬關係 */
+    .items-table tbody tr.mapping-row td { background: rgba(62,90,66,0.03); }
+    .items-table tbody tr.mapping-row td:first-child {
+      border-left: 2px solid rgba(62,90,66,0.25);
+      padding-left: 16px;
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .items-table tbody tr.mapping-row .td-sku { padding-left: 14px; }
     /* CB-7: mod 子項移入 SKU 欄後，需允許換行（td-sku 原為 nowrap）*/
     .items-table td.td-sku .mods-list,
     .items-table td.td-sku .mods-list * { white-space: normal; }
@@ -1093,9 +1126,26 @@ function getTagForItem(item) {
   const source = ct === 'frameless' ? allSkusFrameless : allSkusFramed;
   const match  = source.find(function (s) { return s.sku_code === item.sku_code; });
   return (match && match.tag) ? match.tag : '';
-}
-
-// CB-5 需求1/2: 用 style_code join door_styles 判斷 non-stock / lead time
+  }
+  
+  // CB-25: 用 mapping SKU code 反查 skus_framed/frameless,取 type/description/tag。
+  //   construction 由父 item 決定(framed/frameless 不混單);查不到 → 三欄回空字串。
+  //   回傳的 type 僅供內部判斷 BOX/ROLL OUT TRAY 前綴,不直接顯示成欄位。
+  function getMappingSkuInfo(mappingCode, constructionType) {
+    const empty = { type: '', description: '', tag: '' };
+    if (!mappingCode) return empty;
+    const ct     = (constructionType || '').toLowerCase();
+    const source = ct === 'frameless' ? allSkusFrameless : allSkusFramed;
+    const match  = source.find(function (s) { return s.sku_code === mappingCode; });
+    if (!match) return empty;
+    return {
+      type:        match.type || '',
+      description: match.description || '',
+      tag:         match.tag || '',
+    };
+  }
+  
+  // CB-5 需求1/2: 用 style_code join door_styles 判斷 non-stock / lead time
 function orderHasNonStock(items, doorStyles) {
   if (!Array.isArray(items) || !Array.isArray(doorStyles)) return false;
   return items.some(function (it) {
@@ -1374,18 +1424,10 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
     }
 
     const value = formatModValue(m.value);
-    const valStr = (!isRequiredMf03 && value) ? `: ${escapeHtml(value)}` : '';   // CB-12
-    // CB-6: 材料子行  N × MappingSKU: $Material  (N = mapping_qty × sub.qty)
-    let matHtml = '';
-    const _mq = parseInt(m.mapping_qty, 10) || 0;
-    if (m.mapping_sku && _mq > 0) {
-      const _subQty   = parseInt(sub.qty, 10) || 0;
-      const _mc       = parseFloat(m.material_cost);
-      const _n        = _mq * _subQty;
-      const _matTotal = (isNaN(_mc) ? 0 : _mc) * _subQty;
-      matHtml = `<div class="mod-material">${_n} × ${escapeHtml(m.mapping_sku)}: $${_matTotal.toFixed(2)}</div>`;
-    }
-    return `<div class="mod-line">${escapeHtml(effectiveLabel)}${valStr}</div>${matHtml}`;   // CB-12
+        const valStr = (!isRequiredMf03 && value) ? `: ${escapeHtml(value)}` : '';   // CB-12
+        // CB-25: 材料金額子行(N × MappingSKU: $...)移除 — material 改在獨立 mapping SKU row 顯示。
+        //        此處只保留 mod 說明文字(label[: value]),金額不再出現在父 row 子項。
+        return `<div class="mod-line">${escapeHtml(effectiveLabel)}${valStr}</div>`;   // CB-12
   });
 
   return `<div class="mods-list">${lines.join('')}</div>`;
@@ -1574,8 +1616,8 @@ let dealerIdToLoad = session.user.id;
   //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
   const [styleRes, framedRes, framelessRes] = await Promise.all([
     _supabase.from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true),
-    _supabase.from('skus_framed').select('sku_code, tag'),
-    _supabase.from('skus_frameless').select('sku_code, tag'),
+    _supabase.from('skus_framed').select('sku_code, tag, type, description'),
+    _supabase.from('skus_frameless').select('sku_code, tag, type, description'),
   ]);
   allDoorStyles    = styleRes.data     || [];
   allSkusFramed    = framedRes.data    || [];
@@ -1784,99 +1826,176 @@ function groupByTypeOrdered(data, constructionType) {
 function buildItemRowsHtml(markupPct) {
   markupPct = markupPct || 0;
   const _constructionType = resolveQuoteConstructionType(step2Data, allDoorStyles);  // CB-22
-  const groups = groupByTypeOrdered(step2Data, _constructionType);
-  // CB-13: 逐 item 促銷改用 getPromoDiscountPctForItem()(style AND tag==='Kit'),不再用 style-only Set
 
   let itemNum = 0;
   const rows = [];
   const notes = [];
   const notesIndex = { counter: 0 };
 
-  groups.forEach(function (group) {
-    // CB-7 / CB-9: 橫跨 10 欄的 type divider，不佔 Item 編號
+  // ── CB-25 改動 A:三層分組 ───────────────────────────────────────────────
+  // Tier1: Assembled → Unassembled(Assembled 在上);step3 以 item.type==='RTA' 判斷未組裝。
+  // Tier2: 各 section 內依 style_code 字母序。
+  // Tier3: 各 style 內沿用 CB-22 groupByTypeOrdered(type 順序不變)。
+  // 空 section / 空 style / 空 type 一律不顯示。itemNum 全程連續、divider 不佔號。
+  const sections = [
+    { label: 'ASSEMBLED',   items: step2Data.filter(function (it) { return it.type !== 'RTA'; }) },
+    { label: 'UNASSEMBLED', items: step2Data.filter(function (it) { return it.type === 'RTA'; }) },
+  ];
+
+  sections.forEach(function (section) {
+    if (!section.items.length) return;  // 空 section 不顯示
+
     rows.push(`
-      <tr class="type-divider">
-        <td colspan="10">========== ${escapeHtml(group.type)} ==========</td>
+      <tr class="section-divider">
+        <td colspan="10">===== ${escapeHtml(section.label)} =====</td>
       </tr>`);
 
-    group.items.forEach(function (item) {
-      const subs = getNormalizedSubGroups(item);
-      const isSplit = subs.length > 1;
-      const markedUnitPrice = item.unit_price * (1 + markupPct);
-      const isCustom = !!item.is_custom;  // F-CUSTOM
-      // CB-13: 逐 item 促銷 = style 命中 AND tag==='Kit';markup mode(markupPct>0)時整個促銷抑制。
-      const inMarkupMode = markupPct > 0;
-      const promoPct = inMarkupMode ? 0 : getPromoDiscountPctForItem(item);
-      const isPromo  = promoPct > 0;  // 驅動 [PROMO] badge + 折後 Total
-      const discountedUnitPrice = markedUnitPrice * (1 - promoPct);
-      const _noPrefixType = (item.skuType || '').toUpperCase();
-      const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
-      const skuPrefix = (item.style_code && !_skipStylePrefix) ? escapeHtml(item.style_code) + '-' : '';
+    // Tier2: style_code 字母序分組
+    const byStyle = {};
+    section.items.forEach(function (it) {
+      const sk = String(it.style_code || '').toUpperCase();
+      (byStyle[sk] || (byStyle[sk] = [])).push(it);
+    });
 
-      subs.forEach(function (sub, subIdx) {
-        itemNum++;
-        const isFirstSub = subIdx === 0;
+    Object.keys(byStyle).sort().forEach(function (styleKey) {
+      const styleItems = byStyle[styleKey];
+      if (!styleItems.length) return;  // 空 style 不顯示
+      const styleLabel = styleItems[0].style_code || '—';
 
-        const subQty = parseInt(sub.qty, 10) || 0;
-        const perSubModCost = calcPerSubModCost(sub);
-        const modFeeTotal   = perSubModCost * subQty;
-        const skuLineTotal  = discountedUnitPrice * subQty;  // CB-13: Total 用折後價(Unit Price 欄仍顯示原價)
-        const asmFeeTotal   = (item.assemble_fee || 0) * subQty;
-        const lineTotal     = skuLineTotal + modFeeTotal + asmFeeTotal;
+      rows.push(`
+        <tr class="style-divider">
+          <td colspan="10">--- ${escapeHtml(styleLabel)} ---</td>
+        </tr>`);
 
-        const subLabelHtml = isSplit
-          ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
-          : '';
-        const customBadgeHtml = (isCustom && isFirstSub)
-          ? `<span class="custom-badge">CUSTOM</span>`
-          : '';
-        const promoBadgeHtml = (isPromo && isFirstSub)
-          ? `<span class="promo-badge">PROMO</span>`
-          : '';
+      // Tier3: CB-22 type 分組(原封沿用)
+      const typeGroups = groupByTypeOrdered(styleItems, _constructionType);
 
-        // CB-9: Tag 只在主行(第一個 sub)顯示,子項留空
-        const tagCellHtml = isFirstSub ? escapeHtml(getTagForItem(item)) : '';
-
-        const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
-        const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
-
-        // CB-11 任務B: DOOR & FRAME 固定顯示「Hinge not included」(每個 sub row 都出現,Hinge 在 mod 子項之前)
-        const hingeNoteHtml = ((item.skuType || '').toUpperCase() === 'DOOR & FRAME')
-          ? `<div class="hinge-note">Hinge not included</div>`
-          : '';
-
-        // ⬇⬇⬇ mod 子項放哪欄：預設照規格放「SKU 欄」⬇⬇⬇
-        const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
-        const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
-        // 若要維持 CB-6 現況（mod 放 Description 欄），改成下面這兩行：
-        //   const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${promoBadgeHtml}${subLabelHtml}${hingeNoteHtml}`;
-        //   const descCellHtml = `${item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : ''}${modsBlockHtml}`;
-        // ⬆⬆⬆ 二選一 ⬆⬆⬆
-
-        const assembledHtml = isFirstSub ? (item.type === 'RTA' ? 'No' : 'Yes') : '';
-        const trClass = isFirstSub ? '' : 'sub-continuation';
-
-        const modFeeCellHtml = modFeeTotal > 0
-          ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
-          : '<span style="color:var(--muted);">—</span>';
-
-        const asmFeeCellHtml = asmFeeTotal > 0
-          ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
-          : '<span style="color:var(--muted);">—</span>';
-
+      typeGroups.forEach(function (group) {
+        // CB-7 / CB-9: 橫跨 10 欄的 type divider，不佔 Item 編號
         rows.push(`
-          <tr class="${trClass}">
-            <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${itemNum}</td>
-            <td style="font-size:12px;white-space:nowrap;">${tagCellHtml}</td>
-            <td class="td-sku">${skuCellHtml}</td>
-            <td class="td-desc">${descCellHtml}</td>
-            <td class="td-right">${subQty}</td>
-            <td style="font-size:12px;">${assembledHtml}</td>
-            <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
-            <td class="td-right">${modFeeCellHtml}</td>
-            <td class="td-right">${asmFeeCellHtml}</td>
-            <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+          <tr class="type-divider">
+            <td colspan="10">========== ${escapeHtml(group.type)} ==========</td>
           </tr>`);
+
+        group.items.forEach(function (item) {
+          const subs = getNormalizedSubGroups(item);
+          const isSplit = subs.length > 1;
+          const markedUnitPrice = item.unit_price * (1 + markupPct);
+          const isCustom = !!item.is_custom;  // F-CUSTOM
+
+          // 父 row SKU 前綴:BOX / ROLL OUT TRAY 不加(CB-23 #1)
+          const _noPrefixType = (item.skuType || '').toUpperCase();
+          const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
+          const skuPrefix = (item.style_code && !_skipStylePrefix) ? escapeHtml(item.style_code) + '-' : '';
+
+          subs.forEach(function (sub, subIdx) {
+            itemNum++;
+            const parentNum  = itemNum;          // CB-25: mapping row 用 parentNum.N 編號
+            const isFirstSub = subIdx === 0;
+            const subQty     = parseInt(sub.qty, 10) || 0;
+
+            // ── CB-25 改動 B:分離父 row Mod Fee 與 mapping rows ──────────────
+            // 父 row Mod Fee 只留「未搬走的成本」(工本費 + 無 mapping 的 material);
+            // 有 mapping_sku 的 material 搬到獨立 mapping row(Total = 材料費)。
+            const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+            let parentPerSubModCost = 0;
+            const mappingList = [];
+            mods.forEach(function (m) {
+              const c  = parseFloat(m && m.cost);
+              const mt = parseFloat(m && m.material_cost);
+              const mq = parseInt(m && m.mapping_qty, 10) || 0;
+              const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+              parentPerSubModCost += (isNaN(c) ? 0 : c);
+              if (hasMapping) {
+                const matPerSub = isNaN(mt) ? 0 : mt;   // 每 sub-unit 材料費
+                mappingList.push({
+                  code:  m.mapping_sku,
+                  qty:   mq * subQty,
+                  unit:  mq > 0 ? (matPerSub / mq) : 0,
+                  total: matPerSub * subQty,
+                });
+              } else {
+                parentPerSubModCost += (isNaN(mt) ? 0 : mt);  // 防呆:無 mapping 的 material 留父 row
+              }
+            });
+
+            const modFeeTotal  = parentPerSubModCost * subQty;
+            const skuLineTotal = markedUnitPrice * subQty;   // CB-25 改動 C:Total 折前(不再套促銷折扣)
+            const asmFeeTotal  = (item.assemble_fee || 0) * subQty;
+            const lineTotal    = skuLineTotal + modFeeTotal + asmFeeTotal;
+
+            const subLabelHtml = isSplit
+              ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
+              : '';
+            const customBadgeHtml = (isCustom && isFirstSub)
+              ? `<span class="custom-badge">CUSTOM</span>`
+              : '';
+
+            // CB-9: Tag 只在主行(第一個 sub)顯示,子項留空
+            const tagCellHtml = isFirstSub ? escapeHtml(getTagForItem(item)) : '';
+
+            const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
+            const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
+
+            // CB-11 任務B: DOOR & FRAME 固定顯示「Hinge not included」
+            const hingeNoteHtml = ((item.skuType || '').toUpperCase() === 'DOOR & FRAME')
+              ? `<div class="hinge-note">Hinge not included</div>`
+              : '';
+
+            // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
+            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
+            const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
+
+            const assembledHtml = isFirstSub ? (item.type === 'RTA' ? 'No' : 'Yes') : '';
+            const trClass = isFirstSub ? '' : 'sub-continuation';
+
+            const modFeeCellHtml = modFeeTotal > 0
+              ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
+              : '<span style="color:var(--muted);">—</span>';
+
+            const asmFeeCellHtml = asmFeeTotal > 0
+              ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
+              : '<span style="color:var(--muted);">—</span>';
+
+            rows.push(`
+              <tr class="${trClass}">
+                <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${parentNum}</td>
+                <td style="font-size:12px;white-space:nowrap;">${tagCellHtml}</td>
+                <td class="td-sku">${skuCellHtml}</td>
+                <td class="td-desc">${descCellHtml}</td>
+                <td class="td-right">${subQty}</td>
+                <td style="font-size:12px;">${assembledHtml}</td>
+                <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
+                <td class="td-right">${modFeeCellHtml}</td>
+                <td class="td-right">${asmFeeCellHtml}</td>
+                <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+              </tr>`);
+
+            // ── CB-25 改動 B:mapping SKU 獨立 row,緊跟父 row,編號 parentNum.N ──
+            mappingList.forEach(function (map, k) {
+              const info = getMappingSkuInfo(map.code, item.construction_type);
+              const mt2 = (info.type || '').toUpperCase();
+              const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');   // CB-23 #1:mapping 也適用
+              const mapPrefix = (item.style_code && !mapSkip) ? escapeHtml(item.style_code) + '-' : '';
+              const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}`;
+              const mapDescCell = info.description ? `<div class="desc-main">${escapeHtml(info.description)}</div>` : '';
+
+              rows.push(`
+                <tr class="mapping-row">
+                  <td>#${parentNum}.${k + 1}</td>
+                  <td style="font-size:12px;white-space:nowrap;">${escapeHtml(info.tag)}</td>
+                  <td class="td-sku">${mapSkuCell}</td>
+                  <td class="td-desc">${mapDescCell}</td>
+                  <td class="td-right">${map.qty}</td>
+                  <td style="font-size:12px;color:var(--muted);">—</td>
+                  <td class="td-right">$${map.unit.toFixed(2)}</td>
+                  <td class="td-right"><span style="color:var(--muted);">—</span></td>
+                  <td class="td-right"><span style="color:var(--muted);">—</span></td>
+                  <td class="td-right td-total">$${map.total.toFixed(2)}</td>
+                </tr>`);
+            });
+          });
+        });
       });
     });
   });
