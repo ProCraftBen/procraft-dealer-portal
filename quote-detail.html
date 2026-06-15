@@ -1708,7 +1708,7 @@ function renderQuote(quote, dealer, addr) {
 
     <div class="card">
       <div class="card-header"><span class="card-title">Shipping Address</span></div>
-      <div class="card-body"><div class="info-value">${shippingHtml}</div></div>
+      <div class="card-body"><div class="info-value">${shippingHtml}</div>${leadTimeHtml}</div>
     </div>
 
     ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">Notes</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${escapeHtml(quote.notes)}</div></div></div>` : ''}
@@ -1734,8 +1734,6 @@ function renderQuote(quote, dealer, addr) {
           <tbody>${itemsTableHtml}</tbody>
         </table>
       </div>
-
-      ${leadTimeHtml}
 
       ${notesTableHtml}
 
