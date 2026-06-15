@@ -479,7 +479,7 @@
   // 改動 11: Bill To / Ship To 區塊字體 1.5x(7.5→11),行距加大。
   function _drawBillShipBlock(doc, context) {
     const { pageW, margin } = LAYOUT;
-    const { dealer, shippingAddress, startY } = context;
+    const { dealer, shippingAddress, startY, leadTime } = context;
 
     const billX = margin;
     const shipX = pageW - margin;
@@ -518,8 +518,23 @@
       doc.setFontSize(11);
       doc.setTextColor(40, 40, 40);
       if (billLines[i]) doc.text(billLines[i], billX, addrY);
-      if (shipLines[i]) doc.text(shipLines[i], shipX, addrY, { align: 'right' });
+    if (shipLines[i]) doc.text(shipLines[i], shipX, addrY, { align: 'right' });
       addrY += 6.5;
+    }
+
+    // CB-24: Estimated Lead Time —— 緊接 SHIP TO 下方,靠右對齊;無值則不印(沿用 CB-11 判斷)
+    if (leadTime) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      const ltVal  = String(leadTime);
+      const ltValW = doc.getTextWidth(ltVal);
+      doc.setTextColor(...COLORS.modText);
+      doc.text(ltVal, shipX, addrY, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...COLORS.muted);
+      doc.text('ESTIMATED LEAD TIME', shipX - ltValW - 2, addrY, { align: 'right' });
+      addrY += 4;
     }
 
     addrY += 3;
@@ -818,38 +833,6 @@ const onDrawPage = (data) => {
   
       return { tableEndY: doc.lastAutoTable.finalY, notes: notes };
     }
-
-  // ----------------------------------------
-  // CB-9 後續: Estimated Lead Time（items 表格下方、靠左）
-  //   字串由 caller 透過 quoteData.estimated_lead_time 帶入(pdf-builder 無 door_styles)。
-  //   無值則不印,回傳原 y。
-  // ----------------------------------------
-  function _drawLeadTime(doc, context) {
-    const { margin, headerH } = LAYOUT;
-    const { leadTime, startY, headerContext } = context;
-    if (!leadTime) return startY;
-
-    let y = startY + 6;
-    if (y > 275) {
-      doc.addPage();
-      if (headerContext) _drawHeader(doc, headerContext);
-      y = headerH + 8;
-    }
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(...COLORS.muted);
-    doc.text('ESTIMATED LEAD TIME', margin, y);
-
-    const labelW = doc.getTextWidth('ESTIMATED LEAD TIME');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(...COLORS.modText);
-    doc.text(String(leadTime), margin + labelW + 4, y);
-
-    return y;
-  }
-  
 
   // ----------------------------------------
   // F4.2: Notes Table
@@ -1196,6 +1179,7 @@ const onDrawPage = (data) => {
       dealer,
       shippingAddress,
       startY: y - 4,
+      leadTime: quoteData.estimated_lead_time,   // CB-24: Lead Time 移到 SHIP TO 下方
     });
 
     // F-CUSTOM (Phase 6): debug log for custom item count
@@ -1321,12 +1305,8 @@ const onDrawPage = (data) => {
       grand:             grand,
     };
 
-    // CB-9 後續: Estimated Lead Time 印在 items 表格下方(Notes 之前)
-    const yLead = _drawLeadTime(doc, {
-      leadTime:      quoteData.estimated_lead_time,
-      startY:        tableEndY,
-      headerContext: headerContext,
-    });
+    // CB-24: Lead Time 已移至 SHIP TO 下方(_drawBillShipBlock),此處不再繪製
+    const yLead = tableEndY;
 
     let yAfterNotes = yLead;
     if (notes && notes.length) {
@@ -1375,12 +1355,8 @@ const onDrawPage = (data) => {
     const { doc, quoteData, headerContext, tableEndY, notes } = args;
     const { pageW, margin } = LAYOUT;
 
-    // CB-9 後續: Estimated Lead Time 印在 items 表格下方(Notes 之前)
-    const yLead = _drawLeadTime(doc, {
-      leadTime:      quoteData.estimated_lead_time,
-      startY:        tableEndY,
-      headerContext: headerContext,
-    });
+    // CB-24: Lead Time 已移至 SHIP TO 下方(_drawBillShipBlock),此處不再繪製
+    const yLead = tableEndY;
 
     let yAfterNotes = yLead;
     if (notes && notes.length) {
