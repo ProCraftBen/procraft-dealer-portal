@@ -1138,7 +1138,7 @@ function getTagForItem(item) {
     const source = ct === 'frameless' ? allSkusFrameless : allSkusFramed;
     const match  = source.find(function (s) { return s.sku_code === mappingCode; });
     if (!match) return empty;
-return {
+    return {
       type:        match.type || '',
       description: match.description || '',
       tag:         match.tag || '',
