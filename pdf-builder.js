@@ -624,22 +624,7 @@
         }
         const value = _formatModValue(m.value);
         lines.push(`• ${label}${value ? ': ' + value : ''}`);
-        // CB-6 材料子行:N × MappingSKU (有價才加 $)
-        const mq = parseInt(m.mapping_qty, 10) || 0;
-                if (m.mapping_sku && mq > 0) {
-                  const subQty = parseInt(sub.qty, 10) || 0;
-                  const n = mq * subQty;
-                  let mapLine;
-                  if (showPrices) {
-                    const mc = parseFloat(m.material_cost);
-                    const matTotal = (isNaN(mc) ? 0 : mc) * subQty;
-                    mapLine = `   ${n} × ${m.mapping_sku}: $${matTotal.toFixed(2)}`;
-                  } else {
-                    mapLine = `   ${n} × ${m.mapping_sku}`;
-                  }
-                  lines.push(mapLine);
-                  if (mappingCollector) mappingCollector.push(mapLine);
-                }
+        // CB-25: 材料子行(N × MappingSKU)移除 — mapping 改由 _drawItemTable 拆成獨立 row。
       }
     });
 
@@ -831,8 +816,225 @@ const onDrawPage = (data) => {
         didDrawCell: onDrawMappingHighlight,
       });
   
-      return { tableEndY: doc.lastAutoTable.finalY, notes: notes };
+      function _drawItemTable(doc, context) {
+    const { margin, headerH } = LAYOUT;
+    const {
+      items, mode, startY,
+      markupPercent = 0,
+      applyPromo = false,          // 保留:Summary 折扣仍用;CB-25 後逐列 Total 不再用它
+      constructionType = 'framed', // CB-22
+      headerContext,
+    } = context;
+
+    const isPacking  = (mode === 'packing-list');
+    const showPrices = !isPacking;
+    const colCount   = isPacking ? 6 : 10;
+    const bodyFs     = isPacking ? 11 : 9;
+
+    // CB-25 三層分組底色 + per-item 斑馬(列印取向;皆比 header[14,31,22] 淺)
+    const C_SECTION = [62, 90, 66];     // Tier1 section divider(深綠,白字)
+    const C_STYLE   = [216, 196, 133];  // Tier2 style divider(金褐)
+    const C_TYPE    = [188, 208, 191];  // Tier3 type divider(中綠,比舊[235,240,236]深)
+    const C_ZEBRA   = [220, 220, 214];  // 隔一個 item 上色(白 item 不上色)
+
+    const head = isPacking
+      ? [['#', 'Type', 'SKU', 'Description', 'Qty', 'Assembled?']]
+      : [['#', 'Type', 'SKU', 'Description', 'Qty', 'Assembled?',
+          'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
+
+    const body = [];
+    const rowFills = [];        // 與 body 等長;per-item 斑馬底色([r,g,b] 或 null)
+    let itemNum = 0;
+    let itemColorIdx = 0;       // 每個 item +1,決定斑馬輪替
+    const notes = [];
+    const notesIndex = { counter: 0 };
+
+    function pushDivider(text, fill, textColor) {
+      body.push([{
+        content: text, colSpan: colCount,
+        styles: { halign: 'center', fontStyle: 'bold', fontSize: bodyFs,
+                  fillColor: fill, textColor: textColor },
+      }]);
+      rowFills.push(null);     // divider 自帶底色,不參與斑馬
     }
+
+    // Tier1: Assembled → Unassembled(Assembled 在上)
+    const sections = [
+      { label: 'ASSEMBLED',   items: (items || []).filter(function (it) { return (it.assemble_status || it.type) !== 'RTA'; }) },
+      { label: 'UNASSEMBLED', items: (items || []).filter(function (it) { return (it.assemble_status || it.type) === 'RTA'; }) },
+    ];
+
+    sections.forEach(function (section) {
+      if (!section.items.length) return;
+      pushDivider('===== ' + section.label + ' =====', C_SECTION, [255, 255, 255]);
+
+      // Tier2: style_code 字母序
+      const byStyle = {};
+      section.items.forEach(function (it) {
+        const sk = String(it.style_code || '').toUpperCase();
+        (byStyle[sk] || (byStyle[sk] = [])).push(it);
+      });
+
+      Object.keys(byStyle).sort().forEach(function (styleKey) {
+        const styleItems = byStyle[styleKey];
+        if (!styleItems.length) return;
+        pushDivider('--- ' + (styleItems[0].style_code || '—') + ' ---', C_STYLE, [107, 82, 15]);
+
+        // Tier3: CB-22 type 分組
+        _groupByTypeOrdered(styleItems, constructionType).forEach(function (group) {
+          pushDivider('========== ' + group.type + ' ==========', C_TYPE, [47, 71, 51]);
+
+          group.items.forEach(function (item) {
+            const fill = (itemColorIdx % 2 === 1) ? C_ZEBRA : null;   // 同 item 同色
+            itemColorIdx++;
+
+            const subs = _getNormalizedSubGroups(item);
+            const isSplit = subs.length > 1;
+            const isCustom = !!item.is_custom;
+            const assembleStatus = item.assemble_status || item.type || '';
+            const skuDesc = item.sku_desc || '';
+            const markedUnitPrice = item.unit_price * (1 + markupPercent);
+            const _noPrefixType = (item.sku_type || item.skuType || '').toUpperCase();
+            const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
+            const skuPrefix = (item.style_code && !_skipStylePrefix) ? item.style_code + '-' : '';
+
+            subs.forEach(function (sub, subIdx) {
+              itemNum++;
+              const parentNum = itemNum;
+              const isFirstSub = subIdx === 0;
+              const subQty = parseInt(sub.qty, 10) || 0;
+              const tagCell = isFirstSub ? (item.tag || '') : '';
+              const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
+              const subLabelLine = isSplit ? `\nSub ${subIdx + 1} of ${subs.length}` : '';
+
+              const isDoorFrame = (item.sku_type || item.skuType || '').toUpperCase() === 'DOOR & FRAME';
+              const hingeLine = (isDoorFrame && isFirstSub) ? '• Hinge not included' : '';
+
+              // CB-25: 父 row Mod Fee 只留未搬走成本(cost);mapping 的 material 搬到獨立 row
+              const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+              let parentPerSubModCost = 0;
+              const mappingList = [];
+              mods.forEach(function (m) {
+                const c  = parseFloat(m && m.cost);
+                const mt = parseFloat(m && m.material_cost);
+                const mq = parseInt(m && m.mapping_qty, 10) || 0;
+                const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+                parentPerSubModCost += (isNaN(c) ? 0 : c);
+                if (hasMapping) {
+                  const matPerSub = isNaN(mt) ? 0 : mt;
+                  mappingList.push({
+                    code:  m.mapping_sku,
+                    type:  (m.mapping_type || ''),          // CB-25: caller 帶入(PDF 無 DB)
+                    desc:  (m.mapping_description || ''),
+                    tag:   (m.mapping_tag || ''),
+                    qty:   mq * subQty,
+                    unit:  matPerSub / mq,
+                    total: matPerSub * subQty,
+                  });
+                } else {
+                  parentPerSubModCost += (isNaN(mt) ? 0 : mt);  // 無 mapping 的 material 留父 row
+                }
+              });
+
+              const modsText = _buildModsText({
+                sub: sub, item: item, totalSubs: subs.length,
+                notesIndex: notesIndex, notesCollector: notes,
+                showPrices: showPrices,
+              });
+              const extraLines = [hingeLine, modsText].filter(Boolean).join('\n');
+              const skuCellText = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
+                + (extraLines ? `\n${extraLines}` : '');
+
+              const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
+
+              if (isPacking) {
+                body.push([String(parentNum), tagCell, skuCellText, skuDesc, subQty, assembledCell]);
+              } else {
+                const modFeeTotal = parentPerSubModCost * subQty;
+                const asmFeeTotal = (item.assemble_fee || 0) * subQty;
+                // CB-25 改動 C:Total 折前(用 markedUnitPrice,不套促銷折扣)
+                const lineTotal   = (markedUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
+                body.push([
+                  String(parentNum), tagCell, skuCellText, skuDesc, subQty, assembledCell,
+                  `$${markedUnitPrice.toFixed(2)}`,
+                  modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
+                  asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
+                  `$${lineTotal.toFixed(2)}`,
+                ]);
+              }
+              rowFills.push(fill);
+
+              // CB-25: mapping SKU 獨立 row,緊跟父 row,同 item 同色
+              mappingList.forEach(function (map, k) {
+                const mt2 = (map.type || '').toUpperCase();
+                const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');
+                const mapPrefix = (item.style_code && !mapSkip) ? item.style_code + '-' : '';
+                const mapSku = `${mapPrefix}${map.code}`;
+                const mapNum = `${parentNum}.${k + 1}`;
+                if (isPacking) {
+                  body.push([mapNum, (map.tag || ''), mapSku, (map.desc || ''), map.qty, '—']);
+                } else {
+                  body.push([
+                    mapNum, (map.tag || ''), mapSku, (map.desc || ''), map.qty, '—',
+                    `$${map.unit.toFixed(2)}`, '—', '—', `$${map.total.toFixed(2)}`,
+                  ]);
+                }
+                rowFills.push(fill);
+              });
+            });
+          });
+        });
+      });
+    });
+
+    // 欄寬(沿用 改動 12/16/17)
+    const columnStyles = isPacking
+      ? {
+          0: { cellWidth: 10 },
+          1: { cellWidth: 14, overflow: 'linebreak' },
+          2: { cellWidth: 60, overflow: 'linebreak' },
+          3: { cellWidth: 58, overflow: 'linebreak' },
+          4: { halign: 'right', cellWidth: 14 },
+          5: { cellWidth: 24 },
+        }
+      : {
+          0: { cellWidth: 8 },
+          1: { cellWidth: 12, overflow: 'linebreak' },
+          2: { cellWidth: 46, overflow: 'linebreak' },
+          3: { cellWidth: 22, overflow: 'linebreak' },
+          4: { halign: 'right', cellWidth: 10 },
+          5: { cellWidth: 18 },
+          6: { halign: 'right', cellWidth: 18 },
+          7: { halign: 'right', cellWidth: 14 },
+          8: { halign: 'right', cellWidth: 14 },
+          9: { halign: 'right', fontStyle: 'bold', cellWidth: 18 },
+        };
+
+    const onDrawPage = (data) => {
+      if (data.pageNumber > 1 && headerContext) _drawHeader(doc, headerContext);
+    };
+
+    // CB-25: per-item 斑馬 — 依 body row index 從 rowFills 上色(取代 alternateRowStyles)
+    const onParseCell = (data) => {
+      if (data.section !== 'body') return;
+      const f = rowFills[data.row.index];
+      if (f) data.cell.styles.fillColor = f;
+    };
+
+    doc.autoTable({
+      startY: startY,
+      head: head,
+      body: body,
+      margin: { left: margin, right: margin, top: headerH + 4 },
+      styles: { fontSize: bodyFs, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
+      headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: bodyFs },
+      columnStyles: columnStyles,
+      didParseCell: onParseCell,
+      didDrawPage: onDrawPage,
+    });
+
+    return { tableEndY: doc.lastAutoTable.finalY, notes: notes };
+  }
 
   // ----------------------------------------
   // F4.2: Notes Table
