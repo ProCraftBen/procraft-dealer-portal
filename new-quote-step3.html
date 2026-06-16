@@ -823,10 +823,8 @@ color: var(--green-dark);
       Please confirm you have reviewed the revised Purchase Order. Resubmitting sends it
       back to the ProCraft team for processing and generates an updated PDF.
     </div>
-    <!-- CB-5 需求2: Resubmit 含 Special Order 時顯示 -->
-    <div class="cb5-nonstock-note" id="resubmitNonStockNote" style="display:none;">
-      ⚠ This quote includes Special Orders. Sales will notify you if there are any issues later.
-    </div>
+    <!-- CB-5 / CB-29: Resubmit 特殊品逐項提醒 -->
+    <div class="cb5-nonstock-note" id="resubmitSpecialItems" style="display:none;"></div>
     <div class="cb4-modal-error" id="resubmitModalError"></div>
     <div class="cb4-modal-actions">
       <button class="cb4-modal-btn cancel" id="resubmitCancelBtn" onclick="closeResubmitModal()">Cancel</button>
@@ -838,16 +836,15 @@ color: var(--green-dark);
   </div>
 </div>
 
-<!-- CB-5 需求2 階段2: Save Draft 含 Special Order 通知(單 OK,不擋流程) -->
+<!-- CB-5 需求2 / CB-29: Save Draft 特殊品提醒(逐項清單,不擋流程) -->
 <div class="cb4-modal" id="saveNoticeModal">
   <div class="cb4-modal-box">
-    <div class="cb4-modal-title">Special Order Notice</div>
-    <div class="cb4-modal-msg">
-      This Quote includes a Special Order. We recommend checking with Sales before confirming your order.
-    </div>
+    <div class="cb4-modal-title">⚠️ Please Review the Following</div>
+    <div class="cb5-nonstock-note" id="saveNoticeSpecialItems" style="display:block;"></div>
     <div class="cb4-modal-actions">
+      <button class="cb4-modal-btn cancel" id="saveNoticeCancelBtn" onclick="closeSaveNoticeModal()">Cancel</button>
       <button class="cb4-modal-btn confirm" id="saveNoticeOkBtn" onclick="confirmSaveNotice()">
-        <span class="cb4-btn-label">OK</span>
+        <span class="cb4-btn-label">Continue</span>
       </button>
     </div>
   </div>
@@ -861,9 +858,7 @@ color: var(--green-dark);
     <div class="cb4-modal-msg">
       Once submitted, this PO# will be locked and cannot be edited.
     </div>
-    <div class="cb5-nonstock-note" id="submitNonStockNote" style="display:none;">
-      ⚠ This quote includes Special Orders. Sales will notify you if there are any issues later.
-    </div>
+    <div class="cb5-nonstock-note" id="submitSpecialItems" style="display:none;"></div>
     <div class="cb4-modal-actions">
       <button class="cb4-modal-btn cancel" id="submitConfirmCancelBtn" onclick="closeSubmitConfirmModal()">Cancel</button>
       <button class="cb4-modal-btn confirm" id="submitConfirmOkBtn" onclick="confirmSubmitFromModal()">
@@ -1143,10 +1138,11 @@ function getTagForItem(item) {
     const match  = source.find(function (s) { return s.sku_code === mappingCode; });
     if (!match) return empty;
     return {
-      type:        match.type || '',
-      description: match.description || '',
-      tag:         match.tag || '',
-    };
+          type:        match.type || '',
+          description: match.description || '',
+          tag:         match.tag || '',
+          needs_confirmation: !!match.needs_confirmation,  // CB-29
+        };
   }
 
   // CB-25 (PDF): 把每個 mapping mod 的 type/description/tag 掛進 payload。
@@ -1161,10 +1157,11 @@ function getTagForItem(item) {
         if (!m || !m.mapping_sku) return m;
         const info = getMappingSkuInfo(m.mapping_sku, constructionType);
         return Object.assign({}, m, {
-          mapping_type:        info.type,
-          mapping_description: info.description,
-          mapping_tag:         info.tag,
-        });
+                  mapping_type:        info.type,
+                  mapping_description: info.description,
+                  mapping_tag:         info.tag,
+                  mapping_needs_confirmation: !!info.needs_confirmation,  // CB-29
+                });
       });
       return Object.assign({}, sub, { modifications: enrichedMods });
     });
@@ -1178,6 +1175,53 @@ function orderHasNonStock(items, doorStyles) {
     const s = doorStyles.find(function (d) { return d.style_code === it.style_code; });
     return s ? (s.is_stock === false) : false;
   });
+}
+
+// ── CB-29: 收集 non-stock + needs_confirmation 清單(彈窗用,選項 A 逐項) ──
+function getSpecialItemLists() {
+  const nonStock = [], needsConf = [];
+  const seenNS = {}, seenNC = {};
+  (step2Data || []).forEach(function (it) {
+    if (!it) return;
+    let isNS = false, ct = '';
+    if (it.style_code && Array.isArray(allDoorStyles)) {
+      const d = allDoorStyles.find(function (x) { return x.style_code === it.style_code; });
+      if (d) { isNS = (d.is_stock === false); ct = (d.construction_type || '').toLowerCase(); }
+    }
+    if (isNS && !seenNS[it.sku_code]) {
+      seenNS[it.sku_code] = true;
+      const lt = (ct === 'frameless') ? '~5 weeks' : '~2-3 weeks';
+      nonStock.push(it.sku_code + ' (' + lt + ' lead time)');
+    }
+    if (it.needs_confirmation && !seenNC[it.sku_code]) {
+      seenNC[it.sku_code] = true;
+      needsConf.push(it.sku_code);
+    }
+  });
+  return { nonStock: nonStock, needsConf: needsConf };
+}
+
+function orderHasSpecialItems() {
+  const r = getSpecialItemLists();
+  return r.nonStock.length > 0 || r.needsConf.length > 0;
+}
+
+// CB-29: 組彈窗提醒 HTML(NON-STOCK + NEEDING CONFIRMATION 兩區塊);無特殊品回 ''
+function buildSpecialItemsHtml() {
+  const r = getSpecialItemLists();
+  if (!r.nonStock.length && !r.needsConf.length) return '';
+  let html = '';
+  if (r.nonStock.length) {
+    html += '<div style="font-weight:600;margin-bottom:4px;">NON-STOCK ITEMS:</div>'
+          + r.nonStock.map(function (x) { return '<div>- ' + escapeHtml(x) + '</div>'; }).join('');
+  }
+  if (r.needsConf.length) {
+    if (html) html += '<div style="height:8px;"></div>';
+    html += '<div style="font-weight:600;margin-bottom:4px;">ITEMS NEEDING SALES CONFIRMATION:</div>'
+          + r.needsConf.map(function (x) { return '<div>- ' + escapeHtml(x) + '</div>'; }).join('');
+  }
+  html += '<div style="margin-top:8px;">These will be saved. Sales will follow up to confirm.</div>';
+  return html;
 }
 
 // CB-11 任務A: 整單 lead time(重寫 CB-5)
@@ -1641,8 +1685,8 @@ let dealerIdToLoad = session.user.id;
   //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
   const [styleRes, framedRes, framelessRes] = await Promise.all([
     _supabase.from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true),
-    _supabase.from('skus_framed').select('sku_code, tag, type, description'),
-    _supabase.from('skus_frameless').select('sku_code, tag, type, description'),
+    _supabase.from('skus_framed').select('sku_code, tag, type, description, needs_confirmation'),
+    _supabase.from('skus_frameless').select('sku_code, tag, type, description, needs_confirmation'),
   ]);
   allDoorStyles    = styleRes.data     || [];
   allSkusFramed    = framedRes.data    || [];
@@ -2026,8 +2070,13 @@ function buildItemRowsHtml(markupPct) {
               ? `<div class="hinge-note">Hinge not included</div>`
               : '';
 
+            // CB-29: needs_confirmation 註記(位置同 CB-11 Hinge not included)
+            const confirmNoteHtml = item.needs_confirmation
+              ? `<div class="hinge-note">Need to check availability</div>`
+              : '';
+
             // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
-            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
+            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${confirmNoteHtml}${modsBlockHtml}`;
             const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
 
             const assembledHtml = isFirstSub ? (item.type === 'RTA' ? 'No' : 'Yes') : '';
@@ -2061,7 +2110,10 @@ function buildItemRowsHtml(markupPct) {
               const mt2 = (info.type || '').toUpperCase();
               const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');   // CB-23 #1:mapping 也適用
               const mapPrefix = (item.style_code && !mapSkip) ? escapeHtml(item.style_code) + '-' : '';
-              const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}`;
+              const mapConfirmHtml = info.needs_confirmation
+                ? `<div class="hinge-note">Need to check availability</div>`
+                : '';  // CB-29
+              const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}${mapConfirmHtml}`;
               const mapDescCell = info.description ? `<div class="desc-main">${escapeHtml(info.description)}</div>` : '';
 
               rows.push(`
@@ -2481,6 +2533,7 @@ function buildQuoteDataForPdf(opts) {
       sub_groups:      enrichSubGroupsForPdf(getNormalizedSubGroups(i), _pdfConstructionType),  // CB-25: 掛 mapping type/desc/tag 給 PDF
       is_custom:       !!i.is_custom,  // F-CUSTOM
       tag:             getTagForItem(i),  // CB-9: 帶 tag 給 PDF
+      needs_confirmation: !!i.needs_confirmation,  // CB-29: 帶 needs_confirmation 給 PDF
     };
   });
 
@@ -2553,8 +2606,8 @@ function buildQuoteDataForPdf(opts) {
 // no regeneration.
 // ─────────────────────────────────────────────────────────────────────────────
 async function saveDraft() {
-  // CB-5 需求2 階段2: 含 Special Order 先跳通知 modal;OK 後 _saveNonStockAck=true 再續跑
-  if (!_saveNonStockAck && orderHasNonStock(step2Data, allDoorStyles)) {
+  // CB-5 / CB-29: 含 non-stock 或 needs_confirmation 先跳提醒;OK 後 _saveNonStockAck=true 再續跑
+  if (!_saveNonStockAck && orderHasSpecialItems()) {
     openSaveNoticeModal();
     return;
   }
@@ -3340,9 +3393,13 @@ function openResubmitModal() {
   document.getElementById('resubmitConfirmBtn').classList.remove('loading');
   document.getElementById('resubmitConfirmBtn').disabled = false;
   document.getElementById('resubmitCancelBtn').disabled = false;
-  // CB-5 需求2: 含 Special Order 時顯示提示
-  const rNote = document.getElementById('resubmitNonStockNote');
-  if (rNote) rNote.style.display = orderHasNonStock(step2Data, allDoorStyles) ? 'block' : 'none';
+  // CB-5 / CB-29: 含特殊品(non-stock / needs_confirmation)逐項顯示
+  const rBox = document.getElementById('resubmitSpecialItems');
+  if (rBox) {
+    const html = buildSpecialItemsHtml();
+    rBox.innerHTML = html;
+    rBox.style.display = html ? 'block' : 'none';
+  }
   document.getElementById('resubmitModal').classList.add('show');
 }
 
@@ -3362,6 +3419,8 @@ function confirmResubmit() {
 // CB-5 需求2 階段2: Save Draft 前的 Special Order 通知(單 OK,不擋)
 // ═══════════════════════════════════════════════════════════════════
 function openSaveNoticeModal() {
+  const box = document.getElementById('saveNoticeSpecialItems');
+  if (box) box.innerHTML = buildSpecialItemsHtml();
   document.getElementById('saveNoticeModal').classList.add('show');
 }
 function closeSaveNoticeModal() {
@@ -3377,8 +3436,12 @@ function confirmSaveNotice() {
 // CB-5 需求2 階段3: Submit 確認 modal(永遠跳;含 non-stock 加 ⚠)
 // ═══════════════════════════════════════════════════════════════════
 function openSubmitConfirmModal() {
-  const note = document.getElementById('submitNonStockNote');
-  if (note) note.style.display = orderHasNonStock(step2Data, allDoorStyles) ? 'block' : 'none';
+  const box = document.getElementById('submitSpecialItems');
+  if (box) {
+    const html = buildSpecialItemsHtml();
+    box.innerHTML = html;
+    box.style.display = html ? 'block' : 'none';
+  }
   document.getElementById('submitConfirmModal').classList.add('show');
 }
 function closeSubmitConfirmModal() {
