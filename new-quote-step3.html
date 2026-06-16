@@ -668,9 +668,13 @@ color: var(--green-dark);
         </div>
         <span class="total-value" id="totalDiscount">−$0.00</span>
       </div>
-      <div class="total-row" id="modsRow" style="display:none;">
-        <span class="total-label">Modifications</span>
-        <span class="total-value" id="totalMods" style="color:#8B6914;">+$0.00</span>
+      <!-- CB-27: Modifications 改成標題 + by-type 明細 + Total(仿 assembleRow) -->
+      <div id="modsRow" style="display:none;">
+        <div class="total-row" style="padding-bottom:2px;">
+          <span class="total-label">Modifications</span>
+          <span class="total-value" id="totalMods" style="color:#8B6914;"></span>
+        </div>
+        <div id="modsBreakdown" style="padding:0 0 8px 16px;"></div>
       </div>
       <div id="assembleRow" style="display:none;">
         <div class="total-row" style="padding-bottom:2px;">
@@ -1771,6 +1775,65 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CB-27: Modifications 按 type 分組(方案 B 明細用)。
+//   ⚠ 三檔逐字同步:pdf-builder.js / new-quote-step3.html / quote-detail.html
+//   • parentPerSubModCost = Σ(cost + 非mapping material) —— 與 Order List Mod Fee
+//     欄完全一致(mapping material 已搬去獨立 row,不算進來)。
+//   • modFee = parentPerSubModCost × subQty;只計 modFee > 0 的 sub。
+//   • type 取父 row,順序走 CB-22 getTypeOrder;不在清單 → OTHER(放最後)。
+//   回傳 { byType, ordered, modsDisplayTotal }。
+// ─────────────────────────────────────────────────────────────────────────────
+function calcModByType(items, constructionType) {
+  const order = getTypeOrder(constructionType).map(function (t) { return t.toUpperCase(); });
+  const byType = {};
+  let modsDisplayTotal = 0;
+  (items || []).forEach(function (item) {
+    const subs = getNormalizedSubGroups(item);
+    let ptype = (item.sku_type || item.skuType || OTHER_GROUP_LABEL).toUpperCase();
+    if (order.indexOf(ptype) === -1) ptype = OTHER_GROUP_LABEL;   // 不在清單 → OTHER
+    subs.forEach(function (sub) {
+      const subQty = parseInt(sub.qty, 10) || 0;
+      const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+      let parentPerSubModCost = 0;
+      mods.forEach(function (m) {
+        const c  = parseFloat(m && m.cost);
+        const mt = parseFloat(m && m.material_cost);
+        const mq = parseInt(m && m.mapping_qty, 10) || 0;
+        const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+        parentPerSubModCost += (isNaN(c) ? 0 : c);
+        if (!hasMapping) parentPerSubModCost += (isNaN(mt) ? 0 : mt);
+      });
+      const modFee = parentPerSubModCost * subQty;
+      if (modFee > 0) {
+        if (!byType[ptype]) byType[ptype] = { qty: 0, modFee: 0 };
+        byType[ptype].qty    += subQty;
+        byType[ptype].modFee += modFee;
+        modsDisplayTotal     += modFee;
+      }
+    });
+  });
+  const ordered = order.filter(function (t) { return byType[t]; });
+  if (byType[OTHER_GROUP_LABEL]) ordered.push(OTHER_GROUP_LABEL);
+  return { byType: byType, ordered: ordered, modsDisplayTotal: modsDisplayTotal };
+}
+
+// CB-27: 渲染 Modifications by-type 明細 + 末行 Total(仿 renderAsmBreakdown)。
+function renderModsBreakdown(modBreakdown, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const ordered = modBreakdown.ordered || [];
+  if (!ordered.length) { el.innerHTML = ''; return; }
+  let html = ordered.map(function (t) {
+    const row = modBreakdown.byType[t];
+    return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
+      <span>${t} &nbsp;×${row.qty}</span><span style="color:#8B6914;">+$${row.modFee.toFixed(2)}</span></div>`;
+  }).join('');
+  html += `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:4px 0 0;border-top:1px solid var(--border);margin-top:2px;">
+    <span>Total</span><span style="color:#8B6914;">+$${modBreakdown.modsDisplayTotal.toFixed(2)}</span></div>`;
+  el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CB-22 (2026-06-11): Order List type-group 排序 — 業務指定固定順序。
 //   廢棄 CB-7 的（BASE 最前 / ACCESSORIES 最後 / 中間字母序）。
 //   改為依 construction 走固定清單；不在清單的 type → OTHER，放最後。
@@ -2055,6 +2118,13 @@ function applyTotals(opts) {
   const promoLabel          = opts.promoLabel || null;     // F-PROMOTIONS
   const promoMatchedCount   = opts.promoMatchedCount || 0; // F-PROMOTIONS
 
+  // ── CB-27: Modifications by-type 明細 + Subtotal 顯示分桶對齊 CB-25 ──
+  //   只改「顯示」:把 mapping material 從 Modifications 搬到 Subtotal 顯示,
+  //   兩顯示值之和 = 原(skuSubtotal + modsSubtotal)不變 → tax/billing/grand 全不動。
+  const _ct                  = resolveQuoteConstructionType(step2Data, allDoorStyles);
+  const modBreakdown         = calcModByType(step2Data, _ct);
+  const mappingMaterialTotal = modsSubtotal - modBreakdown.modsDisplayTotal;
+
   // F-PROMOTIONS: post-discount SKU subtotal feeds both tax and billing bases.
   const skuAfterDiscount = skuSubtotal - promoDiscount;
   const taxBase     = skuAfterDiscount + taxableModsSubtotal;
@@ -2124,7 +2194,7 @@ function applyTotals(opts) {
   // F-PROMOTIONS: grand uses billingBase which already has discount subtracted
   const grand = billingBase + assembleTotal + shippingForTotal + tax;
 
-  document.getElementById('totalSubtotal').textContent = `$${skuSubtotal.toFixed(2)}`;
+  document.getElementById('totalSubtotal').textContent = `$${(skuSubtotal + mappingMaterialTotal).toFixed(2)}`;
 
   // F-PROMOTIONS: Discount row rendering
   const discountRow = document.getElementById('discountRow');
@@ -2141,9 +2211,10 @@ function applyTotals(opts) {
   }
 
   const modsRow = document.getElementById('modsRow');
-  if (modsSubtotal > 0) {
-    modsRow.style.display = 'flex';
-    document.getElementById('totalMods').textContent = `+$${modsSubtotal.toFixed(2)}`;
+  if (modBreakdown.modsDisplayTotal > 0) {
+    modsRow.style.display = 'block';
+    document.getElementById('totalMods').textContent = '';   // CB-27: 金額移到 Total 行
+    renderModsBreakdown(modBreakdown, 'modsBreakdown');
   } else {
     modsRow.style.display = 'none';
   }
