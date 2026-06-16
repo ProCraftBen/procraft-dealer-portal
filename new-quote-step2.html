@@ -1073,12 +1073,7 @@
 
   <!-- Returned / mode banner mount point (populated by JS if applicable) -->
   <div id="returnedBannerMount"></div>
-
-  <!-- CB-29 A1: 靜態提醒 banner(always 顯示) -->
-  <div style="margin:8px 0;padding:10px 14px;background:rgba(201,168,76,0.10);border:1px solid rgba(201,168,76,0.45);border-radius:4px;font-size:12px;color:#8B6914;letter-spacing:0.02em;">
-    ⚠️ Items marked need sales check availability
-  </div>
-
+  
   <!-- Brand Tabs: dynamic -->
   <div class="brand-tabs-bar" id="brandTabsBar">
   </div>
@@ -1151,10 +1146,15 @@
       </div>
     </div>
     <div class="sku-table-wrap" id="skuTableWrap">
-      <div class="sku-placeholder">Select a door style and click "Select This Style" to view available items.</div>
-    </div>
-
-    <!-- F-CUSTOM v1.1: Custom Items section at the bottom of SKU panel.
+          <div class="sku-placeholder">Select a door style and click "Select This Style" to view available items.</div>
+        </div>
+    
+        <!-- CB-29 A1: 靜態提醒 banner(always 顯示;移到 SKU 表格下方當圖例) -->
+        <div style="margin:8px 0;padding:10px 14px;background:rgba(201,168,76,0.10);border:1px solid rgba(201,168,76,0.45);border-radius:4px;font-size:12px;color:#8B6914;letter-spacing:0.02em;">
+          ⚠️ Items marked need sales check availability
+        </div>
+    
+        <!-- F-CUSTOM v1.1: Custom Items section at the bottom of SKU panel.
          Always visible to admin (regardless of selected style).
          Contains a button to add new custom items + a list of all
          custom items already in cart. -->
