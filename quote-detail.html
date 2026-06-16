@@ -1627,10 +1627,48 @@ function renderQuote(quote, dealer, addr) {
       Edit
     </a>` : '';
 
-  const shippingHtml = addr
-    ? `<strong>${escapeHtml(addr.recipient_name || dealer?.company_name)}</strong><br>${escapeHtml(addr.address_line)}<br>${addr.address_line2 ? escapeHtml(addr.address_line2)+'<br>' : ''}${escapeHtml(addr.city)}, ${escapeHtml(addr.state)} ${escapeHtml(addr.zip_code)}`
-    : `<strong>${escapeHtml(dealer?.company_name || '—')}</strong><br>${escapeHtml(dealer?.address_line1 || '')}<br>${dealer?.address_line2 ? escapeHtml(dealer.address_line2)+'<br>' : ''}${escapeHtml(dealer?.city || '')}, ${escapeHtml(dealer?.state || '')} ${escapeHtml(dealer?.zip_code || '')}`;
+// ── Ship To 區塊(5 檔鏡像同一份 resolver)──
+  const PROCRAFT_PICKUP_LINES = [
+    'ProCraft Cabinetry DC LLC',
+    '6750 Santa Barbara Court Suite B',
+    'Elkridge, MD 21075',
+    'Hours: Mon-Fri 8:00 AM - 4:30 PM',
+  ];
+  function resolveShipTo(logisticType, addr) {
+    const t = String(logisticType || '').toLowerCase();
+    if (t === 'pickup') {
+      return { title: 'PICK UP LOCATION', lines: PROCRAFT_PICKUP_LINES.slice() };
+    }
+    const title = (t === 'delivery') ? 'DELIVERY TO' : 'SHIP TO';
+    const a = addr || {};
+    const cityLine = [
+      [a.city, a.state].filter(Boolean).join(', '),
+      a.zip_code
+    ].filter(Boolean).join(' ');
+    const lines = [a.recipient_name, a.address_line, a.address_line2, cityLine, a.phone]
+      .filter(function (l) { return l && String(l).trim(); });
+    return { title: title, lines: lines };
+  }
 
+  // Ship To 新規格:依 logistic_type 決定標題 + 內容(pickup 顯示 ProCraft,忽略地址)
+  const _lt = String(quote.logistic_type || 'pickup').toLowerCase();
+  let _shipAddr = null;
+  if (_lt !== 'pickup') {
+    _shipAddr = addr ? addr : {
+      recipient_name: dealer?.company_name,
+      address_line:   dealer?.address_line1 || '',
+      address_line2:  dealer?.address_line2 || '',
+      city:           dealer?.city || '',
+      state:          dealer?.state || '',
+      zip_code:       dealer?.zip_code || '',
+      phone:          dealer?.phone || '',
+    };
+  }
+  const _shipTo = resolveShipTo(_lt, _shipAddr);
+  const shipToTitle = _shipTo.title;
+  const shippingHtml = _shipTo.lines
+    .map(function (l, i) { return i === 0 ? `<strong>${escapeHtml(l)}</strong>` : escapeHtml(l); })
+    .join('<br>');
   // ─────────────────────────────────────────────────────────────────────
   // F4.1 v2: Build items table (11-col) + Notes table from grouped items
   // ─────────────────────────────────────────────────────────────────────
@@ -1920,7 +1958,7 @@ function renderQuote(quote, dealer, addr) {
     </div>
 
     <div class="card">
-      <div class="card-header"><span class="card-title">Shipping Address</span></div>
+      <div class="card-header"><span class="card-title">${shipToTitle}</span></div>
       <div class="card-body"><div class="info-value">${shippingHtml}</div>${leadTimeHtml}</div>
     </div>
 
