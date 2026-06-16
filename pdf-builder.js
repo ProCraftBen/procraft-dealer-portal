@@ -525,7 +525,44 @@ return total;
   // 改動 11: Bill To / Ship To 區塊字體 1.5x(7.5→11),行距加大。
   function _drawBillShipBlock(doc, context) {
     const { pageW, margin } = LAYOUT;
-    const { dealer, shippingAddress, startY, leadTime } = context;
+    const { dealer, shippingAddress, startY, leadTime, logisticType } = context;
+
+    // ── Ship To 區塊(5 檔鏡像同一份 resolver)──
+    const PROCRAFT_PICKUP_LINES = [
+      'ProCraft Cabinetry DC LLC',
+      '6750 Santa Barbara Court Suite B',
+      'Elkridge, MD 21075',
+      'Hours: Mon-Fri 8:00 AM - 4:30 PM',
+    ];
+    const resolveShipTo = function (lType, addr) {
+      const t = String(lType || '').toLowerCase();
+      if (t === 'pickup') {
+        return { title: 'PICK UP LOCATION', lines: PROCRAFT_PICKUP_LINES.slice() };
+      }
+      const title = (t === 'delivery') ? 'DELIVERY TO' : 'SHIP TO';
+      const a = addr || {};
+      const cityLine = [
+        [a.city, a.state].filter(Boolean).join(', '),
+        a.zip_code
+      ].filter(Boolean).join(' ');
+      const lines = [a.recipient_name, a.address_line, a.address_line2, cityLine, a.phone]
+        .filter(function (l) { return l && String(l).trim(); });
+      return { title: title, lines: lines };
+    };
+    // delivery/shipping 正規化地址來源:有 shippingAddress 用它,否則 fallback dealer
+    let _shipAddr = null;
+    if (String(logisticType || '').toLowerCase() !== 'pickup') {
+      _shipAddr = shippingAddress ? shippingAddress : {
+        recipient_name: dealer?.company_name,
+        address_line:   dealer?.address_line1 || '',
+        address_line2:  dealer?.address_line2 || '',
+        city:           dealer?.city || '',
+        state:          dealer?.state || '',
+        zip_code:       dealer?.zip_code || '',
+        phone:          dealer?.phone || '',
+      };
+    }
+    const _shipTo = resolveShipTo(logisticType, _shipAddr);
 
     const billX = margin;
     const shipX = pageW - margin;
@@ -535,7 +572,7 @@ return total;
     doc.setFontSize(11);
     doc.setTextColor(...COLORS.muted);
     doc.text('BILL TO', billX, addrY);
-    doc.text('SHIP TO', shipX, addrY, { align: 'right' });
+    doc.text(_shipTo.title, shipX, addrY, { align: 'right' });
     addrY += 7;
 
     const billLines = [
@@ -545,18 +582,7 @@ return total;
       `${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`,
     ].filter(l => l.trim());
 
-    const shipName = shippingAddress
-      ? shippingAddress.recipient_name
-      : dealer?.company_name;
-
-    const shipLines = [
-      shipName || '—',
-      shippingAddress ? shippingAddress.address_line   : (dealer?.address_line1 || ''),
-      shippingAddress ? (shippingAddress.address_line2 || '') : (dealer?.address_line2 || ''),
-      shippingAddress
-        ? `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}`
-        : `${dealer?.city || ''}, ${dealer?.state || ''} ${dealer?.zip_code || ''}`,
-    ].filter(l => l.trim());
+    const shipLines = _shipTo.lines.length ? _shipTo.lines : ['—'];
 
     const maxLines = Math.max(billLines.length, shipLines.length);
     for (let i = 0; i < maxLines; i++) {
@@ -1268,6 +1294,7 @@ return total;
       shippingAddress,
       startY: y - 4,
       leadTime: quoteData.estimated_lead_time,   // CB-24: Lead Time 移到 SHIP TO 下方
+      logisticType: quoteData.logistic_type,     // Ship To 新規格:pickup/delivery/shipping 切換
     });
 
     // F-CUSTOM (Phase 6): debug log for custom item count
