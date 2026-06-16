@@ -783,7 +783,7 @@ function getTagForItem(item) {
     const source = ct === 'frameless' ? _allSkusFrameless : _allSkusFramed;
     const match  = source.find(function (s) { return s.sku_code === mappingCode; });
     if (!match) return empty;
-return {
+    return {
       type:        match.type || '',
       description: match.description || '',
       tag:         match.tag || '',
@@ -2014,13 +2014,13 @@ async function saveShipping() {
 function buildQuoteDataForPdf() {
   // Build per-item structure with sub_groups, mirroring step3
   const items = (_groupedItems || []).map(function(item) {
-      // CB-25: per-item 反查 construction(quote_items 無此欄),與 on-screen mapping 查表同源
-      let _itemCt = 'framed';
-      if (item.style_code && Array.isArray(_allDoorStyles)) {
-        const _ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
-        if (_ds && _ds.construction_type) _itemCt = String(_ds.construction_type).toLowerCase();
-      }
-      return {
+    // CB-25: per-item 反查 construction(quote_items 無此欄),與 on-screen mapping 查表同源
+    let _itemCt = 'framed';
+    if (item.style_code && Array.isArray(_allDoorStyles)) {
+      const _ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
+      if (_ds && _ds.construction_type) _itemCt = String(_ds.construction_type).toLowerCase();
+    }
+    return {
       style_name:      item.style_name,
       style_code:      item.style_code,
       sku_code:        item.sku_code,
