@@ -318,10 +318,56 @@
         total += perSub * qty;
       });
     });
-    return total;
+return total;
   }
 
-  
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-27: Modifications 按 type 分組(方案 B 明細用)。
+  //   ⚠ 三檔逐字同步:pdf-builder.js / new-quote-step3.html / quote-detail.html
+  //   • parentPerSubModCost = Σ(cost + 非mapping material) —— 與 _drawItemTable
+  //     的 Mod Fee 欄完全一致(mapping material 已搬去獨立 row,不算進來)。
+  //   • modFee = parentPerSubModCost × subQty;只計 modFee > 0 的 sub(= 父 row
+  //     Mod Fee > 0;mapping-only 的 sub Mod Fee=0 → 不計 ×N、不顯示)。
+  //   • type 取父 row,順序走 CB-22 _getTypeOrder;不在清單 → OTHER(放最後)。
+  //   回傳 { byType, ordered, modsDisplayTotal }。
+  //   mappingMaterialTotal 由 caller 用 (原 modsTotal − modsDisplayTotal) 反推,
+  //   保證 Subtotal+Modifications 兩顯示值之和不變。
+  // ─────────────────────────────────────────────────────────────────────────
+  function _calcModByType(items, constructionType) {
+    const order   = _getTypeOrder(constructionType).map(function (t) { return t.toUpperCase(); });
+    const byType  = {};
+    let modsDisplayTotal = 0;
+    (items || []).forEach(function (item) {
+      const subs  = _getNormalizedSubGroups(item);
+      let ptype = (item.sku_type || item.skuType || OTHER_GROUP_LABEL).toUpperCase();
+      if (order.indexOf(ptype) === -1) ptype = OTHER_GROUP_LABEL;   // 不在清單 → OTHER
+      subs.forEach(function (sub) {
+        const subQty = parseInt(sub.qty, 10) || 0;
+        const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+        let parentPerSubModCost = 0;
+        mods.forEach(function (m) {
+          const c  = parseFloat(m && m.cost);
+          const mt = parseFloat(m && m.material_cost);
+          const mq = parseInt(m && m.mapping_qty, 10) || 0;
+          const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+          parentPerSubModCost += (isNaN(c) ? 0 : c);
+          if (!hasMapping) parentPerSubModCost += (isNaN(mt) ? 0 : mt);
+        });
+        const modFee = parentPerSubModCost * subQty;
+        if (modFee > 0) {
+          if (!byType[ptype]) byType[ptype] = { qty: 0, modFee: 0 };
+          byType[ptype].qty    += subQty;
+          byType[ptype].modFee += modFee;
+          modsDisplayTotal     += modFee;
+        }
+      });
+    });
+    const ordered = order.filter(function (t) { return byType[t]; });
+    if (byType[OTHER_GROUP_LABEL]) ordered.push(OTHER_GROUP_LABEL);
+    return { byType: byType, ordered: ordered, modsDisplayTotal: modsDisplayTotal };
+  }
+
+
   // ─────────────────────────────────────────────────────────────────────────
   // CB-13 (改動 9) + CB-13-FIX (2026-06-10): Kit Promo 20% — PDF 自算。
   //   逐 SKU 判斷:style_code ∈ {LSW,LSG,LSA} 且 tag === 'Kit'(大寫精確比對,
@@ -1001,14 +1047,14 @@
     const valX    = pageW - margin;
     let y = startY;
 
-    // ── Subtotal (PRE-discount, 改動 13: 含 Assemble Fee) ──
+    // ── Subtotal (PRE-discount; CB-27: 純商品 = 父 SKU + mapping material) ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text('Subtotal', totalsX, y);
     doc.setTextColor(40, 40, 40);
     doc.text(
-      showPrices ? `$${(totals.subtotal + totals.assembleTotal).toFixed(2)}` : '—',
+      showPrices ? `$${(totals.subtotal + totals.mappingMaterialTotal).toFixed(2)}` : '—',
       valX, y, { align: 'right' }
     );
     y += 6;
@@ -1039,18 +1085,43 @@
       doc.setFontSize(8);
     }
 
-    // ── Modifications ──
-    if (showPrices && totals.modsTotal > 0) {
+    // ── Modifications (CB-27 改動 B: 按 type 分組明細 + Total) ──
+    if (showPrices && totals.modsDisplayTotal > 0) {
+      // 標題行(無金額)
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.muted);
       doc.text('Modifications', totalsX, y);
+      y += 5;
+      // 逐 type 明細(縮排)
+      doc.setFontSize(7);
+      (totals.modByTypeOrdered || []).forEach(function (t) {
+        const row = totals.modByType[t];
+        doc.setTextColor(...COLORS.muted);
+        doc.text(`${_shortType(t)} ×${row.qty}`, totalsX + 4, y);
+        doc.setTextColor(140, 100, 20);
+        doc.text(`+$${row.modFee.toFixed(2)}`, valX, y, { align: 'right' });
+        y += 4;
+      });
+      // Total 行
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Total', totalsX + 4, y);
       doc.setTextColor(140, 100, 20);
-      doc.text(`+$${totals.modsTotal.toFixed(2)}`, valX, y, { align: 'right' });
+      doc.text(`+$${totals.modsDisplayTotal.toFixed(2)}`, valX, y, { align: 'right' });
       y += 6;
+      doc.setFontSize(8);
     }
 
-    // ── (改動 13/14: Assemble Fee 行 + by-type 細項已移除,併入 Subtotal) ──
+    // ── Assemble Fee (CB-27 改動 A: 從 Subtotal 拆出,獨立一行;位置在 Mods 之後) ──
+    if (showPrices && totals.assembleTotal > 0) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Assemble Fee', totalsX, y);
+      doc.setTextColor(140, 100, 20);
+      doc.text(`+$${totals.assembleTotal.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+    }
 
     // ── Shipping ──
     doc.setFontSize(8);
@@ -1262,9 +1333,16 @@
       modsTotal = quoteData.modifications_total;
     } else if (typeof quoteData.modifications_total === 'string') {
       modsTotal = parseFloat(quoteData.modifications_total) || 0;
-    } else {
+  } else {
       modsTotal = _calcTotalModsCost(items);
     }
+
+    // ── CB-27: Modifications by-type 明細 + Subtotal/Mods 顯示分桶對齊 CB-25 ──
+    //   只改「顯示」:把 mapping material 從 Modifications 搬到 Subtotal 顯示,
+    //   兩顯示值之和 = 原(subtotal + modsTotal)不變 → tax/billing/grand 全不動。
+    const modByType            = _calcModByType(items, quoteData.construction_type);
+    const modsDisplayTotal     = modByType.modsDisplayTotal;            // 工本費 Σ(顯示用 Mods 總額)
+    const mappingMaterialTotal = modsTotal - modsDisplayTotal;          // 併入 Subtotal 顯示
 
     let taxableModsTotal;
     if (typeof quoteData.modifications_total_taxable === 'number') {
@@ -1316,6 +1394,10 @@
       promoLabel:        promoLabel,
       promoMatchedCount: promoMatchedCount,
       modsTotal:         modsTotal,
+      modsDisplayTotal:     modsDisplayTotal,      // CB-27: 顯示用 Mods 總額(工本費 Σ)
+      modByType:            modByType.byType,       // CB-27: by-type 明細
+      modByTypeOrdered:     modByType.ordered,      // CB-27: 顯示順序(CB-22)
+      mappingMaterialTotal: mappingMaterialTotal,   // CB-27: 併入 Subtotal 顯示
       assembleTotal:     assembleTotal,
       shipping:          shipping,
       tax:               tax,
@@ -1338,7 +1420,10 @@
     const TC_BLOCK_H = 7 * 6 + 16;
     // 改動 13/14 後 totals 少了 Assemble Fee 行 + 細項,所以高度需求變小
     const PROMO_H    = promoDiscount > 0 ? 9 : 0;
-    const TOTALS_H   = 45 + (modsTotal > 0 ? 6 : 0) + PROMO_H;
+    // CB-27: Modifications 變多行(標題 + N type + Total)、Assemble Fee 獨立一行
+    const MODS_H     = modsDisplayTotal > 0 ? (5 + modByType.ordered.length * 4 + 6) : 0;
+    const ASM_H      = assembleTotal > 0 ? 6 : 0;
+    const TOTALS_H   = 45 + MODS_H + ASM_H + PROMO_H;
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
     if (y + NEEDED > 275) {
       doc.addPage();
