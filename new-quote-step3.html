@@ -590,7 +590,7 @@ color: var(--green-dark);
 
   <div class="card">
     <div class="card-header">
-      <span class="card-title">Shipping Address</span>
+      <span class="card-title" id="shipToTitle">Shipping Address</span>
       <a id="editStep1LinkShip" href="new-quote.html" class="btn-edit">Edit ✎</a>
     </div>
       <div class="card-body">
@@ -2270,6 +2270,31 @@ function applyTotals(opts) {
   }
 }
 
+// ── Ship To 區塊(5 檔鏡像同一份 resolver)──
+const PROCRAFT_PICKUP_LINES = [
+  'ProCraft Cabinetry DC LLC',
+  '6750 Santa Barbara Court Suite B',
+  'Elkridge, MD 21075',
+  'Hours: Mon-Fri 8:00 AM - 4:30 PM',
+];
+// 依 logistic_type 回傳 { title, lines[] }。pickup 一律 ProCraft(忽略 addr);
+// delivery/shipping 用正規化後的 addr 物件。
+function resolveShipTo(logisticType, addr) {
+  const t = String(logisticType || '').toLowerCase();
+  if (t === 'pickup') {
+    return { title: 'PICK UP LOCATION', lines: PROCRAFT_PICKUP_LINES.slice() };
+  }
+  const title = (t === 'delivery') ? 'DELIVERY TO' : 'SHIP TO';
+  const a = addr || {};
+  const cityLine = [
+    [a.city, a.state].filter(Boolean).join(', '),
+    a.zip_code
+  ].filter(Boolean).join(' ');
+  const lines = [a.recipient_name, a.address_line, a.address_line2, cityLine, a.phone]
+    .filter(function (l) { return l && String(l).trim(); });
+  return { title: title, lines: lines };
+}
+
 function renderReview() {
   const poDisplay = _existingPoNumber || _existingDraftNumber || '—';  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
   document.getElementById('reviewPO').textContent       = poDisplay;
@@ -2277,20 +2302,28 @@ function renderReview() {
   document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
   document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
 
-  const shippingEl = document.getElementById('reviewShipping');
-  if (step1Data.shippingMode === 'same') {
-    shippingEl.innerHTML = `
-      <strong>${dealer?.company_name}</strong><br>
-      ${dealer?.city || ''}, ${dealer?.state || ''}<br>
-      ${dealer?.phone || ''}`;
-  } else if (shippingAddress) {
-    const line2Html = shippingAddress.address_line2 ? `${shippingAddress.address_line2}<br>` : '';
-    shippingEl.innerHTML = `
-      <strong>${shippingAddress.recipient_name}</strong><br>
-      ${shippingAddress.address_line}<br>
-      ${line2Html}${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.zip_code}<br>
-      ${shippingAddress.phone || ''}`;
+// Ship To 新規格:依 logistic_type 決定標題 + 內容(pickup 顯示 ProCraft,忽略地址)
+  const _lt = step1Data.logisticType || 'pickup';
+  let _shipAddr = null;
+  if (_lt !== 'pickup') {
+    if (step1Data.shippingMode === 'same') {
+      _shipAddr = {
+        recipient_name: dealer?.company_name,
+        city:           dealer?.city,
+        state:          dealer?.state,
+        phone:          dealer?.phone,
+      };
+    } else if (shippingAddress) {
+      _shipAddr = shippingAddress;
+    }
   }
+  const _shipTo = resolveShipTo(_lt, _shipAddr);
+  const _titleEl = document.getElementById('shipToTitle');
+  if (_titleEl) _titleEl.textContent = _shipTo.title;
+  const shippingEl = document.getElementById('reviewShipping');
+  shippingEl.innerHTML = _shipTo.lines
+    .map(function (l, i) { return i === 0 ? `<strong>${escapeHtml(l)}</strong>` : escapeHtml(l); })
+    .join('<br>');
 
   if (step1Data.notes) {
     document.getElementById('notesCard').style.display = 'block';
