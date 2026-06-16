@@ -1040,6 +1040,9 @@
       }
     }
 
+    // Ship To 新規格:同步初始 logistic UI(全新報價預設 pickup 時也要帶出 ProCraft 區塊)
+    handleLogisticChange();
+
     // Poll is_active every 60s — kick out if deactivated
     setInterval(async () => {
       const { data: check } = await _supabase
