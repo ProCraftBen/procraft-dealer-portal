@@ -783,13 +783,34 @@ function getTagForItem(item) {
     const source = ct === 'frameless' ? _allSkusFrameless : _allSkusFramed;
     const match  = source.find(function (s) { return s.sku_code === mappingCode; });
     if (!match) return empty;
-    return {
+return {
       type:        match.type || '',
       description: match.description || '',
       tag:         match.tag || '',
     };
   }
-  
+
+  // CB-25 (PDF): 把每個 mapping mod 的 type/description/tag 掛進 payload。
+  //   pdf-builder.js 無 DB,需由此處用 getMappingSkuInfo 查好後餵進去。
+  //   非破壞性:複製 sub_groups / modifications,不動 live _groupedItems
+  //   (避免多餘欄位影響其他讀取)。
+  //   constructionType 由 caller per-item 反查 _allDoorStyles 帶入(與 on-screen mapping 同源)。
+  function enrichSubGroupsForPdf(subGroups, constructionType) {
+    return (Array.isArray(subGroups) ? subGroups : []).map(function (sub) {
+      const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+      const enrichedMods = mods.map(function (m) {
+        if (!m || !m.mapping_sku) return m;
+        const info = getMappingSkuInfo(m.mapping_sku, constructionType);
+        return Object.assign({}, m, {
+          mapping_type:        info.type,
+          mapping_description: info.description,
+          mapping_tag:         info.tag,
+        });
+      });
+      return Object.assign({}, sub, { modifications: enrichedMods });
+    });
+  }
+
   // CB-11 任務A: 整單 lead time(重寫 CB-5;用 style_code join door_styles)
 // 任何 frameless → ~5 Weeks;有 non-stock → ~2~3 Weeks;全 framed 全 stock → null(整塊不顯示)
 // 查不到門花色(custom / accessory / 停產)的 item 不納入判斷
@@ -1993,7 +2014,13 @@ async function saveShipping() {
 function buildQuoteDataForPdf() {
   // Build per-item structure with sub_groups, mirroring step3
   const items = (_groupedItems || []).map(function(item) {
-    return {
+      // CB-25: per-item 反查 construction(quote_items 無此欄),與 on-screen mapping 查表同源
+      let _itemCt = 'framed';
+      if (item.style_code && Array.isArray(_allDoorStyles)) {
+        const _ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
+        if (_ds && _ds.construction_type) _itemCt = String(_ds.construction_type).toLowerCase();
+      }
+      return {
       style_name:      item.style_name,
       style_code:      item.style_code,
       sku_code:        item.sku_code,
@@ -2004,7 +2031,7 @@ function buildQuoteDataForPdf() {
       unit_price:      item.unit_price,
       msrp:            item.msrp || null,
       assemble_fee:    item.assemble_fee,
-      sub_groups:      item.sub_groups,
+      sub_groups:      enrichSubGroupsForPdf(item.sub_groups, _itemCt),  // CB-25: 掛 mapping type/desc/tag 給 PDF
       is_custom:       !!item.is_custom,
       tag:             getTagForItem(item),  // CB-9: 帶 tag 給 PDF
     };
