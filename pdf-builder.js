@@ -717,6 +717,7 @@ return total;
     const showPrices = !isPacking;
     const colCount   = isPacking ? 6 : 10;
     const bodyFs     = isPacking ? 11 : 9;
+    const headFs     = isPacking ? bodyFs : 8;
 
     // CB-25 三層分組底色 + per-item 斑馬(列印取向;皆比 header[14,31,22] 淺)
     const C_SECTION = [62, 90, 66];     // Tier1 section divider(深綠,白字)
@@ -725,8 +726,8 @@ return total;
     const C_ZEBRA   = [220, 220, 214];  // 隔一個 item 上色(白 item 不上色)
 
     const head = isPacking
-      ? [['#', 'Type', 'SKU', 'Description', 'Qty', 'Assembled?']]
-      : [['#', 'Type', 'SKU', 'Description', 'Qty', 'Assembled?',
+      ? [['#', 'Type', 'SKU', 'Description', 'Qty', 'Asm?']]
+      : [['#', 'Type', 'SKU', 'Description', 'Qty', 'Asm?',
           'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
 
     const body = [];
@@ -888,16 +889,16 @@ return total;
           5: { cellWidth: 24 },
         }
       : {
-          0: { cellWidth: 8 },
+          0: { cellWidth: 12 },
           1: { cellWidth: 12, overflow: 'linebreak' },
           2: { cellWidth: 52, overflow: 'linebreak' },
           3: { cellWidth: 24, overflow: 'linebreak' },
           4: { halign: 'right', cellWidth: 10 },
           5: { cellWidth: 18 },
-          6: { halign: 'right', cellWidth: 18 },
-          7: { halign: 'right', cellWidth: 14 },
-          8: { halign: 'right', cellWidth: 14 },
-          9: { halign: 'right', fontStyle: 'bold', cellWidth: 18 },
+          6: { halign: 'right', cellWidth: 16, fontSize: 8 },
+          7: { halign: 'right', cellWidth: 14, fontSize: 8 },
+          8: { halign: 'right', cellWidth: 14, fontSize: 8 },
+          9: { halign: 'right', fontStyle: 'bold', cellWidth: 16, fontSize: 8 },
         };
 
     const onDrawPage = (data) => {
@@ -917,7 +918,7 @@ return total;
       body: body,
       margin: { left: margin, right: margin, top: headerH + 4 },
       styles: { fontSize: bodyFs, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
-      headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: bodyFs },
+      headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: headFs },
       columnStyles: columnStyles,
       didParseCell: onParseCell,
       didDrawPage: onDrawPage,
