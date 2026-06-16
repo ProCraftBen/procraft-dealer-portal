@@ -976,6 +976,49 @@ function calcTaxableModsCost(groupedItems) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CB-27: Modifications 按 type 分組(方案 B 明細用)。
+//   ⚠ 三檔逐字同步:pdf-builder.js / new-quote-step3.html / quote-detail.html
+//   • parentPerSubModCost = Σ(cost + 非mapping material) —— 與 Order List Mod Fee
+//     欄完全一致(mapping material 已搬去獨立 mapping row,不算進來)。
+//   • modFee = parentPerSubModCost × subQty;只計 modFee > 0 的 sub。
+//   • type 取父 row,順序走 CB-22 getTypeOrder;不在清單 → OTHER(放最後)。
+//   回傳 { byType, ordered, modsDisplayTotal }。
+// ─────────────────────────────────────────────────────────────────────────────
+function calcModByType(groupedItems, constructionType) {
+  const order = getTypeOrder(constructionType).map(function (t) { return t.toUpperCase(); });
+  const byType = {};
+  let modsDisplayTotal = 0;
+  (groupedItems || []).forEach(function (item) {
+    const subs = Array.isArray(item.sub_groups) ? item.sub_groups : [];
+    let ptype = (item.sku_type || OTHER_GROUP_LABEL).toUpperCase();
+    if (order.indexOf(ptype) === -1) ptype = OTHER_GROUP_LABEL;   // 不在清單 → OTHER
+    subs.forEach(function (sub) {
+      const subQty = parseInt(sub.qty, 10) || 0;
+      const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+      let parentPerSubModCost = 0;
+      mods.forEach(function (m) {
+        const c  = parseFloat(m && m.cost);
+        const mt = parseFloat(m && m.material_cost);
+        const mq = parseInt(m && m.mapping_qty, 10) || 0;
+        const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+        parentPerSubModCost += (isNaN(c) ? 0 : c);
+        if (!hasMapping) parentPerSubModCost += (isNaN(mt) ? 0 : mt);
+      });
+      const modFee = parentPerSubModCost * subQty;
+      if (modFee > 0) {
+        if (!byType[ptype]) byType[ptype] = { qty: 0, modFee: 0 };
+        byType[ptype].qty    += subQty;
+        byType[ptype].modFee += modFee;
+        modsDisplayTotal     += modFee;
+      }
+    });
+  });
+  const ordered = order.filter(function (t) { return byType[t]; });
+  if (byType[OTHER_GROUP_LABEL]) ordered.push(OTHER_GROUP_LABEL);
+  return { byType: byType, ordered: ordered, modsDisplayTotal: modsDisplayTotal };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // F-PROMOTIONS helper: groupedItems → flat shape for calculatePromotionDiscount.
 //
 // calculatePromotionDiscount expects items with .style_code / .unit_price /
@@ -1622,6 +1665,14 @@ function renderQuote(quote, dealer, addr) {
   const taxableMods       = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
   const nonTaxableMods    = modsSubtotal - taxableMods;
 
+  // ── CB-27: Modifications by-type 明細 + Subtotal 顯示分桶對齊 CB-25 ──
+  //   只改「顯示」:把 mapping material 從 Modifications 搬到 Subtotal 顯示。
+  //   ⚠ 不動 skuSubtotal / modsSubtotal 兩變數 —— 下方 CB-13 折扣反推與 Grand
+  //   全依賴它們,顯示重分桶不影響反推結果。
+  const _ct                  = resolveQuoteConstructionType(_groupedItems || [], _allDoorStyles);
+  const modBreakdown         = _groupedItems ? calcModByType(_groupedItems, _ct) : { byType:{}, ordered:[], modsDisplayTotal:0 };
+  const mappingMaterialTotal = modsSubtotal - modBreakdown.modsDisplayTotal;
+
   // CB-13 (Approach A): Discount 不再用 PROMOTIONS/tag 即時重算,改從 DB 快照反推,
   // 讓歷史單精準不變、且 Discount 行永遠跟快照 Order Total 對得起來:
   //   grand = (subtotal − discount) + mods + assemble + shipping + tax
@@ -1664,11 +1715,18 @@ function renderQuote(quote, dealer, addr) {
       </div>`
     : '';
 
-  // F4.1 v2: Modifications row (only show if > 0)
-  const modsRowHtml = modsSubtotal > 0
-    ? `<div class="total-row">
-        <span class="total-label">Modifications</span>
-        <span class="total-val" style="color:#8B6914;">+${fmt(modsSubtotal)}</span>
+  // CB-27: Modifications row — 標題 + by-type 明細 + Total(仿 asmBreakdownHtml)
+  const modsRowHtml = modBreakdown.modsDisplayTotal > 0
+    ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
+          <span class="total-label">Modifications</span><span class="total-val" style="color:#8B6914;"></span>
+        </div>
+        <div class="asm-breakdown">
+          ${modBreakdown.ordered.map(t=>
+            `<div class="asm-breakdown-row"><span>${shortType(t)} ×${modBreakdown.byType[t].qty}</span><span style="color:#8B6914;">+${fmt(modBreakdown.byType[t].modFee)}</span></div>`
+          ).join('')}
+          <div class="asm-breakdown-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:4px;"><span>Total</span><span style="color:#8B6914;">+${fmt(modBreakdown.modsDisplayTotal)}</span></div>
+        </div>
       </div>`
     : '';
 
@@ -1893,7 +1951,7 @@ function renderQuote(quote, dealer, addr) {
       ${notesTableHtml}
 
       <div class="totals">
-        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(skuSubtotal)}</span></div>
+        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(skuSubtotal + mappingMaterialTotal)}</span></div>
         ${discountRowHtml}
         ${modsRowHtml}
         ${asmBreakdownHtml}
