@@ -507,7 +507,20 @@
   
   <!-- Shipping Address -->
   <div class="card">
-    <div class="card-title">Shipping Address</div>
+  <div class="card-title">Shipping / Delivery Address</div>
+
+    <!-- Pick Up Location — 唯讀,僅 logistic = pickup 時顯示 -->
+    <div id="pickupLocationDisplay" style="display:none;">
+      <div style="padding:14px 16px;border:1px solid var(--border);border-left:3px solid var(--green-dark);border-radius:3px;background:#FAFAF8;line-height:1.6;">
+        <div style="font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Pick Up Location</div>
+        <div style="font-size:13px;color:var(--text);">
+          <strong>ProCraft Cabinetry DC LLC</strong><br>
+          6750 Santa Barbara Court Suite B<br>
+          Elkridge, MD 21075<br>
+          Hours: Mon-Fri 8:00 AM - 4:30 PM
+        </div>
+      </div>
+    </div>
 
     <div class="address-toggle" id="addressToggle">
       <button class="toggle-btn active" id="btnSameBilling" onclick="setShippingMode('same')">
@@ -1316,10 +1329,33 @@ function setDeliveryDistanceValue(fee) {
 }
 
   
-  function handleLogisticChange() {
+function handleLogisticChange() {
     const type = document.getElementById('logisticType').value;
     document.getElementById('deliveryDistanceField').style.display = type === 'delivery' ? 'block' : 'none';
     document.getElementById('shippingTierNote').style.display = type === 'shipping' ? 'block' : 'none';
+    applyPickupShippingUI(type === 'pickup');
+  }
+
+  // Ship To 新規格:pickup 時隱藏地址選擇器、顯示唯讀 ProCraft 區塊並鎖住;
+  // 切走 pickup 時還原並解鎖。強制 shippingMode='same' + 清掉已選地址,
+  // 讓 goNext 驗證通過、DB 拿到正確 logistic_type。
+  function applyPickupShippingUI(isPickup) {
+    const toggleEl = document.getElementById('addressToggle');
+    const savedEl  = document.getElementById('savedAddressSection');
+    const pickupEl = document.getElementById('pickupLocationDisplay');
+    if (isPickup) {
+      if (toggleEl) toggleEl.style.display = 'none';
+      if (savedEl)  savedEl.style.display  = 'none';
+      if (pickupEl) pickupEl.style.display = 'block';
+      shippingMode = 'same';
+      selectedAddressId = null;
+      document.getElementById('btnSameBilling').classList.add('active');
+      document.getElementById('btnDiffShipping').classList.remove('active');
+    } else {
+      if (pickupEl) pickupEl.style.display = 'none';
+      if (toggleEl) toggleEl.style.display = '';
+      setShippingMode(shippingMode || 'same');
+    }
   }
 
   async function goNext() {
