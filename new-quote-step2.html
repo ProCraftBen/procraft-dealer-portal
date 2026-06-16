@@ -1074,6 +1074,11 @@
   <!-- Returned / mode banner mount point (populated by JS if applicable) -->
   <div id="returnedBannerMount"></div>
 
+  <!-- CB-29 A1: 靜態提醒 banner(always 顯示) -->
+  <div style="margin:8px 0;padding:10px 14px;background:rgba(201,168,76,0.10);border:1px solid rgba(201,168,76,0.45);border-radius:4px;font-size:12px;color:#8B6914;letter-spacing:0.02em;">
+    ⚠️ Items marked need sales check availability
+  </div>
+
   <!-- Brand Tabs: dynamic -->
   <div class="brand-tabs-bar" id="brandTabsBar">
   </div>
@@ -1700,6 +1705,7 @@ async function loadDraftItems() {
         // CB-5 需求1: carry door attributes (joined from door_styles) for lead time
         construction_type: style ? (style.construction_type || null) : null,
         is_stock:          style ? style.is_stock : null,
+        needs_confirmation: sku ? !!sku.needs_confirmation : false,  // CB-29
         type:         row.assemble_status,
         quantity:     0,
         unit_price:   parseFloat(row.unit_price),
@@ -2098,7 +2104,7 @@ function renderSkuTable() {
           return `
             <tr>
               <td>${sku.tag || ''}</td>
-              <td class="td-code">${sku.sku_code} ${stockTag}</td>
+              <td class="td-code">${sku.sku_code}${sku.needs_confirmation ? ' ⚠️' : ''} ${stockTag}</td>
               <td class="td-desc">${sku.description}</td>
               <td>${typeTag}</td>
               <td class="td-price">$${unitPrice}</td>
@@ -2164,6 +2170,7 @@ const key = `${activeStyle.style_code}-${skuCode}-${type}`;
       // CB-5 需求1: carry door attributes for Step 3 / quote-detail lead time
       construction_type: activeStyle.construction_type || null,
       is_stock:          activeStyle.is_stock,
+      needs_confirmation: !!sku.needs_confirmation,  // CB-29
       quantity:qty, unit_price:parseFloat(unitPrice), msrp:msrpValue,
       assemble_fee: parseFloat(assembledFee||0),
       // E5: new cart items start as a single un-split sub-group
@@ -2844,9 +2851,10 @@ function renderCart() {
     const styleLabel = item.style_name
       ? item.style_name
       : (item.is_custom ? '(custom)' : '');
-    const nameLine = styleLabel
-      ? `${styleLabel} · ${item.sku_code}${customBadge}`
-      : `${item.sku_code}${customBadge}`;
+    const _confIcon = item.needs_confirmation ? ' ⚠️' : '';  // CB-29
+        const nameLine = styleLabel
+          ? `${styleLabel} · ${item.sku_code}${_confIcon}${customBadge}`
+          : `${item.sku_code}${_confIcon}${customBadge}`;
 
     // CB-4: remove button disabled in review mode
     const removeBtn = locked
