@@ -134,7 +134,7 @@
   const LAYOUT = {
     pageW:    210,
     pageH:    297,
-    margin:   14,
+    margin:   10,
     headerH:  52,
   };
 
@@ -796,6 +796,7 @@ return total;
 
               const isDoorFrame = (item.sku_type || item.skuType || '').toUpperCase() === 'DOOR & FRAME';
               const hingeLine = (isDoorFrame && isFirstSub) ? '• Hinge not included' : '';
+              const confirmLine = (item.needs_confirmation && isFirstSub) ? '• Need to check availability' : '';  // CB-29
 
               // CB-25: 父 row Mod Fee 只留未搬走成本(cost);mapping 的 material 搬到獨立 row
               const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
@@ -814,6 +815,7 @@ return total;
                     type:  (m.mapping_type || ''),          // CB-25: caller 帶入(PDF 無 DB)
                     desc:  (m.mapping_description || ''),
                     tag:   (m.mapping_tag || ''),
+                    needsConf: !!m.mapping_needs_confirmation,  // CB-29
                     qty:   mq * subQty,
                     unit:  matPerSub / mq,
                     total: matPerSub * subQty,
@@ -828,7 +830,7 @@ return total;
                 notesIndex: notesIndex, notesCollector: notes,
                 showPrices: showPrices,
               });
-              const extraLines = [hingeLine, modsText].filter(Boolean).join('\n');
+              const extraLines = [hingeLine, confirmLine, modsText].filter(Boolean).join('\n');
               const skuCellText = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
                 + (extraLines ? `\n${extraLines}` : '');
 
@@ -856,7 +858,8 @@ return total;
                 const mt2 = (map.type || '').toUpperCase();
                 const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');
                 const mapPrefix = (item.style_code && !mapSkip) ? item.style_code + '-' : '';
-                const mapSku = `${mapPrefix}${map.code}`;
+                const mapSku = `${mapPrefix}${map.code}`
+                  + (map.needsConf ? '\n• Need to check availability' : '');  // CB-29
                 const mapNum = `${parentNum}.${k + 1}`;
                 if (isPacking) {
                   body.push([mapNum, (map.tag || ''), mapSku, (map.desc || ''), map.qty, '—']);
@@ -879,16 +882,16 @@ return total;
       ? {
           0: { cellWidth: 10 },
           1: { cellWidth: 14, overflow: 'linebreak' },
-          2: { cellWidth: 60, overflow: 'linebreak' },
-          3: { cellWidth: 58, overflow: 'linebreak' },
+          2: { cellWidth: 64, overflow: 'linebreak' },
+          3: { cellWidth: 62, overflow: 'linebreak' },
           4: { halign: 'right', cellWidth: 14 },
           5: { cellWidth: 24 },
         }
       : {
           0: { cellWidth: 8 },
           1: { cellWidth: 12, overflow: 'linebreak' },
-          2: { cellWidth: 46, overflow: 'linebreak' },
-          3: { cellWidth: 22, overflow: 'linebreak' },
+          2: { cellWidth: 52, overflow: 'linebreak' },
+          3: { cellWidth: 24, overflow: 'linebreak' },
           4: { halign: 'right', cellWidth: 10 },
           5: { cellWidth: 18 },
           6: { halign: 'right', cellWidth: 18 },
@@ -1235,18 +1238,18 @@ return total;
     let y = startY;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(9);
     doc.setTextColor(...COLORS.darkGreen);
     doc.text('Terms & Conditions', x, y);
-    y += 5;
+    y += 6;
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
+    doc.setFontSize(8);
     doc.setTextColor(60, 60, 60);
     TERMS_AND_CONDITIONS.forEach((item, i) => {
       const lines = doc.splitTextToSize(`${i + 1}. ${item}`, maxWidth);
       doc.text(lines, x, y);
-      y += lines.length * 4 + 1.5;
+      y += lines.length * 5 + 1.5;
     });
 
     return y;
@@ -1444,7 +1447,7 @@ return total;
     }
 
     let y = yAfterNotes + 8;
-    const TC_BLOCK_H = 7 * 6 + 16;
+    const TC_BLOCK_H = 7 * 9 + 16;
     // 改動 13/14 後 totals 少了 Assemble Fee 行 + 細項,所以高度需求變小
     const PROMO_H    = promoDiscount > 0 ? 9 : 0;
     // CB-27: Modifications 變多行(標題 + N type + Total)、Assemble Fee 獨立一行
@@ -1498,7 +1501,7 @@ return total;
 
     let y = yAfterNotes + 8;
     // 改動 15: T&C 變窄(maxWidth 105)會多折行,預留高一點
-    const TC_BLOCK_H = 7 * 8 + 16;
+    const TC_BLOCK_H = 7 * 9 + 16;
     const NEEDED     = TC_BLOCK_H + 20;
 
     if (y + NEEDED > 275) {
