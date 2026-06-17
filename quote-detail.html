@@ -1408,14 +1408,8 @@ function buildItemRowsHtml(groupedItems) {
               ? `<div class="hinge-note">Hinge not included</div>`
               : '';
 
-            // CB-29: needs_confirmation 註記(位置同 CB-11;quote_items 無此欄,反查 catalog)
-            const confirmNoteHtml = getNeedsConfirmationForItem(item)
-              ? `<div class="hinge-note">Need to check availability</div>`
-              : '';
-
             // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
-            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${confirmNoteHtml}${modsBlockHtml}`;
-            const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
+            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
 
             const assembledHtml = isFirstSub ? (item.assemble_status === 'RTA' ? 'No' : 'Yes') : '';
             const trClass = isFirstSub ? '' : 'sub-continuation';
