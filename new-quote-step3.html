@@ -2110,10 +2110,7 @@ function buildItemRowsHtml(markupPct) {
               const mt2 = (info.type || '').toUpperCase();
               const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');   // CB-23 #1:mapping 也適用
               const mapPrefix = (item.style_code && !mapSkip) ? escapeHtml(item.style_code) + '-' : '';
-              const mapConfirmHtml = info.needs_confirmation
-                ? `<div class="hinge-note">Need to check availability</div>`
-                : '';  // CB-29
-              const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}${mapConfirmHtml}`;
+              const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}`;
               const mapDescCell = info.description ? `<div class="desc-main">${escapeHtml(info.description)}</div>` : '';
 
               rows.push(`
