@@ -816,7 +816,6 @@ return total;
                     type:  (m.mapping_type || ''),          // CB-25: caller 帶入(PDF 無 DB)
                     desc:  (m.mapping_description || ''),
                     tag:   (m.mapping_tag || ''),
-                    needsConf: !!m.mapping_needs_confirmation,  // CB-29
                     qty:   mq * subQty,
                     unit:  matPerSub / mq,
                     total: matPerSub * subQty,
@@ -859,8 +858,7 @@ return total;
                 const mt2 = (map.type || '').toUpperCase();
                 const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');
                 const mapPrefix = (item.style_code && !mapSkip) ? item.style_code + '-' : '';
-                const mapSku = `${mapPrefix}${map.code}`
-                  + (map.needsConf ? '\n• Need to check availability' : '');  // CB-29
+                const mapSku = `${mapPrefix}${map.code}`;
                 const mapNum = `${parentNum}.${k + 1}`;
                 if (isPacking) {
                   body.push([mapNum, (map.tag || ''), mapSku, (map.desc || ''), map.qty, '—']);
