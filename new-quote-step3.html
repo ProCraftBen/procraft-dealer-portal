@@ -515,12 +515,36 @@ color: var(--green-dark);
       margin-bottom: 24px;
       min-height: 20px;
     }
-    .progress-msg {
+.progress-msg {
       font-size: 12px;
       color: var(--muted);
       line-height: 1.7;
       max-width: 360px;
     }
+    /* Submit overlay 強警示框（Portal warning 橘 #E07B39）：提醒 dealer 等 PO# 出現再關視窗 */
+    .progress-warning {
+      max-width: 400px;
+      margin: 4px auto 0;
+      background: #FFF3E6;
+      border: 1.5px solid #E07B39;
+      border-radius: 6px;
+      padding: 16px 18px;
+      text-align: center;
+    }
+    .progress-warning .pw-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #C0392B;
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+    .progress-warning .pw-title .pw-emoji { font-size: 17px; }
+    .progress-warning .pw-sub {
+      font-size: 12.5px;
+      color: #8B4A12;
+      line-height: 1.55;
+    }
+    .progress-warning .pw-sub strong { font-weight: 700; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* F-PROMOTIONS: markup × promo warning banner — red/warning theme */
@@ -756,10 +780,13 @@ color: var(--green-dark);
   <div class="progress-spinner"></div>
   <div class="progress-title" id="progressTitle">Submitting Your Purchase Order</div>
   <div class="progress-step" id="progressStep">Saving your quote...</div>
-  <div class="progress-msg">
-    Please don't close this window.<br>
-    This may take a few seconds.
-  </div>
+  <div class="progress-warning">
+      <div class="pw-title"><span class="pw-emoji">⚠️</span> DO NOT close this window</div>
+      <div class="pw-sub">
+        Please wait until your <strong>Purchase Order Number</strong> appears on the confirmation screen.<br>
+        This usually takes <strong>5–10 seconds</strong>.
+      </div>
+    </div>
 </div>
 
 <div class="success-overlay" id="successOverlay">
