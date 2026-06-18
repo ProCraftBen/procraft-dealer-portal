@@ -773,7 +773,7 @@ return total;
           pushDivider('========== ' + group.type + ' ==========', C_TYPE, [47, 71, 51]);
 
           group.items.forEach(function (item) {
-            const fill = (itemColorIdx % 2 === 1) ? C_ZEBRA : null;   // 同 item 同色
+            const fill = (itemColorIdx % 2 === 1) ? C_ZEBRA : [255, 255, 255];   // CB-FIX: 白底改顯式白,壓過 autotable striped 預設(divider 仍推 null)
             itemColorIdx++;
 
             const subs = _getNormalizedSubGroups(item);
