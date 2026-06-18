@@ -754,7 +754,7 @@ return total;
 
     sections.forEach(function (section) {
       if (!section.items.length) return;
-      pushDivider('===== ' + section.label + ' =====', C_SECTION, [255, 255, 255]);
+      pushDivider('========== ' + section.label + ' ==========', C_SECTION, [255, 255, 255]);
 
       // Tier2: style_code 字母序
       const byStyle = {};
@@ -766,11 +766,11 @@ return total;
       Object.keys(byStyle).sort().forEach(function (styleKey) {
         const styleItems = byStyle[styleKey];
         if (!styleItems.length) return;
-        pushDivider('--- ' + (styleItems[0].style_code || '—') + ' ---', C_STYLE, [107, 82, 15]);
+        pushDivider('========== ' + (styleItems[0].style_code || '—') + ' ==========', C_SECTION, [255, 255, 255]);
 
         // Tier3: CB-22 type 分組
         _groupByTypeOrdered(styleItems, constructionType).forEach(function (group) {
-          pushDivider('========== ' + group.type + ' ==========', C_TYPE, [47, 71, 51]);
+          pushDivider('========== ' + group.type + ' ==========', C_SECTION, [255, 255, 255]);
 
           group.items.forEach(function (item) {
             const fill = (itemColorIdx % 2 === 1) ? C_ZEBRA : [255, 255, 255];   // CB-FIX: 白底改顯式白,壓過 autotable striped 預設(divider 仍推 null)
