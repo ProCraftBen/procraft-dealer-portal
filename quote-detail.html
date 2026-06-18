@@ -1408,6 +1408,9 @@ function buildItemRowsHtml(groupedItems) {
               ? `<div class="hinge-note">Hinge not included</div>`
               : '';
 
+            // 🆕 補上父 row Description(對齊 mapping row 的 mapDescCell)
+            const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
+            
             // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
             const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
 
