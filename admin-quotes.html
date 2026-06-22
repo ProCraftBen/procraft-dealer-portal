@@ -610,7 +610,7 @@ async function loadQuotes() {
   if (search) {
     if (/^D\d{5}$/i.test(search)) {
       query = query.eq('draft_number', search.toUpperCase());
-    } else if (/^P\d{5}$/i.test(search)) {
+    } else if (/^PDC\d{5}$/i.test(search)) {
       query = query.eq('po_number', search.toUpperCase());
     } else {
       const safe = search.replace(/[,()*]/g, '');  // 去掉會破壞 PostgREST or() 的字元
