@@ -623,7 +623,7 @@ function applyFilters() {
     // 選項 C 混合搜尋: 完整編號(D/P + 5碼)精確比對;否則模糊比對兩個編號 + Job Name
     if (/^D\d{5}$/i.test(search)) {
       filtered = filtered.filter(q => (q.draft_number || '').toUpperCase() === search.toUpperCase());
-    } else if (/^P\d{5}$/i.test(search)) {
+    } else if (/^PDC\d{5}$/i.test(search)) {
       filtered = filtered.filter(q => (q.po_number || '').toUpperCase() === search.toUpperCase());
     } else {
       const s = search.toLowerCase();
