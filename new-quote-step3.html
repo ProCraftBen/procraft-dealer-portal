@@ -2000,10 +2000,11 @@ function buildItemRowsHtml(markupPct) {
   sections.forEach(function (section) {
     if (!section.items.length) return;  // 空 section 不顯示
 
-    rows.push(`
-      <tr class="section-divider">
-        <td colspan="10">===== ${escapeHtml(section.label)} =====</td>
-      </tr>`);
+    // CB-31 改動A:隱藏 Assembled/Unassembled divider（保留程式,日後移除註解即可 unhide）
+    // rows.push(`
+    //   <tr class="section-divider">
+    //     <td colspan="10">===== ${escapeHtml(section.label)} =====</td>
+    //   </tr>`);
 
     // Tier2: style_code 字母序分組
     const byStyle = {};
@@ -2015,7 +2016,8 @@ function buildItemRowsHtml(markupPct) {
     Object.keys(byStyle).sort().forEach(function (styleKey) {
       const styleItems = byStyle[styleKey];
       if (!styleItems.length) return;  // 空 style 不顯示
-      const styleLabel = styleItems[0].style_code || '—';
+      // CB-31 改動B:Door Style divider 顯示 style_name 全名,空值 fallback style_code
+      const styleLabel = styleItems[0].style_name || styleItems[0].style_code || '—';
 
       rows.push(`
         <tr class="style-divider">
