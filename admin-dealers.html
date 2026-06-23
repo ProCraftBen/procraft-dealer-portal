@@ -83,6 +83,8 @@
     .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
     .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 10px 14px; font-size: 12px; color: var(--error); margin-bottom: 16px; display: none; }
     .error-msg.show { display: block; }
+    .error-msg ul { margin: 6px 0 0 18px; padding: 0; }
+    .error-msg li { margin: 2px 0; }
     .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; }
     .confirm-overlay.show { display: flex; }
     .confirm-box { background: var(--white); border-radius: 4px; width: 100%; max-width: 400px; padding: 28px; }
@@ -95,6 +97,15 @@
     .btn-danger.ready { opacity: 1; }
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; }
     .toast.show { display: block; }
+
+    /* Add/Edit Dealer modal placeholder — light grey + italic, clearly distinct from real input */
+    .modal input::placeholder,
+    .modal textarea::placeholder,
+    .modal select::placeholder {
+      color: #b0b0b0;
+      font-style: italic;
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -345,6 +356,22 @@ const _supabase = createClient(
 let editingDealerId = null;
 let deletingDealerId = null;
 
+// Required field id -> display label (aligned to form labels). Used by validation alert.
+const REQUIRED_FIELD_LABELS = {
+  f_company_name:       'Company Name',
+  f_contact_name:       'Contact Name',
+  f_email:              'Email',
+  f_phone:              'Phone',
+  f_address_line1:      'Address Line 1',
+  f_city:               'City',
+  f_state:              'State',
+  f_zip_code:           'Zip Code',
+  f_stock_multiplier:   'Stock Multiplier',
+  f_non_stock_multiplier: 'Non-Stock Multiplier',
+  f_frameless_multiplier: 'Frameless Multiplier',
+  f_tax_rate:           'Tax Rate',
+};
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -357,10 +384,44 @@ function toggleTaxExempt() {
   const taxInput = document.getElementById('f_tax_rate');
   taxInput.disabled = exempt;
   if (exempt) taxInput.value = '0';
+  refreshFormErrorIfShown();
 }
 
 function generateSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
+}
+
+// Return array of display labels for required fields that are still empty.
+// Respects Tax Exempt (skips Tax Rate when exempt is checked).
+function getMissingRequiredFields() {
+  const taxExempt = document.getElementById('f_tax_exempt').checked;
+  const missing = [];
+  for (const [id, label] of Object.entries(REQUIRED_FIELD_LABELS)) {
+    if (id === 'f_tax_rate' && taxExempt) continue;
+    const el = document.getElementById(id);
+    if (!el || !el.value.trim()) missing.push(label);
+  }
+  return missing;
+}
+
+// Render the missing-fields list into #formError, or hide it when list is empty.
+function renderFormError(missing) {
+  const errEl = document.getElementById('formError');
+  if (!missing.length) {
+    errEl.classList.remove('show');
+    errEl.innerHTML = '';
+    return;
+  }
+  const items = missing.map(name => `<li>${name}</li>`).join('');
+  errEl.innerHTML = `Please fill in the following required fields:<ul>${items}</ul>`;
+  errEl.classList.add('show');
+}
+
+// Live update: only re-evaluate while the alert is already visible.
+function refreshFormErrorIfShown() {
+  const errEl = document.getElementById('formError');
+  if (!errEl.classList.contains('show')) return;
+  renderFormError(getMissingRequiredFields());
 }
 
 async function init() {
@@ -519,17 +580,11 @@ async function saveDealer() {
     asm_fee_frameless_roll_out_tray: document.getElementById('f_asm_fee_frameless_roll_out_tray').value || 0,
   };
 
-  const optionalFields = ['address_line2', 'slug', 'lat', 'lng', 'address_formatted', 'secondary_email', 'optional_email_2',
-    'asm_fee_framed_base','asm_fee_framed_wall','asm_fee_framed_tall','asm_fee_framed_roll_out_tray',
-    'asm_fee_frameless_base','asm_fee_frameless_wall','asm_fee_frameless_tall','asm_fee_frameless_vanity','asm_fee_frameless_roll_out_tray'];
-  for (const [key, val] of Object.entries(fields)) {
-    if (optionalFields.includes(key)) continue;
-    if (key === 'tax_rate' && fields.tax_exempt) continue;
-    if (!val && val !== false) {
-      errEl.textContent = 'Please fill in all required fields.';
-      errEl.classList.add('show');
-      return;
-    }
+  // Validation: list specific missing required fields (respects Tax Exempt).
+  const missing = getMissingRequiredFields();
+  if (missing.length) {
+    renderFormError(missing);
+    return;
   }
 
   btn.disabled = true;
@@ -672,8 +727,10 @@ document.getElementById('f_company_name').addEventListener('input', function() {
   document.getElementById('f_slug').value = generateSlug(this.value);
 });
 
-document.getElementById('modalOverlay').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
+// Live validation: when the alert is visible, remove fields from the list as they get filled.
+Object.keys(REQUIRED_FIELD_LABELS).forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', refreshFormErrorIfShown);
 });
 
 function initMaps() {
@@ -704,6 +761,9 @@ function initMaps() {
     document.getElementById('f_lat').value               = place.geometry.location.lat();
     document.getElementById('f_lng').value               = place.geometry.location.lng();
     document.getElementById('f_address_formatted').value = place.formatted_address;
+
+    // Address autocomplete fills city/state/zip programmatically; refresh the alert if visible.
+    refreshFormErrorIfShown();
   });
 }
 
