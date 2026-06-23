@@ -510,7 +510,8 @@ return total;
     doc.setTextColor(...COLORS.muted);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${numberLabel || 'PO#'} ${poNumber || '—'}`, pageW - margin, 25, { align: 'right' });
+    // CB-31 改動C:fallback 一併改 SO#(numberLabel 正常必有值,純防呆)
+    doc.text(`${numberLabel || 'SO#'} ${poNumber || '—'}`, pageW - margin, 25, { align: 'right' });
 
     // date / jobName 1.5x(7→10.5)
     doc.setFontSize(10.5);
@@ -519,7 +520,8 @@ return total;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10.5);
     doc.setTextColor(40, 40, 40);
-    doc.text(jobName || '—', pageW - margin, 41, { align: 'right' });
+    // CB-31 改動D:PDF Job Name 加前綴「Job Name: 」(空值顯示 Job Name: —)
+    doc.text('Job Name: ' + (jobName || '—'), pageW - margin, 41, { align: 'right' });
   }
 
   // 改動 11: Bill To / Ship To 區塊字體 1.5x(7.5→11),行距加大。
@@ -754,7 +756,8 @@ return total;
 
     sections.forEach(function (section) {
       if (!section.items.length) return;
-      pushDivider('========== ' + section.label + ' ==========', C_SECTION, [255, 255, 255]);
+      // CB-31 改動A:隱藏 Assembled/Unassembled divider（保留程式,日後移除註解即可 unhide）
+      // pushDivider('========== ' + section.label + ' ==========', C_SECTION, [255, 255, 255]);
 
       // Tier2: style_code 字母序
       const byStyle = {};
@@ -766,7 +769,8 @@ return total;
       Object.keys(byStyle).sort().forEach(function (styleKey) {
         const styleItems = byStyle[styleKey];
         if (!styleItems.length) return;
-        pushDivider('========== ' + (styleItems[0].style_code || '—') + ' ==========', C_SECTION, [255, 255, 255]);
+        // CB-31 改動B:Door Style divider 顯示 style_name 全名,空值 fallback style_code
+        pushDivider('========== ' + (styleItems[0].style_name || styleItems[0].style_code || '—') + ' ==========', C_SECTION, [255, 255, 255]);
 
         // Tier3: CB-22 type 分組
         _groupByTypeOrdered(styleItems, constructionType).forEach(function (group) {
@@ -1283,7 +1287,8 @@ return total;
       poNumber:      isDraftQuote
                        ? (quoteData.draft_number || '—')
                        : (quoteData.po_number || '—'),
-      numberLabel:   isDraftQuote ? 'Draft ID' : 'PO#',
+      // CB-31 改動C:PDF 顯示 SO#（賣方視角 Sales Order）;DB 欄位 po_number 不動,Draft Quote 仍顯 Draft ID
+      numberLabel:   isDraftQuote ? 'Draft ID' : 'SO#',
       jobName:       quoteData.job_name  || '—',
       date,
       documentTitle: documentTitle,
