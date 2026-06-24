@@ -397,6 +397,25 @@ color: var(--green-dark);
     .btn-draft.loading .draft-spinner { display: block; }
     .draft-spinner { width: 14px; height: 14px; border: 2px solid rgba(201,168,76,0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
 
+    /* CB-32: Admin Submit 按鈕(警示橘) */
+    .btn-admin-submit {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #E07B39; color: #fff; border: none; border-radius: 3px;
+      padding: 15px 40px; font-family: 'DM Sans', sans-serif;
+      font-size: 12px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.2s; min-height: 52px;
+    }
+    .btn-admin-submit:hover { background: #C96A2E; }
+    .btn-admin-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-admin-submit svg { width: 16px; height: 16px; fill: currentColor; }
+    .btn-admin-submit.loading .btn-text { display: none; }
+    .btn-admin-submit.loading .spinner { display: block; }
+
+    /* CB-32: Admin checklist modal 勾選列 */
+    .admin-check-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; font-size: 13px; color: var(--text); line-height: 1.5; }
+    .admin-check-row input[type="checkbox"] { margin-top: 2px; width: 16px; height: 16px; cursor: pointer; accent-color: #E07B39; flex-shrink: 0; }
+    .admin-check-row label { cursor: pointer; text-align: left; }
+
     .success-icon.gold { background: rgba(201,168,76,0.15); border: 2px solid var(--gold); }
     .success-icon.gold svg { stroke: var(--gold); }
 
@@ -761,9 +780,14 @@ color: var(--green-dark);
 <button class="btn-submit" id="btnSubmit" onclick="openSubmitConfirmModal()" disabled>
         <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
         <span class="btn-text" id="btnSubmitText">Submit Purchase Order</span>
-        <div class="spinner"></div>
-      </button>
-      <button class="btn-submit" id="btnRequestRevision" onclick="openRevisionModal()" style="display:none;">
+                <div class="spinner"></div>
+              </button>
+              <button class="btn-admin-submit" id="btnAdminSubmit" onclick="openAdminSubmitFlow()" style="display:none;">
+                <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                <span class="btn-text">Submit Purchase Order (Admin)</span>
+                <div class="spinner"></div>
+              </button>
+              <button class="btn-submit" id="btnRequestRevision" onclick="openRevisionModal()" style="display:none;">
         <svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
         <span>Request Review &amp; Resubmit</span>
       </button>
@@ -889,6 +913,41 @@ color: var(--green-dark);
     <div class="cb4-modal-actions">
       <button class="cb4-modal-btn cancel" id="submitConfirmCancelBtn" onclick="closeSubmitConfirmModal()">Cancel</button>
       <button class="cb4-modal-btn confirm" id="submitConfirmOkBtn" onclick="confirmSubmitFromModal()">
+        <span class="cb4-btn-label">Confirm &amp; Submit</span>
+      </button>
+</div>
+  </div>
+</div>
+
+<!-- CB-32: Admin Submit 階段1 — needs_confirmation(僅當有特殊品才跳) -->
+<div class="cb4-modal" id="adminNeedsConfirmModal">
+  <div class="cb4-modal-box">
+    <div class="cb4-modal-title">⚠️ Please Review the Following</div>
+    <div class="cb5-nonstock-note" id="adminNeedsConfirmItems" style="display:block;"></div>
+    <div class="cb4-modal-actions">
+      <button class="cb4-modal-btn cancel" onclick="closeAdminNeedsConfirmModal()">Cancel</button>
+      <button class="cb4-modal-btn confirm" onclick="continueAdminNeedsConfirm()">
+        <span class="cb4-btn-label">Continue</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CB-32: Admin Submit 階段2 — checklist 防呆 -->
+<div class="cb4-modal" id="adminChecklistModal">
+  <div class="cb4-modal-box">
+    <div class="cb4-modal-title">⚠️ Confirm Admin Submission</div>
+    <div class="admin-check-row">
+      <input type="checkbox" id="adminCheck1" onchange="onAdminChecklistChange()"/>
+      <label for="adminCheck1">Dealer has reviewed the complete order</label>
+    </div>
+    <div class="admin-check-row">
+      <input type="checkbox" id="adminCheck2" onchange="onAdminChecklistChange()"/>
+      <label for="adminCheck2">Dealer has authorized submission</label>
+    </div>
+    <div class="cb4-modal-actions">
+      <button class="cb4-modal-btn cancel" onclick="closeAdminChecklistModal()">Cancel</button>
+      <button class="cb4-modal-btn confirm" id="adminChecklistConfirmBtn" onclick="confirmAdminSubmit()" disabled>
         <span class="cb4-btn-label">Confirm &amp; Submit</span>
       </button>
     </div>
@@ -1759,8 +1818,9 @@ if (draftId) {
     elBtnSubmit.style.display = 'none';
     elBtnDraft.style.display  = 'none';
     elBtnRev.style.display    = 'inline-flex';
+    document.getElementById('btnAdminSubmit').style.display = 'inline-flex';  // CB-32
     elSubmitNote.innerHTML =
-      'Review the changes, then send this Purchase Order back to the dealer for confirmation.';
+      'Review the changes, then either send this Purchase Order back to the dealer for revision, or submit it on the dealer\'s behalf.';
 
   } else if (viewMode === 'review') {
     document.getElementById('returnedBannerMount').innerHTML = buildReviewBanner();
@@ -1778,10 +1838,11 @@ if (draftId) {
     });
 
   } else if (viewMode === 'admin-draft') {
-    elBtnSubmit.style.display = 'none';
-    elDraftBan.style.display  = 'flex';
-    document.getElementById('draftBannerText').innerHTML =
-      '<strong>Admin mode</strong> — Use <strong>Save as Quote</strong> only. The dealer will review and submit this quote.';
+      elBtnSubmit.style.display = 'none';
+      document.getElementById('btnAdminSubmit').style.display = 'inline-flex';  // CB-32
+      elDraftBan.style.display  = 'flex';
+      document.getElementById('draftBannerText').innerHTML =
+        '<strong>Admin mode</strong> — Save as Quote for the dealer to review, or submit the Purchase Order on the dealer\'s behalf.';
 
   } else if (draftId) {
     // normal mode, editing an existing draft
@@ -2834,7 +2895,8 @@ async function saveDraft() {
 // Revisions: nextRevisionNumber logic unchanged from prior version.
 // ─────────────────────────────────────────────────────────────────────────────
 async function submitQuote() {
-  const btn     = document.getElementById('btnSubmit');
+  const _isAdminSubmit = (viewMode === 'admin-draft' || viewMode === 'admin-edit');  // CB-32
+  const btn     = document.getElementById(_isAdminSubmit ? 'btnAdminSubmit' : 'btnSubmit');
   const errMsg  = document.getElementById('errorMsg');
   const overlay = document.getElementById('progressOverlay');
   const stepEl  = document.getElementById('progressStep');
@@ -3066,8 +3128,9 @@ async function submitQuote() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${currentSession.access_token}`,
         },
-        body: JSON.stringify({
-          quote: {
+    body: JSON.stringify({
+              ...((viewMode === 'admin-draft' || viewMode === 'admin-edit') ? { notification_type: 'admin_submitted_po' } : {}),  // CB-32
+            quote: {
             id:                          quoteId,
             quote_number:                quoteNum,
             po_number:                   poNumber,
@@ -3480,6 +3543,68 @@ function onAgreeTermsChange() {
   if (!cb || !btn) return;
   btn.disabled = !cb.checked;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-32: Admin Submit 流程
+//   階段1: needs_confirmation modal(僅當整單有特殊品才跳)
+//   階段2: admin checklist modal(兩項 acknowledge 才放行)
+//   → 交給共用 submitQuote() 引擎。dealer 流程(openSubmitConfirmModal /
+//     submitConfirmModal / saveNoticeModal)完全不動。
+// ═══════════════════════════════════════════════════════════════════
+function openAdminSubmitFlow() {
+  if (orderHasSpecialItems()) {
+    const box = document.getElementById('adminNeedsConfirmItems');
+    if (box) box.innerHTML = buildSpecialItemsHtml();
+    document.getElementById('adminNeedsConfirmModal').classList.add('show');
+  } else {
+    openAdminChecklistModal();
+  }
+}
+
+function closeAdminNeedsConfirmModal() {
+  document.getElementById('adminNeedsConfirmModal').classList.remove('show');
+}
+
+function continueAdminNeedsConfirm() {
+  document.getElementById('adminNeedsConfirmModal').classList.remove('show');
+  openAdminChecklistModal();
+}
+
+function openAdminChecklistModal() {
+  const cb1 = document.getElementById('adminCheck1');
+  const cb2 = document.getElementById('adminCheck2');
+  const btn = document.getElementById('adminChecklistConfirmBtn');
+  if (cb1) cb1.checked = false;
+  if (cb2) cb2.checked = false;
+  if (btn) btn.disabled = true;
+  document.getElementById('adminChecklistModal').classList.add('show');
+}
+
+function closeAdminChecklistModal() {
+  document.getElementById('adminChecklistModal').classList.remove('show');
+}
+
+function onAdminChecklistChange() {
+  const cb1 = document.getElementById('adminCheck1');
+  const cb2 = document.getElementById('adminCheck2');
+  const btn = document.getElementById('adminChecklistConfirmBtn');
+  if (!cb1 || !cb2 || !btn) return;
+  btn.disabled = !(cb1.checked && cb2.checked);
+}
+
+function confirmAdminSubmit() {
+  document.getElementById('adminChecklistModal').classList.remove('show');
+  submitQuote();
+}
+
+// CB-32: ESC 關閉 admin submit modal(backdrop 點擊維持禁用)。
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  const acm = document.getElementById('adminChecklistModal');
+  const ncm = document.getElementById('adminNeedsConfirmModal');
+  if (acm && acm.classList.contains('show')) { closeAdminChecklistModal(); return; }
+  if (ncm && ncm.classList.contains('show')) { closeAdminNeedsConfirmModal(); return; }
+});
 
 function updateMarkupPreview() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
