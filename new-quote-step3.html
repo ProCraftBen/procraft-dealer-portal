@@ -3784,7 +3784,14 @@ async function downloadPDF() {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
   // F-PROMOTIONS: pass markupPercent into buildQuoteDataForPdf so the helper
   // can suppress promo on the PDF payload when markup is active.
-  const quoteDataForPdf = buildQuoteDataForPdf({ markupPercent: markupPct });
+  // CB-33: 只在 admin+shipping 時帶 override(草稿 PDF 與畫面/submit 一致);
+  //   ⚠ 必須 gate isAdminShippingMode() —— 否則 dealer 的 pickup/delivery 會
+  //   因 hasOwnProperty 分支跳過 resolveShippingForDb,被誤寫成 null。
+  const _pdfOpts = { markupPercent: markupPct };
+  if (isAdminShippingMode()) {
+    _pdfOpts.shippingCostOverride = getAdminShippingOverride();  // null=pending / 0=FREE / >0=金額
+  }
+  const quoteDataForPdf = buildQuoteDataForPdf(_pdfOpts);
   const doc = await ProCraftPDF.buildDraftQuotePdf(
     quoteDataForPdf, dealer, shippingAddress, { markupPercent: markupPct }
   );
