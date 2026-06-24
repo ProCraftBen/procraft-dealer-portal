@@ -3351,14 +3351,20 @@ async function requestRevision(note) {
     const logisticType = step1Data.logisticType || 'pickup';
     const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
-    const shippingForDb = resolveShippingForDb({
-      newLogistic:    logisticType,
-      newSubtotal:    billingBase,
-      newDeliveryFee: deliveryFee,
-      isResuming:     _isResumingReturned,
-    });
-    const shippingForTotal  = (shippingForDb === null) ? 0 : shippingForDb;
-    const shippingCostWrite = (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2));
+    let shippingForDb = resolveShippingForDb({
+          newLogistic:    logisticType,
+          newSubtotal:    billingBase,
+          newDeliveryFee: deliveryFee,
+          isResuming:     _isResumingReturned,
+        });
+        // CB-33 (Y): admin mode + shipping → 套用 admin 輸入值。空=null 維持 pending
+        // (Request Revision 不擋空值,admin 可先退回、運費留待之後);有填則寫進去,
+        // 與畫面 applyTotals 顯示一致,dealer 收到正式運費數字。
+        if (isAdminShippingMode()) {
+          shippingForDb = getAdminShippingOverride();
+        }
+        const shippingForTotal  = (shippingForDb === null) ? 0 : shippingForDb;
+        const shippingCostWrite = (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2));
 
     const tax   = taxBase * taxRate;
     const grand = billingBase + assembleTotal + shippingForTotal + tax;
