@@ -727,12 +727,19 @@ color: var(--green-dark);
         <div id="assembleBreakdown" style="padding:0 0 8px 16px;"></div>
       </div>
       <div class="total-row" id="shippingRow">
-        <div>
-          <span class="total-label">Shipping</span>
-          <div class="total-note" id="shippingNote"></div>
-        </div>
-        <span class="total-value" id="totalShipping">$0.00</span>
-      </div>
+              <div>
+                <span class="total-label">Shipping</span>
+                <div class="total-note" id="shippingNote"></div>
+                <!-- CB-33: admin 直接設定 shipping fee(僅 admin mode + logistic=shipping) -->
+                <div id="adminShippingWrap" style="display:none;margin-top:6px;align-items:center;gap:6px;">
+                  <span style="font-size:12px;color:var(--muted);">Set fee&nbsp;$</span>
+                  <input type="number" id="adminShippingFee" min="0" step="0.01" placeholder="0.00"
+                    oninput="onAdminShippingInput()"
+                    style="width:100px;height:30px;border:1px solid var(--border);border-radius:3px;padding:0 8px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:right;"/>
+                </div>
+              </div>
+              <span class="total-value" id="totalShipping">$0.00</span>
+            </div>
       <div class="total-row" id="taxRow">
         <div>
           <span class="total-label">Tax</span>
@@ -790,13 +797,17 @@ color: var(--green-dark);
               <button class="btn-submit" id="btnRequestRevision" onclick="openRevisionModal()" style="display:none;">
         <svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
         <span>Request Review &amp; Resubmit</span>
-      </button>
-    </div>
-  </div>
-
-</div>
-
-<div class="bottom-bar">
+              </button>
+            </div>
+            <!-- CB-33: admin shipping 未填時的提示(擋 submit) -->
+            <div id="adminShippingHint" style="display:none;margin-top:12px;font-size:12px;color:#E07B39;">
+              Enter a shipping fee above to submit, or use Save Draft.
+            </div>
+          </div>
+        
+        </div>
+        
+        <div class="bottom-bar">
   <a id="backToStep2" href="new-quote-modifications.html" class="btn-back">← Back to Modifications</a>
 </div>
 
@@ -1744,7 +1755,6 @@ let dealerIdToLoad = session.user.id;
                                  ? null
                                  : parseFloat(q.subtotal);
       if (q.status === 'Returned') _isResumingReturned = true;
-      console.log('[CB-32 DEBUG] init 讀到:', { draftId, po: _existingPoNumber, status: q.status });
     }
   } else if (step1Data.dealerIdForQuote) {
     dealerIdToLoad = step1Data.dealerIdForQuote;
@@ -1853,12 +1863,16 @@ if (draftId) {
   // Terms-of-use gate:只在會出現「送出/重送 PO」按鈕的模式顯示勾選列
   // (normal + review)。btnSubmit 已預設 disabled,勾了才放開。
   if (viewMode === 'normal' || viewMode === 'review') {
-    const termsRow = document.getElementById('termsAgreeRow');
-    if (termsRow) termsRow.style.display = 'flex';
-  }
+      const termsRow = document.getElementById('termsAgreeRow');
+      if (termsRow) termsRow.style.display = 'flex';
+    }
   
-  renderReview();
-}
+    // CB-33: admin shipping fee 輸入框(僅 admin mode + logistic=shipping)
+    setupAdminShippingInput();
+    refreshAdminSubmitGate();
+  
+    renderReview();
+  }
 
 // F-CUSTOM (Phase 4): Added 'OTHER' between ACCESSORIES and MODIFICATION.
 // Custom Other items get sku_type='OTHER' from step2; this ensures they sort
@@ -2294,13 +2308,30 @@ function applyTotals(opts) {
     } else {
       shippingNote   = 'Delivery fee based on distance';
     }
-  } else if (logisticType === 'shipping') {
-    if (previewShippingForDb === null) {
-      isPendingShipping = true;
-      shippingForTotal  = 0;
-      shippingLabel     = 'Contact Sales Team';
-      shippingNote      = '⚠ Shipping fee quoted separately by our Sales Team';
-    } else if (previewShippingForDb === 0 && billingBase > 12000) {
+    } else if (logisticType === 'shipping') {
+        // CB-33: admin mode 可直接指定 shipping fee(null=pending / 0=FREE / >0=金額)
+        const _adminShip = isAdminShippingMode() ? getAdminShippingOverride() : undefined;
+        if (isAdminShippingMode()) {
+          if (_adminShip === null) {
+            isPendingShipping = true;
+            shippingForTotal  = 0;
+            shippingLabel     = 'Contact Sales Team';
+            shippingNote      = '⚠ Enter shipping fee to submit (or Save Draft)';
+          } else if (_adminShip === 0) {
+            shippingForTotal = 0;
+            shippingLabel    = 'FREE';
+            shippingNote     = '✓ Free shipping (set by admin)';
+          } else {
+            shippingForTotal = _adminShip;
+            shippingLabel    = `$${_adminShip.toFixed(2)}`;
+            shippingNote     = '✓ Shipping fee set by admin';
+          }
+        } else if (previewShippingForDb === null) {
+          isPendingShipping = true;
+          shippingForTotal  = 0;
+          shippingLabel     = 'Contact Sales Team';
+          shippingNote      = '⚠ Shipping fee quoted separately by our Sales Team';
+        } else if (previewShippingForDb === 0 && billingBase > 12000) {
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
       shippingNote     = '✓ Free shipping on orders over $12,000';
@@ -2734,13 +2765,17 @@ async function saveDraft() {
     const logisticType  = step1Data.logisticType || 'pickup';
     const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
 
-    const shippingForDb = resolveShippingForDb({
-      newLogistic:    logisticType,
-      newSubtotal:    billingBase,    // F-TAX + F-PROMOTIONS: shipping bracket uses billing base (post-discount)
-      newDeliveryFee: deliveryFee,
-      isResuming:     _isResumingReturned,
-    });
-    const shippingForTotal = shippingForDb || 0;
+    let shippingForDb = resolveShippingForDb({
+          newLogistic:    logisticType,
+          newSubtotal:    billingBase,    // F-TAX + F-PROMOTIONS: shipping bracket uses billing base (post-discount)
+          newDeliveryFee: deliveryFee,
+          isResuming:     _isResumingReturned,
+        });
+        // CB-33: admin mode + shipping → 用 admin 輸入值覆寫(null=維持 pending,允許 save draft)
+        if (isAdminShippingMode()) {
+          shippingForDb = getAdminShippingOverride();
+        }
+        const shippingForTotal = shippingForDb || 0;
 
     const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const tax     = taxBase * taxRate;
@@ -2896,6 +2931,13 @@ async function saveDraft() {
 // Revisions: nextRevisionNumber logic unchanged from prior version.
 // ─────────────────────────────────────────────────────────────────────────────
 async function submitQuote() {
+  // CB-33: admin mode + shipping 必填擋 submit(按鈕已 disable,這裡再保險一層)
+  if ((viewMode === 'admin-draft' || viewMode === 'admin-edit')
+      && step1Data && step1Data.logisticType === 'shipping'
+      && getAdminShippingOverride() === null) {
+    alert('Please enter a shipping fee before submitting, or use Save Draft.');
+    return;
+  }
   const _isAdminSubmit = (viewMode === 'admin-draft' || viewMode === 'admin-edit');  // CB-32
   const btn     = document.getElementById(_isAdminSubmit ? 'btnAdminSubmit' : 'btnSubmit');
   const errMsg  = document.getElementById('errorMsg');
@@ -2939,13 +2981,17 @@ async function submitQuote() {
     const logisticType = step1Data.logisticType || 'pickup';
     const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
 
-    const shippingForDb = resolveShippingForDb({
-      newLogistic:    logisticType,
-      newSubtotal:    billingBase,    // F-TAX + F-PROMOTIONS
-      newDeliveryFee: deliveryFee,
-      isResuming:     _isResumingReturned,
-    });
-    const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
+    let shippingForDb = resolveShippingForDb({
+          newLogistic:    logisticType,
+          newSubtotal:    billingBase,    // F-TAX + F-PROMOTIONS
+          newDeliveryFee: deliveryFee,
+          isResuming:     _isResumingReturned,
+        });
+        // CB-33: admin mode + shipping → 用 admin 輸入值覆寫(submit 已 gate 必填,這裡必為數字)
+        if (isAdminShippingMode()) {
+          shippingForDb = getAdminShippingOverride();
+        }
+        const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
 
     const tax   = taxBase * taxRate;
     const grand = billingBase + assembleTotal + shippingForTotal + tax;
@@ -3568,6 +3614,58 @@ function onAgreeTermsChange() {
   const btn = document.getElementById('btnSubmit');
   if (!cb || !btn) return;
   btn.disabled = !cb.checked;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-33: Admin 在 step3 直接設定 shipping fee(僅 admin mode + logistic=shipping)
+//   getAdminShippingOverride: null=未填(維持 pending,只能 Save Draft) / 數字(含0)=指定運費
+//   onAdminShippingInput:     即時重算總額 + 更新 Admin Submit 按鈕 disable
+//   setupAdminShippingInput:  init 時顯示輸入框 + 預帶 _existingShippingCost
+//   refreshAdminSubmitGate:   admin+shipping+未填 → btnAdminSubmit disable + 顯示提示
+// ═══════════════════════════════════════════════════════════════════
+function isAdminShippingMode() {
+  return (viewMode === 'admin-draft' || viewMode === 'admin-edit')
+    && (step1Data && step1Data.logisticType === 'shipping');
+}
+function getAdminShippingOverride() {
+  if (!isAdminShippingMode()) return null;
+  const el = document.getElementById('adminShippingFee');
+  if (!el) return null;
+  const raw = (el.value == null ? '' : String(el.value)).trim();
+  if (raw === '') return null;            // 未填
+  const v = parseFloat(raw);
+  if (isNaN(v) || v < 0) return null;     // 非法值當未填
+  return v;                               // 含 0
+}
+function setupAdminShippingInput() {
+  const wrap = document.getElementById('adminShippingWrap');
+  if (!wrap) return;
+  if (isAdminShippingMode()) {
+    wrap.style.display = 'flex';
+    const el = document.getElementById('adminShippingFee');
+    // 預帶既有值(admin-edit 之前在 quote-detail 設過的 shipping_cost)
+    if (el && (el.value === '' || el.value == null) && _existingShippingCost != null) {
+      el.value = String(_existingShippingCost);
+    }
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+function refreshAdminSubmitGate() {
+  const btn  = document.getElementById('btnAdminSubmit');
+  const hint = document.getElementById('adminShippingHint');
+  if (!btn) return;
+  if (isAdminShippingMode() && getAdminShippingOverride() === null) {
+    btn.disabled = true;
+    if (hint) hint.style.display = 'block';
+  } else {
+    btn.disabled = false;
+    if (hint) hint.style.display = 'none';
+  }
+}
+function onAdminShippingInput() {
+  updateMarkupPreview();      // 即時重算總額(applyTotals 會讀 getAdminShippingOverride)
+  refreshAdminSubmitGate();   // 即時更新按鈕 disable
 }
 
 // ═══════════════════════════════════════════════════════════════════
