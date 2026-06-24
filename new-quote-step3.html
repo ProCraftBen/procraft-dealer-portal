@@ -3014,8 +3014,33 @@ async function submitQuote() {
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
 
-    } else if (draftId) {
-      // ── Draft → Submit: 先存內容,再 atomic 生 P# ──
+  } else if (draftId && _existingPoNumber) {
+        // ── CB-32: Admin-edit 送出「已有 PO# 的 Pending 單」 ──
+        //   這種單已經有 po_number(submit 過、status=Pending),且非 Returned 重送
+        //   (Returned 已被上面分支1 接走)。若掉進下面的 Draft→Submit 分支會呼叫
+        //   submit_purchase_order RPC → 配「新」號,導致 PO# 跳號。
+        //   正解:比照 Resubmit 分支,保留原 po_number、plain UPDATE、status='Pending',
+        //   不呼叫 RPC。revision_number 不 bump(admin 編輯 live 單,非 dealer 重送)。
+        const { data: q } = await _supabase
+          .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
+        poNumber = _existingPoNumber || q?.po_number;
+        quoteNum = q?.quote_number;
+        _currentRevisionNumber = q?.revision_number || _currentRevisionNumber || 1;
+        nextRevisionNumber = _currentRevisionNumber;   // 不 bump
+        if (!poNumber) throw new Error('PO number missing — cannot submit.');
+  
+        const { error: updateError } = await _supabase.from('quotes').update({
+          ...baseFields,
+          po_number:    poNumber,
+          status:       'Pending',
+          quote_number: quoteNum,
+        }).eq('id', draftId);
+        if (updateError) throw updateError;
+        await _supabase.from('quote_items').delete().eq('quote_id', draftId);
+        quoteId = draftId;
+  
+      } else if (draftId) {
+        // ── Draft → Submit: 先存內容,再 atomic 生 P# ──
       const { data: q } = await _supabase
         .from('quotes').select('quote_number').eq('id', draftId).single();
       quoteNum = q?.quote_number;
