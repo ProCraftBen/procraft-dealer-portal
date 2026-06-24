@@ -1744,6 +1744,7 @@ let dealerIdToLoad = session.user.id;
                                  ? null
                                  : parseFloat(q.subtotal);
       if (q.status === 'Returned') _isResumingReturned = true;
+      console.log('[CB-32 DEBUG] init 讀到:', { draftId, po: _existingPoNumber, status: q.status });
     }
   } else if (step1Data.dealerIdForQuote) {
     dealerIdToLoad = step1Data.dealerIdForQuote;
