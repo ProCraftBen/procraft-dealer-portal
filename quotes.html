@@ -481,10 +481,14 @@ async function init() {
 }
 
 async function loadQuotes() {
-  const { data: quotes, error } = await _supabase
+    const { data: quotes, error } = await _supabase
     .from('quotes')
     .select('*')
     .eq('dealer_id', userId)
+    // CB-36: 擋掉 admin 建但未通知的 Internal Draft(admin_notified_at IS NULL 且 status=Draft)。
+    // 顯示條件:已通知(admin_notified_at 有值)OR 非 Draft。
+    // dealer 自建 Draft(Option A 寫 NOW())+ 既有單(migration 補 created_at)都看得到。
+    .or('admin_notified_at.not.is.null,status.neq.Draft')
     .order('created_at', { ascending: false });
 
   if (error) { console.error('loadQuotes error:', error); return; }
