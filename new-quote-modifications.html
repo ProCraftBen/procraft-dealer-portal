@@ -329,6 +329,28 @@
     }
     .sku-row.assembled:hover .sku-arrow { color: var(--green-dark); }
 
+    /* CB-35: Unassembled inline qty editor */
+    .sku-qty-edit {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 50px;
+    }
+    .sku-qty-edit-label { font-size: 11px; color: var(--muted); }
+    .sku-qty-input {
+      width: 52px; height: 26px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      text-align: center;
+      color: var(--text);
+      background: var(--white);
+    }
+    .sku-qty-input:focus { outline: none; border-color: var(--green-dark); }
+
     .sku-delete-btn {
       flex-shrink: 0;
       background: none;
@@ -2472,16 +2494,27 @@ function buildAssembledRow(item, gIdx) {
 
 // F-RTA-SWITCH v3: RTA row is a static info row. No row-click, no hover, no arrow.
 // Switch via the [⇄ Assembled] button; remove via trash icon.
+// CB-35: qty is now inline-editable (except in review mode, which stays read-only text).
 function buildRtaRow(item) {
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
   const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
+
+  const qtyHtml = isReviewLocked()
+    ? `<span class="sku-qty">Qty ${item.quantity}</span>`
+    : `<span class="sku-qty-edit" onclick="event.stopPropagation()">
+         <span class="sku-qty-edit-label">Qty</span>
+         <input type="number" min="1" step="1" class="sku-qty-input"
+           value="${item.quantity}"
+           onchange="onRtaQtyChange('${esc(item.key)}', this.value)"
+           aria-label="Quantity"/>
+       </span>`;
 
   return `
     <div class="sku-row rta">
       <span class="sku-code">${esc(item.sku_code)}</span>
       ${customBadge}
       <span class="sku-desc">${esc(item.sku_desc)}</span>
-      <span class="sku-qty">Qty ${item.quantity}</span>
+      ${qtyHtml}
       ${asmSwitchBtn}
       <button class="sku-delete-btn" type="button"
         onclick="onDeleteSkuClick('${esc(item.key)}')"
@@ -2640,6 +2673,45 @@ function onMainPageAssemblyToggle(key, newType) {
 
   refreshAfterCartChange();
   showToast(item.sku_code + ' → ' + formatAssembleStatus(item.type) + (hasMods ? ' (modifications cleared)' : ''));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-35: Unassembled (RTA) inline qty edit
+//   RTA rows have no modal and no modifications, so qty is edited
+//   directly on the row. Writes item.quantity AND collapses sub_groups
+//   into a single skipped sub-group so Step 3 / Save Draft / PDF / Email
+//   all read the correct quantity.
+// ═══════════════════════════════════════════════════════════════════
+function onRtaQtyChange(key, val) {
+  if (isReviewLocked()) return;  // CB-4: read-only review (input not rendered, defensive)
+
+  const item = cartItems.find(function (i) { return i.key === key; });
+  if (!item) {
+    console.warn('[CB-35] onRtaQtyChange: cartItem not found for key', key);
+    return;
+  }
+  if (item.type !== 'RTA') {
+    console.warn('[CB-35] onRtaQtyChange called for non-RTA item; ignoring.', key);
+    return;
+  }
+
+  let q = parseInt(val, 10);
+  if (!isFinite(q) || q < 1) q = 1;  // clamp: qty never below 1 (remove via trash icon)
+
+  const oldQty = item.quantity;
+  item.quantity = q;
+  // RTA has no mods → collapse to a single skipped sub-group.
+  item.sub_groups = [{
+    sub_index:           1,
+    qty:                 q,
+    modifications:       [],
+    modification_status: 'skipped',
+  }];
+
+  console.log('[CB-35] RTA qty change · SKU=' + item.sku_code +
+              ' · ' + oldQty + ' → ' + q);
+
+  refreshAfterCartChange();
 }
 
 function renderBottomBar(progress) {
