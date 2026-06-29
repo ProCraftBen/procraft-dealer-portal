@@ -395,6 +395,21 @@ color: var(--green-dark);
     .btn-draft svg { width: 14px; height: 14px; fill: currentColor; }
     .btn-draft.loading .draft-btn-text { display: none; }
     .btn-draft.loading .draft-spinner { display: block; }
+
+    /* CB-36: Save & Notify Dealer (admin-draft only) — brand blue */
+    .btn-notify {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--green-dark); color: #fff; border: none; border-radius: 3px;
+      padding: 14px 24px; font-family: 'DM Sans', sans-serif; font-size: 12px;
+      font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase;
+      cursor: pointer; transition: background 0.2s; min-height: 48px;
+    }
+    .btn-notify:hover { background: var(--green-mid); }
+    .btn-notify:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-notify svg { width: 14px; height: 14px; fill: currentColor; }
+    .btn-notify.loading .notify-btn-text { display: none; }
+    .btn-notify.loading .notify-spinner { display: block; }
+    .notify-spinner { display: none; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
     .draft-spinner { width: 14px; height: 14px; border: 2px solid rgba(201,168,76,0.3); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
 
     /* CB-32: Admin Submit 按鈕(警示橘) */
@@ -779,10 +794,16 @@ color: var(--green-dark);
         </label>
       </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
-      <button class="btn-draft" id="btnDraft" onclick="saveDraft()">
+    <button class="btn-draft" id="btnDraft" onclick="saveDraftInternal()">
         <svg viewBox="0 0 24 24" class="draft-btn-text"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         <span class="draft-btn-text">Save Draft</span>
         <div class="draft-spinner"></div>
+      </button>
+      <!-- CB-36: Save & Notify Dealer — admin-draft only, hidden by default -->
+      <button class="btn-notify" id="btnNotify" onclick="saveDraftNotify()" style="display:none;">
+        <svg viewBox="0 0 24 24" class="notify-btn-text" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        <span class="notify-btn-text">Save &amp; Notify Dealer</span>
+        <div class="notify-spinner"></div>
       </button>
 <button class="btn-submit" id="btnSubmit" onclick="openSubmitConfirmModal()" disabled>
         <svg class="btn-text" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
@@ -996,6 +1017,11 @@ let _existingLogisticType = null;
 let _existingShippingCost = null;
 let _existingSubtotal     = null;
 let _saveNonStockAck = false;  // CB-5 需求2 階段2: non-stock 通知已確認
+// CB-36: Save Internal Draft vs Save & Notify Dealer 意圖（module 變數,避免 non-stock modal 回呼丟失參數）
+let _pendingNotify = false;
+let _existingAdminNotifiedAt = null;  // resume draft 時從 DB 讀入;新建為 null
+function saveDraftInternal() { _pendingNotify = false; saveDraft(); }
+function saveDraftNotify()   { _pendingNotify = true;  saveDraft(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CB-4: view-mode model (sync with new-quote.html / step2 / modifications)
@@ -1736,9 +1762,9 @@ let dealerIdToLoad = session.user.id;
   let quoteStatus    = null;   // CB-4: server-side status drives viewMode
   let quoteOwnerId   = null;   // CB-4: quote owner for isOwner check
   if (draftId) {
-    const { data: q } = await _supabase
+  const { data: q } = await _supabase
       .from('quotes')
-      .select('dealer_id, revision_number, po_number, draft_number, status, logistic_type, shipping_cost, subtotal')
+      .select('dealer_id, revision_number, po_number, draft_number, status, logistic_type, shipping_cost, subtotal, admin_notified_at')
       .eq('id', draftId).single();
     if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
     if (q) {
@@ -1747,6 +1773,7 @@ let dealerIdToLoad = session.user.id;
       _currentRevisionNumber = q.revision_number || 1;
       _existingPoNumber      = q.po_number || null;
       _existingDraftNumber   = q.draft_number || null;   // 雙編號制
+      _existingAdminNotifiedAt = q.admin_notified_at || null;   // CB-36: 已通知時間(驅動 Notify 是否首次)
       _existingLogisticType  = q.logistic_type || null;
       _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
                                  ? null
@@ -1849,13 +1876,16 @@ if (draftId) {
     });
 
   } else if (viewMode === 'admin-draft') {
-      elBtnSubmit.style.display = 'none';
-      document.getElementById('btnAdminSubmit').style.display = 'inline-flex';  // CB-32
-      elDraftBan.style.display  = 'flex';
-      document.getElementById('draftBannerText').innerHTML =
-        '<strong>Admin mode</strong> — Save as Quote for the dealer to review, or submit the Purchase Order on the dealer\'s behalf.';
-
-  } else if (draftId) {
+        elBtnSubmit.style.display = 'none';
+        document.getElementById('btnAdminSubmit').style.display = 'inline-flex';  // CB-32
+        // CB-36: 三按鈕 — Save Internal Draft / Save & Notify Dealer / Submit (Admin)
+        document.querySelector('#btnDraft span.draft-btn-text').textContent = 'Save Internal Draft';
+        document.getElementById('btnNotify').style.display = 'inline-flex';
+        elDraftBan.style.display  = 'flex';
+        document.getElementById('draftBannerText').innerHTML =
+          '<strong>Admin mode</strong> — Save an internal draft, notify the dealer to review, or submit the Purchase Order on the dealer\'s behalf.';
+  
+    } else if (draftId) {
     // normal mode, editing an existing draft
     elDraftBan.style.display = 'flex';
   }
@@ -2819,6 +2849,20 @@ async function saveDraft() {
       grand_total:         parseFloat(grand.toFixed(2)),
     };
 
+    // ── CB-36: admin_notified_at 寫入規則 ──
+    // Save & Notify(admin,首次通知):NOW()
+    // Dealer 首存:NOW()(Option A — dealer 自建即可見)
+    // Save Internal / 已通知後再存 / dealer 非首存:不帶 key,保留 DB 既有值
+    const _nowIso = new Date().toISOString();
+    const _isAdminDraftMode = (viewMode === 'admin-draft');
+    const _willNotifyNow = _isAdminDraftMode && _pendingNotify && (_existingAdminNotifiedAt == null);
+    if (_willNotifyNow) {
+      payload.admin_notified_at = _nowIso;            // admin 首次通知
+    } else if (!_isAdminDraftMode && !draftId) {
+      payload.admin_notified_at = _nowIso;            // dealer 首存(Option A)
+    }
+    // 其餘情況不帶 key:insert 時為 NULL(admin internal),update 時保留 DB 值
+
     let quoteId;
     let _savedCreatedAt = null;   // CB-20: 從 insert 回傳抓 created_at(僅首存走 insert 分支)
 
@@ -2862,10 +2906,11 @@ async function saveDraft() {
     document.getElementById('draftQuoteNum').textContent = step1Data.jobName || '';
     document.getElementById('draftOverlay').classList.add('show');
 
-    // ── CB-20: Admin 首次幫 dealer 建 draft → 通知 dealer 進來 review ──
-    // 條件: viewMode==='admin-draft' 且本次首次儲存(剛拿到 draft_number)。
+    // ── CB-36: Admin 按 Save & Notify Dealer → 通知 dealer 進來 review ──
+    // 條件: admin-draft + 本次按了 Notify + 之前未通知過(_existingAdminNotifiedAt==null)。
+    // 取代 CB-20 的 _wasFirstDraftSave 自動寄信:現在「存」與「通知」由按鈕解耦。
     // 發信失敗只 log,不影響 saveDraft(DB 此時已寫入成功)。
-    if (viewMode === 'admin-draft' && _wasFirstDraftSave) {
+    if (_willNotifyNow) {
       try {
         await fetch(
           'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
@@ -2881,7 +2926,7 @@ async function saveDraft() {
                 id:           quoteId,
                 draft_number: draftNumberForSave,
                 job_name:     step1Data.jobName,
-                created_at:   _savedCreatedAt,
+                created_at:   _savedCreatedAt || _nowIso,
               },
               dealer: {
                 company_name:            dealer.company_name,
