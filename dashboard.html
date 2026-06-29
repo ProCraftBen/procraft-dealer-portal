@@ -182,6 +182,10 @@
       .from('quotes')
       .select('*')
       .eq('dealer_id', userId)
+      // CB-36: 擋掉 admin 建但未通知的 Internal Draft(admin_notified_at IS NULL 且 status=Draft)。
+      // 顯示條件:已通知(admin_notified_at 有值)OR 非 Draft(已 Submit/Pending/等)。
+      // dealer 自建 Draft 因 Option A 已寫 NOW() → 看得到;既有單因 migration 補 created_at → 看得到。
+      .or('admin_notified_at.not.is.null,status.neq.Draft')
       .order('created_at', { ascending: false })
       .limit(8);
 
