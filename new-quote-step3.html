@@ -2757,7 +2757,8 @@ async function saveDraft() {
   }
   _saveNonStockAck = false;
 
-  const btn    = document.getElementById('btnDraft');
+  // CB-36: loading 轉圈要落在實際按下的按鈕(Notify → btnNotify;否則 btnDraft)
+  const btn    = document.getElementById(_pendingNotify ? 'btnNotify' : 'btnDraft');
   const errMsg = document.getElementById('errorMsg');
   btn.classList.add('loading'); btn.disabled = true;
   errMsg.classList.remove('show');
@@ -2940,6 +2941,7 @@ async function saveDraft() {
             }),
           }
         );
+        _existingAdminNotifiedAt = _nowIso;   // CB-36: 同步 module state,防呆避免同頁重複通知
         console.log('[CB-20] admin draft created email sent:', draftNumberForSave);
       } catch (emailError) {
         console.error('[CB-20] Failed to send admin draft email:', emailError);
