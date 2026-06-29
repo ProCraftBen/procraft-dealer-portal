@@ -592,6 +592,18 @@
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
 <script>
+// ── CB-36: Edit Internal Draft → 重新進入 admin-draft 流程(1→2→mod→3)──
+// 比照 admin-quotes 的 createDraftForDealer():對齊 adminDraftDealerId(確保 new-quote
+// 載入正確 dealer 的稅率/資料)、清掉 stale step 暫存,再帶 draft=<id> + adminDraft=1 導向。
+function editInternalDraft() {
+  if (!_quote || !_quote.id) return;
+  sessionStorage.setItem('adminDraftDealerId', _quote.dealer_id);
+  sessionStorage.removeItem('quoteStep1');
+  sessionStorage.removeItem('quoteStep2');
+  window.location.href = 'new-quote.html?draft=' + _quote.id + '&adminDraft=1';
+}
+
+  
 const { createClient } = window.supabase;
 const _supabase = createClient(
   'https://acwgemgpnusworpxxoai.supabase.co',
@@ -1646,6 +1658,16 @@ function renderQuote(quote, dealer, addr) {
       Edit
     </a>` : '';
 
+  // ── CB-36: Internal Draft 的 Edit 入口(僅 admin + status=Draft + 未通知 dealer)──
+  // 導向 admin-draft 流程(?adminDraft=1),讓 admin 重新走 1→2→mod→3,step3 出現三按鈕。
+  // 已通知的 Draft(admin_notified_at 有值)不顯示 — 那張等同 dealer 的,由 dealer 自己 Continue。
+  const canEditInternalDraft = _isAdmin && quote.status === 'Draft' && quote.admin_notified_at == null;
+  const internalDraftEditButtonHtml = canEditInternalDraft ? `
+    <button class="btn-action admin-edit" onclick="editInternalDraft()">
+      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      Edit
+    </button>` : '';
+
 // ── Ship To 區塊(5 檔鏡像同一份 resolver)──
   const PROCRAFT_PICKUP_LINES = [
     'ProCraft Cabinetry DC LLC',
@@ -1958,6 +1980,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="header-right">
         <span class="status-badge ${sc}">${statusText}</span>
         ${adminEditButtonHtml}
+        ${internalDraftEditButtonHtml}
         ${downloadButtonsHtml}
       </div>
     </div>
