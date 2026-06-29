@@ -177,8 +177,13 @@
             <input class="form-input" id="f_email" type="email" placeholder="john@abccabinetry.com"/>
           </div>
           <div class="form-group">
-            <label class="form-label">Phone <span class="required">*</span></label>
+            <label class="form-label">Contact Phone <span class="required">*</span></label>
             <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Business Phone</label>
+            <input class="form-input" id="f_business_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+            <span class="form-hint">This will be displayed on the dealer locator page (public website).</span>
           </div>
           <div class="form-group" id="uid_group" style="display:none;">
             <label class="form-label">Dealer UID</label>
@@ -205,6 +210,7 @@
             <label class="form-label">Slug</label>
             <input class="form-input" id="f_slug" type="text" placeholder="abc-cabinetry-dc"/>
             <span class="form-hint">Auto-generated from company name. Lowercase and hyphens only. Used in dealer page URL.</span>
+            <span class="form-hint" style="color:#D32F2F;font-size:9px;margin-top:2px;">⚠️ 除非出現紅字錯誤,否則不須更動</span>
           </div>
         </div>
       </div>
@@ -489,6 +495,7 @@ async function openEditDealer(dealerId) {
   document.getElementById('f_email').value                 = d.email || '';
   document.getElementById('f_email').disabled              = true;
   document.getElementById('f_phone').value                 = d.phone || '';
+  document.getElementById('f_business_phone').value        = d.business_phone || '';
   document.getElementById('f_uid').value                   = d.uid || '—';
   document.getElementById('uid_group').style.display       = 'flex';
   document.getElementById('f_secondary_email').value       = d.secondary_email || '';
@@ -528,7 +535,7 @@ function closeModal() {
 }
 
 function clearForm() {
-  ['f_company_name','f_contact_name','f_email','f_phone','f_slug',
+  ['f_company_name','f_contact_name','f_email','f_phone','f_business_phone','f_slug',
    'f_address_line1','f_address_line2','f_city','f_state','f_zip_code',
    'f_stock_multiplier','f_non_stock_multiplier','f_frameless_multiplier','f_tax_rate',
    'f_lat','f_lng','f_address_formatted','f_secondary_email','f_optional_email_2',
@@ -553,6 +560,7 @@ async function saveDealer() {
     contact_name:            document.getElementById('f_contact_name').value.trim(),
     email:                   document.getElementById('f_email').value.trim(),
     phone:                   document.getElementById('f_phone').value.trim(),
+    business_phone:          document.getElementById('f_business_phone').value.trim() || null,
     slug:                    document.getElementById('f_slug').value.trim(),
     address_line1:           document.getElementById('f_address_line1').value.trim(),
     address_line2:           document.getElementById('f_address_line2').value.trim(),
@@ -596,6 +604,7 @@ async function saveDealer() {
         company_name:            fields.company_name,
         contact_name:            fields.contact_name,
         phone:                   fields.phone,
+        business_phone:          fields.business_phone,
         slug:                    fields.slug || null,
         address_line1:           fields.address_line1,
         address_line2:           fields.address_line2 || null,
