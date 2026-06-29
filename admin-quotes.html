@@ -74,6 +74,7 @@
     .status-select option.return-option { color: var(--status-returned); font-weight: 600; }
     .status-select option.close-option  { color: var(--status-closed);   font-weight: 600; }
     .status-badge-draft    { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(155,89,182,0.10); color: var(--status-draft); }
+    .status-badge-internal { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(122,140,130,0.14); color: var(--muted); }
     .status-badge-returned { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(224,123,57,0.14); color: var(--status-returned); }
     .status-badge-closed   { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(107,114,128,0.12); color: var(--status-closed); }
 
@@ -766,7 +767,12 @@ function renderTable() {
     // ── Status cell ──
     let statusCellHtml = '';
     if (isDraft) {
-      statusCellHtml = '<td><span class="status-badge-draft">Draft</span></td>';
+      // CB-36: admin_notified_at IS NULL → Internal(admin 未通知 dealer);否則 Draft(已通知,等同 dealer 可見)
+      if (q.admin_notified_at == null) {
+        statusCellHtml = '<td><span class="status-badge-internal">Internal</span></td>';
+      } else {
+        statusCellHtml = '<td><span class="status-badge-draft">Draft</span></td>';
+      }
     } else if (isReturned) {
       // Returned: 顯示 badge（CB-2: 顯示為 Revising），沒有下拉
       statusCellHtml = '<td><span class="status-badge-returned">' + statusText + '</span></td>';
