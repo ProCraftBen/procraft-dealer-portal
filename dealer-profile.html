@@ -131,8 +131,13 @@
         <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
       </div>
       <div class="form-group">
-        <label class="form-label">Phone <span class="required">*</span></label>
+        <label class="form-label">Contact Phone <span class="required">*</span></label>
         <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Business Phone <span class="badge-optional">Optional</span></label>
+        <input class="form-input" id="f_business_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+        <span class="form-hint" style="margin-top:4px;display:block;">This will be displayed on the dealer locator page (public website).</span>
       </div>
       <div class="form-group">
         <label class="form-label">Google My Business <span class="badge-optional">Optional</span></label>
@@ -472,6 +477,7 @@ async function init() {
   document.getElementById('display_email').textContent        = dealer.email || '—';
   document.getElementById('f_contact_name').value = dealer.contact_name || '';
   document.getElementById('f_phone').value         = dealer.phone || '';
+  document.getElementById('f_business_phone').value = dealer.business_phone || '';
   document.getElementById('f_gmb_url').value       = dealer.google_my_business_url || '';
   document.getElementById('f_secondary_email').value          = dealer.secondary_email || '';
   document.getElementById('f_secondary_email_notify').checked = dealer.secondary_email_notify || false;
@@ -522,6 +528,7 @@ async function saveProfile() {
   const optional_email_2_notify = document.getElementById('f_optional_email_2_notify').checked;
   const contact_name    = document.getElementById('f_contact_name').value.trim();
   const phone           = document.getElementById('f_phone').value.trim();
+  const business_phone  = document.getElementById('f_business_phone').value.trim();
   const gmb_url         = document.getElementById('f_gmb_url').value.trim();
   const address_line1   = document.getElementById('f_address_line1').value.trim();
   const address_line2   = document.getElementById('f_address_line2').value.trim();
@@ -583,6 +590,7 @@ async function saveProfile() {
     const { error } = await _supabase.from('dealers').update({
       contact_name,
       phone,
+      business_phone:           business_phone || null,
       secondary_email:          secondary_email || null,
       secondary_email_notify:   secondary_email_notify,
       optional_email_2:         optional_email_2 || null,
