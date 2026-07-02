@@ -1399,19 +1399,6 @@
     <div class="subtitle">Configure modifications for assembled cabinets</div>
   </div>
 
-  <div class="progress-card" id="progressCard">
-    <div class="progress-card-row">
-      <span class="progress-label">Progress</span>
-      <span class="progress-count">
-        <span id="progressDone">0</span> / <span id="progressTotal">0</span> done
-        <span class="progress-percent" id="progressPercent">0%</span>
-      </span>
-    </div>
-    <div class="progress-bar">
-      <div class="progress-bar-fill" id="progressBarFill" style="width: 0%;"></div>
-    </div>
-  </div>
-
   <div id="doorStyleList">
     <div class="empty-state">Loading...</div>
   </div>
@@ -2239,6 +2226,7 @@ function calculateProgress(groups) {
 
 function renderProgressCard(progress) {
   const card      = document.getElementById('progressCard');
+  if (!card) return;   // top progress card removed (C1) — no-op
   const doneEl    = document.getElementById('progressDone');
   const totalEl   = document.getElementById('progressTotal');
   const percentEl = document.getElementById('progressPercent');
@@ -2425,21 +2413,7 @@ function onCustomNoModClick(evt, key) {
 }
 
 function buildGroupProgressDisplay(group) {
-  const total = group.progress.total;
-  const done  = group.progress.done;
-  if (total === 0) {
-    return `
-      <div class="ds-progress">
-        <div class="ds-progress-count no-assembled">—</div>
-        <div class="ds-progress-label">Unassembled only</div>
-      </div>`;
-  }
-  const completeClass = (done === total) ? ' complete' : '';
-  return `
-    <div class="ds-progress">
-      <div class="ds-progress-count${completeClass}">${done} / ${total}</div>
-      <div class="ds-progress-label">Configured</div>
-    </div>`;
+  return '';   // C1: per-door progress display removed (always 100% now)
 }
 
 // ═══════════════════════════════════════════════════════════════════
