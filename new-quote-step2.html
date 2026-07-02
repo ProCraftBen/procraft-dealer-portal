@@ -2113,7 +2113,7 @@ function renderSkuTable() {
               <td>
                 <div class="td-actions">
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)"${disAttr}>−</button>
-                  <input class="qty-input" type="number" min="0" value="0" id="qty-${sku.sku_code}"${disAttr}/>
+                  <input class="qty-input" type="number" min="0" value="1" id="qty-${sku.sku_code}"${disAttr}/>
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',1)"${disAttr}>+</button>
                   <button class="btn-add" onclick="addToCart('${sku.sku_code}','RTA',${unitPrice},0)" style="background:var(--green-dark);color:#fff;text-transform:none;"${disAttr}>Unassembled</button>
                   ${asmButton}
@@ -2183,7 +2183,7 @@ const key = `${activeStyle.style_code}-${skuCode}-${type}`;
       }],
     });
   }
-  if (el) el.value=0;
+  if (el) el.value=1;
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
   showToast(`${sku.sku_code} (${type}) × ${qty} added`);
