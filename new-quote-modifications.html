@@ -1956,8 +1956,10 @@ function ensureSubGroups(item) {
         sub_index:           (typeof g.sub_index === 'number') ? g.sub_index : (i + 1),
         qty:                 (typeof g.qty === 'number' && g.qty > 0) ? g.qty : 1,
         modifications:       Array.isArray(g.modifications) ? g.modifications : [],
-        modification_status: g.modification_status
-          || (item.type === 'RTA' ? 'skipped' : 'unprocessed'),
+        modification_status:
+                  (!g.modification_status || g.modification_status === 'unprocessed')
+                    ? 'skipped'
+                    : g.modification_status,
       };
     });
     delete item.modifications;
@@ -1965,8 +1967,10 @@ function ensureSubGroups(item) {
     return item;
   }
 
-  const legacyStatus = item.modification_status
-    || (item.type === 'RTA' ? 'skipped' : 'unprocessed');
+    const legacyStatus =
+        (!item.modification_status || item.modification_status === 'unprocessed')
+          ? 'skipped'
+          : item.modification_status;
   const legacyMods = Array.isArray(item.modifications) ? item.modifications : [];
 
   item.sub_groups = [{
@@ -2060,8 +2064,10 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       sub_index:           parseInt(row.sub_index, 10) || (cartItem.sub_groups.length + 1),
       qty:                 rowQty,
       modifications:       Array.isArray(row.modifications) ? row.modifications : [],
-      modification_status: row.modification_status
-        || (row.assemble_status === 'RTA' ? 'skipped' : 'unprocessed'),
+      modification_status:
+              (!row.modification_status || row.modification_status === 'unprocessed')
+                ? 'skipped'
+                : row.modification_status,
     });
   });
 
@@ -2607,10 +2613,10 @@ function onMainPageAssemblyToggle(key, newType) {
     item.type         = 'Assembled';
     item.assemble_fee = newFee;
     item.key          = newKey;
-    // RTA sub_groups were 'skipped'; reset to unprocessed so user is prompted to configure
+    // Assembled items default to 'skipped' (dealer opts in to mods, not forced).
     item.sub_groups.forEach(function (g) {
       g.modifications       = [];
-      g.modification_status = 'unprocessed';
+      g.modification_status = 'skipped';
     });
 
     console.log('[F-RTA-SWITCH] (main-page) RTA → Assembled · SKU=' + item.sku_code +
@@ -2618,7 +2624,7 @@ function onMainPageAssemblyToggle(key, newType) {
                 ' · fee=$' + newFee.toFixed(2));
 
     refreshAfterCartChange();
-    showToast(item.sku_code + ' → Assembled (please configure modifications)');
+    showToast(item.sku_code + ' → Assembled (modifications optional)');
     return;
   }
 
@@ -2737,13 +2743,10 @@ function renderBottomBar(progress) {
   if (isReady && cartItems.length > 0) statusEl.classList.add('complete');
   else statusEl.classList.remove('complete');
 
-  btnNext.disabled = !isReady || cartItems.length === 0;
+  btnNext.disabled = cartItems.length === 0;
 }
 
 function goReview() {
-  const pendingAssembled = pageProgress.total - pageProgress.done;
-  const isReady = (pageProgress.total === 0) || (pendingAssembled === 0);
-  if (!isReady) { showToast('Please configure all assembled SKUs first', true); return; }
   if (cartItems.length === 0) { showToast('Cart is empty — add items first', true); return; }
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   const nextUrl = draftId
