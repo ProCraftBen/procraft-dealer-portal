@@ -2800,7 +2800,7 @@ function renderCart() {
   const totalQty     = cartItems.reduce((s,i)=>s+i.quantity,0);
   const totalLines   = cartItems.length;
 
-  document.getElementById('cartFabBadge').textContent = totalLines;
+  document.getElementById('cartFabBadge').textContent = totalQty;
   document.getElementById('bottomCount').textContent = `${totalQty} item${totalQty!==1?'s':''}`;
   document.getElementById('btnNext').disabled = totalLines===0;
 
