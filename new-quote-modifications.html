@@ -2448,7 +2448,7 @@ function buildAssembledRow(item, gIdx) {
   const status = getItemOverallStatus(item);
   let statusClass, statusLabel;
   if (status === 'configured')      { statusClass = 'configured';  statusLabel = '● Configured'; }
-  else if (status === 'skipped')    { statusClass = 'skipped';     statusLabel = '⊘ Skipped'; }
+  else if (status === 'skipped')    { statusClass = 'skipped';     statusLabel = '+ Add Modification'; }
   else                              { statusClass = 'unprocessed'; statusLabel = '○ Unprocessed'; }
 
   const subCount = Array.isArray(item.sub_groups) ? item.sub_groups.length : 1;
