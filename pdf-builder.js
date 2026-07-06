@@ -52,23 +52,9 @@
 //   • TYPE_SHORT_MAP / STATUS_SHORT_MAP centralise lookups for mirroring
 //     across step3.html and quote-detail.html.
 //
-// F-PROMOTIONS (2026-05-21):  [legacy 命名,實際邏輯已由 CB-13 取代,見下]
-//   • (歷史)曾讀 quoteData._promo 顯示折扣。CB-13 後 PDF 改為自算,
-//     不再讀 _promo。此段保留僅為歷史紀錄。
-//
 // CB-11 / CB-12 / CB-13 (P1):
 //   • 改動 7: DOOR & FRAME SKU 加註「Hinge not included」。
 //   • 改動 8: MF03 Matching Interior(no→Wood Interior / yes→Matching Interior)。
-//   • 改動 9: Kit Promo 20%(LSW/LSG/LSA + tag==='Kit'),PDF 自算。
-//
-// CB-13-FIX (2026-06-10): Invoice 折扣 bug 修復。
-//   • tag 比對更正為 'Kit'(大寫,與 DB / step3 / quote-detail / email 一致)。
-//     原本寫死小寫 'kit',永遠 match 不到 → Invoice 不顯示折扣。
-//   • Invoice 與 Draft 的折扣套用「按身分拆開」,不再靠 markupPercent 當開關:
-//       - Invoice    → applyPromo = true (一律套 Kit Promo,tax/grand 折後)
-//       - Draft Quote→ applyPromo = false(一律不套,subtotal/tax/grand 全折前)
-//     新增 applyPromo 旗標貫穿 _drawItemTable / _finalizeWithTotals /
-//     _calcKitPromoDiscount。markupPercent 只影響 Unit Price 顯示,與折扣脫鉤。
 //
 // P2 LAYOUT (改動 10-17):
 //   • 改動 10: PO# 字體 = Invoice 標題(16pt),三種 PDF。
@@ -127,7 +113,6 @@
     pending:   [224, 123, 57],
     note:      [224, 123, 57],
     modText:   [62, 90, 66],
-    discount:  [192, 57, 43],   // red for discount values
   };
 
   // 改動 11: headerH 36 → 52(header 區塊放大,上方更醒目)
@@ -710,7 +695,6 @@ return total;
     const {
       items, mode, startY,
       markupPercent = 0,
-      applyPromo = false,          // 保留:Summary 折扣仍用;CB-25 後逐列 Total 不再用它
       constructionType = 'framed', // CB-22
       headerContext,
     } = context;
@@ -1048,10 +1032,8 @@ return total;
   // ----------------------------------------
 
   /**
-   * Totals layout (Invoice / Draft Quote):
-   *   Subtotal              $X       (PRE-discount, 改動 13: 已含 Assemble Fee)
-   *   Discount             -$Y       (only when totals.promoDiscount > 0)
-   *     N eligible lines
+  * Totals layout (Invoice / Draft Quote):
+   *   Subtotal              $X       (改動 13: 已含 Assemble Fee)
    *   Modifications        +$Z       (only when > 0)
    *   Shipping              $S
    *   Tax                   $T
@@ -1060,9 +1042,6 @@ return total;
    *
    * 改動 13: Assemble Fee 併入 Subtotal,不再有獨立 Assemble Fee 行。
    * 改動 14: 移除 by-type Assemble Fee 細項。
-   *
-   * CB-13-FIX: Discount 行只在 Invoice(applyPromo=true 且有符合 SKU)出現;
-   *   Draft 因 _finalizeWithTotals 傳 applyPromo=false → promoDiscount=0 → 不顯示。
    */
   function _drawTotals(doc, context) {
     const { pageW, margin } = LAYOUT;
@@ -1079,7 +1058,7 @@ return total;
     const valX    = pageW - margin;
     let y = startY;
 
-    // ── Subtotal (PRE-discount; CB-27: 純商品 = 父 SKU + mapping material) ──
+    // ── Subtotal (CB-27: 純商品 = 父 SKU + mapping material) ──
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
@@ -1090,32 +1069,6 @@ return total;
       valX, y, { align: 'right' }
     );
     y += 6;
-
-    // ── CB-13: Discount row ──
-    if (showPrices && totals.promoDiscount > 0) {
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...COLORS.discount);
-      const label = totals.promoLabel || 'Discount';
-      const maxLabelChars = 40;
-      const displayLabel = label.length > maxLabelChars
-        ? label.slice(0, maxLabelChars - 1) + '…'
-        : label;
-      doc.text(displayLabel, totalsX, y);
-      // ASCII '-$'(非 U+2212),jsPDF WinAnsi 才能正確渲染。
-      doc.text(`-$${totals.promoDiscount.toFixed(2)}`, valX, y, { align: 'right' });
-      if (totals.promoMatchedCount > 0) {
-        y += 3.3;
-        doc.setFontSize(6);
-        doc.setTextColor(...COLORS.discount);
-        const subText = `${totals.promoMatchedCount} eligible line${totals.promoMatchedCount === 1 ? '' : 's'}`;
-        doc.text(subText, totalsX, y);
-        y += 3;
-      } else {
-        y += 6;
-      }
-      doc.setFontSize(8);
-    }
 
     // ── Modifications (CB-27 改動 B: 按 type 分組明細 + Total) ──
     if (showPrices && totals.modsDisplayTotal > 0) {
@@ -1328,21 +1281,11 @@ return total;
   }
 
   /**
-   * F4.2 + CB-13 + CB-13-FIX: Finalize with totals.
+   * F4.2: Finalize with totals.
    *
-   * CB-13 (改動 9): Kit Promo 折扣由 PDF 自算 _calcKitPromoDiscount(items,
-   * applyPromo),不讀 quoteData._promo。
-   *
-   * CB-13-FIX (2026-06-10): 折扣是否套用由 applyPromo 旗標決定,與 markup 脫鉤。
-   *   - Invoice    : applyPromo = true  → 套折扣
-   *   - Draft Quote: applyPromo = false → 不套折扣(promoDiscount=0)
-   *
-   * 套折扣時(promoDiscount > 0):
-   *   - taxBase     = (markedSubtotal - promoDiscount) + taxableModsTotal
-   *   - billingBase = (markedSubtotal - promoDiscount) + modsTotal
+   *   - taxBase     = markedSubtotal + taxableModsTotal
+   *   - billingBase = markedSubtotal + modsTotal
    *   - grand       = billingBase + assembly + shipping + tax
-   *   Subtotal 行仍顯示折扣前金額,折扣獨立一行。
-   * 不套折扣時(Draft 或無符合 SKU):promoDiscount=0,subtotal/tax/grand 全用折前。
    *
    * 改動 13: Subtotal 顯示值已在 _drawTotals 內併入 assembleTotal;grand 計算不變。
    */
@@ -1350,7 +1293,6 @@ return total;
     const {
       doc, quoteData, items, headerContext, tableEndY, notes,
       showPrices, markupPercent = 0,
-      applyPromo = false,          // CB-13-FIX: Invoice=true / Draft=false
     } = args;
     const { pageW, margin } = LAYOUT;
 
@@ -1387,19 +1329,12 @@ return total;
       taxableModsTotal = _calcTaxableModsCost(items);
     }
 
-    // ── CB-13 (改動 9) + CB-13-FIX: Kit Promo 20% — PDF 自算,applyPromo 控制套用 ──
-    const kitPromo          = _calcKitPromoDiscount(items, applyPromo);
-    const promoDiscount     = kitPromo.amount;
-    const promoLabel        = promoDiscount > 0 ? 'Discount (Kit Promo 20%)' : '';
-    const promoMatchedCount = kitPromo.matchedCount;
-
     const logisticType    = quoteData.logistic_type || 'pickup';
     const deliveryFee     = parseFloat(quoteData.delivery_fee || 0);
     const pendingShipping = _isPendingShipping(quoteData);
 
-    // ── Shipping resolution — uses POST-discount billing base ──
-    //   Draft(applyPromo=false): promoDiscount=0 → billingBase 即折前,符合 Draft 用原價。
-    const billingBase = (markedSubtotal - promoDiscount) + modsTotal;
+    // ── Shipping resolution — uses billing base ──
+    const billingBase = markedSubtotal + modsTotal;
     let shipping;
     if (pendingShipping) {
       shipping = 0;
@@ -1412,21 +1347,17 @@ return total;
       shipping = (logisticType === 'delivery') ? deliveryFee : 0;
     }
 
-    // ── Tax base = (SKU - promo) + TAXABLE mods ──
-    //   Draft(promoDiscount=0): tax 用折前,符合 Draft 規則。
+    // ── Tax base = SKU + TAXABLE mods ──
     const taxRate   = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
-    const taxBase   = (markedSubtotal - promoDiscount) + taxableModsTotal;
+    const taxBase   = markedSubtotal + taxableModsTotal;
     const tax       = taxExempt ? 0 : taxBase * taxRate;
 
     // ── Grand total = billing base + assembly + shipping + tax ──
     const grand = billingBase + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
 
     const totals = {
-      subtotal:          markedSubtotal,     // PRE-discount(顯示時併入 assembleTotal,見 _drawTotals)
-      promoDiscount:     promoDiscount,
-      promoLabel:        promoLabel,
-      promoMatchedCount: promoMatchedCount,
+      subtotal:          markedSubtotal,     // 顯示時併入 assembleTotal,見 _drawTotals
       modsTotal:         modsTotal,
       modsDisplayTotal:     modsDisplayTotal,      // CB-27: 顯示用 Mods 總額(工本費 Σ)
       modByType:            modByType.byType,       // CB-27: by-type 明細
@@ -1452,12 +1383,10 @@ return total;
 
     let y = yAfterNotes + 8;
     const TC_BLOCK_H = 7 * 9 + 16;
-    // 改動 13/14 後 totals 少了 Assemble Fee 行 + 細項,所以高度需求變小
-    const PROMO_H    = promoDiscount > 0 ? 9 : 0;
     // CB-27: Modifications 變多行(標題 + N type + Total)、Assemble Fee 獨立一行
     const MODS_H     = modsDisplayTotal > 0 ? (5 + modByType.ordered.length * 4 + 6) : 0;
     const ASM_H      = assembleTotal > 0 ? 6 : 0;
-    const TOTALS_H   = 45 + MODS_H + ASM_H + PROMO_H;
+    const TOTALS_H   = 45 + MODS_H + ASM_H;
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
     if (y + NEEDED > 275) {
       doc.addPage();
@@ -1546,7 +1475,6 @@ return total;
         mode:             'packing-list',
         startY:           y,
         markupPercent:    0,
-        applyPromo:       false,        // Packing List 無金額,折扣不適用
         constructionType: quoteData.construction_type,   // CB-22
         headerContext:    headerContext,
       });
@@ -1558,8 +1486,6 @@ return total;
 
   /**
    * 建立 Invoice PDF（含價，給 dealer / 客戶用）
-   * CB-13 (改動 9) + CB-13-FIX: PDF 自算 Kit Promo 折扣(LSW/LSG/LSA + tag==='Kit'),
-   *   不讀 _promo。Invoice 一律套折扣(applyPromo=true),tax/grand 折後。
    * 改動 13/14: Assemble Fee 併入 Subtotal,無獨立 Asm Fee 行與細項。
    */
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
@@ -1574,7 +1500,6 @@ return total;
           mode:             'invoice',
           startY:           y,
           markupPercent:    markupPercent,
-          applyPromo:       true,         // CB-13-FIX: Invoice 一律套 Kit Promo
           constructionType: quoteData.construction_type,   // CB-22
           headerContext:    headerContext,
         });
@@ -1583,7 +1508,6 @@ return total;
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
-      applyPromo: true,            // CB-13-FIX
     });
 
     return doc;
@@ -1591,8 +1515,6 @@ return total;
 
   /**
    * 建立 Draft Quote PDF（Step 3 預覽用）
-   * CB-13 (改動 9) + CB-13-FIX: Draft 一律不套 Kit Promo(applyPromo=false),
-   *   不論 markup 多少 —— subtotal / tax / grand 全用折前(原價),不顯示 Discount 行。
    * 改動 13/14: 與 Invoice 同步 — Assemble Fee 併入 Subtotal,無細項。
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
@@ -1607,7 +1529,6 @@ return total;
         mode:             'draft-quote',
         startY:           y,
         markupPercent:    markupPercent,
-        applyPromo:       false,        // CB-13-FIX: Draft 一律不折
         constructionType: quoteData.construction_type,   // CB-22
         headerContext:    headerContext,
       });
@@ -1616,7 +1537,6 @@ return total;
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
-      applyPromo: false,           // CB-13-FIX: Draft 一律不折
     });
 
     return doc;
@@ -1675,8 +1595,6 @@ return total;
     _loadImage:               _loadImage,
     _isPendingShipping:       _isPendingShipping,
     _isHiddenMod:             _isHiddenMod,
-    _calcKitPromoDiscount:    _calcKitPromoDiscount,             // CB-13 (改動 9) / CB-13-FIX
-    _isKitPromoItem:          _isKitPromoItem,                   // CB-13 (改動 9) / CB-13-FIX
     _getNormalizedSubGroups:  _getNormalizedSubGroups,
     _calcPerSubModCost:       _calcPerSubModCost,
     _calcPerSubTaxableModCost: _calcPerSubTaxableModCost,
