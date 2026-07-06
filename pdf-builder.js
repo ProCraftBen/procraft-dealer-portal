@@ -352,37 +352,6 @@ return total;
     return { byType: byType, ordered: ordered, modsDisplayTotal: modsDisplayTotal };
   }
 
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // CB-13 (改動 9) + CB-13-FIX (2026-06-10): Kit Promo 20% — PDF 自算。
-  //   逐 SKU 判斷:style_code ∈ {LSW,LSG,LSA} 且 tag === 'Kit'(大寫精確比對,
-  //   與 DB / step3 / quote-detail / email 一致)。
-  //   折扣「是否套用」由 applyPromo 旗標決定(Invoice=true / Draft=false),
-  //   不再用 markupPercent 當開關 —— Draft 一律不折,Invoice 一律折。
-  const KIT_PROMO_STYLES = ['LSW', 'LSG', 'LSA'];
-  const KIT_PROMO_RATE   = 0.20;
-
-  function _isKitPromoItem(item) {
-    if (!item) return false;
-    const style = String(item.style_code || '').toUpperCase();
-    if (KIT_PROMO_STYLES.indexOf(style) === -1) return false;
-    return item.tag === 'Kit';
-  }
-
-  function _calcKitPromoDiscount(items, applyPromo) {
-    if (!applyPromo) return { amount: 0, matchedCount: 0 };
-    let amount = 0;
-    let matchedCount = 0;
-    (items || []).forEach(function (item) {
-      if (!_isKitPromoItem(item)) return;
-      const unit = parseFloat(item.unit_price) || 0;
-      const qty  = parseInt(item.quantity, 10) || 0;
-      amount += unit * qty * KIT_PROMO_RATE;
-      matchedCount += 1;
-    });
-    return { amount: amount, matchedCount: matchedCount };
-  }
-
   function _formatModValue(v) {
     if (v == null) return '';
     if (typeof v === 'string')  return v;
@@ -1263,19 +1232,6 @@ return total;
       if (customCount > 0) {
         console.log('[F-CUSTOM] ' + documentTitle + ' PDF: ' + customCount + ' custom item(s)');
       }
-    }
-    // CB-13 (改動 9) + CB-13-FIX: debug log for Kit Promo (PDF self-calc)
-    //   折扣只在 Invoice 套用;Draft 一律不折;Packing List 無金額不顯示。
-    if (documentTitle === 'INVOICE') {
-      const _kitDbg = _calcKitPromoDiscount(quoteData.items, true);
-      if (_kitDbg.amount > 0) {
-        console.log('[CB-13] INVOICE PDF: Kit Promo -$'
-          + _kitDbg.amount.toFixed(2) + ' across ' + _kitDbg.matchedCount + ' line(s)');
-      } else {
-        console.log('[CB-13] INVOICE PDF: Kit Promo not applicable (no eligible line)');
-      }
-    } else if (documentTitle === 'DRAFT QUOTE') {
-      console.log('[CB-13] DRAFT QUOTE PDF: Kit Promo not applied (draft never discounts)');
     }
     return { doc, logoImg, y, headerContext };
   }
