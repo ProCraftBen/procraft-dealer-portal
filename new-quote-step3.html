@@ -2627,7 +2627,7 @@ async function saveDraft() {
     if (_willNotifyNow) {
       try {
         await fetch(
-          'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
+          `${window.SB_URL}/functions/v1/send-quote-email`,
           {
             method: 'POST',
             headers: {
