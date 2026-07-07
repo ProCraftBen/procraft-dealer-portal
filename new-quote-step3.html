@@ -2939,7 +2939,7 @@ async function submitQuote() {
   setStep(_isResumingReturned ? 'Sending resubmission email...' : 'Sending confirmation email...');
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
-      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
+      `${window.SB_URL}/functions/v1/send-quote-email`,
       {
         method: 'POST',
         headers: {
