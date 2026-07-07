@@ -36,8 +36,8 @@
   // ──────────────────────────────────────────────────────────────────
   // CONFIG
   // ──────────────────────────────────────────────────────────────────
-  const SUPABASE_URL  = 'https://acwgemgpnusworpxxoai.supabase.co';
-  const SUPABASE_KEY  = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
+  const SUPABASE_URL  = window.SB_URL;
+  const SUPABASE_KEY  = window.SB_KEY;
   const MOBILE_BREAKPOINT = 700;
   const MESSAGE_MAX = 2000;
 
