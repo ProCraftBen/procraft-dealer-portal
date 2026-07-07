@@ -3189,7 +3189,7 @@ async function requestRevision(note) {
     // ⬇⬇⬇ If a DB trigger already emails on status→Returned, delete this fetch block. ⬇⬇⬇
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
-      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/send-quote-email',
+      `${window.SB_URL}/functions/v1/send-quote-email`,
       {
         method: 'POST',
         headers: {
