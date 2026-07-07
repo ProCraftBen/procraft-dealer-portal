@@ -637,7 +637,7 @@ async function saveDealer() {
     } else {
       const { data: { session } } = await _supabase.auth.getSession();
       const res = await fetch(
-        'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/create-dealer',
+        `${window.SB_URL}/functions/v1/create-dealer`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -713,7 +713,7 @@ async function executeDelete() {
   try {
     const { data: { session } } = await _supabase.auth.getSession();
     const res = await fetch(
-      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/delete-dealer',
+      `${window.SB_URL}/functions/v1/delete-dealer`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
