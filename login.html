@@ -218,8 +218,8 @@
   <script>
     const { createClient } = supabase;
     const _supabase = createClient(
-      'https://acwgemgpnusworpxxoai.supabase.co',
-      'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+      window.SB_URL,
+      window.SB_KEY
     );
 
     const loginBtn = document.getElementById('loginBtn');
