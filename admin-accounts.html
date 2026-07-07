@@ -434,7 +434,7 @@ async function saveAdmin() {
   try {
     const { data: { session } } = await _supabase.auth.getSession();
     const res = await fetch(
-      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/create-admin',
+      `${window.SB_URL}/functions/v1/create-admin`,
       {
         method: 'POST',
         headers: {
@@ -523,7 +523,7 @@ async function executeDelete() {
   try {
     const { data: { session } } = await _supabase.auth.getSession();
     const res = await fetch(
-      'https://acwgemgpnusworpxxoai.supabase.co/functions/v1/delete-dealer',
+      `${window.SB_URL}/functions/v1/delete-dealer`,
       {
         method: 'POST',
         headers: {
