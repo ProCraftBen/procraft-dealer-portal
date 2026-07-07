@@ -46,8 +46,8 @@
   'use strict';
 
   // ── Constants ────────────────────────────────────────────────────
-  const SUPABASE_URL  = 'https://acwgemgpnusworpxxoai.supabase.co';
-  const SUPABASE_ANON = 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M';
+  const SUPABASE_URL  = window.SB_URL;
+  const SUPABASE_ANON = window.SB_KEY;
   const LOGO_URL      = 'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png';
   const BRAND_TITLE   = 'ProCraft Cabinetry DC';
 
