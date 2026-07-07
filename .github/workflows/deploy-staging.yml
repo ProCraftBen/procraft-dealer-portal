@@ -1,0 +1,30 @@
+name: Deploy staging to staging-repo
+
+# 只在 staging branch 有 push 時觸發(main 不會觸發)
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 抓出 staging branch 目前的檔案
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+
+      # 2. 把這些檔案推到第二個 repo(部署目標)
+      - name: Push to staging deploy repo
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          # 用第 3.5 步存的 PAT 當寫入權限
+          personal_token: ${{ secrets.STAGING_DEPLOY_TOKEN }}
+          # 目標:第二個 repo
+          external_repository: ProCraftBen/procraft-dealer-portal-staging
+          # 推到第二 repo 的哪個 branch(第 5 步開 Pages 會選這個)
+          publish_branch: gh-pages
+          # 要推的內容 = 整個 repo 根目錄
+          publish_dir: .
+          # 避免把 .github workflow 也推過去(第二 repo 不需要)
+          exclude_assets: '.github'
