@@ -1555,6 +1555,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script src="components/quote-flow-header.js"></script>
 
 <script src="components/modifications/mf01-skin.js"></script>
@@ -1567,8 +1568,8 @@
 <script>
 const { createClient } = supabase;
 const _supabase = createClient(
-  'https://acwgemgpnusworpxxoai.supabase.co',
-  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+  window.SB_URL,
+  window.SB_KEY
 );
 
 // ── State ──
