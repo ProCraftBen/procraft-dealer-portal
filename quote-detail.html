@@ -574,6 +574,7 @@
 <div id="pcd-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
 <script>
@@ -591,8 +592,8 @@ function editInternalDraft() {
   
 const { createClient } = window.supabase;
 const _supabase = createClient(
-  'https://acwgemgpnusworpxxoai.supabase.co',
-  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+  window.SB_URL,
+  window.SB_KEY
 );
 
 // F-CUSTOM (Phase 5): Added 'OTHER' between ACCESSORIES and MODIFICATION,
