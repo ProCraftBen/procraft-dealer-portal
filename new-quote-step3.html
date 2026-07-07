@@ -926,6 +926,7 @@ color: var(--green-dark);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="pdf-builder.js"></script>
@@ -933,8 +934,8 @@ color: var(--green-dark);
 <script>
 const { createClient } = supabase;
 const _supabase = createClient(
-  'https://acwgemgpnusworpxxoai.supabase.co',
-  'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'
+  window.SB_URL,
+  window.SB_KEY
 );
 
 let dealer    = null;
