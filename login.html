@@ -323,7 +323,7 @@
     return;
   }
   const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: 'https://procraftben.github.io/procraft-dealer-portal/reset-password.html',
+    redirectTo: new URL('reset-password.html', window.location.href).href,
   });
   errMsg.classList.remove('show');
   alert('If this email is registered, a reset link has been sent. Please check your inbox.');
