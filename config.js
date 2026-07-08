@@ -22,6 +22,13 @@
     ? 'sb_publishable_GYx1PEpxNJ9dj5V3WYpPWQ_8YfB0w8M'   // production anon (publishable)
     : 'sb_publishable_ja9UXeBpInmYzENNq67yRg_K2Jj8ol_';  // staging anon (publishable)
 
+  // CB-43 付款流程:dealer 選 Card/ACH 後前端 POST 到此 webhook,由 n8n 建 QuickBooks Invoice。
+  // 環境感知:staging 接 QuickBooks Sandbox、production 接正式 QuickBooks,避免 staging 打到正式金流。
+  // ⚠️ 目前為 PLACEHOLDER,n8n workflow 建立後(CB-43 後續工作單)回填真值。
+  window.N8N_PAYMENT_WEBHOOK = isProd
+    ? 'https://n8n.example.com/webhook/PLACEHOLDER_PROD_PAYMENT'      // production
+    : 'https://n8n.example.com/webhook/PLACEHOLDER_STAGING_PAYMENT'; // staging
+
   // 方便在 Console 一眼確認現在連哪個環境
-  console.log('[config] SB_ENV =', window.SB_ENV, '| SB_URL =', window.SB_URL);
+  console.log('[config] SB_ENV =', window.SB_ENV, '| SB_URL =', window.SB_URL, '| N8N_PAYMENT_WEBHOOK =', window.N8N_PAYMENT_WEBHOOK);
 })();
