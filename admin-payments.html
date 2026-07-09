@@ -89,7 +89,7 @@
     .cancel-hist-item { padding: 10px 0; border-bottom: 1px solid #EFEBE1; font-size: 12px; }
     .cancel-hist-item:last-child { border-bottom: none; }
     .cancel-hist-item .ch-meta { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
-    #detail-actions { margin-top: 16px; }
+    #detail-actions:not(:empty) { margin-bottom: 16px; }
     .detail-actions-bar { display: flex; flex-wrap: wrap; gap: 10px; }
 
     /* ===== Modal shells (used by Stage-2 actions) ===== */
@@ -557,7 +557,13 @@ function renderDetail() {
   const view = document.getElementById('detail-view');
   view.innerHTML =
     '<a class="back-link" href="admin-payments.html">← Back to Payments</a>' +
-    '<div class="page-header"><div class="page-title">Payment Detail</div></div>' +
+    '<div class="page-header"><div class="page-title">Payment Detail</div>' +
+      '<span class="pay-badge s-' + (p.status || '') + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span>' +
+    '</div>' +
+
+    // Admin Actions 容器(移到最上方:header 下、資料卡之上)
+    '<div id="detail-actions"></div>' +
+
     '<div class="detail-grid">' +
 
       // Dealer
@@ -591,10 +597,7 @@ function renderDetail() {
 
       checkHtml +
       cancelHtml +
-    '</div>' +
-
-    // Admin Actions 容器(Segment 2 第二小段填入)
-    '<div id="detail-actions"></div>';
+    '</div>';
 
   renderActions();
 
