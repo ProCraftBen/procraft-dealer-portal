@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Payments</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
+      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF; --error:#C0392B;
+      --status-processing:#3B82F6; --status-confirmed:#16A34A; --status-failed:#C0392B; --status-cancelled:#7A8C82;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+
+    /* Filters */
+    .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+    .filter-group { display: flex; flex-direction: column; gap: 5px; }
+    .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .filter-select, .filter-input { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--cream); }
+    .filter-select:focus, .filter-input:focus { outline: none; border-color: var(--gold); }
+    .filter-actions { display: flex; gap: 8px; align-items: end; }
+    .btn-filter { height: 36px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; }
+    .btn-filter:hover { background: var(--green-mid); }
+    .btn-reset { height: 36px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; cursor: pointer; }
+    .btn-reset:hover { color: var(--text); }
+
+    /* Table */
+    .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
+    .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .table-count { font-size: 11px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
+    .td-dealer { font-weight: 500; }
+    .td-dealer-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .td-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 12px; }
+
+    /* Payment status badge */
+    .pay-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+    .pay-badge.s-processing { background: rgba(59,130,246,0.1);  color: var(--status-processing); }
+    .pay-badge.s-confirmed  { background: rgba(22,163,74,0.1);   color: var(--status-confirmed); }
+    .pay-badge.s-failed     { background: rgba(192,57,43,0.1);   color: var(--status-failed); }
+    .pay-badge.s-cancelled  { background: rgba(122,140,130,0.14);color: var(--status-cancelled); }
+
+    /* Method label */
+    .method-label { font-size: 11px; letter-spacing: 0.04em; }
+
+    /* View button */
+    .btn-view { display: inline-flex; align-items: center; gap: 5px; background: transparent; color: var(--green-dark); border: 1px solid var(--border); border-radius: 3px; padding: 5px 12px; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; text-decoration: none; }
+    .btn-view:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* Loading / message */
+    .msg-block { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--green-dark); color: #fff; padding: 12px 22px; border-radius: 4px; font-size: 12px; letter-spacing: 0.03em; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 2000; max-width: 90%; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--error); }
+
+    /* ===== Modal shells (used by Stage-2 actions) ===== */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.45); display: none; align-items: center; justify-content: center; z-index: 1500; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: var(--white); border-radius: 6px; width: 100%; max-width: 460px; padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--green-dark); margin-bottom: 6px; }
+    .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .modal-field textarea, .modal-field input { width: 100%; border: 1px solid var(--border); border-radius: 3px; padding: 9px 11px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--cream); }
+    .modal-field textarea { min-height: 84px; resize: vertical; }
+    .modal-field textarea:focus, .modal-field input:focus { outline: none; border-color: var(--gold); }
+    .modal-error { font-size: 12px; color: var(--error); margin-top: 4px; margin-bottom: 10px; display: none; padding: 10px 12px; background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; }
+    .modal-error.show { display: block; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .btn-primary { padding: 10px 22px; background: var(--green-dark); border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: #fff; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-primary.danger { background: var(--error); }
+    .btn-primary:disabled { opacity: 0.55; cursor: default; }
+    .btn-secondary { padding: 10px 22px; background: transparent; border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; letter-spacing: 0.05em; cursor: pointer; color: var(--muted); }
+    .btn-secondary:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- Unified Navigator (shared component). 'payments' is not yet in the admin nav map,
+     so no item highlights — adding a nav link is a separate follow-up, out of T5 scope. -->
+<div id="pcd-nav" data-page="payments"></div>
+
+<!-- ============================ LIST VIEW ============================ -->
+<div class="page" id="list-view" style="display:none">
+  <div class="page-header">
+    <div class="page-title">Payments</div>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label class="filter-label">Status</label>
+      <select class="filter-select" id="filterStatus">
+        <option value="">All Statuses</option>
+        <option value="processing">Processing</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="failed">Failed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Method</label>
+      <select class="filter-select" id="filterMethod">
+        <option value="">All Methods</option>
+        <option value="card">Card</option>
+        <option value="ach">ACH</option>
+        <option value="check">Check</option>
+        <option value="offline">Offline</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">From</label>
+      <input type="date" class="filter-input" id="filterFrom"/>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">To</label>
+      <input type="date" class="filter-input" id="filterTo"/>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Search (PO# / Dealer)</label>
+      <input type="text" class="filter-input" id="filterSearch" placeholder="PDC00123 or company name"/>
+    </div>
+    <div class="filter-actions">
+      <button class="btn-filter" id="btnFilter">Filter</button>
+      <button class="btn-reset" id="btnReset">Reset</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="table-title">All Payments</span>
+      <span class="table-count" id="listCount">—</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>PO#</th>
+          <th>Dealer</th>
+          <th>Method</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="listBody">
+        <tr><td colspan="6" class="td-empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================ DETAIL VIEW ============================ -->
+<!-- Filled by renderDetail() — implemented in the next delivery segment (T5 part 2). -->
+<div class="page" id="detail-view" style="display:none"></div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/navigator.js"></script>
+<script src="components/footer.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════════
+// admin-payments.html — CB-43 T5 (Admin 付款管理頁)
+// Segment 1: Supabase init + 權限 gate + router + 列表頁
+// (詳情頁 renderDetail + 4 個 admin actions 於 Segment 2 補入)
+// ════════════════════════════════════════════════════════════════════
+const { createClient } = window.supabase;
+const _supabase = createClient(window.SB_URL, window.SB_KEY);
+
+// ---- state ----
+let allPayments = [];          // 全部 payments(created_at DESC)
+let quoteMap    = {};          // quote_id  -> quote row
+let dealerMap   = {};          // dealer_id -> dealer row
+
+// ---- 顯示對照 ----
+const methodLabel = { card:'Card', ach:'ACH', check:'Check', offline:'Offline' };
+const statusLabel = { processing:'Processing', confirmed:'Confirmed', failed:'Failed', cancelled:'Cancelled' };
+
+// ---- helpers ----
+function getParam(k) { return new URLSearchParams(window.location.search).get(k); }
+
+function money(v) {
+  const n = Number(v || 0);
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let _toastTimer = null;
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function () { t.className = 'toast'; }, 3200);
+}
+
+// quote / dealer 讀取(join 後)
+function quoteOf(p)  { return quoteMap[p.quote_id] || {}; }
+function dealerOf(p) { const q = quoteOf(p); return dealerMap[q.dealer_id] || {}; }
+
+// ════════════════════════════════════════════════════════════════════
+// Init:權限 gate + router
+// ════════════════════════════════════════════════════════════════════
+(async function init() {
+  // 1) 未登入 → login
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  // 2) 非 admin/super_admin → dashboard(client 端 gate,照現有 admin 頁讀 role)
+  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  if (!['admin', 'super_admin'].includes(me && me.role)) { window.location.href = 'dashboard.html'; return; }
+
+  // 3) router:有 payment_id → 詳情;否則 → 列表
+  const pid = getParam('payment_id');
+  if (pid) {
+    showDetail(pid);
+  } else {
+    showList();
+  }
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// 資料載入:三段分開撈、client join(零 embed 依賴)
+//   ① payments 全撈(created_at DESC)
+//   ② 依 quote_id 撈 quotes
+//   ③ 依 quotes.dealer_id 撈 dealers
+// ════════════════════════════════════════════════════════════════════
+async function loadData() {
+  const { data: payments, error: pErr } = await _supabase
+    .from('payments')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (pErr) throw pErr;
+  allPayments = payments || [];
+
+  // quotes
+  quoteMap = {};
+  const quoteIds = Array.from(new Set(allPayments.map(function (p) { return p.quote_id; }).filter(Boolean)));
+  if (quoteIds.length) {
+    const { data: quotes, error: qErr } = await _supabase
+      .from('quotes')
+      .select('id, po_number, job_name, grand_total, status, dealer_id')
+      .in('id', quoteIds);
+    if (qErr) throw qErr;
+    (quotes || []).forEach(function (q) { quoteMap[q.id] = q; });
+  }
+
+  // dealers
+  dealerMap = {};
+  const dealerIds = Array.from(new Set(Object.values(quoteMap).map(function (q) { return q.dealer_id; }).filter(Boolean)));
+  if (dealerIds.length) {
+    const { data: dealers, error: dErr } = await _supabase
+      .from('dealers')
+      .select('id, company_name, contact_name, email')
+      .in('id', dealerIds);
+    if (dErr) throw dErr;
+    (dealers || []).forEach(function (d) { dealerMap[d.id] = d; });
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 列表頁
+// ════════════════════════════════════════════════════════════════════
+async function showList() {
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+
+  // 綁定 filter 按鈕(只綁一次)
+  document.getElementById('btnFilter').onclick = applyFilters;
+  document.getElementById('btnReset').onclick  = resetFilters;
+  document.getElementById('filterSearch').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') applyFilters();
+  });
+
+  try {
+    await loadData();
+    renderList(allPayments);
+  } catch (err) {
+    console.error('[admin-payments] loadData failed:', err);
+    document.getElementById('listBody').innerHTML =
+      '<tr><td colspan="6" class="td-empty">Failed to load payments. Please refresh.</td></tr>';
+    document.getElementById('listCount').textContent = '—';
+    showToast('Failed to load payments.', true);
+  }
+}
+
+function applyFilters() {
+  const st     = document.getElementById('filterStatus').value;
+  const mt     = document.getElementById('filterMethod').value;
+  const from   = document.getElementById('filterFrom').value;   // yyyy-mm-dd or ''
+  const to     = document.getElementById('filterTo').value;
+  const search = document.getElementById('filterSearch').value.trim().toLowerCase();
+
+  const fromTs = from ? new Date(from + 'T00:00:00').getTime() : null;
+  const toTs   = to   ? new Date(to   + 'T23:59:59').getTime() : null;
+
+  const rows = allPayments.filter(function (p) {
+    if (st && p.status !== st) return false;
+    if (mt && p.payment_method !== mt) return false;
+
+    if (fromTs || toTs) {
+      const ts = p.created_at ? new Date(p.created_at).getTime() : 0;
+      if (fromTs && ts < fromTs) return false;
+      if (toTs && ts > toTs) return false;
+    }
+
+    if (search) {
+      const q  = quoteOf(p);
+      const d  = dealerOf(p);
+      const po = (q.po_number || '').toLowerCase();
+      const cn = (d.company_name || '').toLowerCase();
+      if (po.indexOf(search) === -1 && cn.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+
+  renderList(rows);
+}
+
+function resetFilters() {
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterMethod').value = '';
+  document.getElementById('filterFrom').value   = '';
+  document.getElementById('filterTo').value     = '';
+  document.getElementById('filterSearch').value = '';
+  renderList(allPayments);
+}
+
+function renderList(rows) {
+  const body = document.getElementById('listBody');
+  document.getElementById('listCount').textContent =
+    rows.length + (rows.length === 1 ? ' payment' : ' payments');
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="td-empty">No payments match your filters.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(function (p) {
+    const q  = quoteOf(p);
+    const d  = dealerOf(p);
+    const sc = 's-' + (p.status || '');
+    return '<tr>' +
+      '<td>' + escapeHtml(q.po_number || '—') + '</td>' +
+      '<td><div class="td-dealer">' + escapeHtml(d.company_name || '—') + '</div>' +
+        '<div class="td-dealer-sub">' + escapeHtml(d.contact_name || '') + '</div></td>' +
+      '<td><span class="method-label">' + escapeHtml(methodLabel[p.payment_method] || p.payment_method || '—') + '</span></td>' +
+      '<td>' + money(p.total_paid) + '</td>' +
+      '<td><span class="pay-badge ' + sc + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span></td>' +
+      '<td><a class="btn-view" href="admin-payments.html?payment_id=' + encodeURIComponent(p.id) + '">View</a></td>' +
+    '</tr>';
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 詳情頁 — Segment 2 實作(此為占位 stub,保持檔案可獨立運行)
+// ════════════════════════════════════════════════════════════════════
+async function showDetail(paymentId) {
+  document.getElementById('list-view').style.display = 'none';
+  const view = document.getElementById('detail-view');
+  view.style.display = 'block';
+  view.innerHTML =
+    '<div class="page-header"><div class="page-title">Payment Detail</div></div>' +
+    '<div class="msg-block">（詳情頁與 Admin Actions 於下一交付段實作。payment_id = ' +
+    escapeHtml(paymentId) + '）<br><br>' +
+    '<a class="btn-view" href="admin-payments.html">← Back to Payments</a></div>';
+}
+</script>
+
+<script src="components/feedback-widget.js?v=1.0"></script>
+</body>
+</html>
