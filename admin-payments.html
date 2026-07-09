@@ -616,6 +616,8 @@ function renderDetail() {
         '<div class="detail-row"><span class="lbl">Base Amount</span><span class="val">' + money(p.base_amount) + '</span></div>' +
         '<div class="detail-row"><span class="lbl">Transaction Fee</span><span class="val">' + escapeHtml(feeStr) + '</span></div>' +
         '<div class="detail-row"><span class="lbl">Total Paid</span><span class="val">' + money(p.total_paid) + '</span></div>' +
+        (p.payment_method === 'offline' && p.offline_note
+          ? '<div class="detail-row"><span class="lbl">Note</span><span class="val">' + escapeHtml(p.offline_note) + '</span></div>' : '') +
       '</div>' +
 
       qbHtml +
@@ -699,20 +701,12 @@ function renderActions() {
   const q = detailQuote || {};
   const p = detailPayment;
   const latest = detailQuotePayments[0] || null;
-  const latestProcessing = !!(latest && latest.status === 'processing');
   const isThisLatest = !!(latest && p && latest.id === p.id);
 
   const btns = [];
 
-  // Resend Reminder:quote=Pending 且(無 payment 或最新非 processing)
-  if (q.status === 'Pending' && !latestProcessing) {
-    btns.push('<button class="btn-primary" onclick="actResendReminder()">Resend Payment Reminder</button>');
-  }
-  // Record Offline:quote=Pending
-  if (q.status === 'Pending') {
-    btns.push('<button class="btn-primary" onclick="actRecordOffline()">Record Offline Payment</button>');
-  }
   // Confirm / Cancel:quote=Payment Processing 且「這筆」就是最新且 processing
+  //（Offline / Resend 已移至列表頁 picker;詳情頁只留 Confirm / Cancel)
   if (q.status === 'Payment Processing' && p.status === 'processing' && isThisLatest) {
     btns.push('<button class="btn-primary" onclick="actConfirm()">Confirm Payment Received</button>');
     btns.push('<button class="btn-primary danger" onclick="actCancel()">Cancel This Payment</button>');
@@ -773,23 +767,8 @@ function wireActionModal() {
   };
 }
 
-// ---- 1. Resend Payment Reminder(不改狀態;reminder 只帶 quote_id)----
-function actResendReminder() {
-  openActionModal({
-    title: 'Resend Payment Reminder',
-    sub: 'This re-sends the payment reminder email to the dealer. No status will change.',
-    fieldsHtml: '',
-    confirmLabel: 'Send Reminder',
-    danger: false,
-    onConfirm: async function () {
-      await sendPaymentEmail({ type: 'payment_reminder', quote_id: detailQuote.id });
-      showToast('Reminder sent.');
-      return true;
-    }
-  });
-}
-
-// ---- 2. Cancel This Payment ----
+// ---- Cancel This Payment ----
+  
 function actCancel() {
   openActionModal({
     title: 'Cancel This Payment',
@@ -861,55 +840,6 @@ function actConfirm() {
       // ③ email(非阻斷)
       await sendPaymentEmail({ type: 'payment_confirmed', quote_id: detailQuote.id, payment_id: detailPayment.id });
       showToast('Payment confirmed.');
-      return true;
-    }
-  });
-}
-
-// ---- 4. Record Offline Payment(admin 代客記線下款)----
-function actRecordOffline() {
-  const defaultAmt = (detailQuote && detailQuote.grand_total != null) ? Number(detailQuote.grand_total) : '';
-  openActionModal({
-    title: 'Record Offline Payment',
-    sub: 'Record a payment received outside the portal (e.g. wire or cash). This confirms the order and advances it to Order Processing.',
-    fieldsHtml:
-      '<div class="modal-field"><label>Amount (USD)</label>' +
-        '<input type="number" id="amAmount" min="0" step="0.01" value="' + (defaultAmt === '' ? '' : defaultAmt) + '"/></div>' +
-      '<div class="modal-field"><label>Note (method / reference — not stored)</label>' +
-        '<input type="text" id="amNote" placeholder="e.g. Wire ref #12345"/></div>',
-    confirmLabel: 'Record Payment',
-    danger: false,
-    onConfirm: async function () {
-      const amount = parseFloat(document.getElementById('amAmount').value);
-      if (isNaN(amount) || amount <= 0) { amShowError('Please enter a valid amount greater than 0.'); return false; }
-
-      // ① quotes → Order Processing(先做 quotes;失敗即中止,不 INSERT payment)
-      const upd = await _supabase.from('quotes')
-        .update({ status: 'Order Processing' }, { count: 'exact' })
-        .eq('id', detailQuote.id);
-      if (upd.error) throw upd.error;
-      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
-
-      // ② INSERT offline payment(confirmed;admin-only,靠 T1 admin INSERT policy)
-      const { data: { session } } = await _supabase.auth.getSession();
-      const ins = await _supabase.from('payments')
-        .insert({
-          quote_id:       detailQuote.id,
-          payment_method: 'offline',
-          base_amount:    amount,
-          fee_percentage: 0,
-          fee_amount:     0,
-          total_paid:     amount,
-          status:         'confirmed',
-          confirmed_by:   session.user.id,
-          confirmed_at:   new Date().toISOString(),
-        })
-        .select('id').single();
-      if (ins.error) throw ins.error;
-
-      // ③ email(新 payment_id;非阻斷)
-      await sendPaymentEmail({ type: 'payment_confirmed', quote_id: detailQuote.id, payment_id: ins.data.id });
-      showToast('Offline payment recorded.');
       return true;
     }
   });
