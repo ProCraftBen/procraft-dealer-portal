@@ -66,6 +66,32 @@
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     .toast.error { background: var(--error); }
 
+    /* ===== Detail page ===== */
+    .back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-decoration: none; margin-bottom: 18px; }
+    .back-link:hover { color: var(--green-dark); }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
+    .detail-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 20px 22px; }
+    .detail-card.full { grid-column: 1 / -1; }
+    .section-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); margin-bottom: 14px; }
+    .detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid #EFEBE1; font-size: 13px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row .lbl { color: var(--muted); }
+    .detail-row .val { text-align: right; font-weight: 500; word-break: break-word; }
+    .view-quote-link { display: inline-flex; align-items: center; gap: 5px; color: var(--green-dark); text-decoration: none; font-weight: 500; }
+    .view-quote-link:hover { color: var(--gold); }
+    .qb-link-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .btn-mini { background: transparent; border: 1px solid var(--border); border-radius: 3px; padding: 4px 10px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; color: var(--green-dark); text-decoration: none; }
+    .btn-mini:hover { border-color: var(--gold); color: var(--gold); }
+    .check-img-wrap { margin-top: 6px; }
+    .check-img { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; display: block; }
+    .check-img-note { font-size: 12px; color: var(--muted); padding: 12px 0; }
+    .cancel-hist-item { padding: 10px 0; border-bottom: 1px solid #EFEBE1; font-size: 12px; }
+    .cancel-hist-item:last-child { border-bottom: none; }
+    .cancel-hist-item .ch-meta { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+    #detail-actions { margin-top: 16px; }
+    .detail-actions-bar { display: flex; flex-wrap: wrap; gap: 10px; }
+
     /* ===== Modal shells (used by Stage-2 actions) ===== */
     .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.45); display: none; align-items: center; justify-content: center; z-index: 1500; padding: 20px; }
     .modal-overlay.show { display: flex; }
@@ -197,6 +223,21 @@ function getParam(k) { return new URLSearchParams(window.location.search).get(k)
 function money(v) {
   const n = Number(v || 0);
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+         ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
 function escapeHtml(s) {
@@ -366,25 +407,214 @@ function renderList(rows) {
         '<div class="td-dealer-sub">' + escapeHtml(d.contact_name || '') + '</div></td>' +
       '<td><span class="method-label">' + escapeHtml(methodLabel[p.payment_method] || p.payment_method || '—') + '</span></td>' +
       '<td>' + money(p.total_paid) + '</td>' +
-      '<td><span class="pay-badge ' + sc + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span></td>' +
+      '<td><span class="pay-badge ' + sc + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span>' +
+        '<div class="td-dealer-sub">' + escapeHtml(fmtDate(p.created_at)) + '</div></td>' +
       '<td><a class="btn-view" href="admin-payments.html?payment_id=' + encodeURIComponent(p.id) + '">View</a></td>' +
     '</tr>';
   }).join('');
 }
 
 // ════════════════════════════════════════════════════════════════════
-// 詳情頁 — Segment 2 實作(此為占位 stub,保持檔案可獨立運行)
+// 詳情頁(?payment_id=xxx)
 // ════════════════════════════════════════════════════════════════════
+let detailPayment       = null;   // 目前這筆 payment
+let detailQuote         = null;   // 對應 quote
+let detailDealer        = null;   // 對應 dealer
+let detailQuotePayments = [];     // 同 quote 的所有 payments(created_at DESC)
+                                  // —— 供 Cancellation History 與(Segment 2)最新判定
+
 async function showDetail(paymentId) {
   document.getElementById('list-view').style.display = 'none';
   const view = document.getElementById('detail-view');
   view.style.display = 'block';
-  view.innerHTML =
-    '<div class="page-header"><div class="page-title">Payment Detail</div></div>' +
-    '<div class="msg-block">（詳情頁與 Admin Actions 於下一交付段實作。payment_id = ' +
-    escapeHtml(paymentId) + '）<br><br>' +
-    '<a class="btn-view" href="admin-payments.html">← Back to Payments</a></div>';
+  view.innerHTML = '<div class="msg-block">Loading…</div>';
+
+  try {
+    await loadDetail(paymentId);
+    renderDetail();
+  } catch (err) {
+    console.error('[admin-payments] loadDetail failed:', err);
+    view.innerHTML =
+      '<a class="back-link" href="admin-payments.html">← Back to Payments</a>' +
+      '<div class="msg-block">Failed to load this payment. It may not exist, or please refresh.</div>';
+  }
 }
+
+async function loadDetail(paymentId) {
+  // 1) 這筆 payment
+  const { data: pay, error: pErr } = await _supabase
+    .from('payments').select('*').eq('id', paymentId).single();
+  if (pErr) throw pErr;
+  detailPayment = pay;
+
+  // 2) 對應 quote
+  detailQuote = null;
+  if (pay.quote_id) {
+    const { data: q, error: qErr } = await _supabase
+      .from('quotes').select('id, po_number, job_name, grand_total, status, dealer_id')
+      .eq('id', pay.quote_id).single();
+    if (qErr) throw qErr;
+    detailQuote = q;
+  }
+
+  // 3) 對應 dealer
+  detailDealer = null;
+  if (detailQuote && detailQuote.dealer_id) {
+    const { data: d, error: dErr } = await _supabase
+      .from('dealers').select('id, company_name, contact_name, email')
+      .eq('id', detailQuote.dealer_id).single();
+    if (dErr) throw dErr;
+    detailDealer = d;
+  }
+
+  // 4) 同 quote 的所有 payments(供 Cancellation History + 最新判定)
+  detailQuotePayments = [];
+  if (pay.quote_id) {
+    const { data: list, error: lErr } = await _supabase
+      .from('payments').select('*').eq('quote_id', pay.quote_id)
+      .order('created_at', { ascending: false });
+    if (lErr) throw lErr;
+    detailQuotePayments = list || [];
+  }
+}
+
+function renderDetail() {
+  const p = detailPayment;
+  const q = detailQuote  || {};
+  const d = detailDealer || {};
+
+  const method    = methodLabel[p.payment_method] || p.payment_method || '—';
+  const pct       = (p.fee_percentage == null ? 0 : p.fee_percentage);
+  const feeStr    = pct + '% + ' + money(p.fee_amount);
+  const submitted = p.submitted_at || p.created_at;
+
+  // QuickBooks 區:任一欄位有值才顯示
+  const hasQB = !!(p.quickbooks_invoice_id || p.quickbooks_payment_link || p.quickbooks_customer_id || p.quickbooks_payment_id);
+  let qbHtml = '';
+  if (hasQB) {
+    let linkRow = '';
+    if (p.quickbooks_payment_link) {
+      linkRow =
+        '<div class="detail-row"><span class="lbl">Payment Link</span>' +
+        '<span class="val"><span class="qb-link-row">' +
+          '<button class="btn-mini" onclick="copyQbLink()">Copy</button>' +
+          '<a class="btn-mini" href="' + escapeHtml(p.quickbooks_payment_link) + '" target="_blank" rel="noopener">Open</a>' +
+        '</span></span></div>';
+    }
+    qbHtml =
+      '<div class="detail-card">' +
+        '<div class="section-title">QuickBooks</div>' +
+        (p.quickbooks_invoice_id  ? '<div class="detail-row"><span class="lbl">Invoice ID</span><span class="val">'  + escapeHtml(p.quickbooks_invoice_id)  + '</span></div>' : '') +
+        linkRow +
+        (p.quickbooks_customer_id ? '<div class="detail-row"><span class="lbl">Customer ID</span><span class="val">' + escapeHtml(p.quickbooks_customer_id) + '</span></div>' : '') +
+      '</div>';
+  }
+
+  // Check 圖:method=check 才顯示;有 path 者於下方 async 補 signed URL
+  let checkHtml = '';
+  if (p.payment_method === 'check') {
+    checkHtml =
+      '<div class="detail-card full">' +
+        '<div class="section-title">Check Image</div>' +
+        (p.check_image_url
+          ? '<div class="check-img-wrap" id="checkImgWrap"><div class="check-img-note">Loading image…</div></div>'
+          : '<div class="check-img-note">No check image on file.</div>') +
+      '</div>';
+  }
+
+  // Cancellation History:同 quote 之前 status='cancelled' 的紀錄
+  const cancelled = detailQuotePayments.filter(function (x) { return x.status === 'cancelled'; });
+  let cancelHtml = '';
+  if (cancelled.length) {
+    cancelHtml =
+      '<div class="detail-card full">' +
+        '<div class="section-title">Cancellation History</div>' +
+        cancelled.map(function (x) {
+          return '<div class="cancel-hist-item">' +
+            '<div class="ch-meta">' + escapeHtml(fmtDateTime(x.cancelled_at || x.created_at)) +
+              ' · ' + escapeHtml(methodLabel[x.payment_method] || x.payment_method || '') +
+              ' · ' + money(x.total_paid) + '</div>' +
+            '<div>' + escapeHtml(x.cancellation_reason || '(no reason recorded)') + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+  }
+
+  const view = document.getElementById('detail-view');
+  view.innerHTML =
+    '<a class="back-link" href="admin-payments.html">← Back to Payments</a>' +
+    '<div class="page-header"><div class="page-title">Payment Detail</div></div>' +
+    '<div class="detail-grid">' +
+
+      // Dealer
+      '<div class="detail-card">' +
+        '<div class="section-title">Dealer</div>' +
+        '<div class="detail-row"><span class="lbl">Company</span><span class="val">' + escapeHtml(d.company_name || '—') + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Contact</span><span class="val">' + escapeHtml(d.contact_name || '—') + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Quote</span><span class="val">' +
+          (q.id ? '<a class="view-quote-link" href="quote-detail.html?id=' + encodeURIComponent(q.id) + '">' + escapeHtml(q.po_number || 'View Quote') + ' →</a>' : '—') +
+        '</span></div>' +
+      '</div>' +
+
+      // Payment amounts
+      '<div class="detail-card">' +
+        '<div class="section-title">Payment</div>' +
+        '<div class="detail-row"><span class="lbl">Method</span><span class="val">' + escapeHtml(method) + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Base Amount</span><span class="val">' + money(p.base_amount) + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Transaction Fee</span><span class="val">' + escapeHtml(feeStr) + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Total Paid</span><span class="val">' + money(p.total_paid) + '</span></div>' +
+      '</div>' +
+
+      qbHtml +
+
+      // Status
+      '<div class="detail-card">' +
+        '<div class="section-title">Status</div>' +
+        '<div class="detail-row"><span class="lbl">Payment Status</span><span class="val"><span class="pay-badge s-' + (p.status || '') + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span></span></div>' +
+        '<div class="detail-row"><span class="lbl">Submitted</span><span class="val">' + escapeHtml(fmtDateTime(submitted)) + '</span></div>' +
+        (q.status ? '<div class="detail-row"><span class="lbl">Order Status</span><span class="val">' + escapeHtml(q.status) + '</span></div>' : '') +
+      '</div>' +
+
+      checkHtml +
+      cancelHtml +
+    '</div>' +
+
+    // Admin Actions 容器(Segment 2 第二小段填入)
+    '<div id="detail-actions"></div>';
+
+  // Check 圖 signed URL(async 補;private bucket 存 path,需簽名才可顯示)
+  if (p.payment_method === 'check' && p.check_image_url) {
+    loadCheckImage(p.check_image_url);
+  }
+}
+
+async function loadCheckImage(path) {
+  const wrap = document.getElementById('checkImgWrap');
+  if (!wrap) return;
+  try {
+    const { data, error } = await _supabase.storage.from('payment-checks').createSignedUrl(path, 3600);
+    if (error || !data || !data.signedUrl) throw (error || new Error('no signed url'));
+    const img = document.createElement('img');
+    img.className = 'check-img';
+    img.alt = 'Check image';
+    img.src = data.signedUrl;
+    wrap.innerHTML = '';
+    wrap.appendChild(img);
+  } catch (err) {
+    console.error('[admin-payments] createSignedUrl failed:', err);
+    wrap.innerHTML = '<div class="check-img-note">Unable to load check image.</div>';
+  }
+}
+
+function copyQbLink() {
+  const link = detailPayment && detailPayment.quickbooks_payment_link;
+  if (!link) return;
+  navigator.clipboard.writeText(link).then(
+    function () { showToast('Payment link copied.'); },
+    function () { showToast('Copy failed.', true); }
+  );
+}
+  
 </script>
 
 <script src="components/feedback-widget.js?v=1.0"></script>
