@@ -630,11 +630,18 @@ async function submitCheck() {
     const paymentId = payRow.id;
 
     // 3. UPDATE quotes.status = 'Payment Processing'
-    const { error: updErr } = await _supabase
+    //    加 count:'exact' 檢查影響列數:若被 RLS 靜默擋掉(0 列)則 throw,不假成功。
+    //    對齊 quotes.html 刪 Draft 的寫法。dealer UPDATE 需 quotes 上的 A1 policy 放行
+    //    (Pending → Payment Processing);見 migration:dealer_advance_quote_to_payment_processing。
+    const { error: updErr, count: updCount } = await _supabase
       .from('quotes')
-      .update({ status: 'Payment Processing' })
+      .update({ status: 'Payment Processing' }, { count: 'exact' })
       .eq('id', quoteId);
     if (updErr) throw updErr;
+    if (updCount === 0) {
+      // 走到這裡代表 payments 已 INSERT 但 quote 狀態沒翻(多半 RLS 未放行)。
+      throw new Error("Couldn't update the order status. Please refresh and try again, or contact us.");
+    }
 
     // 4. 呼叫 send-payment-email(失敗只 log 不阻斷,對齊 send-quote-email 慣例)
     try {
