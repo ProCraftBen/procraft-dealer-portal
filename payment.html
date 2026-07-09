@@ -106,6 +106,7 @@
     .pay-to .lbl { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .pay-to .val { font-size: 15px; font-weight: 500; color: var(--green-dark); }
     .check-help { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+    .qb-note { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 18px; }
 
     .upload-zone { border: 1.5px dashed var(--border); border-radius: 4px; padding: 24px 18px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; margin-bottom: 8px; }
     .upload-zone:hover { border-color: var(--gold); background: rgba(201,168,76,0.03); }
@@ -114,7 +115,15 @@
     .upload-zone .uz-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
     .upload-zone.has-file { border-color: var(--green-dark); border-style: solid; background: rgba(62,90,66,0.03); }
     .uz-filename { font-size: 13px; color: var(--green-dark); font-weight: 500; word-break: break-all; }
-    .heic-note { font-size: 11px; color: #8a6d1f; margin-bottom: 18px; line-height: 1.5; }
+    .heic-note { font-size: 11px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+    .sample-check { margin-bottom: 18px; }
+    .sample-check .sc-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .sample-check img.sample-check-img { width: 100%; border: 1px solid var(--border); border-radius: 4px; display: block; }
+    .sample-check .sc-box { width: 100%; aspect-ratio: 2.2 / 1; border: 1.5px dashed var(--border); border-radius: 4px;
+      background: repeating-linear-gradient(45deg, #faf9f6, #faf9f6 10px, #f3f1ea 10px, #f3f1ea 20px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--muted); gap: 4px; }
+    .sample-check .sc-box .sc-main { font-size: 13px; }
+    .sample-check .sc-box .sc-dim { font-size: 11px; }
 
     /* Toast */
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--green-dark); color: #fff; padding: 12px 22px; border-radius: 4px; font-size: 13px; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 600; pointer-events: none; }
@@ -239,7 +248,7 @@ async function init() {
 
   // 3. quote_id
   quoteId = new URLSearchParams(window.location.search).get('quote_id');
-  if (!quoteId) { renderError('無效的付款連結', '此連結缺少訂單編號。請從訂單頁重新進入付款。'); return; }
+  if (!quoteId) { renderError('Invalid payment link', 'This link is missing an order number. Please open payment from your order page.'); return; }
 
   // 4. 讀 quote + 最新 payment
   await reloadData();
@@ -275,13 +284,13 @@ async function reloadData() {
 // renderGate:重複付款保護(一律只認最新一筆 payment 的 status)
 // =====================================================================
 function renderGate() {
-  if (!quote) { renderError('找不到此訂單', '無法載入此訂單,可能連結有誤或您沒有存取權限。'); return; }
+  if (!quote) { renderError('Order not found', "We couldn't load this order. The link may be incorrect, or you may not have access."); return; }
 
   const s = quote.status;
 
   // 不可付款狀態
   if (s === 'Draft' || s === 'Returned' || s === 'Closed') {
-    renderBlocked('此訂單目前無法付款', '此訂單目前的狀態不接受付款。如有疑問請聯絡我們。');
+    renderBlocked('Payment unavailable', "This order can't accept payment in its current status. Please contact us if you have questions.");
     return;
   }
 
@@ -308,7 +317,7 @@ function renderGate() {
   }
 
   // 其他未知狀態 → 保守擋下
-  renderBlocked('此訂單目前無法付款', '此訂單目前的狀態不接受付款。如有疑問請聯絡我們。');
+  renderBlocked('Payment unavailable', "This order can't accept payment in its current status. Please contact us if you have questions.");
 }
 
 // =====================================================================
@@ -404,6 +413,8 @@ function renderCardAch(method) {
         <div class="amount-row grand"><span class="lbl">Total to Pay</span><span class="val">${fmt(f.total)}</span></div>
       </div>
 
+      <div class="qb-note">Payments are securely processed by QuickBooks. The fee shown reflects QuickBooks Payments processing costs.</div>
+
       <div class="notice error hidden" id="payError"></div>
 
       <div class="btn-row">
@@ -459,7 +470,7 @@ async function proceedCardAch(method, f) {
     console.error('[payment] card/ach webhook failed:', err);
     btn.classList.remove('loading');
     btn.disabled = false;
-    errEl.textContent = '線上付款服務目前尚未就緒,請稍後再試,或改用支票 (Check) 付款。';
+    errEl.textContent = 'Online payment is temporarily unavailable. Please try again later, or pay by check.';
     errEl.classList.remove('hidden');
   }
 }
@@ -491,13 +502,23 @@ function renderCheck() {
         <strong>ProCraft Cabinetry DC LLC</strong>, then upload a clear photo or scan of the front of the check below.
       </div>
 
+      <!-- Sample check preview. 圖檔就緒後:把下方 <img> 註解打開、刪掉 .sc-placeholder 那個 div,src 指到 assets/sample-check.png -->
+      <div class="sample-check">
+        <div class="sc-label">Sample Check</div>
+        <!-- <img src="assets/sample-check.png" alt="Sample check example" class="sample-check-img"/> -->
+        <div class="sc-box sc-placeholder">
+          <div class="sc-main">Sample check image</div>
+          <div class="sc-dim">Recommended ~1000 × 450 px (≈ 2.2 : 1)</div>
+        </div>
+      </div>
+
       <input type="file" id="checkFileInput" accept="image/jpeg,image/png,application/pdf" style="display:none;"/>
       <div class="upload-zone" id="uploadZone">
         <svg viewBox="0 0 24 24"><path d="M19 13v6H5v-6H3v6a2 2 0 002 2h14a2 2 0 002-2v-6h-2zM11 4.83L8.41 7.41 7 6l5-5 5 5-1.41 1.41L13 4.83V16h-2V4.83z"/></svg>
         <div class="uz-main">Tap to upload check image</div>
         <div class="uz-sub">JPG, PNG or PDF · Max 5MB</div>
       </div>
-      <div class="heic-note">📷 iPhone note: if your photo is in HEIC format, please convert it to JPG first — HEIC files can't be uploaded.</div>
+      <div class="heic-note">Accepted formats: JPG, PNG or PDF · File size under 5MB.</div>
 
       <div class="notice error hidden" id="checkError"></div>
 
@@ -527,21 +548,21 @@ function renderCheck() {
     // HEIC 特別提示
     if (file.type === 'image/heic' || file.type === 'image/heif' || ext === 'heic' || ext === 'heif') {
       resetCheckFile(zone, submitBtn);
-      errEl.textContent = '偵測到 HEIC 檔。請先在手機將照片轉為 JPG,再重新上傳。';
+      errEl.textContent = "This photo format can't be uploaded. Please use JPG, PNG, or PDF instead.";
       errEl.classList.remove('hidden');
       input.value = '';
       return;
     }
     if (!mimeOk && !extOk) {
       resetCheckFile(zone, submitBtn);
-      errEl.textContent = '檔案格式不支援。僅接受 JPG、PNG 或 PDF。';
+      errEl.textContent = 'Unsupported file type. Please upload a JPG, PNG, or PDF.';
       errEl.classList.remove('hidden');
       input.value = '';
       return;
     }
     if (file.size > CHECK_MAX_BYTES) {
       resetCheckFile(zone, submitBtn);
-      errEl.textContent = '檔案過大,請上傳小於 5MB 的檔案。';
+      errEl.textContent = 'File is too large. Please upload a file under 5MB.';
       errEl.classList.remove('hidden');
       input.value = '';
       return;
@@ -637,7 +658,7 @@ async function submitCheck() {
     console.error('[payment] submit check failed:', err);
     btn.classList.remove('loading');
     btn.disabled = false;
-    errEl.textContent = '送出失敗:' + (err.message || '發生未預期的錯誤,請稍後再試。');
+    errEl.textContent = 'Submission failed: ' + (err.message || 'An unexpected error occurred. Please try again.');
     errEl.classList.remove('hidden');
   }
 }
