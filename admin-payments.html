@@ -92,6 +92,31 @@
     #detail-actions:not(:empty) { margin-bottom: 16px; }
     .detail-actions-bar { display: flex; flex-wrap: wrap; gap: 10px; }
 
+    /* ===== List entry button + Pending-quote picker ===== */
+    .btn-create { display: inline-flex; align-items: center; gap: 7px; background: transparent; color: var(--green-dark); border: 1.5px solid var(--green-dark); border-radius: 3px; padding: 9px 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+    .btn-create:hover { background: var(--green-dark); color: #fff; }
+    .modal.picker { max-width: 560px; }
+    .picker-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .picker-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--green-dark); }
+    .picker-close { background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; line-height: 1; padding: 0 4px; }
+    .picker-close:hover { color: var(--text); }
+    .picker-search { width: 100%; border: 1px solid var(--border); border-radius: 3px; padding: 9px 11px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--cream); margin-bottom: 12px; }
+    .picker-search:focus { outline: none; border-color: var(--gold); }
+    .picker-results { max-height: 320px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; }
+    .picker-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #EFEBE1; cursor: pointer; transition: background 0.15s; }
+    .picker-result:last-child { border-bottom: none; }
+    .picker-result:hover { background: #FAFAF8; }
+    .picker-result .pr-po { font-weight: 500; font-size: 13px; }
+    .picker-result .pr-dealer { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .picker-result .pr-amount { font-size: 13px; font-weight: 500; white-space: nowrap; }
+    .picker-empty { padding: 30px 14px; text-align: center; color: var(--muted); font-size: 12px; }
+    .picker-summary { background: var(--cream); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; margin-bottom: 16px; }
+    .picker-summary .ps-po { font-weight: 500; font-size: 14px; }
+    .picker-summary .ps-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .picker-back { background: none; border: none; color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 0; margin-bottom: 14px; }
+    .picker-back:hover { color: var(--green-dark); }
+    .picker-actions { display: flex; flex-direction: column; gap: 10px; }
+
     /* ===== Modal shells (used by Stage-2 actions) ===== */
     .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.45); display: none; align-items: center; justify-content: center; z-index: 1500; padding: 20px; }
     .modal-overlay.show { display: flex; }
@@ -124,6 +149,7 @@
 <div class="page" id="list-view" style="display:none">
   <div class="page-header">
     <div class="page-title">Payments</div>
+    <button class="btn-create" onclick="openPendingPicker()">+ Record Offline / Reminder</button>
   </div>
 
   <div class="filters">
@@ -203,6 +229,13 @@
       <button class="btn-secondary" id="amCancel">Cancel</button>
       <button class="btn-primary" id="amConfirm">Confirm</button>
     </div>
+  </div>
+</div>
+
+<!-- Pending-quote picker modal (Record Offline / Resend Reminder, quote-level) -->
+<div class="modal-overlay" id="pickerModal">
+  <div class="modal picker">
+    <div id="pickerBody"></div>
   </div>
 </div>
 
@@ -880,6 +913,217 @@ function actRecordOffline() {
       return true;
     }
   });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Pending-quote picker(quote 層級:Record Offline / Resend Reminder)
+//   入口在列表頁 header,不依附任何 payment 列。
+//   picker 只撈 status='Pending' 的 quote(CB-36 Internal 屬 Draft 子狀態,不會混入)。
+// ════════════════════════════════════════════════════════════════════
+let pickerQuotes   = [];
+let pickerDealers  = {};
+let pickerSelected = null;
+let _pickerTerm    = '';
+let _pickerTimer   = null;
+
+async function openPendingPicker() {
+  pickerSelected = null;
+  _pickerTerm = '';
+  document.getElementById('pickerModal').classList.add('show');
+  renderPickerShell();
+  try {
+    await loadPendingQuotes('');
+    renderPickerResults();
+  } catch (err) {
+    console.error('[admin-payments] loadPendingQuotes failed:', err);
+    const host = document.getElementById('pickerResults');
+    if (host) host.innerHTML = '<div class="picker-empty">Failed to load quotes. Please try again.</div>';
+  }
+}
+
+function closePendingPicker() {
+  document.getElementById('pickerModal').classList.remove('show');
+  pickerSelected = null;
+}
+
+async function loadPendingQuotes(term) {
+  let query = _supabase.from('quotes')
+    .select('id, po_number, job_name, grand_total, status, dealer_id, created_at')
+    .eq('status', 'Pending')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (term) {
+    const safe = term.replace(/[%,]/g, '');
+    query = query.or('po_number.ilike.%' + safe + '%,job_name.ilike.%' + safe + '%');
+  }
+  const { data: quotes, error } = await query;
+  if (error) throw error;
+  pickerQuotes = quotes || [];
+
+  // dealer 名(分開撈,沿用既有模式)
+  pickerDealers = {};
+  const ids = Array.from(new Set(pickerQuotes.map(function (q) { return q.dealer_id; }).filter(Boolean)));
+  if (ids.length) {
+    const { data: dealers, error: dErr } = await _supabase
+      .from('dealers').select('id, company_name').in('id', ids);
+    if (dErr) throw dErr;
+    (dealers || []).forEach(function (d) { pickerDealers[d.id] = d; });
+  }
+}
+
+function renderPickerShell() {
+  document.getElementById('pickerBody').innerHTML =
+    '<div class="picker-head"><div class="picker-title">Record Offline / Reminder</div>' +
+      '<button class="picker-close" onclick="closePendingPicker()">×</button></div>' +
+    '<input class="picker-search" id="pickerSearch" placeholder="Search PO# or job name…"/>' +
+    '<div class="picker-results" id="pickerResults"><div class="picker-empty">Loading…</div></div>';
+  const s = document.getElementById('pickerSearch');
+  s.value = _pickerTerm || '';
+  s.oninput = onPickerSearchInput;
+  setTimeout(function () { s.focus(); }, 0);
+}
+
+function onPickerSearchInput(e) {
+  _pickerTerm = e.target.value;
+  clearTimeout(_pickerTimer);
+  _pickerTimer = setTimeout(async function () {
+    try { await loadPendingQuotes(_pickerTerm.trim()); renderPickerResults(); }
+    catch (err) { console.error('[admin-payments] picker search failed:', err); }
+  }, 250);
+}
+
+function renderPickerResults() {
+  const host = document.getElementById('pickerResults');
+  if (!host) return;
+  if (!pickerQuotes.length) {
+    host.innerHTML = '<div class="picker-empty">No pending quotes found.</div>';
+    return;
+  }
+  host.innerHTML = pickerQuotes.map(function (q) {
+    const d = pickerDealers[q.dealer_id] || {};
+    return '<div class="picker-result" onclick="selectPickerQuote(\'' + q.id + '\')">' +
+      '<div><div class="pr-po">' + escapeHtml(q.po_number || q.job_name || '(no PO#)') + '</div>' +
+        '<div class="pr-dealer">' + escapeHtml(d.company_name || '—') + '</div></div>' +
+      '<div class="pr-amount">' + money(q.grand_total) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderPickerBackToList() {
+  renderPickerShell();
+  renderPickerResults();
+}
+
+function selectPickerQuote(id) {
+  pickerSelected = pickerQuotes.find(function (q) { return q.id === id; }) || null;
+  if (pickerSelected) renderPickerActions();
+}
+
+function renderPickerActions() {
+  const q = pickerSelected;
+  const d = pickerDealers[q.dealer_id] || {};
+  document.getElementById('pickerBody').innerHTML =
+    '<button class="picker-back" onclick="renderPickerBackToList()">← Back to list</button>' +
+    '<div class="picker-summary"><div class="ps-po">' + escapeHtml(q.po_number || q.job_name || '(no PO#)') + '</div>' +
+      '<div class="ps-sub">' + escapeHtml(d.company_name || '—') + ' · ' + money(q.grand_total) + ' · ' + escapeHtml(q.status) + '</div></div>' +
+    '<div class="picker-actions">' +
+      '<button class="btn-primary" onclick="pickerOffline()">Record Offline Payment</button>' +
+      '<button class="btn-secondary" onclick="pickerResend()">Resend Payment Reminder</button>' +
+    '</div>';
+}
+
+// ---- Offline(quote 層級)----
+function pickerOffline() {
+  const q = pickerSelected;
+  const defaultAmt = (q && q.grand_total != null) ? Number(q.grand_total) : '';
+  document.getElementById('pickerBody').innerHTML =
+    '<button class="picker-back" onclick="renderPickerActions()">← Back</button>' +
+    '<div class="picker-title" style="margin-bottom:6px;">Record Offline Payment</div>' +
+    '<div class="modal-sub">' + escapeHtml(q.po_number || 'This quote') + ' — advances the order to Order Processing and notifies the dealer.</div>' +
+    '<div class="modal-field"><label>Amount (USD)</label>' +
+      '<input type="number" id="pkAmount" min="0" step="0.01" value="' + (defaultAmt === '' ? '' : defaultAmt) + '"/></div>' +
+    '<div class="modal-field"><label>Note (method / reference — saved for audit)</label>' +
+      '<input type="text" id="pkNote" placeholder="e.g. Wire ref #12345"/></div>' +
+    '<div class="modal-error" id="pkError"></div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="renderPickerActions()">Back</button>' +
+      '<button class="btn-primary" id="pkConfirm" onclick="doPickerOffline()">Record Payment</button>' +
+    '</div>';
+}
+
+async function doPickerOffline() {
+  const q = pickerSelected;
+  const amount = parseFloat(document.getElementById('pkAmount').value);
+  const note = (document.getElementById('pkNote').value || '').trim();
+  const errEl = document.getElementById('pkError');
+  errEl.className = 'modal-error';
+  if (isNaN(amount) || amount <= 0) {
+    errEl.textContent = 'Please enter a valid amount greater than 0.';
+    errEl.className = 'modal-error show';
+    return;
+  }
+  const btn = document.getElementById('pkConfirm');
+  btn.disabled = true;
+  try {
+    // ① quotes → Order Processing;WHERE 帶 status='Pending' 併發防護(裁決 Q1)
+    const upd = await _supabase.from('quotes')
+      .update({ status: 'Order Processing' }, { count: 'exact' })
+      .eq('id', q.id).eq('status', 'Pending');
+    if (upd.error) throw upd.error;
+    if (upd.count === 0) throw new Error('訂單狀態已變更,請重新整理。');
+
+    // ② INSERT offline payment(含 offline_note)
+    const { data: { session } } = await _supabase.auth.getSession();
+    const ins = await _supabase.from('payments')
+      .insert({
+        quote_id:       q.id,
+        payment_method: 'offline',
+        base_amount:    amount,
+        fee_percentage: 0,
+        fee_amount:     0,
+        total_paid:     amount,
+        status:         'confirmed',
+        offline_note:   note || null,
+        confirmed_by:   session.user.id,
+        confirmed_at:   new Date().toISOString(),
+      })
+      .select('id').single();
+    if (ins.error) throw ins.error;
+
+    // ③ email(非阻斷)
+    await sendPaymentEmail({ type: 'payment_confirmed', quote_id: q.id, payment_id: ins.data.id });
+
+    closePendingPicker();
+    showToast('Offline payment recorded.');
+    await loadData(); applyFilters();   // 重載列表
+  } catch (err) {
+    console.error('[admin-payments] picker offline failed:', err);
+    errEl.textContent = err.message || 'Failed. Please try again.';
+    errEl.className = 'modal-error show';
+    btn.disabled = false;
+  }
+}
+
+// ---- Resend Reminder(quote 層級;只 email,不改狀態)----
+function pickerResend() {
+  const q = pickerSelected;
+  document.getElementById('pickerBody').innerHTML =
+    '<button class="picker-back" onclick="renderPickerActions()">← Back</button>' +
+    '<div class="picker-title" style="margin-bottom:6px;">Resend Payment Reminder</div>' +
+    '<div class="modal-sub">Re-send the payment reminder email to the dealer for ' + escapeHtml(q.po_number || 'this quote') + '. No status will change.</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="renderPickerActions()">Back</button>' +
+      '<button class="btn-primary" id="pkConfirm" onclick="doPickerResend()">Send Reminder</button>' +
+    '</div>';
+}
+
+async function doPickerResend() {
+  const q = pickerSelected;
+  const btn = document.getElementById('pkConfirm');
+  btn.disabled = true;
+  await sendPaymentEmail({ type: 'payment_reminder', quote_id: q.id });   // 非阻斷、不 throw
+  closePendingPicker();
+  showToast('Reminder sent.');
 }
 
 // modal 按鈕綁定(頁載入即綁一次;modal DOM 為靜態,存在於 body)
