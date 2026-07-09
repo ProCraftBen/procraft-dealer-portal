@@ -192,6 +192,20 @@
 <!-- Filled by renderDetail() — implemented in the next delivery segment (T5 part 2). -->
 <div class="page" id="detail-view" style="display:none"></div>
 
+<!-- Shared action modal (Cancel / Confirm / Resend / Record Offline) -->
+<div class="modal-overlay" id="actionModal">
+  <div class="modal">
+    <div class="modal-title" id="amTitle"></div>
+    <div class="modal-sub" id="amSub"></div>
+    <div id="amFields"></div>
+    <div class="modal-error" id="amError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="amCancel">Cancel</button>
+      <button class="btn-primary" id="amConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="toast"></div>
 
@@ -582,6 +596,8 @@ function renderDetail() {
     // Admin Actions 容器(Segment 2 第二小段填入)
     '<div id="detail-actions"></div>';
 
+  renderActions();
+
   // Check 圖 signed URL(async 補;private bucket 存 path,需簽名才可顯示)
   if (p.payment_method === 'check' && p.check_image_url) {
     loadCheckImage(p.check_image_url);
@@ -614,6 +630,257 @@ function copyQbLink() {
     function () { showToast('Copy failed.', true); }
   );
 }
+
+// ════════════════════════════════════════════════════════════════════
+// Admin Actions
+//   寫入順序(裁決 #1):一律先 quotes(count:'exact'),成功後才動 payments。
+//   count=0 → throw + UI 明示「狀態可能不一致」,不假成功。
+//   email 一律最後、非阻斷、log only、不回滾。成功後由 modal controller re-fetch 重繪。
+//   最新 payment 判定(裁決 #4):detailQuotePayments[0](created_at DESC)。
+// ════════════════════════════════════════════════════════════════════
+
+// send-payment-email:Bearer only(無 apikey),失敗只 log、不阻斷、不 throw。
+async function sendPaymentEmail(payload) {
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    await fetch(window.SB_URL + '/functions/v1/send-payment-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (emailErr) {
+    console.error('[admin-payments] send-payment-email failed (non-blocking):', emailErr);
+  }
+}
+
+// 依 quote / payment 狀態條件渲染 action bar
+function renderActions() {
+  const host = document.getElementById('detail-actions');
+  if (!host) return;
+  const q = detailQuote || {};
+  const p = detailPayment;
+  const latest = detailQuotePayments[0] || null;
+  const latestProcessing = !!(latest && latest.status === 'processing');
+  const isThisLatest = !!(latest && p && latest.id === p.id);
+
+  const btns = [];
+
+  // Resend Reminder:quote=Pending 且(無 payment 或最新非 processing)
+  if (q.status === 'Pending' && !latestProcessing) {
+    btns.push('<button class="btn-primary" onclick="actResendReminder()">Resend Payment Reminder</button>');
+  }
+  // Record Offline:quote=Pending
+  if (q.status === 'Pending') {
+    btns.push('<button class="btn-primary" onclick="actRecordOffline()">Record Offline Payment</button>');
+  }
+  // Confirm / Cancel:quote=Payment Processing 且「這筆」就是最新且 processing
+  if (q.status === 'Payment Processing' && p.status === 'processing' && isThisLatest) {
+    btns.push('<button class="btn-primary" onclick="actConfirm()">Confirm Payment Received</button>');
+    btns.push('<button class="btn-primary danger" onclick="actCancel()">Cancel This Payment</button>');
+  }
+
+  host.innerHTML = btns.length
+    ? '<div class="detail-card full"><div class="section-title">Admin Actions</div>' +
+      '<div class="detail-actions-bar">' + btns.join('') + '</div></div>'
+    : '';
+}
+
+// ---- 共用 modal controller ----
+let _amOnConfirm = null;
+
+function openActionModal(cfg) {
+  document.getElementById('amTitle').textContent = cfg.title || '';
+  document.getElementById('amSub').textContent   = cfg.sub || '';
+  document.getElementById('amFields').innerHTML  = cfg.fieldsHtml || '';
+  const errEl = document.getElementById('amError');
+  errEl.textContent = ''; errEl.className = 'modal-error';
+  const confirmBtn = document.getElementById('amConfirm');
+  confirmBtn.textContent = cfg.confirmLabel || 'Confirm';
+  confirmBtn.className = 'btn-primary' + (cfg.danger ? ' danger' : '');
+  confirmBtn.disabled = false;
+  _amOnConfirm = cfg.onConfirm || null;
+  document.getElementById('actionModal').classList.add('show');
+}
+
+function closeActionModal() {
+  document.getElementById('actionModal').classList.remove('show');
+  _amOnConfirm = null;
+}
+
+function amShowError(msg) {
+  const errEl = document.getElementById('amError');
+  errEl.textContent = msg;
+  errEl.className = 'modal-error show';
+}
+
+function wireActionModal() {
+  document.getElementById('amCancel').onclick = closeActionModal;
+  document.getElementById('amConfirm').onclick = async function () {
+    if (!_amOnConfirm) return;
+    const btn = document.getElementById('amConfirm');
+    document.getElementById('amError').className = 'modal-error';  // 清錯誤
+    btn.disabled = true;
+    try {
+      const ok = await _amOnConfirm();
+      if (ok === false) { btn.disabled = false; return; }   // 驗證未過:錯誤已顯示,留在 modal
+      const pid = detailPayment ? detailPayment.id : null;
+      closeActionModal();
+      if (pid) showDetail(pid);                             // re-fetch 重繪
+    } catch (err) {
+      console.error('[admin-payments] action failed:', err);
+      amShowError(err.message || 'Action failed. Please try again.');
+      btn.disabled = false;
+    }
+  };
+}
+
+// ---- 1. Resend Payment Reminder(不改狀態;reminder 只帶 quote_id)----
+function actResendReminder() {
+  openActionModal({
+    title: 'Resend Payment Reminder',
+    sub: 'This re-sends the payment reminder email to the dealer. No status will change.',
+    fieldsHtml: '',
+    confirmLabel: 'Send Reminder',
+    danger: false,
+    onConfirm: async function () {
+      await sendPaymentEmail({ type: 'payment_reminder', quote_id: detailQuote.id });
+      showToast('Reminder sent.');
+      return true;
+    }
+  });
+}
+
+// ---- 2. Cancel This Payment ----
+function actCancel() {
+  openActionModal({
+    title: 'Cancel This Payment',
+    sub: 'The order will return to Pending and the dealer will be notified. This cannot be undone.',
+    fieldsHtml: '<div class="modal-field"><label>Cancellation Reason</label>' +
+      '<textarea id="amReason" placeholder="Why is this payment being cancelled?"></textarea></div>',
+    confirmLabel: 'Cancel Payment',
+    danger: true,
+    onConfirm: async function () {
+      const reason = (document.getElementById('amReason').value || '').trim();
+      if (!reason) { amShowError('Please enter a cancellation reason.'); return false; }
+
+      // ① quotes → Pending
+      const upd = await _supabase.from('quotes')
+        .update({ status: 'Pending' }, { count: 'exact' })
+        .eq('id', detailQuote.id);
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ② payments → cancelled
+      const { data: { session } } = await _supabase.auth.getSession();
+      const updP = await _supabase.from('payments')
+        .update({
+          status: 'cancelled',
+          cancellation_reason: reason,
+          cancelled_by: session.user.id,
+          cancelled_at: new Date().toISOString(),
+        }, { count: 'exact' })
+        .eq('id', detailPayment.id);
+      if (updP.error) throw updP.error;
+      if (updP.count === 0) throw new Error("Order returned to Pending but the payment row didn't update (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ③ email(非阻斷)
+      await sendPaymentEmail({ type: 'payment_cancelled', quote_id: detailQuote.id, payment_id: detailPayment.id });
+      showToast('Payment cancelled.');
+      return true;
+    }
+  });
+}
+
+// ---- 3. Confirm Payment Received ----
+function actConfirm() {
+  openActionModal({
+    title: 'Confirm Payment Received',
+    sub: 'This marks the payment as confirmed and advances the order to Order Processing. The dealer will be notified.',
+    fieldsHtml: '',
+    confirmLabel: 'Confirm Payment',
+    danger: false,
+    onConfirm: async function () {
+      // ① quotes → Order Processing
+      const upd = await _supabase.from('quotes')
+        .update({ status: 'Order Processing' }, { count: 'exact' })
+        .eq('id', detailQuote.id);
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ② payments → confirmed
+      const { data: { session } } = await _supabase.auth.getSession();
+      const updP = await _supabase.from('payments')
+        .update({
+          status: 'confirmed',
+          confirmed_by: session.user.id,
+          confirmed_at: new Date().toISOString(),
+        }, { count: 'exact' })
+        .eq('id', detailPayment.id);
+      if (updP.error) throw updP.error;
+      if (updP.count === 0) throw new Error("Order advanced but the payment row didn't update (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ③ email(非阻斷)
+      await sendPaymentEmail({ type: 'payment_confirmed', quote_id: detailQuote.id, payment_id: detailPayment.id });
+      showToast('Payment confirmed.');
+      return true;
+    }
+  });
+}
+
+// ---- 4. Record Offline Payment(admin 代客記線下款)----
+function actRecordOffline() {
+  const defaultAmt = (detailQuote && detailQuote.grand_total != null) ? Number(detailQuote.grand_total) : '';
+  openActionModal({
+    title: 'Record Offline Payment',
+    sub: 'Record a payment received outside the portal (e.g. wire or cash). This confirms the order and advances it to Order Processing.',
+    fieldsHtml:
+      '<div class="modal-field"><label>Amount (USD)</label>' +
+        '<input type="number" id="amAmount" min="0" step="0.01" value="' + (defaultAmt === '' ? '' : defaultAmt) + '"/></div>' +
+      '<div class="modal-field"><label>Note (method / reference — not stored)</label>' +
+        '<input type="text" id="amNote" placeholder="e.g. Wire ref #12345"/></div>',
+    confirmLabel: 'Record Payment',
+    danger: false,
+    onConfirm: async function () {
+      const amount = parseFloat(document.getElementById('amAmount').value);
+      if (isNaN(amount) || amount <= 0) { amShowError('Please enter a valid amount greater than 0.'); return false; }
+
+      // ① quotes → Order Processing(先做 quotes;失敗即中止,不 INSERT payment)
+      const upd = await _supabase.from('quotes')
+        .update({ status: 'Order Processing' }, { count: 'exact' })
+        .eq('id', detailQuote.id);
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ② INSERT offline payment(confirmed;admin-only,靠 T1 admin INSERT policy)
+      const { data: { session } } = await _supabase.auth.getSession();
+      const ins = await _supabase.from('payments')
+        .insert({
+          quote_id:       detailQuote.id,
+          payment_method: 'offline',
+          base_amount:    amount,
+          fee_percentage: 0,
+          fee_amount:     0,
+          total_paid:     amount,
+          status:         'confirmed',
+          confirmed_by:   session.user.id,
+          confirmed_at:   new Date().toISOString(),
+        })
+        .select('id').single();
+      if (ins.error) throw ins.error;
+
+      // ③ email(新 payment_id;非阻斷)
+      await sendPaymentEmail({ type: 'payment_confirmed', quote_id: detailQuote.id, payment_id: ins.data.id });
+      showToast('Offline payment recorded.');
+      return true;
+    }
+  });
+}
+
+// modal 按鈕綁定(頁載入即綁一次;modal DOM 為靜態,存在於 body)
+wireActionModal();
   
 </script>
 
