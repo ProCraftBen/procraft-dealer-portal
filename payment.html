@@ -344,7 +344,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>Credit / Debit Card</span>
             <span class="mo-total">${fmt(card.total)}</span>
           </div>
-          <div class="mo-fee">Convenience Fee (3%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
+          <div class="mo-fee">Transaction Fee (3%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
         </label>
 
         <label class="method-opt" data-method="ach">
@@ -353,7 +353,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>ACH Bank Transfer</span>
             <span class="mo-total">${fmt(ach.total)}</span>
           </div>
-          <div class="mo-fee">Convenience Fee (1%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
+          <div class="mo-fee">Transection Fee (1%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
         </label>
 
         <label class="method-opt" data-method="check">
@@ -409,7 +409,7 @@ function renderCardAch(method) {
       <div class="amount-rows">
         <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(method)}</span></div>
         <div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(f.base)}</span></div>
-        <div class="amount-row"><span class="lbl">Convenience Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
+        <div class="amount-row"><span class="lbl">Transection Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
         <div class="amount-row grand"><span class="lbl">Total to Pay</span><span class="val">${fmt(f.total)}</span></div>
       </div>
 
