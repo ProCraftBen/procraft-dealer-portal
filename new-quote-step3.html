@@ -795,6 +795,10 @@ color: var(--green-dark);
     Our team will review it and get back to you shortly.<br>
     A confirmation has been sent to your email.
   </div>
+  <!-- CB-43 T11: dealer 本人 submit 成功後直接付款入口(href 由 submitQuote 填,admin 代 submit 不顯示) -->
+  <a id="successPayNowBtn" class="btn-dashboard" href="#" style="display:none;">
+    Pay Now
+  </a>
   <button class="btn-dashboard" onclick="window.location.href='dashboard.html'">
     Back to Dashboard
   </button>
@@ -3014,6 +3018,14 @@ async function submitQuote() {
         'A confirmation has been sent to your email.';
     }
     document.getElementById('successQuoteNum').textContent = poNumber;
+    // CB-43 T11: 只有 dealer 本人 submit(非 admin 代 submit)才顯示 Pay Now,導向付款頁
+    if (!_isAdminSubmit) {
+      const _payBtn = document.getElementById('successPayNowBtn');
+      if (_payBtn) {
+        _payBtn.href = 'payment.html?quote_id=' + encodeURIComponent(quoteId);
+        _payBtn.style.display = '';
+      }
+    }
     document.getElementById('successOverlay').classList.add('show');
 
   } catch (err) {
