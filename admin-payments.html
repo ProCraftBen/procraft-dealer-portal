@@ -156,7 +156,6 @@
 <div class="page" id="list-view" style="display:none">
 <div class="page-header">
     <div class="page-title">Payments</div>
-    <button class="btn-create" onclick="openPendingPicker()">+ Record Offline / Reminder</button>
   </div>
 
   <!-- ===== Awaiting Payment (quotes: status=Pending, no payment yet) ===== -->
@@ -982,120 +981,15 @@ function actConfirm() {
 }
 
 // ════════════════════════════════════════════════════════════════════
-// Pending-quote picker(quote 層級:Record Offline / Resend Reminder)
-//   入口在列表頁 header,不依附任何 payment 列。
-//   picker 只撈 status='Pending' 的 quote(CB-36 Internal 屬 Draft 子狀態,不會混入)。
+// Offline / Reminder 表單(quote 層級,由 Awaiting 區的列動作開啟)
+//   pickerSelected = 目標 quote;#pickerModal 承載表單。
+//   picker「選單/搜尋」入口已於 T5-B 移除,Awaiting 區直接每列帶動作。
 // ════════════════════════════════════════════════════════════════════
-let pickerQuotes   = [];
-let pickerDealers  = {};
 let pickerSelected = null;
-let _pickerTerm    = '';
-let _pickerTimer   = null;
-
-async function openPendingPicker() {
-  pickerSelected = null;
-  _pickerTerm = '';
-  document.getElementById('pickerModal').classList.add('show');
-  renderPickerShell();
-  try {
-    await loadPendingQuotes('');
-    renderPickerResults();
-  } catch (err) {
-    console.error('[admin-payments] loadPendingQuotes failed:', err);
-    const host = document.getElementById('pickerResults');
-    if (host) host.innerHTML = '<div class="picker-empty">Failed to load quotes. Please try again.</div>';
-  }
-}
 
 function closePendingPicker() {
   document.getElementById('pickerModal').classList.remove('show');
   pickerSelected = null;
-}
-
-async function loadPendingQuotes(term) {
-  let query = _supabase.from('quotes')
-    .select('id, po_number, job_name, grand_total, status, dealer_id, created_at')
-    .eq('status', 'Pending')
-    .order('created_at', { ascending: false })
-    .limit(20);
-  if (term) {
-    const safe = term.replace(/[%,]/g, '');
-    query = query.or('po_number.ilike.%' + safe + '%,job_name.ilike.%' + safe + '%');
-  }
-  const { data: quotes, error } = await query;
-  if (error) throw error;
-  pickerQuotes = quotes || [];
-
-  // dealer 名(分開撈,沿用既有模式)
-  pickerDealers = {};
-  const ids = Array.from(new Set(pickerQuotes.map(function (q) { return q.dealer_id; }).filter(Boolean)));
-  if (ids.length) {
-    const { data: dealers, error: dErr } = await _supabase
-      .from('dealers').select('id, company_name').in('id', ids);
-    if (dErr) throw dErr;
-    (dealers || []).forEach(function (d) { pickerDealers[d.id] = d; });
-  }
-}
-
-function renderPickerShell() {
-  document.getElementById('pickerBody').innerHTML =
-    '<div class="picker-head"><div class="picker-title">Record Offline / Reminder</div>' +
-      '<button class="picker-close" onclick="closePendingPicker()">×</button></div>' +
-    '<input class="picker-search" id="pickerSearch" placeholder="Search PO# or job name…"/>' +
-    '<div class="picker-results" id="pickerResults"><div class="picker-empty">Loading…</div></div>';
-  const s = document.getElementById('pickerSearch');
-  s.value = _pickerTerm || '';
-  s.oninput = onPickerSearchInput;
-  setTimeout(function () { s.focus(); }, 0);
-}
-
-function onPickerSearchInput(e) {
-  _pickerTerm = e.target.value;
-  clearTimeout(_pickerTimer);
-  _pickerTimer = setTimeout(async function () {
-    try { await loadPendingQuotes(_pickerTerm.trim()); renderPickerResults(); }
-    catch (err) { console.error('[admin-payments] picker search failed:', err); }
-  }, 250);
-}
-
-function renderPickerResults() {
-  const host = document.getElementById('pickerResults');
-  if (!host) return;
-  if (!pickerQuotes.length) {
-    host.innerHTML = '<div class="picker-empty">No pending quotes found.</div>';
-    return;
-  }
-  host.innerHTML = pickerQuotes.map(function (q) {
-    const d = pickerDealers[q.dealer_id] || {};
-    return '<div class="picker-result" onclick="selectPickerQuote(\'' + q.id + '\')">' +
-      '<div><div class="pr-po">' + escapeHtml(q.po_number || q.job_name || '(no PO#)') + '</div>' +
-        '<div class="pr-dealer">' + escapeHtml(d.company_name || '—') + '</div></div>' +
-      '<div class="pr-amount">' + money(q.grand_total) + '</div>' +
-    '</div>';
-  }).join('');
-}
-
-function renderPickerBackToList() {
-  renderPickerShell();
-  renderPickerResults();
-}
-
-function selectPickerQuote(id) {
-  pickerSelected = pickerQuotes.find(function (q) { return q.id === id; }) || null;
-  if (pickerSelected) renderPickerActions();
-}
-
-function renderPickerActions() {
-  const q = pickerSelected;
-  const d = pickerDealers[q.dealer_id] || {};
-  document.getElementById('pickerBody').innerHTML =
-    '<button class="picker-back" onclick="renderPickerBackToList()">← Back to list</button>' +
-    '<div class="picker-summary"><div class="ps-po">' + escapeHtml(q.po_number || q.job_name || '(no PO#)') + '</div>' +
-      '<div class="ps-sub">' + escapeHtml(d.company_name || '—') + ' · ' + money(q.grand_total) + ' · ' + escapeHtml(q.status) + '</div></div>' +
-    '<div class="picker-actions">' +
-      '<button class="btn-primary" onclick="pickerOffline()">Record Offline Payment</button>' +
-      '<button class="btn-secondary" onclick="pickerResend()">Resend Payment Reminder</button>' +
-    '</div>';
 }
 
 // ---- Offline(quote 層級)----
@@ -1103,7 +997,7 @@ function pickerOffline() {
   const q = pickerSelected;
   const defaultAmt = (q && q.grand_total != null) ? Number(q.grand_total) : '';
   document.getElementById('pickerBody').innerHTML =
-    '<button class="picker-back" onclick="renderPickerActions()">← Back</button>' +
+    '<button class="picker-back" onclick="closePendingPicker()">← Back</button>' +
     '<div class="picker-title" style="margin-bottom:6px;">Record Offline Payment</div>' +
     '<div class="modal-sub">' + escapeHtml(q.po_number || 'This quote') + ' — advances the order to Order Processing and notifies the dealer.</div>' +
     '<div class="modal-field"><label>Amount (USD)</label>' +
@@ -1112,7 +1006,7 @@ function pickerOffline() {
       '<input type="text" id="pkNote" placeholder="e.g. Wire ref #12345"/></div>' +
     '<div class="modal-error" id="pkError"></div>' +
     '<div class="modal-actions">' +
-      '<button class="btn-secondary" onclick="renderPickerActions()">Back</button>' +
+      '<button class="btn-secondary" onclick="closePendingPicker()">Back</button>' +
       '<button class="btn-primary" id="pkConfirm" onclick="doPickerOffline()">Record Payment</button>' +
     '</div>';
 }
