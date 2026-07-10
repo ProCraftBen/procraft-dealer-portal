@@ -507,7 +507,7 @@ function renderList(rows) {
 
 // ════════════════════════════════════════════════════════════════════
 // Awaiting Payment(quotes: status='Pending',尚無 payment 列)
-//   排序與「已等待天數」同源 updated_at ASC(等最久排最上;近似值)。
+//   排序與「已等待天數」同源 admin_notified_at ASC(等最久排最上;NULL 墊底、顯示 —;近似值)。
 //   列動作複用 picker 的 Offline/Reminder 表單(pickerSelected + #pickerModal)。
 // ════════════════════════════════════════════════════════════════════
 let awaitingQuotes  = [];
@@ -517,9 +517,9 @@ let _awaitingTerm   = '';
 async function loadAwaiting() {
   const { data: quotes, error } = await _supabase
     .from('quotes')
-    .select('id, po_number, job_name, grand_total, dealer_id, updated_at')
+    .select('id, po_number, job_name, grand_total, dealer_id, admin_notified_at')
     .eq('status', 'Pending')
-    .order('updated_at', { ascending: true });   // 等最久排最上
+    .order('admin_notified_at', { ascending: true, nullsFirst: false });   // 等最久排最上;NULL 墊底
   if (error) throw error;
   awaitingQuotes = quotes || [];
 
@@ -561,7 +561,7 @@ function renderAwaiting(term) {
   }
   body.innerHTML = rows.map(function (q) {
     const d = awaitingDealers[q.dealer_id] || {};
-    const days = waitingDays(q.updated_at);
+    const days = waitingDays(q.admin_notified_at);
     const daysStr = (days == null) ? '—' : ('~' + days + (days === 1 ? ' day' : ' days'));
     return '<tr>' +
       '<td>' + escapeHtml(q.po_number || q.job_name || '(no PO#)') + '</td>' +
