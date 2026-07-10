@@ -23,6 +23,8 @@
       --status-processing: #3B82F6;
       --status-complete:   #16A34A;
       --status-closed:     #6B7280;
+      --status-returned:   #E07B39;
+      --status-payment:    #64748B;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
@@ -63,6 +65,9 @@
     .quote-status.processing { color: var(--status-processing); }
     .quote-status.complete   { color: var(--status-complete); }
     .quote-status.closed     { color: var(--status-closed); }
+    .quote-status.payment-processing { color: var(--status-payment); }
+    .quote-status.order-processing   { color: var(--status-complete); }
+    .quote-status.returned   { color: var(--status-returned); }
     .quote-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
     .empty-state { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
@@ -96,7 +101,7 @@
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total Quotes</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
-    <div class="stat-card"><div class="stat-num" id="statComplete">—</div><div class="stat-label">Complete</div></div>
+    <div class="stat-card"><div class="stat-num" id="statInProgress">—</div><div class="stat-label">In Progress</div></div>
   </div>
 
   <div class="action-row">
@@ -140,9 +145,15 @@
   const statusClass = {
     'Draft': 'draft',
     'Pending': 'pending',
-    'Processing': 'processing',
-    'Complete': 'complete',
-    'Closed': 'closed'
+    'Payment Processing': 'payment-processing',
+    'Order Processing': 'order-processing',
+    'Closed': 'closed',
+    'Returned': 'returned'
+  };
+
+  // CB-2: display-only label — 'Returned' (DB) → 'Revising' (UI)
+  const statusLabel = {
+    'Returned': 'Revising'
   };
 
   function formatDate(str) {
@@ -190,12 +201,12 @@
       .order('created_at', { ascending: false })
       .limit(8);
 
-    const all      = quotes || [];
-    const pending  = all.filter(q => q.status === 'Pending').length;
-    const complete = all.filter(q => q.status === 'Complete').length;
-    document.getElementById('statTotal').textContent    = all.length;
-    document.getElementById('statPending').textContent  = pending;
-    document.getElementById('statComplete').textContent = complete;
+    const all        = quotes || [];
+    const pending    = all.filter(q => q.status === 'Pending').length;
+    const inProgress = all.filter(q => q.status === 'Payment Processing' || q.status === 'Order Processing').length;
+    document.getElementById('statTotal').textContent      = all.length;
+    document.getElementById('statPending').textContent    = pending;
+    document.getElementById('statInProgress').textContent = inProgress;
 
     const quoteList = document.getElementById('quoteList');
     if (!all.length) {
@@ -226,7 +237,7 @@
               <div class="quote-job-line">${safeJob}</div>
             </div>
             <div class="quote-right">
-              <div class="quote-status ${sc}">${q.status}</div>
+              <div class="quote-status ${sc}">${statusLabel[q.status] || q.status}</div>
               <div class="quote-date">${formatDate(q.created_at)}</div>
             </div>
           </div>`;
