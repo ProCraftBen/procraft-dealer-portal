@@ -1049,11 +1049,11 @@ async function doPickerOffline() {
 function pickerResend() {
   const q = pickerSelected;
   document.getElementById('pickerBody').innerHTML =
-    '<button class="picker-back" onclick="renderPickerActions()">← Back</button>' +
+    '<button class="picker-back" onclick="closePendingPicker()">← Back</button>' +
     '<div class="picker-title" style="margin-bottom:6px;">Resend Payment Reminder</div>' +
     '<div class="modal-sub">Re-send the payment reminder email to the dealer for ' + escapeHtml(q.po_number || 'this quote') + '. No status will change.</div>' +
     '<div class="modal-actions">' +
-      '<button class="btn-secondary" onclick="renderPickerActions()">Back</button>' +
+      '<button class="btn-secondary" onclick="closePendingPicker()">Back</button>' +
       '<button class="btn-primary" id="pkConfirm" onclick="doPickerResend()">Send Reminder</button>' +
     '</div>';
 }
