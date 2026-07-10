@@ -422,6 +422,18 @@ async function showList() {
     document.getElementById('listCount').textContent = '—';
     showToast('Failed to load payments.', true);
   }
+
+  // Awaiting Payment 區:搜尋(只綁一次)+ 載入
+  document.getElementById('awaitingSearch').oninput = function (e) { renderAwaiting(e.target.value); };
+  try {
+    await loadAwaiting();
+    renderAwaiting('');
+  } catch (err) {
+    console.error('[admin-payments] loadAwaiting failed:', err);
+    document.getElementById('awaitingBody').innerHTML =
+      '<tr><td colspan="5" class="td-empty">Failed to load awaiting quotes.</td></tr>';
+    document.getElementById('awaitingCount').textContent = '—';
+  }
 }
 
 function applyFilters() {
@@ -489,8 +501,100 @@ function renderList(rows) {
       '<td><span class="pay-badge ' + sc + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span>' +
         '<div class="td-dealer-sub">' + escapeHtml(fmtDate(p.created_at)) + '</div></td>' +
       '<td><a class="btn-view" href="admin-payments.html?payment_id=' + encodeURIComponent(p.id) + '">View</a></td>' +
+'</tr>';
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Awaiting Payment(quotes: status='Pending',尚無 payment 列)
+//   排序與「已等待天數」同源 updated_at ASC(等最久排最上;近似值)。
+//   列動作複用 picker 的 Offline/Reminder 表單(pickerSelected + #pickerModal)。
+// ════════════════════════════════════════════════════════════════════
+let awaitingQuotes  = [];
+let awaitingDealers = {};
+let _awaitingTerm   = '';
+
+async function loadAwaiting() {
+  const { data: quotes, error } = await _supabase
+    .from('quotes')
+    .select('id, po_number, job_name, grand_total, dealer_id, updated_at')
+    .eq('status', 'Pending')
+    .order('updated_at', { ascending: true });   // 等最久排最上
+  if (error) throw error;
+  awaitingQuotes = quotes || [];
+
+  awaitingDealers = {};
+  const ids = Array.from(new Set(awaitingQuotes.map(function (q) { return q.dealer_id; }).filter(Boolean)));
+  if (ids.length) {
+    const { data: dealers, error: dErr } = await _supabase
+      .from('dealers').select('id, company_name').in('id', ids);
+    if (dErr) throw dErr;
+    (dealers || []).forEach(function (d) { awaitingDealers[d.id] = d; });
+  }
+}
+
+function waitingDays(iso) {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+}
+
+function renderAwaiting(term) {
+  _awaitingTerm = term || '';
+  const t = _awaitingTerm.trim().toLowerCase();
+  const rows = awaitingQuotes.filter(function (q) {
+    if (!t) return true;
+    const d = awaitingDealers[q.dealer_id] || {};
+    return (q.po_number || '').toLowerCase().indexOf(t) !== -1
+        || (d.company_name || '').toLowerCase().indexOf(t) !== -1;
+  });
+
+  document.getElementById('awaitingCount').textContent =
+    rows.length + (rows.length === 1 ? ' quote' : ' quotes');
+
+  const body = document.getElementById('awaitingBody');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" class="td-empty">' +
+      (awaitingQuotes.length ? 'No quotes match your search.' : 'No quotes awaiting payment.') + '</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(function (q) {
+    const d = awaitingDealers[q.dealer_id] || {};
+    const days = waitingDays(q.updated_at);
+    const daysStr = (days == null) ? '—' : ('~' + days + (days === 1 ? ' day' : ' days'));
+    return '<tr>' +
+      '<td>' + escapeHtml(q.po_number || q.job_name || '(no PO#)') + '</td>' +
+      '<td class="td-dealer">' + escapeHtml(d.company_name || '—') + '</td>' +
+      '<td>' + money(q.grand_total) + '</td>' +
+      '<td><span class="await-wait">' + daysStr + '</span></td>' +
+      '<td><div class="await-actions">' +
+        '<button class="btn-mini" onclick="awaitingOffline(\'' + q.id + '\')">Record Offline</button>' +
+        '<button class="btn-mini" onclick="awaitingResend(\'' + q.id + '\')">Send Reminder</button>' +
+      '</div></td>' +
     '</tr>';
   }).join('');
+}
+
+// 列動作:設定 pickerSelected → 開既有 Offline/Reminder 表單(邏輯複用,契約一致)
+function awaitingOffline(id) {
+  pickerSelected = awaitingQuotes.find(function (q) { return q.id === id; }) || null;
+  if (!pickerSelected) return;
+  document.getElementById('pickerModal').classList.add('show');
+  pickerOffline();
+}
+
+function awaitingResend(id) {
+  pickerSelected = awaitingQuotes.find(function (q) { return q.id === id; }) || null;
+  if (!pickerSelected) return;
+  document.getElementById('pickerModal').classList.add('show');
+  pickerResend();
+}
+
+// 動作成功後同時刷新兩區(Payment Records + Awaiting)
+async function refreshAll() {
+  await loadData(); applyFilters();
+  await loadAwaiting(); renderAwaiting(_awaitingTerm);
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1057,7 +1161,7 @@ async function doPickerOffline() {
 
     closePendingPicker();
     showToast('Offline payment recorded.');
-    await loadData(); applyFilters();   // 重載列表
+    await refreshAll();   // 同時刷新 Payment Records + Awaiting
   } catch (err) {
     console.error('[admin-payments] picker offline failed:', err);
     errEl.textContent = err.message || 'Failed. Please try again.';
