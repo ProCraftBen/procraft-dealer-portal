@@ -203,6 +203,18 @@
         </div>
       </div>
 
+      <div style="height:1px;background:var(--border);"></div>
+
+      <!-- Payment Notifications -->
+      <div>
+        <div style="font-size:9px;font-weight:500;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Payment Notifications</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="email" id="settingPaymentNotifyEmail" placeholder="payments@procraftdc.com"
+            style="flex:1;min-width:220px;height:38px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;"/>
+          <span style="font-size:11px;color:var(--muted);">If left blank, payment notifications are sent to the Admin Email above</span>
+        </div>
+      </div>
+
       <!-- Save Button -->
       <div style="display:flex;align-items:center;gap:12px;">
         <button onclick="saveEmailSettings()"
@@ -560,6 +572,7 @@ async function loadEmailSettings() {
   if (map['notify_dealer_welcome'])      el('settingNotifyDealerWelcome').checked         = map['notify_dealer_welcome'] === 'true';
   if (map['notify_admin_new_quote'])     el('settingNotifyAdminNewQuote').checked         = map['notify_admin_new_quote'] === 'true';
   if (map['notify_dealer_quote_confirm'])el('settingNotifyDealerQuoteConfirm').checked    = map['notify_dealer_quote_confirm'] === 'true';
+  el('settingPaymentNotifyEmail').value = map['payment_notify_email'] || '';
 }
 
 async function saveEmailSettings() {
@@ -570,6 +583,7 @@ async function saveEmailSettings() {
     { key: 'notify_dealer_welcome',        value: String(el('settingNotifyDealerWelcome').checked) },
     { key: 'notify_admin_new_quote',       value: String(el('settingNotifyAdminNewQuote').checked) },
     { key: 'notify_dealer_quote_confirm',  value: String(el('settingNotifyDealerQuoteConfirm').checked) },
+    { key: 'payment_notify_email',         value: el('settingPaymentNotifyEmail').value.trim() },
   ];
 
   const { error } = await _supabase.from('settings').upsert(settings, { onConflict: 'key' });
