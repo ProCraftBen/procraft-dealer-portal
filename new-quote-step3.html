@@ -429,6 +429,14 @@ color: var(--green-dark);
     .success-msg { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 400px; margin-bottom: 32px; }
     .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
 .btn-dashboard:hover { background: var(--green-mid); }
+    /* CB-43 T11: 成功畫面 Pay Now 強調 + 兩顆等長等距(僅 #successOverlay,不動 Back to Dashboard HTML) */
+    #successOverlay .btn-dashboard { width: 260px; max-width: 80vw; }
+    #successOverlay #successPayNowBtn {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--gold); color: var(--green-dark);
+      text-decoration: none; margin-bottom: 12px;
+    }
+    #successOverlay #successPayNowBtn:hover { background: #B8963F; }
 
     /* CB-4: modal dialogs (Request Revision / Resubmit confirm) */
     .cb4-modal {
