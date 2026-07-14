@@ -464,7 +464,7 @@ async function proceedCardAch(method, f) {
 
     // 成功:開新分頁跳 QuickBooks,本頁進入等待
     window.open(link, '_blank');
-    renderWaiting();
+    renderWaiting(link);
 
   } catch (err) {
     console.error('[payment] card/ach webhook failed:', err);
@@ -705,17 +705,26 @@ function renderProcessingSummary() {
 // =====================================================================
 // 畫面:等待付款確認(Card/ACH Proceed 成功後)
 // =====================================================================
-function renderWaiting() {
+function renderWaiting(payLink) {
+  const payBtn = payLink
+    ? `<a class="btn btn-primary" href="${escapeHtml(payLink)}" target="_blank" rel="noopener"><span class="btn-text">Pay Now</span></a>`
+    : '';
+  const popupHint = payLink
+    ? `<div class="notice info">Didn't see the payment window? Your browser may have blocked the pop-up — tap <strong>Pay Now</strong> below to open it.</div>`
+    : '';
+
   root().innerHTML = `
     ${backLinkHtml()}
     <div class="card">
       <div class="state-block">
         <div class="wait-spinner"></div>
         <div class="state-heading" style="margin-top:18px;">Waiting for payment confirmation…</div>
-        <div class="state-text">Please complete your payment in the QuickBooks tab that just opened. Once done, tap “Refresh Status” to update this page.</div>
+        <div class="state-text">Complete your payment in the QuickBooks payment window, then tap “Refresh Status” to update this page.</div>
       </div>
-      <div class="btn-row" style="justify-content:center;">
-        <button class="btn btn-primary" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
+      ${popupHint}
+      <div class="btn-row" style="flex-direction:column; align-items:stretch;">
+        ${payBtn}
+        <button class="btn btn-ghost" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
       </div>
     </div>`;
 
