@@ -473,7 +473,8 @@ function renderList(rows) {
     const d  = dealerOf(p);
     const sc = 's-' + (p.status || '');
     return '<tr>' +
-      '<td>' + escapeHtml(q.po_number || '—') + '</td>' +
+      '<td>' + escapeHtml(q.po_number || '—') +
+        (q.job_name ? '<div class="td-dealer-sub">' + escapeHtml(q.job_name) + '</div>' : '') + '</td>' +
       '<td><div class="td-dealer">' + escapeHtml(d.company_name || '—') + '</div>' +
         '<div class="td-dealer-sub">' + escapeHtml(d.contact_name || '') + '</div></td>' +
       '<td><span class="method-label">' + escapeHtml(methodLabel[p.payment_method] || p.payment_method || '—') + '</span></td>' +
@@ -544,7 +545,8 @@ function renderAwaiting(term) {
     const days = waitingDays(q.admin_notified_at);
     const daysStr = (days == null) ? '—' : ('~' + days + (days === 1 ? ' day' : ' days'));
     return '<tr>' +
-      '<td>' + escapeHtml(q.po_number || q.job_name || '(no PO#)') + '</td>' +
+      '<td>' + escapeHtml(q.po_number || '(no PO#)') +
+        (q.job_name ? '<div class="td-dealer-sub">' + escapeHtml(q.job_name) + '</div>' : '') + '</td>' +
       '<td class="td-dealer">' + escapeHtml(d.company_name || '—') + '</td>' +
       '<td>' + money(q.grand_total) + '</td>' +
       '<td><span class="await-wait">' + daysStr + '</span></td>' +
