@@ -271,7 +271,7 @@ async function reloadData() {
 
   const { data: pays, error: pErr } = await _supabase
     .from('payments')
-    .select('id, payment_method, base_amount, fee_percentage, fee_amount, total_paid, status, created_at')
+    .select('id, payment_method, base_amount, fee_percentage, fee_amount, total_paid, status, created_at, quickbooks_payment_link')
     .eq('quote_id', quoteId)
     .order('created_at', { ascending: false })
     .limit(1);
@@ -676,6 +676,11 @@ async function submitCheck() {
 function renderProcessingSummary() {
   const p = latestPayment;
   const isCardAch = (p.payment_method === 'card' || p.payment_method === 'ach');
+  const contBtn = (isCardAch && p.quickbooks_payment_link)
+    ? `<a class="btn btn-primary" href="${escapeHtml(p.quickbooks_payment_link)}" target="_blank" rel="noopener"><span class="btn-text">Continue Payment</span></a>`
+    : '';
+  const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
+  const btnRowStyle = contBtn ? 'flex-direction:column; align-items:stretch;' : '';
 
   root().innerHTML = `
     ${backLinkHtml()}
@@ -692,8 +697,9 @@ function renderProcessingSummary() {
 
       ${isCardAch ? `<div class="notice info">If you completed payment in QuickBooks, it may take a moment to confirm. Use “Refresh Status” to check again.</div>` : `<div class="notice info">We've received your check image and will confirm once verified.</div>`}
 
-      <div class="btn-row">
-        <button class="btn btn-primary" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
+      <div class="btn-row" style="${btnRowStyle}">
+        ${contBtn}
+        <button class="${refreshCls}" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
         <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
       </div>
     </div>`;
