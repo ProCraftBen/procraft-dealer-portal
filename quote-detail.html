@@ -1796,12 +1796,21 @@ function renderQuote(quote, dealer, addr) {
 
   // CB-43 T6: Pay Now — dealer 端、僅 Pending 顯示。付款失敗由 T8 退回 Pending 後按鈕自然重現。
   const payNowButtonHtml = (!_isAdmin && quote.status === 'Pending')
-    ? `
-      <a class="btn-action" href="payment.html?quote_id=${quote.id}">
-        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
-        Pay Now
-      </a>`
-    : '';
+      ? `
+        <a class="btn-action" href="payment.html?quote_id=${quote.id}">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Pay Now
+        </a>`
+      : '';
+  
+    // CB-43 T15: Continue Payment — dealer 端、Payment Processing 顯示,連回 payment.html 續付同一張 invoice(同一筆 QBO link)。
+    const continuePaymentButtonHtml = (!_isAdmin && quote.status === 'Payment Processing')
+      ? `
+        <a class="btn-action" href="payment.html?quote_id=${quote.id}">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Continue Payment
+        </a>`
+      : '';
 
   // ─────────────────────────────────────────────────────────────────────
   // CB-4: Returned banner — differs by viewer role.
@@ -1864,6 +1873,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="header-right">
         <span class="status-badge ${sc}">${statusText}</span>
         ${payNowButtonHtml}
+        ${continuePaymentButtonHtml}
         ${adminEditButtonHtml}
         ${internalDraftEditButtonHtml}
         ${downloadButtonsHtml}
