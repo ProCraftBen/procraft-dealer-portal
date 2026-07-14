@@ -27,7 +27,7 @@
   // ⚠️ 目前為 PLACEHOLDER,n8n workflow 建立後(CB-43 後續工作單)回填真值。
   window.N8N_PAYMENT_WEBHOOK = isProd
     ? 'https://n8n.example.com/webhook/PLACEHOLDER_PROD_PAYMENT'      // production
-    : 'https://n8n.example.com/webhook/PLACEHOLDER_STAGING_PAYMENT'; // staging
+    : 'https://benprocraftdc.app.n8n.cloud/webhook/payment-request'; // staging
 
   // 方便在 Console 一眼確認現在連哪個環境
   console.log('[config] SB_ENV =', window.SB_ENV, '| SB_URL =', window.SB_URL, '| N8N_PAYMENT_WEBHOOK =', window.N8N_PAYMENT_WEBHOOK);
