@@ -15,6 +15,7 @@
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
       --status-draft:#7A8C82; --status-returned:#E07B39; --status-payment:#64748B;
+      --status-stock-review:#0891B2;  /* CB-43 T14-1 */
       --error:#C0392B;
       --discount:#C0392B;   /* CB-40: 保留供歷史單 back-solve 折扣行紅色顯示 */
     }
@@ -41,6 +42,7 @@
     .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
     .status-badge { display: inline-block; padding: 5px 14px; border-radius: 3px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
+    .status-badge.stock-review { background: rgba(8,145,178,0.12); color: var(--status-stock-review); }  /* CB-43 T14-1 */
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
@@ -604,6 +606,7 @@ const _supabase = createClient(
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
 const statusClass = {
   Draft:'draft',
+  'Stock Review':'stock-review',
   Pending:'pending',
   Processing:'processing',
   Complete:'complete',
