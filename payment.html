@@ -183,7 +183,7 @@ let latestPayment  = null;   // 最新一筆 payment(可能為 null)
 let selectedMethod = null;   // 選單暫存:'card' / 'ach' / 'check'
 
 // ── fee 契約(百分數) ──
-const feeConfig = { card: 3, ach: 1, check: 0 };
+const feeConfig = { card: 2.99, ach: 1, check: 0 };
 
 // ── helpers ──
 function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 100) / 100; }
@@ -344,7 +344,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>Credit / Debit Card</span>
             <span class="mo-total">${fmt(card.total)}</span>
           </div>
-          <div class="mo-fee">Transaction Fee (3%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
+          <div class="mo-fee">Transaction Fee (2.99%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
         </label>
 
         <label class="method-opt" data-method="ach">
