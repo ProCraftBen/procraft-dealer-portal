@@ -23,6 +23,7 @@
       --status-closed:     #6B7280;
       --status-returned:   #E07B39;
       --status-payment:    #64748B;
+      --status-stock-review: #0891B2;  /* CB-43 T14-1 */
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
@@ -78,6 +79,7 @@
     .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; }
     .status-dot.draft      { background: var(--status-draft); }
     .status-dot.pending    { background: var(--status-pending); }
+    .status-dot.stock-review { background: var(--status-stock-review); }  /* CB-43 T14-1 */
     .status-dot.processing { background: var(--status-processing); }
     .status-dot.complete   { background: var(--status-complete); }
     .status-dot.closed     { background: var(--status-closed); }
@@ -208,6 +210,7 @@ const _supabase = createClient(
 
 const statusClass = {
   Draft: 'draft',
+  'Stock Review': 'stock-review',
   Pending: 'pending',
   'Payment Processing': 'payment-processing',
   'Order Processing': 'order-processing',
