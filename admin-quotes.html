@@ -13,6 +13,7 @@
       --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
       --status-returned:#E07B39; --status-payment:#64748B;
+      --status-stock-review:#0891B2;  /* CB-43 T14-1 */
       --close-grey:#7A8C82;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
@@ -21,8 +22,8 @@
     .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
     .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
 
-    /* Stats — 6 cards */
-    .stats-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; }
+    /* Stats — 7 cards (CB-43 T14-1: +Stock Review) */
+    .stats-bar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; margin-bottom: 24px; }
     @media (max-width: 900px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 480px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
     .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px; text-align: center; }
@@ -68,6 +69,7 @@
     /* Status */
     .status-select { border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 4px 6px; border-radius: 3px; }
     .status-select.pending    { color: var(--status-pending);    background: rgba(201,168,76,0.1); }
+    .status-select.stock-review { color: var(--status-stock-review); background: rgba(8,145,178,0.12); }  /* CB-43 T14-1 */
     .status-select.processing { color: var(--status-processing); background: rgba(59,130,246,0.1); }
     .status-select.complete   { color: var(--status-complete);   background: rgba(22,163,74,0.1); }
     .status-select.closed     { color: var(--status-closed);     background: rgba(107,114,128,0.1); }
@@ -307,11 +309,12 @@
     </button>
   </div>
 
-  <!-- 6-card stats: Total / Draft / Revising / Pending / Payment Processing / Order Processing -->
+<!-- 7-card stats: Total / Draft / Revising / Stock Review / Pending / Payment Processing / Order Processing -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
     <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label">Revising</div></div>
+    <div class="stat-card"><div class="stat-num" id="statStockReview" style="color:var(--status-stock-review)">—</div><div class="stat-label">Stock Review</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label">Pending</div></div>
     <div class="stat-card"><div class="stat-num" id="statPaymentProcessing" style="color:var(--status-payment)">—</div><div class="stat-label">Payment</div></div>
     <div class="stat-card"><div class="stat-num" id="statOrderProcessing" style="color:var(--status-complete)">—</div><div class="stat-label">Order</div></div>
@@ -324,6 +327,7 @@
         <option value="">All Statuses</option>
         <option value="Draft">Draft</option>
         <option value="Returned">Revising</option>
+        <option value="Stock Review">Stock Review</option>
         <option value="Pending">Pending</option>
         <option value="Payment Processing">Payment Processing</option>
         <option value="Order Processing">Order Processing</option>
@@ -507,6 +511,7 @@ const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
 const statusClass = {
   Draft:'draft',
+  'Stock Review':'stock-review',
   Pending:'pending',
   'Payment Processing':'payment-processing',
   'Order Processing':'order-processing',
@@ -633,6 +638,7 @@ function renderStats() {
   document.getElementById('statTotal').textContent      = allQuotes.length;
   document.getElementById('statDraft').textContent      = allQuotes.filter(function(q) { return q.status === 'Draft'; }).length;
   document.getElementById('statReturned').textContent   = allQuotes.filter(function(q) { return q.status === 'Returned'; }).length;
+  document.getElementById('statStockReview').textContent = allQuotes.filter(function(q) { return q.status === 'Stock Review'; }).length;
   document.getElementById('statPending').textContent    = allQuotes.filter(function(q) { return q.status === 'Pending'; }).length;
   document.getElementById('statPaymentProcessing').textContent = allQuotes.filter(function(q) { return q.status === 'Payment Processing'; }).length;
   document.getElementById('statOrderProcessing').textContent   = allQuotes.filter(function(q) { return q.status === 'Order Processing'; }).length;
@@ -661,6 +667,7 @@ function renderTable() {
     const isClosed   = q.status === 'Closed';
     const isPaymentProcessing = q.status === 'Payment Processing';
     const isOrderProcessing   = q.status === 'Order Processing';
+    const isStockReview       = q.status === 'Stock Review';   // CB-43 T14-1
 
     // 把當前 status 暫存起來，方便 Modal Cancel 時還原
     _previousStatus[q.id] = q.status;
@@ -790,6 +797,27 @@ function renderTable() {
         } else if (isOrderProcessing) {
           // CB-43: 付款狀態唯讀，不可手動改（只能由 payment action 驅動）
           statusCellHtml = '<td><span class="status-badge-order-processing">Order Processing</span></td>';
+        } else if (isStockReview) {
+          // ═══ CB-43 T14-1 (R1) ═══════════════════════════════════════════
+          // Stock Review 必須有【專屬分支】。若省略，會掉進最後的 catch-all
+          // else，那裡的 select 只有 <option value="Pending">，且因
+          // q.status !== 'Pending' 不會 selected → 瀏覽器 fallback 顯示第一個
+          // option "Pending" → admin 按 Save 就把 Stock Review 靜默改成
+          // Pending → 繞過 T14-2 放行按鈕 → dealer 收不到「可以付款了」
+          // 通知 email → 靜默失聯。
+          //
+          // 硬規則：dropdown【不含 Pending】。放行只能走 T14-2 專屬按鈕。
+          // 保留 Close Quote：sales 若確認整單 non-stock 做不了要能關單，
+          // 而 quote-detail.html 沒有 Close 功能 → 此處是關單唯一入口。
+          // ════════════════════════════════════════════════════════════════
+          statusCellHtml =
+            '<td onclick="event.stopPropagation()" style="white-space:nowrap">' +
+              '<select class="status-select ' + sc + '" id="status-' + q.id + '" onchange="onStatusChange(\'' + q.id + '\', this)">' +
+                '<option value="Stock Review" selected>Stock Review</option>' +
+                '<option value="Closed" class="close-option">✕ Close Quote</option>' +
+              '</select>' +
+              '<button id="save-' + q.id + '" onclick="saveStatus(\'' + q.id + '\')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>' +
+            '</td>';
         } else {
           // Pending only: 下拉僅保留 Pending + Close（付款狀態不可手動繞過）
       statusCellHtml =
