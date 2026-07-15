@@ -59,6 +59,9 @@
     .btn-action.review-resubmit:hover { background: #c66a30; }
     .btn-action.admin-edit { background: var(--gold); color: #fff; }
     .btn-action.admin-edit:hover { background: #b69240; }
+    /* CB-43 T14-2: 放行按鈕。吃 T14-1 鎖定的 --status-stock-review,不新增色值。 */
+    .btn-action.stock-release { background: var(--status-stock-review); color: #fff; }
+    .btn-action.stock-release:hover { background: #0E7490; }
 
     /* ── Returned Reason Banner ── */
     .return-banner {
@@ -630,6 +633,10 @@ const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
 // POs in Returned (in case customer requests further changes). Draft has
 // its own admin-draft flow; Processing/Complete/Closed are locked.
 const ADMIN_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
+
+// ── CB-43 T14-2: 放行按鈕的 inner HTML ──
+// 建立按鈕與「失敗還原按鈕」共用同一份,避免兩處文案漂移。
+const RELEASE_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Confirm Stock &amp; Send Payment Link';
 
 // ─────────────────────────────────────────────────────────────────────────
 // F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
@@ -1547,7 +1554,16 @@ function renderQuote(quote, dealer, addr) {
       Edit
     </button>` : '';
 
-// ── Ship To 區塊(5 檔鏡像同一份 resolver)──
+  // ── CB-43 T14-2: 放行按鈕(僅 admin + status='Stock Review')──
+  // dealer 絕對看不到 —— 放行是內部動作(sales 確認庫存)。
+  // 這是 Stock Review → Pending 的唯一路徑:admin-quotes.html 的 Stock Review
+  // dropdown 已刻意排除 Pending(T14-1 R1),按鈕缺席 = 單子永遠卡住。
+  const canReleaseStock = _isAdmin && quote.status === 'Stock Review';
+  const releaseStockButtonHtml = canReleaseStock
+    ? `<button id="releaseStockBtn" class="btn-action stock-release" onclick="releaseStock()">${RELEASE_BTN_INNER}</button>`
+    : '';
+
+// ── Ship To 區塊
   const PROCRAFT_PICKUP_LINES = [
     'ProCraft Cabinetry DC LLC',
     '6750 Santa Barbara Court Suite B',
@@ -1879,6 +1895,7 @@ function renderQuote(quote, dealer, addr) {
         ${continuePaymentButtonHtml}
         ${adminEditButtonHtml}
         ${internalDraftEditButtonHtml}
+        ${releaseStockButtonHtml}
         ${downloadButtonsHtml}
       </div>
     </div>
@@ -2035,6 +2052,87 @@ async function saveShipping() {
     saveBtn.textContent = 'Save';
     showError(err.message || 'Failed to save. Please try again.');
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// CB-43 T14-2: 放行 — Stock Review → Pending + 通知 dealer 可付款
+//
+// 寫序(硬規則,不可調換):
+//   ① UPDATE quotes(count:'exact' + status 守衛)
+//   ② 成功後才寄 email(非阻斷 — email 失敗不回滾狀態)
+//   ③ reload
+//
+// status 守衛(.eq('status','Stock Review'))防併發:兩個 admin 同時按 →
+// 只有一個 count=1,另一個 count=0。admin_update_all_quotes policy 沒有
+// WITH CHECK,DB 層不會擋,所以守衛必須在前端自己加。
+//
+// RLS silent failure:Supabase 被擋時回 0 rows 且無 error → count===0 一律當錯誤。
+// ──────────────────────────────────────────────────────────────────────
+async function releaseStock() {
+  if (!_isAdmin || !_quote) return;
+  if (_quote.status !== 'Stock Review') return;
+
+  const btn = document.getElementById('releaseStockBtn');
+  if (btn && btn.disabled) return;   // mid-flight 防呆:連點只算一次
+
+  const poLabel = _quote.po_number || _quote.draft_number || 'This order';
+  const ok = confirm(
+    'Confirm all items are in stock and release this order for payment?\n\n'
+    + poLabel + ' will move to Pending and the dealer will be emailed a payment link immediately.\n\n'
+    + 'This cannot be undone.'
+  );
+  if (!ok) return;
+
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Releasing...'; }
+
+  // ① quotes → Pending
+  try {
+    const upd = await _supabase
+      .from('quotes')
+      .update({ status: 'Pending' }, { count: 'exact' })
+      .eq('id', _quote.id)
+      .eq('status', 'Stock Review');
+    if (upd.error) throw upd.error;
+    if (upd.count === 0) {
+      alert('This order is no longer in Stock Review. It may have been changed by someone else.\n\nRefreshing now.');
+      window.location.reload();
+      return;
+    }
+  } catch (err) {
+    console.error('[releaseStock] update failed:', err);
+    alert('Failed to release this order: ' + (err.message || 'An unexpected error occurred.') + '\n\nPlease try again.');
+    if (btn) { btn.disabled = false; btn.innerHTML = RELEASE_BTN_INNER; }
+    return;
+  }
+
+  // ② email(非阻斷:狀態已放行,不回滾。但失敗必須明確告知 admin —
+  //    payment_ready 是 dealer「可以付款了」的唯一通知,靜默失敗 = dealer 失聯)。
+  //    刻意偏離 admin-payments.html 的 fire-and-forget:此處必須檢查 res.ok。
+  let emailOk = true;
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const res = await fetch(window.SB_URL + '/functions/v1/send-payment-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify({ type: 'payment_ready', quote_id: _quote.id }),
+    });
+    if (!res.ok) {
+      emailOk = false;
+      console.error('[releaseStock] send-payment-email returned', res.status);
+    }
+  } catch (emailErr) {
+    emailOk = false;
+    console.error('[releaseStock] send-payment-email failed (non-blocking):', emailErr);
+  }
+
+  // ③
+  alert(emailOk
+    ? 'Order released. The dealer has been notified and can now pay.'
+    : 'Order released to Pending, but the notification email failed to send.\n\nPlease contact the dealer manually.');
+  window.location.reload();
 }
 
 // ─────────────────────────────────────────────────────────────────────────
