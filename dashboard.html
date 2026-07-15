@@ -25,6 +25,7 @@
       --status-closed:     #6B7280;
       --status-returned:   #E07B39;
       --status-payment:    #64748B;
+      --status-stock-review: #0891B2;  /* CB-43 T14-1 */
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
@@ -62,6 +63,7 @@
     .quote-status { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
     .quote-status.draft      { color: var(--status-draft); }
     .quote-status.pending    { color: var(--status-pending); }
+    .quote-status.stock-review { color: var(--status-stock-review); }  /* CB-43 T14-1 */
     .quote-status.processing { color: var(--status-processing); }
     .quote-status.complete   { color: var(--status-complete); }
     .quote-status.closed     { color: var(--status-closed); }
@@ -144,6 +146,7 @@
 
   const statusClass = {
     'Draft': 'draft',
+    'Stock Review': 'stock-review',
     'Pending': 'pending',
     'Payment Processing': 'payment-processing',
     'Order Processing': 'order-processing',
@@ -203,7 +206,9 @@
 
     const all        = quotes || [];
     const pending    = all.filter(q => q.status === 'Pending').length;
-    const inProgress = all.filter(q => q.status === 'Payment Processing' || q.status === 'Order Processing').length;
+    // CB-43 T14-1 (Q4): Stock Review 併入 In Progress。否則 dealer submit 完回
+    // dashboard 會看到 Total +1 但 Pending / In Progress 都沒動 → 單子像消失了。
+    const inProgress = all.filter(q => q.status === 'Stock Review' || q.status === 'Payment Processing' || q.status === 'Order Processing').length;
     document.getElementById('statTotal').textContent      = all.length;
     document.getElementById('statPending').textContent    = pending;
     document.getElementById('statInProgress').textContent = inProgress;
