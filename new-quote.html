@@ -801,6 +801,12 @@
       return 'normal';
     }
 
+    // Draft quote
+    if (status === 'Draft') {
+      if (adminDraft) return 'admin-draft';
+      return 'normal';
+    }
+
     return 'normal';
   }
 
