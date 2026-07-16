@@ -979,7 +979,8 @@ function saveDraftNotify()   { _pendingNotify = true;  saveDraft(); }
 // CB-4: view-mode model (sync with new-quote.html / step2 / modifications)
 //   'normal'      — dealer creating/editing own Draft, or new quote
 //   'admin-draft' — admin creating a quote on a dealer's behalf (adminDraft=1)
-//   'admin-edit'  — admin editing a dealer's Pending/Returned PO
+//   'admin-edit'  — admin editing a dealer's Stock Review/Returned PO
+//                   (CB-43 T14-3: was Pending/Returned)
 //   'review'      — dealer reviewing a returned PO (read-only; can only resubmit)
 // admin-draft is layered on top in init() (not produced by resolveViewMode).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -995,10 +996,14 @@ function resolveViewMode(status, isOwner, isAdmin) {
     if (isAdmin) return 'admin-edit';
     return 'review';
   }
-  if (status === 'Pending') return isAdmin ? 'admin-edit' : 'normal';
+  // CB-43 T14-3: 'Stock Review' 加入本分支 —— admin 必須能 Edit(Stock Review =
+  // 最後可修改的階段;有 admin-edit 才有 Request Revision → 「部分品項沒貨」才有解)。
+  // dealer 的 Stock Review 單由 init() 的 guard 攔下導回 quote-detail,
+  // 走不到這裡的 'normal'。'Pending' 保留作為部署窗口的緊急路徑
+  // (詳見 new-quote.html 同處註解)。
+  if (status === 'Stock Review' || status === 'Pending') return isAdmin ? 'admin-edit' : 'normal';
   return 'normal';
 }
-
 function buildModeParam() {
   if (viewMode === 'admin-edit') return '&mode=admin-edit';
   if (viewMode === 'review')     return '&mode=review';
@@ -1605,6 +1610,18 @@ let dealerIdToLoad = session.user.id;
   const adminDraftMode = (adminDraft || step1Data.adminDraft);
   if (adminDraftMode && viewMode === 'normal') viewMode = 'admin-draft';
   console.log('[CB-4] step3 viewMode:', { viewMode, quoteStatus, isAdminRole, isOwner, adminDraftMode });
+
+  // ── CB-43 T14-3 (R2): Stock Review 單 dealer 不可編輯 ──
+  // 與 new-quote.html / new-quote-step2.html / new-quote-modifications.html 同款 guard。
+  // 擋手打 URL 與瀏覽器上一頁;admin 不擋(必須能 Edit + Request Revision)。
+  // 真正的安全邊界是 RLS(dealer UPDATE policy 的 USING 不含 Stock Review);
+  // 前端只是 UX 防呆。已知限制:擋不到 bfcache 還原(不重跑 script)——
+  // 該情境由 submitQuote() 的 count:'exact' 檢查轉為 loud error(Q8-A)。
+  if (!isAdminRole && quoteStatus === 'Stock Review') {
+    console.warn('[CB-43 T14-3] Dealer blocked from editing a Stock Review quote; redirecting to quote detail.');
+    location.replace('quote-detail.html?id=' + encodeURIComponent(draftId));
+    return;
+  }
 
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
