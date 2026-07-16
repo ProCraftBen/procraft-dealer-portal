@@ -2827,25 +2827,33 @@ async function submitQuote() {
       if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
       nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
 
-      const { error: updateError } = await _supabase.from('quotes').update({
+      // CB-43 T14-3: 'Pending' → 'Stock Review'。重送可能改了品項,要重新確認庫存。
+      // Q8-A: 加 count:'exact'。RLS(dealer USING 僅 Draft/Returned)擋下時回 0 rows
+      //       且【不丟 error】—— 沒有這道檢查,bfcache 還原的頁面對 Stock Review 單
+      //       按 Submit 會靜默跳過 UPDATE,卻照樣刪除並重建 quote_items + 重寄一封信。
+      const { error: updateError, count: updateCount } = await _supabase.from('quotes').update({
         ...baseFields,
         po_number:       poNumber,
-        status:          'Pending',
+        status:          'Stock Review',
         quote_number:    quoteNum,
         revision_number: nextRevisionNumber,
         return_reason:   null,
-      }).eq('id', draftId);
+      }, { count: 'exact' }).eq('id', draftId);
       if (updateError) throw updateError;
+      if (updateCount === 0) {
+        throw new Error("Couldn't submit this order — its status may have changed. Please refresh the page and try again.");
+      }
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
 
   } else if (draftId && _existingPoNumber) {
-        // ── CB-32: Admin-edit 送出「已有 PO# 的 Pending 單」 ──
-        //   這種單已經有 po_number(submit 過、status=Pending),且非 Returned 重送
+        // ── CB-32: Admin-edit 送出「已有 PO# 的 Stock Review 單」 ──
+        //   這種單已經有 po_number(submit 過),且非 Returned 重送
         //   (Returned 已被上面分支1 接走)。若掉進下面的 Draft→Submit 分支會呼叫
         //   submit_purchase_order RPC → 配「新」號,導致 PO# 跳號。
-        //   正解:比照 Resubmit 分支,保留原 po_number、plain UPDATE、status='Pending',
-        //   不呼叫 RPC。revision_number 不 bump(admin 編輯 live 單,非 dealer 重送)。
+        //   正解:比照 Resubmit 分支,保留原 po_number、plain UPDATE、
+        //   status='Stock Review'(CB-43 T14-3: was 'Pending'),不呼叫 RPC。
+        //   revision_number 不 bump(admin 編輯 live 單,非 dealer 重送)。
         const { data: q } = await _supabase
           .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
         poNumber = _existingPoNumber || q?.po_number;
@@ -2854,13 +2862,18 @@ async function submitQuote() {
         nextRevisionNumber = _currentRevisionNumber;   // 不 bump
         if (!poNumber) throw new Error('PO number missing — cannot submit.');
   
-        const { error: updateError } = await _supabase.from('quotes').update({
+        // Q8-A: 加 count:'exact'(理由同分支1)。admin 走 admin_update_all_quotes,
+        //       理論上不會被擋,但 0 rows 也可能代表單被刪除或 id 不符 —— 一律 throw。
+        const { error: updateError, count: updateCount } = await _supabase.from('quotes').update({
           ...baseFields,
           po_number:    poNumber,
-          status:       'Pending',
+          status:       'Stock Review',
           quote_number: quoteNum,
-        }).eq('id', draftId);
+        }, { count: 'exact' }).eq('id', draftId);
         if (updateError) throw updateError;
+        if (updateCount === 0) {
+          throw new Error("Couldn't submit this order — it may have been removed or its status changed. Please refresh the page and try again.");
+        }
         await _supabase.from('quote_items').delete().eq('quote_id', draftId);
         quoteId = draftId;
   
@@ -2878,7 +2891,8 @@ async function submitQuote() {
       const { error: updateError } = await _supabase.from('quotes').update({
         ...baseFields,
         quote_number: quoteNum,
-        // po_number + status='Pending' 由 submit_purchase_order RPC 設定
+        // po_number + status 由 submit_purchase_order RPC 設定
+        // CB-43 T14-3(M2): RPC 現在寫 'Stock Review'(原為 'Pending')
       }).eq('id', draftId);
       if (updateError) throw updateError;
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
@@ -2902,7 +2916,8 @@ async function submitQuote() {
         ...baseFields,
         quote_number: quoteNum,
         draft_number: draftNumberForSave,
-        status:       'Draft',   // 立刻被 submit_purchase_order 翻成 'Pending'
+        status:       'Draft',   // 立刻被 submit_purchase_order 翻成 'Stock Review'
+                                 // ⚠️ 這裡【必須】是 'Draft' —— RPC 的前置值,勿改
       }).select().single();
       if (insError) throw insError;
       quoteId  = newQuote.id;
