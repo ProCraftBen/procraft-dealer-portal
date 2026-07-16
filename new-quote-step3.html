@@ -429,14 +429,9 @@ color: var(--green-dark);
     .success-msg { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 400px; margin-bottom: 32px; }
     .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
 .btn-dashboard:hover { background: var(--green-mid); }
-    /* CB-43 T11: 成功畫面 Pay Now 強調 + 兩顆等長等距(僅 #successOverlay,不動 Back to Dashboard HTML) */
+    /* CB-43 T11 → T14-3: Pay Now 按鈕已移除 —— 新流程 submit 後是 Stock Review,
+       dealer 此時不能付款。保留 width 讓 Back to Dashboard 維持既有寬度。 */
     #successOverlay .btn-dashboard { width: 260px; max-width: 80vw; }
-    #successOverlay #successPayNowBtn {
-      display: inline-flex; align-items: center; justify-content: center;
-      background: var(--gold); color: var(--green-dark);
-      text-decoration: none; margin-bottom: 12px;
-    }
-    #successOverlay #successPayNowBtn:hover { background: #B8963F; }
 
     /* CB-4: modal dialogs (Request Revision / Resubmit confirm) */
     .cb4-modal {
@@ -799,14 +794,10 @@ color: var(--green-dark);
   <div class="success-title" id="successTitle">Purchase Order Submitted!</div>
   <div class="success-quote-num" id="successQuoteNum"></div>
   <div class="success-msg" id="successMsg">
-    Thank you! Your quote has been received.<br>
-    Our team will review it and get back to you shortly.<br>
+    Thank you! Your purchase order has been received.<br>
+    We're confirming stock availability for your items and will email you a payment link once it's ready.<br>
     A confirmation has been sent to your email.
   </div>
-  <!-- CB-43 T11: dealer 本人 submit 成功後直接付款入口(href 由 submitQuote 填,admin 代 submit 不顯示) -->
-  <a id="successPayNowBtn" class="btn-dashboard" href="#" style="display:none;">
-    Pay Now
-  </a>
   <button class="btn-dashboard" onclick="window.location.href='dashboard.html'">
     Back to Dashboard
   </button>
@@ -3052,19 +3043,24 @@ async function submitQuote() {
 
     if (_isResumingReturned) {
       document.getElementById('successTitle').textContent = 'Purchase Order Resubmitted!';
+      // CB-43 T14-3: 重送一樣進 Stock Review(重送可能改了品項,要重新確認庫存)
       document.getElementById('successMsg').innerHTML =
-        'Thank you! Your revised quote has been resubmitted.<br>' +
-        'Our team will review it and get back to you shortly.<br>' +
+        'Thank you! Your revised purchase order has been resubmitted.<br>' +
+        "We're re-confirming stock availability and will email you a payment link once it's ready.<br>" +
         'A confirmation has been sent to your email.';
     }
     document.getElementById('successQuoteNum').textContent = poNumber;
-    // CB-43 T11: 只有 dealer 本人 submit(非 admin 代 submit)才顯示 Pay Now,導向付款頁
-    if (!_isAdminSubmit) {
-      const _payBtn = document.getElementById('successPayNowBtn');
-      if (_payBtn) {
-        _payBtn.href = 'payment.html?quote_id=' + encodeURIComponent(quoteId);
-        _payBtn.style.display = '';
-      }
+    // CB-43 T14-3(Q3-B): admin 代 submit 的專屬文案。
+    //   T11 的 Pay Now 按鈕已移除 —— 新流程 submit 後是 Stock Review,dealer 不能付款。
+    //   N1: 本分支【必須】在上面的 _isResumingReturned 分支【之後】,以覆蓋其文案。
+    //   admin 對 Returned 單按 Submit 時兩者同時成立(_isResumingReturned 由
+    //   q.status === 'Returned' 設定,與 viewMode 無關)。此刻操作者是 admin,
+    //   「we'll email you a payment link」對他是錯的 —— 他要的下一步是放行。
+    //   successTitle 不覆寫:'Purchase Order Resubmitted!' 陳述客觀事實,對 admin 仍成立。
+    if (_isAdminSubmit) {
+      document.getElementById('successMsg').innerHTML =
+        "Purchase order submitted on the dealer's behalf. It's now in Stock Review — " +
+        'confirm stock on the order page to release it for payment.';
     }
     document.getElementById('successOverlay').classList.add('show');
 
