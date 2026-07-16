@@ -1428,9 +1428,13 @@ function resolveViewMode(status, isOwner, isAdmin, adminDraftFlag) {
     if (isAdmin) return 'admin-edit';
     return 'review';
   }
-  if (status === 'Pending') {
+  // CB-43 T14-3: 'Stock Review' 加入本分支 —— admin 必須能 Edit(Stock Review =
+  // 最後可修改的階段)。dealer 的 Stock Review 單由 init() 的 guard 攔下導回
+  // quote-detail,走不到這裡的 'normal'。'Pending' 保留作為部署窗口的緊急路徑
+  // (詳見 new-quote.html 同處註解)。
+  if (status === 'Stock Review' || status === 'Pending') {
     if (isAdmin) return 'admin-edit';
-    return 'normal';  // dealer shouldn't reach Pending in Step 2; safety net
+    return 'normal';  // dealer shouldn't reach Stock Review/Pending in Step 2; safety net
   }
   if (status === 'Draft') {
     return adminDraftFlag ? 'admin-draft' : 'normal';
@@ -1530,6 +1534,16 @@ async function init() {
     viewMode, urlModeHint, quoteStatus, isAdminViewer, isOwner, adminDraftFlag,
   });
 
+  // ── CB-43 T14-3 (R2): Stock Review 單 dealer 不可編輯 ──
+  // 與 new-quote.html / new-quote-modifications.html / new-quote-step3.html 同款 guard。
+  // 擋手打 URL 與瀏覽器上一頁;admin 不擋(必須能 Edit)。
+  // 真正的安全邊界是 RLS(dealer UPDATE policy 的 USING 不含 Stock Review)。
+  // 已知限制:擋不到 bfcache 還原(不重跑 script)。
+  if (!isAdminViewer && quoteStatus === 'Stock Review') {
+    console.warn('[CB-43 T14-3] Dealer blocked from editing a Stock Review quote; redirecting to quote detail.');
+    location.replace('quote-detail.html?id=' + encodeURIComponent(draftId));
+    return;
+  }
   // Update Back link to preserve draft id + mode
   if (draftId) {
     const backBtn = document.getElementById('btnBack');
