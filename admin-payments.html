@@ -62,6 +62,9 @@
     .ghost-banner-title .gb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--error); flex: 0 0 auto; }
     .ghost-banner-count { font-size: 11px; color: var(--error); white-space: nowrap; }
     .ghost-banner-sub { padding: 10px 20px 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .ghost-banner-sub strong { color: var(--text); font-weight: 500; }
+    .ghost-steps { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+    .ghost-steps li { font-size: 12px; color: var(--muted); line-height: 1.5; }
     .ghost-list { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
     .ghost-row { background: var(--white); border: 1px solid rgba(192,57,43,0.20); border-radius: 4px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
     .ghost-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 180px; flex: 1 1 auto; }
@@ -393,7 +396,7 @@ function renderGhostBanner() {
           '<span>Inv <span class="qb-id">' + escapeHtml(invId) + '</span></span>' +
           '<span>Pay <span class="qb-id">' + escapeHtml(payId) + '</span></span>' +
         '</div>' +
-        '<button class="ghost-resolve" onclick="actResolveGhost(\'' + escapeHtml(p.id) + '\')">Resolve</button>' +
+        '<button class="ghost-resolve" title="Only records this as manually handled and removes it from the list. Does not refund or modify QuickBooks." onclick="actResolveGhost(\'' + escapeHtml(p.id) + '\')">Resolve</button>' +
       '</div>';
   }).join('');
 
@@ -403,11 +406,58 @@ function renderGhostBanner() {
         '<span class="ghost-banner-title"><span class="gb-dot"></span>Ghost Payments</span>' +
         '<span class="ghost-banner-count">' + ghosts.length + ' unresolved</span>' +
       '</div>' +
-      '<div class="ghost-banner-sub">These payments were made against a cancelled or failed invoice. Reconcile or refund in QuickBooks using the IDs below, then mark resolved.</div>' +
-      '<div class="ghost-list">' + rows + '</div>' +
+      '<div class="ghost-banner-sub">' +
+        '<strong>These invoices were cancelled or failed, but were paid — the money is in QuickBooks and usually needs to be refunded.</strong>' +
+        '<ol class="ghost-steps">' +
+          '<li>Use the Inv / Pay ID on each row to find the invoice in QuickBooks and confirm the balance is $0 (payment received).</li>' +
+          '<li>Refund the customer manually in QuickBooks.</li>' +
+          '<li>Return here and click <strong>Resolve</strong> to record it as handled — this only records it, it does not refund automatically.</li>' +
+        '</ol>' +
+      '</div>' +
+'<div class="ghost-list">' + rows + '</div>' +
     '</div>';
 }
 
+// ---- Resolve Ghost Payment ----
+//   admin 在 QBO 對帳/退款後,按此記錄「已處理」→ 寫 ghost_resolved_at + note。
+//   只寫 payments 稽核欄,不動 quotes(resolve 是稽核標記,非狀態轉移)、不碰 QBO。
+function actResolveGhost(paymentId) {
+  const p = allPayments.find(function (x) { return x.id === paymentId; });
+  if (!p) { showToast('Payment not found. Please refresh.', true); return; }
+  const ph = 'e.g. Refunded ' + money(p.total_paid) + ' in QuickBooks';
+  openActionModal({
+    title: 'Resolve Ghost Payment',
+    sub: 'Mark this as handled after you have reconciled or refunded it in QuickBooks. This only records that it was resolved — it does not refund or modify QuickBooks.',
+    fieldsHtml:
+      '<div class="modal-field"><label>Resolution Note (optional)</label>' +
+      '<textarea id="amGhostNote" placeholder="' + escapeHtml(ph) + '"></textarea></div>',
+    confirmLabel: 'Mark as Resolved',
+    danger: false,
+    onConfirm: async function () {
+      const note = (document.getElementById('amGhostNote').value || '').trim();
+      const upd = await _supabase.from('payments')
+        .update({
+          ghost_resolved_at: new Date().toISOString(),
+          ghost_resolution_note: note || null,
+        }, { count: 'exact' })
+        .eq('id', paymentId);
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) throw new Error("Couldn't mark this payment resolved (0 rows). 狀態可能不一致,請人工核對。");
+      showToast('Ghost payment resolved.');
+      return true;
+    },
+    onDone: async function () {
+      try {
+        await loadData();
+        renderList(allPayments);
+        renderGhostBanner();
+      } catch (err) {
+        console.error('[admin-payments] refresh after resolve failed:', err);
+        showToast('Resolved, but refresh failed. Please reload.', true);
+      }
+    },
+  });
+}
 // ════════════════════════════════════════════════════════════════════
 // Init:權限 gate + router
 // ════════════════════════════════════════════════════════════════════
@@ -929,6 +979,7 @@ function renderActions() {
 
 // ---- 共用 modal controller ----
 let _amOnConfirm = null;
+let _amOnDone = null;
 
 function openActionModal(cfg) {
   document.getElementById('amTitle').textContent = cfg.title || '';
@@ -941,12 +992,14 @@ function openActionModal(cfg) {
   confirmBtn.className = 'btn-primary' + (cfg.danger ? ' danger' : '');
   confirmBtn.disabled = false;
   _amOnConfirm = cfg.onConfirm || null;
+  _amOnDone    = cfg.onDone || null;
   document.getElementById('actionModal').classList.add('show');
 }
 
 function closeActionModal() {
   document.getElementById('actionModal').classList.remove('show');
   _amOnConfirm = null;
+  _amOnDone    = null;
 }
 
 function amShowError(msg) {
@@ -965,9 +1018,11 @@ function wireActionModal() {
     try {
       const ok = await _amOnConfirm();
       if (ok === false) { btn.disabled = false; return; }   // 驗證未過:錯誤已顯示,留在 modal
+      const onDone = _amOnDone;                             // 先捕捉(closeActionModal 會清空)
       const pid = detailPayment ? detailPayment.id : null;
       closeActionModal();
-      if (pid) showDetail(pid);                             // re-fetch 重繪
+      if (onDone)   { onDone(); }                           // list 情境:刷新幽靈區+主表
+      else if (pid) { showDetail(pid); }                    // detail 情境(Confirm/Cancel):維持原樣
     } catch (err) {
       console.error('[admin-payments] action failed:', err);
       amShowError(err.message || 'Action failed. Please try again.');
