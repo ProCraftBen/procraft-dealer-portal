@@ -346,6 +346,68 @@ function showToast(msg, isError) {
 function quoteOf(p)  { return quoteMap[p.quote_id] || {}; }
 function dealerOf(p) { const q = quoteOf(p); return dealerMap[q.dealer_id] || {}; }
 
+// ---- 幽靈成因推導(定案正則)----
+//   status='failed'                                → Timeout
+//   status='cancelled' 且 reason='Method changed'  → Method changed(WF1 N5c 正記號)
+//   status='cancelled' 且 reason 非空且≠上者         → Admin cancelled
+//   其餘                                            → Unknown(不猜)
+// 註:failed 目前一律歸 Timeout(PM 定案)。WF3 timeout 正記號為
+//     failure_reason='Payment timeout (7 days)';若日後要比照 Method-changed
+//     用正記號收緊 failed,改判此處即可。
+function ghostCause(p) {
+  if (p.status === 'failed') return { label: 'Timeout', cls: '' };
+  if (p.status === 'cancelled') {
+    var reason = (p.cancellation_reason || '').trim();
+    if (reason === 'Method changed') return { label: 'Method changed', cls: '' };
+    if (reason)                      return { label: 'Admin cancelled', cls: '' };
+  }
+  return { label: 'Unknown', cls: 'c-unknown' };
+}
+
+// ---- 幽靈警示區:未結案幽靈(detected 有值 且 resolved 為空)才 render ----
+//   顯示看 resolved_at(非 detected_at):只要 admin 未按 Resolve,不論 alert 發過幾次都留在此區。
+function renderGhostBanner() {
+  var host = document.getElementById('ghostBanner');
+  if (!host) return;
+
+  var ghosts = allPayments.filter(function (p) {
+    return p.ghost_detected_at && !p.ghost_resolved_at;
+  });
+  if (!ghosts.length) { host.innerHTML = ''; return; }   // 無幽靈:維持現狀,不佔位
+
+  var rows = ghosts.map(function (p) {
+    var d = dealerOf(p);
+    var q = quoteOf(p);
+    var cause = ghostCause(p);
+    var invId = p.quickbooks_invoice_id || '—';
+    var payId = p.quickbooks_payment_id || '—';   // WF3 偵測者可能為 '—'(V7 反查待辦),屬預期
+    return '' +
+      '<div class="ghost-row">' +
+        '<div class="ghost-row-main">' +
+          '<span class="ghost-row-dealer">' + escapeHtml(d.company_name || '—') + '</span>' +
+          '<span class="ghost-row-po">PO# ' + escapeHtml(q.po_number || '—') + '</span>' +
+        '</div>' +
+        '<span class="ghost-amount">' + money(p.total_paid) + '</span>' +
+        '<span class="ghost-cause ' + cause.cls + '">' + escapeHtml(cause.label) + '</span>' +
+        '<div class="ghost-qb">' +
+          '<span>Inv <span class="qb-id">' + escapeHtml(invId) + '</span></span>' +
+          '<span>Pay <span class="qb-id">' + escapeHtml(payId) + '</span></span>' +
+        '</div>' +
+        '<button class="ghost-resolve" onclick="actResolveGhost(\'' + escapeHtml(p.id) + '\')">Resolve</button>' +
+      '</div>';
+  }).join('');
+
+  host.innerHTML = '' +
+    '<div class="ghost-banner">' +
+      '<div class="ghost-banner-head">' +
+        '<span class="ghost-banner-title"><span class="gb-dot"></span>Ghost Payments</span>' +
+        '<span class="ghost-banner-count">' + ghosts.length + ' unresolved</span>' +
+      '</div>' +
+      '<div class="ghost-banner-sub">These payments were made against a cancelled or failed invoice. Reconcile or refund in QuickBooks using the IDs below, then mark resolved.</div>' +
+      '<div class="ghost-list">' + rows + '</div>' +
+    '</div>';
+}
+
 // ════════════════════════════════════════════════════════════════════
 // Init:權限 gate + router
 // ════════════════════════════════════════════════════════════════════
@@ -423,6 +485,7 @@ async function showList() {
   try {
     await loadData();
     renderList(allPayments);
+    renderGhostBanner();
   } catch (err) {
     console.error('[admin-payments] loadData failed:', err);
     document.getElementById('listBody').innerHTML =
