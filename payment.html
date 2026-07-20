@@ -183,7 +183,7 @@ let latestPayment  = null;   // 最新一筆 payment(可能為 null)
 let selectedMethod = null;   // 選單暫存:'card' / 'ach' / 'check'
 
 // ── fee 契約(百分數) ──
-const feeConfig = { card: 2.99, ach: 1, check: 0 };
+let feeConfig = { card: 2.99, ach: 1, check: 0 };  // fallback 預設;init 時嘗試以 settings 覆寫(前端寬鬆)
 
 // ── helpers ──
 function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 100) / 100; }
@@ -234,6 +234,27 @@ function quoteStripHtml() {
 // =====================================================================
 // init:auth 守門 → 取 quote_id → 查 quote + 最新 payment → renderGate
 // =====================================================================
+async function loadFeeConfig() {
+  // 前端寬鬆:讀 settings 覆寫費率;讀失敗/不齊 → 保留 fallback 預設,不擋付款(WF1 才真正收費)
+  try {
+    const { data, error } = await _supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['fee_card_percent', 'fee_ach_percent', 'fee_check_percent']);
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = parseFloat(r.value); });
+    const next = { card: map.fee_card_percent, ach: map.fee_ach_percent, check: map.fee_check_percent };
+    if ([next.card, next.ach, next.check].every(v => typeof v === 'number' && !isNaN(v))) {
+      feeConfig = next;
+    } else {
+      console.warn('[payment] fee settings incomplete, using fallback feeConfig', next);
+    }
+  } catch (err) {
+    console.warn('[payment] loadFeeConfig failed, using fallback feeConfig:', err);
+  }
+}
+
 async function init() {
   // 1. session
   const { data: { session } } = await _supabase.auth.getSession();
@@ -252,6 +273,9 @@ async function init() {
 
   // 4. 讀 quote + 最新 payment
   await reloadData();
+
+  // 4.5 讀 settings 費率(覆寫 feeConfig 顯示值;失敗保留 fallback)
+  await loadFeeConfig();
 
   // 5. 依現況分流
   renderGate();
@@ -436,21 +460,24 @@ async function proceedCardAch(method, f) {
   btn.classList.add('loading');
   btn.disabled = true;
 
+  // ① 金額不信 client:只送 quote_id + payment_method,金額全由 WF1 依 grand_total + settings 費率自算
   const payload = {
     quote_id:       quoteId,
     payment_method: method,
-    base_amount:    f.base,
-    fee_percentage: f.pct,
-    fee_amount:     f.fee,
-    total_paid:     f.total,
   };
+
+  // ② 驗身分:帶 Supabase JWT,WF1 換回 uid 比對 quote.dealer_id
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
 
   try {
     // n8n 會:建 QuickBooks Invoice + 寫 payments 列 + 改 quote.status,並回傳 payment link。
-    // ⚠️ 目前 N8N_PAYMENT_WEBHOOK 為 placeholder,打出去會失敗 → 下方 catch 優雅處理。
     const resp = await fetch(window.N8N_PAYMENT_WEBHOOK, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
       body: JSON.stringify(payload),
     });
 
