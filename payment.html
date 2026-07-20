@@ -638,7 +638,23 @@ async function submitCheck() {
     if (upErr) throw upErr;
     const storedPath = (upData && upData.path) ? upData.path : path;
 
-    // 2. INSERT payments(dealer 只能寫 status='processing'、method 三選一 — 符合 RLS)
+    // 2. UPDATE quotes.status = 'Payment Processing'(先於 payments,避免孤兒 payment 列)
+    //    加 count:'exact' 檢查影響列數:若被 RLS 靜默擋掉(0 列)則 throw,不假成功。
+    //    .eq('status','Pending') 為意圖聲明 + 併發保護(兩分頁同送 Check,第二個 count=0 擋下)。
+    //    dealer UPDATE 需 quotes 上的 A1 policy 放行(Pending → Payment Processing);
+    //    見 migration:dealer_advance_quote_to_payment_processing。
+    const { error: updErr, count: updCount } = await _supabase
+      .from('quotes')
+      .update({ status: 'Payment Processing' }, { count: 'exact' })
+      .eq('id', quoteId)
+      .eq('status', 'Pending');
+    if (updErr) throw updErr;
+    if (updCount === 0) {
+      // count=0 代表 quote 已非 Pending(併發/已在處理中)或 RLS 未放行 —— 中止,且尚未建立 payments 列。
+      throw new Error("Couldn't update the order status. Please refresh and try again, or contact us.");
+    }
+
+    // 3. INSERT payments(dealer 只能寫 status='processing'、method 三選一 — 符合 RLS)
     const { data: payRow, error: insErr } = await _supabase
       .from('payments')
       .insert({
@@ -655,20 +671,6 @@ async function submitCheck() {
       .single();
     if (insErr) throw insErr;
     const paymentId = payRow.id;
-
-    // 3. UPDATE quotes.status = 'Payment Processing'
-    //    加 count:'exact' 檢查影響列數:若被 RLS 靜默擋掉(0 列)則 throw,不假成功。
-    //    對齊 quotes.html 刪 Draft 的寫法。dealer UPDATE 需 quotes 上的 A1 policy 放行
-    //    (Pending → Payment Processing);見 migration:dealer_advance_quote_to_payment_processing。
-    const { error: updErr, count: updCount } = await _supabase
-      .from('quotes')
-      .update({ status: 'Payment Processing' }, { count: 'exact' })
-      .eq('id', quoteId);
-    if (updErr) throw updErr;
-    if (updCount === 0) {
-      // 走到這裡代表 payments 已 INSERT 但 quote 狀態沒翻(多半 RLS 未放行)。
-      throw new Error("Couldn't update the order status. Please refresh and try again, or contact us.");
-    }
 
     // 4. 呼叫 send-payment-email(失敗只 log 不阻斷,對齊 send-quote-email 慣例)
     try {
