@@ -349,16 +349,15 @@ function showToast(msg, isError) {
 function quoteOf(p)  { return quoteMap[p.quote_id] || {}; }
 function dealerOf(p) { const q = quoteOf(p); return dealerMap[q.dealer_id] || {}; }
 
-// ---- 幽靈成因推導(定案正則)----
-//   status='failed'                                → Timeout
-//   status='cancelled' 且 reason='Method changed'  → Method changed(WF1 N5c 正記號)
-//   status='cancelled' 且 reason 非空且≠上者         → Admin cancelled
-//   其餘                                            → Unknown(不猜)
-// 註:failed 目前一律歸 Timeout(PM 定案)。WF3 timeout 正記號為
-//     failure_reason='Payment timeout (7 days)';若日後要比照 Method-changed
-//     用正記號收緊 failed,改判此處即可。
+// ---- 幽靈成因推導(定案正則,四條全對稱:正記號判定,認不出標 Unknown)----
+//   status='failed'    且 failure_reason='Payment timeout (7 days)' → Timeout(WF3 N12 正記號)
+//   status='cancelled' 且 cancellation_reason='Method changed'      → Method changed(WF1 N5c 正記號)
+//   status='cancelled' 且 reason 非空且≠上者                          → Admin cancelled
+//   其餘(含非正記號的 failed)                                        → Unknown(不猜)
 function ghostCause(p) {
-  if (p.status === 'failed') return { label: 'Timeout', cls: '' };
+  if (p.status === 'failed') {
+    if ((p.failure_reason || '').trim() === 'Payment timeout (7 days)') return { label: 'Timeout', cls: '' };
+  }
   if (p.status === 'cancelled') {
     var reason = (p.cancellation_reason || '').trim();
     if (reason === 'Method changed') return { label: 'Method changed', cls: '' };
