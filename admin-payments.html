@@ -51,6 +51,31 @@
     .await-actions { display: flex; gap: 8px; white-space: nowrap; }
     .await-wait { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
+    /* ===== Ghost Payments alert (CB-43 幽靈結案) =====
+       緊急梯度最高:幽靈 > 催款 > 一般清單。
+       色彩沿用既有 error 色(#C0392B = --error):實色用 var(--error),
+       半透明用 rgba(192,57,43,α)(同 .modal-error 慣例,非新色);
+       Unknown 灰 rgba(122,140,130,α) = --muted(同 s-cancelled badge)。 */
+    .ghost-banner { background: rgba(192,57,43,0.06); border: 1px solid rgba(192,57,43,0.30); border-left: 4px solid var(--error); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+    .ghost-banner-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid rgba(192,57,43,0.18); }
+    .ghost-banner-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--error); }
+    .ghost-banner-title .gb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--error); flex: 0 0 auto; }
+    .ghost-banner-count { font-size: 11px; color: var(--error); white-space: nowrap; }
+    .ghost-banner-sub { padding: 10px 20px 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .ghost-list { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .ghost-row { background: var(--white); border: 1px solid rgba(192,57,43,0.20); border-radius: 4px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+    .ghost-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 180px; flex: 1 1 auto; }
+    .ghost-row-dealer { font-size: 13px; font-weight: 500; color: var(--text); }
+    .ghost-row-po { font-size: 11px; color: var(--muted); }
+    .ghost-amount { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; }
+    .ghost-cause { display: inline-block; padding: 3px 9px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; background: rgba(192,57,43,0.10); color: var(--error); }
+    .ghost-cause.c-unknown { background: rgba(122,140,130,0.14); color: var(--muted); }
+    .ghost-qb { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .ghost-qb .qb-id { color: var(--text); font-variant-numeric: tabular-nums; }
+    .ghost-resolve { flex: 0 0 auto; background: var(--error); color: #fff; border: none; border-radius: 3px; padding: 7px 16px; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+    .ghost-resolve:hover { opacity: 0.88; }
+    .ghost-resolve:disabled { opacity: 0.5; cursor: default; }
+
     /* Payment status badge */
     .pay-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
     .pay-badge.s-processing { background: rgba(59,130,246,0.1);  color: var(--status-processing); }
