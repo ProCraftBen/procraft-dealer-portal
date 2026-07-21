@@ -1838,6 +1838,14 @@ function renderQuote(quote, dealer, addr) {
         </a>`
       : '';
 
+    // CB-45: Download Receipt — 僅 Order Processing(已付款)顯示;admin/dealer 皆可(憑證性質,Q3)。
+    const receiptButtonHtml = (quote.status === 'Order Processing')
+      ? `
+        <button class="btn-action" onclick="downloadReceipt()">
+          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+          Download Receipt
+        </button>`
+      : '';
   // ─────────────────────────────────────────────────────────────────────
   // CB-4: Returned banner — differs by viewer role.
   //
@@ -1904,6 +1912,7 @@ function renderQuote(quote, dealer, addr) {
         ${internalDraftEditButtonHtml}
         ${releaseStockButtonHtml}
         ${downloadButtonsHtml}
+        ${receiptButtonHtml}
       </div>
     </div>
 
@@ -2248,6 +2257,63 @@ async function downloadInvoice() {
     quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
   );
   const filename = ProCraftPDF.getPdfFilename('invoice', {
+    poNumber:       _quote.po_number || 'Quote',
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+// CB-45: Download Receipt — 付款後(Order Processing)已付款憑證。
+// B3: 取該 quote 唯一的 confirmed payment 列(quote_id + status='confirmed' 保證單筆,
+//     order confirmed_at desc limit 1 為防呆)。dealer RLS 可讀自己的 payments。
+// fee/total_paid 讀 payment 列存值,不現算;confirmed_at ?? created_at 為 B2 fallback。
+async function downloadReceipt() {
+  if (!_quote || !_dealer) return;
+
+  const { data: pays, error: payErr } = await _supabase
+    .from('payments')
+    .select('payment_method, base_amount, fee_percentage, fee_amount, total_paid, confirmed_at, created_at')
+    .eq('quote_id', _quote.id)
+    .eq('status', 'confirmed')
+    .order('confirmed_at', { ascending: false })
+    .limit(1);
+
+  if (payErr) {
+    console.error('[CB-45] load confirmed payment failed:', payErr);
+    alert("Sorry — we couldn't load your receipt just now. Please try again, or contact us if it keeps happening.");
+    return;
+  }
+  if (!pays || !pays.length) {
+    console.warn('[CB-45] no confirmed payment row for quote', _quote.id);
+    alert("Sorry — we couldn't find a confirmed payment for this order. Please contact us and we'll help.");
+    return;
+  }
+
+  const p = pays[0];
+  const receipt = {
+    paymentMethod: p.payment_method,
+    feePercentage: p.fee_percentage,
+    feeAmount:     p.fee_amount,
+    totalPaid:     p.total_paid,
+    baseAmount:    p.base_amount,
+    confirmedAt:   p.confirmed_at || p.created_at,
+  };
+
+  const quoteDataForPdf = buildQuoteDataForPdf();
+
+  let doc;
+  try {
+    doc = await ProCraftPDF.buildReceiptPdf(
+      quoteDataForPdf, _dealer, _addr, { markupPercent: 0, receipt }
+    );
+  } catch (err) {
+    // CB-45 對帳斷言 fail-loud:live grand 與付款當時 base_amount 不一致 → 不出憑證。
+    console.error('[CB-45] receipt build blocked (reconciliation or render):', err);
+    alert("Sorry — we ran into a problem preparing this receipt. Please contact us and we'll sort it out for you.");
+    return;
+  }
+
+  const filename = ProCraftPDF.getPdfFilename('receipt', {
     poNumber:       _quote.po_number || 'Quote',
     revisionNumber: _quote.revision_number || 1,
   });
