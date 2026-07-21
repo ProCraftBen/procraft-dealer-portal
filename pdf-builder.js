@@ -1626,6 +1626,9 @@ return total;
     if (type === 'invoice') {
       return `ProCraft DC - Invoice - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
     }
+    if (type === 'receipt') {
+      return `ProCraft DC - Receipt - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
+    }
     if (type === 'draft-quote') {
       return `ProCraft DC - Draft Quote - ${dealerUid || 'Dealer'} - ${_getNYDateString()}.pdf`;
     }
