@@ -1163,11 +1163,12 @@ return total;
       doc.text(METHOD_LABEL[receipt.paymentMethod] || receipt.paymentMethod || '—', valX, y, { align: 'right' });
       y += 6;
 
-      // Transaction Fee(Q1:Check/Offline 為 0% + $0.00,照顯示保持四方式版型一致)
+      // Transaction Fee — 費率放 label 括號、右值只留金額,避免「2.99% + $3.01」被誤讀為兩者相加。
+      // 對齊 email E1c 的 "Transaction Fee (n%)" 風格;Q1:四方式一律顯示(Check/Offline 為 (0%) $0.00)。
       doc.setTextColor(...COLORS.muted);
-      doc.text('Transaction Fee', totalsX, y);
+      doc.text(`Transaction Fee (${pct}%)`, totalsX, y);
       doc.setTextColor(40, 40, 40);
-      doc.text(`${pct}% + $${feeAmt.toFixed(2)}`, valX, y, { align: 'right' });
+      doc.text(`$${feeAmt.toFixed(2)}`, valX, y, { align: 'right' });
       y += 6;
 
       doc.setDrawColor(...COLORS.border);
