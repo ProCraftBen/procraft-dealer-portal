@@ -239,9 +239,14 @@
     // -------------------------------------------------------------------
     // 目的:Intuit / QuickBooks Payments 上架合規要求(CB-43 promote 前置)。
     //
-    // 流程:使用者點 Sign In → grecaptcha.execute() 取 token
+    // 流程:頁面載入時預載 reCAPTCHA script(使右下角 badge 顯示,合規必需)
+    //       → 使用者點 Sign In 時才 grecaptcha.execute() 取 token
     //       → POST verify-recaptcha Edge Function 驗 score
     //       → 通過才呼叫 Supabase Auth。
+    //
+    // ⚠️ script 預載、token 延後取,兩者必須分開:
+    //    · script 若延後到點擊才載入 → badge 不會出現 → 違反 Google 條款
+    //    · token 若在頁面載入時就取 → 120 秒後過期 → 使用者慢慢打字就失效
     //
     // ⚠️ Kill switch(window.RECAPTCHA_ENABLED,定義於 config.js)
     //    平常必須為 true。設為 false 會完全跳過 reCAPTCHA 驗證,
@@ -340,6 +345,15 @@
       _recaptchaLoader.catch(function () { _recaptchaLoader = null; });
 
       return _recaptchaLoader;
+    }
+
+    // 頁面載入即預載 script,讓右下角 reCAPTCHA badge 顯示(Google 條款要求)。
+    // 此處「不」取 token,token 一律在使用者點擊當下才取,避免 120 秒過期。
+    // 預載失敗不擋任何流程,點擊時會自動重試。
+    if (RECAPTCHA_ENABLED) {
+      loadRecaptcha().catch(function (e) {
+        logFailOpen('recaptcha_preload_failed', String((e && e.message) || e));
+      });
     }
 
     // 呼叫後端驗證。回傳 { ok, failOpen?, score?, reason? }
