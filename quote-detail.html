@@ -17,7 +17,6 @@
       --status-draft:#7A8C82; --status-returned:#E07B39; --status-payment:#64748B;
       --status-stock-review:#0891B2;  /* CB-43 T14-1 */
       --error:#C0392B;
-      --discount:#C0392B;   /* CB-40: 保留供歷史單 back-solve 折扣行紅色顯示 */
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
     .page { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
@@ -451,12 +450,6 @@
     .total-val.pending {
       color: var(--status-returned);
       font-weight: 600;
-    }
-    /* CB-40: 保留供歷史單 back-solve 折扣行顯示(未來單 back-solve=0 不顯示) */
-    .total-row.discount .total-val { color: var(--discount); font-weight: 500; }
-    .total-row.discount .discount-sublabel {
-      font-size: 10px; color: var(--discount); opacity: 0.75;
-      margin-top: 2px; letter-spacing: 0.04em;
     }
     .pending-grand-note {
       font-size: 11px;
@@ -1633,11 +1626,9 @@ function renderQuote(quote, dealer, addr) {
   //
   // quotes.subtotal is the raw SKU subtotal. quotes.grand_total is the final
   // figure (snapshot). We recompute mod totals live for DISPLAY consistency.
-  // Any historical discount is BACK-SOLVED from the snapshot (see below) — no
-  // campaign config is consulted, so this stays correct after CB-40.
   //
-  // We do NOT recompute tax — it was snapshotted at submit time. The snapshot
-  // wins.
+  // We do NOT recompute tax or grand — both were snapshotted at submit time.
+  // The snapshot wins. No discount is derived here (see CB-40 removal below).
   // ─────────────────────────────────────────────────────────────────────────
   const skuSubtotal       = parseFloat(quote.subtotal || 0);
   const modsSubtotal      = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
@@ -1646,29 +1637,21 @@ function renderQuote(quote, dealer, addr) {
 
   // ── CB-27: Modifications by-type 明細 + Subtotal 顯示分桶對齊 CB-25 ──
   //   只改「顯示」:把 mapping material 從 Modifications 搬到 Subtotal 顯示。
-  //   ⚠ 不動 skuSubtotal / modsSubtotal 兩變數 —— 下方 CB-13 折扣反推與 Grand
-  //   全依賴它們,顯示重分桶不影響反推結果。
+  //   ⚠ 不動 skuSubtotal / modsSubtotal 兩變數 —— 兩顯示值之和維持不變。
   const _ct                  = resolveQuoteConstructionType(_groupedItems || [], _allDoorStyles);
   const modBreakdown         = _groupedItems ? calcModByType(_groupedItems, _ct) : { byType:{}, ordered:[], modsDisplayTotal:0 };
   const mappingMaterialTotal = modsSubtotal - modBreakdown.modsDisplayTotal;
 
-  // CB-13 (Approach A) / CB-40 (Path B): Discount 不即時重算,改從 DB 快照反推,
-  // 讓歷史單精準不變、且 Discount 行永遠跟快照 Order Total 對得起來:
-  //   grand = (subtotal − discount) + mods + assemble + shipping + tax
-  //   ⇒ discount = subtotal + mods + assemble + shipping + tax − grand
-  // 送單時 pending shipping 是以 0 計入 grand 的 → null 視為 0。
-  const _asmForDisc   = parseFloat(quote.assemble_total || 0);
-  const _shipForDisc  = (quote.shipping_cost == null) ? 0 : parseFloat(quote.shipping_cost || 0);
-  const _taxForDisc   = parseFloat(quote.tax_amount || 0);
-  const _grandForDisc = parseFloat(quote.grand_total || 0);
-  let promoDiscount = skuSubtotal + modsSubtotal + _asmForDisc + _shipForDisc + _taxForDisc - _grandForDisc;
-  promoDiscount = Math.round(promoDiscount * 100) / 100;
-  if (promoDiscount < 0.01) promoDiscount = 0;   // 反推噪訊 / 無折扣 → 不顯示
-  const promoLabel = 'Promo Discount';            // 快照無法得知當年的促銷名稱,用通用標籤
-
-  if (promoDiscount > 0) {
-    console.log('[CB-13] quote-detail back-solved discount=$' + promoDiscount.toFixed(2));
-  }
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-40 removal (Path B / back-solve) — 2026-07-23
+  //   原此處由 DB 快照反推 discount,供 CB-13 歷史單顯示 Discount 行。
+  //   已完全移除:歷史單結案無人回看,且反推會把「取整落差」誤判為折扣
+  //   (PDC09011 顯示假的 −$0.01)。
+  //   ⚠ 該 1 分落差 root cause 不在本檔,而在 step3 寫入端:tax 與 grand
+  //     各自 toFixed(2),且 grand 用「未取整」的 tax → 一進一捨差 1 分。
+  //     → 追蹤於 CB-46(金額寫入取整策略,P2,CB-43 completion 後動工)。
+  //   ⚠ 未來折扣一律「明確存 DB」(CB-41-lite quote_discounts),禁止再用反推。
+  // ─────────────────────────────────────────────────────────────────────
 
   // Assemble breakdown by type
   const byType = {};
@@ -1706,17 +1689,6 @@ function renderQuote(quote, dealer, addr) {
           ).join('')}
           <div class="asm-breakdown-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:4px;"><span>Total</span><span style="color:#8B6914;">+${fmt(modBreakdown.modsDisplayTotal)}</span></div>
         </div>
-      </div>`
-    : '';
-
-  // CB-40 (Path B): Discount row — 只由歷史單 back-solve 出的 promoDiscount 觸發;
-  //   未來單 back-solve=0 → 不顯示。放在 Subtotal 之後。
-  const discountRowHtml = promoDiscount > 0
-    ? `<div class="total-row discount">
-        <div>
-          <span class="total-label">${escapeHtml(promoLabel || 'Promo Discount')}</span>
-        </div>
-        <span class="total-val">−${fmt(promoDiscount)}</span>
       </div>`
     : '';
 
@@ -1779,10 +1751,10 @@ function renderQuote(quote, dealer, addr) {
       </div>`;
   } else {
     // Build tax detail note (if mods are partially taxable)
-    // tax base = SKU + taxable mods(歷史單若有折扣,promoDiscount 由 back-solve 帶入)
+    // tax base = SKU + taxable mods
     let taxDetailHtml = '';
     if (modsSubtotal > 0 && nonTaxableMods > 0.005) {
-      const taxBase = (skuSubtotal - promoDiscount) + taxableMods;
+      const taxBase = skuSubtotal + taxableMods;
       taxDetailHtml = `<div class="tax-note-detail">Taxable base: ${fmt(taxBase)} (excludes ${fmt(nonTaxableMods)} non-taxable mods)</div>`;
     }
     taxRowHtml = `
@@ -1963,7 +1935,6 @@ function renderQuote(quote, dealer, addr) {
 
       <div class="totals">
         <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(skuSubtotal + mappingMaterialTotal)}</span></div>
-        ${discountRowHtml}
         ${modsRowHtml}
         ${asmBreakdownHtml}
         ${shippingRowHtml}
