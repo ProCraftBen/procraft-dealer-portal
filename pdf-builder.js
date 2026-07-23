@@ -1377,10 +1377,38 @@ return total;
     //   payment 列存值。正常流程金額付款後已凍結 → live grand == payment base_amount。
     //   萬一 admin 於付款後動過單(F2 只凍 dealer)導致不一致,fail-loud 擋下,絕不靜默
     //   出「Order Total 與 base+fee 對不上」的矛盾憑證。Invoice/Draft 無 receipt → 不觸發。
-    if (receipt && Math.abs(grand - Number(receipt.baseAmount)) > 0.01) {
-      console.error('[CB-45] Receipt reconciliation mismatch:',
-        { liveGrand: grand, paymentBaseAmount: receipt.baseAmount });
-      throw new Error('RECEIPT_RECONCILIATION_MISMATCH');
+    // ── CB-45 Receipt reconciliation guard(整數分比較 + 容許 1 分進位差)──
+    //   目的:攔截「付款後改單」等金額不一致情境,fail-loud 擋下,絕不靜默出矛盾憑證。
+    //
+    //   為何用整數分、且容許 1 分 —— 請勿改回 float > 0.01:
+    //   (1) JS 浮點誤差:Math.abs(0.31 - 0.32) === 0.010000000000000009,
+    //       用 float > 0.01 比較會在「剛好差 1 分」時 false positive(誤擋)。
+    //   (2) Server 端 base_amount(WF1 寫入)與此處由品項即時重算是兩條計算路徑,
+    //       稅金四捨五入順序不同 → 正常情況也可能差 1 分。
+    //   惡意/誤改單的金額必為「元」級,1 分容差不影響保護力。
+    //   對齊業界作法(Stripe / PayPal / QuickBooks 內部一律以 cents 計算)。
+    if (receipt) {
+      const _liveCents = Math.round(grand * 100);
+      const _baseCents = Math.round(Number(receipt.baseAmount) * 100);
+      const _diffCents = Math.abs(_liveCents - _baseCents);
+
+      if (_diffCents > 1) {
+        console.error('[CB-45] Receipt reconciliation FAILED', {
+          liveGrand:         grand,
+          paymentBaseAmount: receipt.baseAmount,
+          diffCents:         _diffCents,
+          poNumber:          quoteData.po_number || null,
+        });
+        throw new Error('RECEIPT_RECONCILIATION_MISMATCH');
+      } else if (_diffCents === 1) {
+        // 容差內但確有 1 分差 → 觀察用。若此 warn 變常態,代表 tax rounding 值得優化;
+        // 若開始出現 2 分差(改走上方 error),則需 deep debug。
+        console.warn('[CB-45] Receipt 1-cent rounding diff (within tolerance)', {
+          liveGrand:         grand,
+          paymentBaseAmount: receipt.baseAmount,
+          poNumber:          quoteData.po_number || null,
+        });
+      }
     }
 
     const totals = {
