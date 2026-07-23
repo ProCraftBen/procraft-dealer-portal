@@ -1360,6 +1360,31 @@ function escapeHtml(s) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CB-46 round2 — 本檔金額取整的唯一入口
+//
+// 用 toPrecision(15) 削除 x*100 產生的浮點尾差後再 Math.round，
+// 達成真正的 round-half-up，並正確處理負數(CB-41-lite Admin Discount)。
+//
+// 為何不用 toFixed(2):
+//   toFixed 規格上是 round-half-away-from-zero，但 .005 這類值的 IEEE 754
+//   表示本身就略小於字面值(1.005 實存為 1.00499...)，導致它「看到的不是
+//   .005」而捨去。這不是 banker's rounding，別再照抄那個說法。
+// 為何不用 Math.round(x*100)/100:
+//   乘 100 不會消除浮點誤差(10.075*100 === 1007.4999999999999 → 給出 10.07)，
+//   且 Math.round 對負數往 +∞ 進位(-100.5 → -100)。
+//
+// CB-46 核心原則(write-side fix，非 display-side):
+//   所有進 grand 的加數一律「先各自取整，再相加」，確保
+//   subtotal + mods + assemble + shipping + tax === grand_total 恆等。
+//   未來所有金額欄位一律走 round2，不再新增 toFixed。
+// ─────────────────────────────────────────────────────────────────────────────
+function round2(x) {
+  const n = Number(x) || 0;
+  const s = n < 0 ? -1 : 1;
+  return s * Math.round(Number((Math.abs(n) * 100).toPrecision(15))) / 100;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2.1 — Render mods inside Description column (NO fees).
 //
 // B2 bugfix (2026-05-11):
@@ -2109,14 +2134,25 @@ function applyTotals(opts) {
   //   兩顯示值之和 = 原(skuSubtotal + modsSubtotal)不變 → tax/billing/grand 全不動。
   const _ct                  = resolveQuoteConstructionType(step2Data, allDoorStyles);
   const modBreakdown         = calcModByType(step2Data, _ct);
-  const mappingMaterialTotal = modsSubtotal - modBreakdown.modsDisplayTotal;
 
-  const taxBase     = skuSubtotal + taxableModsSubtotal;
-  const billingBase = skuSubtotal + modsSubtotal;
+  // ── CB-46: 加數先各自取整 ──
+  const skuSubtotalR  = round2(skuSubtotal);
+  const modsSubtotalR = round2(modsSubtotal);
+  const taxableModsR  = round2(taxableModsSubtotal);
+  const assembleTotalR = round2(assembleTotal);
+
+  // CB-46 陷阱防護:CB-27 兩個顯示桶「只取整一桶，另一桶用減法導出」。
+  //   若兩桶各自 round2，其和可能與 modsSubtotalR 差 1 分 —— 修 bug 的同時
+  //   會製造同類 bug。減法導出可保證 modsDisplayR + mappingMaterialR === modsSubtotalR。
+  const modsDisplayR         = round2(modBreakdown.modsDisplayTotal);
+  const mappingMaterialTotal = round2(modsSubtotalR - modsDisplayR);
+
+  const taxBase     = round2(skuSubtotalR + taxableModsR);
+  const billingBase = round2(skuSubtotalR + modsSubtotalR);
 
   const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
   const logisticType = step1Data?.logisticType || 'pickup';
-  const deliveryFee  = parseFloat(step1Data?.deliveryFee || 0);
+  const deliveryFee  = round2(step1Data?.deliveryFee || 0);   // CB-46: 來源端取整
 
   const previewShippingForDb = resolveShippingForDb({
     newLogistic:    logisticType,
@@ -2191,10 +2227,12 @@ function applyTotals(opts) {
     }
   }
 
-  const tax   = taxBase * taxRate;
-  const grand = billingBase + assembleTotal + shippingForTotal + tax;
+  // ── CB-46: tax 先取整，grand 用已取整的加數相加 ──
+  const shippingForTotalR = round2(shippingForTotal);
+  const tax   = round2(taxBase * taxRate);
+  const grand = round2(skuSubtotalR + modsSubtotalR + assembleTotalR + shippingForTotalR + tax);
 
-  document.getElementById('totalSubtotal').textContent = `$${(skuSubtotal + mappingMaterialTotal).toFixed(2)}`;
+  document.getElementById('totalSubtotal').textContent = `$${round2(skuSubtotalR + mappingMaterialTotal).toFixed(2)}`;
 
   const modsRow = document.getElementById('modsRow');
   if (modBreakdown.modsDisplayTotal > 0) {
@@ -2205,9 +2243,9 @@ function applyTotals(opts) {
     modsRow.style.display = 'none';
   }
 
-  if (assembleTotal > 0) {
+  if (assembleTotalR > 0) {
     document.getElementById('assembleRow').style.display = 'block';
-    document.getElementById('totalAssemble').textContent = `+$${assembleTotal.toFixed(2)}`;
+    document.getElementById('totalAssemble').textContent = `+$${assembleTotalR.toFixed(2)}`;
     const byType = calcAsmByType(step2Data);
     renderAsmBreakdown(byType, true, 'assembleBreakdown');
   } else {
@@ -2452,26 +2490,39 @@ function buildQuoteDataForPdf(opts) {
   const modsSubtotalNow        = calcTotalModsCost(step2Data);
   const taxableModsSubtotalNow = calcTaxableModsCost(step2Data);  // F-TAX
 
+  // ── CB-46: 餵「反解稅率」給 pdf-builder ──
+  //   pdf-builder 不讀 DB，而是用 _taxRate 自己 live 重算 tax 與 grand。
+  //   若這裡餵原始 dealer.tax_rate，它會算出【未取整】的 tax → PDF 的 Order Total
+  //   與 DB grand_total 差 1 分(且與 quote-detail 產的 Invoice 不一致)。
+  //   改餵 taxR / taxBase 後，pdf-builder 乘回去即還原成已取整的 tax，
+  //   與 quote-detail L2174 的做法同源 → email PDF / DB / Invoice 三方收斂。
+  const _pdfSkuR       = round2(skuSubtotalNow);
+  const _pdfTaxableR   = round2(taxableModsSubtotalNow);
+  const _pdfRawTaxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
+  const _pdfTaxBase    = round2(_pdfSkuR + _pdfTaxableR);
+  const _pdfTax        = round2(_pdfTaxBase * _pdfRawTaxRate);
+  const _pdfTaxRate    = (_pdfTaxBase > 0 && _pdfTax > 0) ? (_pdfTax / _pdfTaxBase) : 0;
+
   const out = {
     po_number:     _existingPoNumber || null,           // submit 後才有
     draft_number:  _existingDraftNumber || null,         // 雙編號制: Draft Quote PDF 用(實際 D/P 切換在階段 6 pdf-builder)
     job_name:      step1Data?.jobName || null,
     logistic_type: step1Data?.logisticType || 'pickup',
-    delivery_fee:  parseFloat(step1Data?.deliveryFee || 0),
+    delivery_fee:  round2(step1Data?.deliveryFee || 0),   // CB-46
     items:         items,
     estimated_lead_time: calculateLeadTime(step2Data, allDoorStyles),  // CB-9 後續: 帶 lead time 給 PDF
     construction_type:   resolveQuoteConstructionType(step2Data, allDoorStyles),  // CB-22: PDF Order List 排序依據
-    _taxRate:    dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0),
+    _taxRate:    _pdfTaxRate,          // CB-46: 反解稅率(見上方說明)，非原始 dealer.tax_rate
     _taxExempt:  !!dealer?.tax_exempt,
-    modifications_total:         parseFloat(modsSubtotalNow.toFixed(2)),
-    modifications_total_taxable: parseFloat(taxableModsSubtotalNow.toFixed(2)),  // F-TAX
+    modifications_total:         round2(modsSubtotalNow),
+    modifications_total_taxable: _pdfTaxableR,  // F-TAX
   };
 
   if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
     out.shipping_cost = opts.shippingCostOverride;
   } else {
     // F-TAX: shipping uses billing base
-    const billingBaseNow = skuSubtotalNow + modsSubtotalNow;
+    const billingBaseNow = round2(_pdfSkuR + round2(modsSubtotalNow));   // CB-46
     out.shipping_cost = resolveShippingForDb({
       newLogistic:    out.logistic_type,
       newSubtotal:    billingBaseNow,
@@ -2527,17 +2578,18 @@ async function saveDraft() {
       console.log('[雙編號] saveDraft: reusing existing Draft ID', draftNumberForSave);
     }
 
-    const skuSubtotal          = step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0);
-    const modsSubtotal         = calcTotalModsCost(step2Data);
-    const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-    const assembleTotal        = step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0);
+    // ── CB-46: 加數一律先各自取整，再相加(見 round2 說明) ──
+    const skuSubtotal          = round2(step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0));
+    const modsSubtotal         = round2(calcTotalModsCost(step2Data));
+    const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
+    const assembleTotal        = round2(step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0));
 
     // F-TAX: tax base = SKU + taxable mods; billing base = SKU + all mods
-    const taxBase     = skuSubtotal + taxableModsSubtotal;
-    const billingBase = skuSubtotal + modsSubtotal;
+    const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
+    const billingBase = round2(skuSubtotal + modsSubtotal);
 
     const logisticType  = step1Data.logisticType || 'pickup';
-    const deliveryFee   = parseFloat(step1Data.deliveryFee || 0);
+    const deliveryFee   = round2(step1Data.deliveryFee || 0);
 
     let shippingForDb = resolveShippingForDb({
           newLogistic:    logisticType,
@@ -2549,11 +2601,15 @@ async function saveDraft() {
         if (isAdminShippingMode()) {
           shippingForDb = getAdminShippingOverride();
         }
-        const shippingForTotal = shippingForDb || 0;
+        const shippingForTotal = round2(shippingForDb || 0);   // CB-46
 
     const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-    const tax     = taxBase * taxRate;
-    const grand   = billingBase + assembleTotal + shippingForTotal + tax;
+    // CB-46: tax 先取整，grand 用【已取整】的加數相加 → subtotal+mods+asm+ship+tax === grand
+    const tax     = round2(taxBase * taxRate);
+    const grand   = round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax);
+
+    console.log('[CB-46] saveDraft identity:',
+      round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
 
     console.log('[F-TAX] saveDraft:',
       'sku=$' + skuSubtotal.toFixed(2),
@@ -2575,12 +2631,12 @@ async function saveDraft() {
       status:              targetStatus,
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
-      delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-      subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-      assemble_total:      parseFloat(assembleTotal.toFixed(2)),
-      shipping_cost:       (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2)),
-      tax_amount:          parseFloat(tax.toFixed(2)),
-      grand_total:         parseFloat(grand.toFixed(2)),
+      delivery_fee:        deliveryFee,      // CB-46: 已於上方 round2，不再二次取整
+      subtotal:            skuSubtotal,
+      assemble_total:      assembleTotal,
+      shipping_cost:       (shippingForDb === null) ? null : round2(shippingForDb),
+      tax_amount:          tax,
+      grand_total:         grand,
     };
 
     // ── CB-36: admin_notified_at 寫入規則 ──
@@ -2743,18 +2799,19 @@ async function submitQuote() {
     const { data:{ session } } = await _supabase.auth.getSession();
     const dealerId = await resolveDealerId(session);
 
-    const skuSubtotal          = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-    const modsSubtotal         = calcTotalModsCost(step2Data);
-    const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-    const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+    // ── CB-46: 加數一律先各自取整，再相加 ──
+    const skuSubtotal          = round2(step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0));
+    const modsSubtotal         = round2(calcTotalModsCost(step2Data));
+    const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
+    const assembleTotal        = round2(step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0));
 
     // F-TAX
-    const taxBase     = skuSubtotal + taxableModsSubtotal;
-    const billingBase = skuSubtotal + modsSubtotal;
+    const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
+    const billingBase = round2(skuSubtotal + modsSubtotal);
 
     const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const logisticType = step1Data.logisticType || 'pickup';
-    const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
+    const deliveryFee  = round2(step1Data.deliveryFee || 0);
 
     let shippingForDb = resolveShippingForDb({
           newLogistic:    logisticType,
@@ -2766,10 +2823,14 @@ async function submitQuote() {
         if (isAdminShippingMode()) {
           shippingForDb = getAdminShippingOverride();
         }
-        const shippingForTotal = (shippingForDb === null) ? 0 : shippingForDb;
+        const shippingForTotal = (shippingForDb === null) ? 0 : round2(shippingForDb);   // CB-46
 
-    const tax   = taxBase * taxRate;
-    const grand = billingBase + assembleTotal + shippingForTotal + tax;
+    // CB-46: tax 先取整，grand 用【已取整】的加數相加
+    const tax   = round2(taxBase * taxRate);
+    const grand = round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax);
+
+    console.log('[CB-46] submitQuote identity:',
+      round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
 
     console.log('[F-TAX] submitQuote:',
       'sku=$' + skuSubtotal.toFixed(2),
@@ -2787,7 +2848,7 @@ async function submitQuote() {
     //   A-mode (沒按 Save 直接 Submit): 先生 Draft ID + INSERT row → 再 submit_purchase_order。
     const shippingCostWrite = (shippingForDb === null)
       ? null
-      : parseFloat(shippingForDb.toFixed(2));
+      : round2(shippingForDb);   // CB-46
 
     const baseFields = {
       dealer_id:           dealerId,
@@ -2795,12 +2856,12 @@ async function submitQuote() {
       shipping_address_id: step1Data.shippingAddressId || null,
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
-      delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-      subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-      assemble_total:      parseFloat(assembleTotal.toFixed(2)),
+      delivery_fee:        deliveryFee,      // CB-46: 已於上方 round2，不再二次取整
+      subtotal:            skuSubtotal,
+      assemble_total:      assembleTotal,
       shipping_cost:       shippingCostWrite,
-      tax_amount:          parseFloat(tax.toFixed(2)),
-      grand_total:         parseFloat(grand.toFixed(2)),
+      tax_amount:          tax,
+      grand_total:         grand,
     };
 
     let poNumber;
@@ -3122,17 +3183,18 @@ async function requestRevision(note) {
     const dealerId = await resolveDealerId(session);   // returns the quote OWNER, not admin
 
     // ── financials (identical to submitQuote) ──
-    const skuSubtotal         = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
-    const modsSubtotal        = calcTotalModsCost(step2Data);
-    const taxableModsSubtotal = calcTaxableModsCost(step2Data);
-    const assembleTotal       = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+    // ── CB-46: 加數一律先各自取整，再相加 ──
+    const skuSubtotal         = round2(step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0));
+    const modsSubtotal        = round2(calcTotalModsCost(step2Data));
+    const taxableModsSubtotal = round2(calcTaxableModsCost(step2Data));
+    const assembleTotal       = round2(step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0));
 
-    const taxBase     = skuSubtotal + taxableModsSubtotal;
-    const billingBase = skuSubtotal + modsSubtotal;
+    const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
+    const billingBase = round2(skuSubtotal + modsSubtotal);
 
     const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     const logisticType = step1Data.logisticType || 'pickup';
-    const deliveryFee  = parseFloat(step1Data.deliveryFee || 0);
+    const deliveryFee  = round2(step1Data.deliveryFee || 0);
 
     let shippingForDb = resolveShippingForDb({
           newLogistic:    logisticType,
@@ -3146,11 +3208,15 @@ async function requestRevision(note) {
         if (isAdminShippingMode()) {
           shippingForDb = getAdminShippingOverride();
         }
-        const shippingForTotal  = (shippingForDb === null) ? 0 : shippingForDb;
-        const shippingCostWrite = (shippingForDb === null) ? null : parseFloat(shippingForDb.toFixed(2));
+        const shippingForTotal  = (shippingForDb === null) ? 0 : round2(shippingForDb);   // CB-46
+        const shippingCostWrite = (shippingForDb === null) ? null : round2(shippingForDb);
 
-    const tax   = taxBase * taxRate;
-    const grand = billingBase + assembleTotal + shippingForTotal + tax;
+    // CB-46: tax 先取整，grand 用【已取整】的加數相加
+    const tax   = round2(taxBase * taxRate);
+    const grand = round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax);
+
+    console.log('[CB-46] requestRevision identity:',
+      round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
 
     // ── resolve PO# / quote_number (admin-edit always has an existing draft) ──
     let poNumber = _existingPoNumber;
@@ -3176,12 +3242,12 @@ async function requestRevision(note) {
       return_reason:       note,              // CB-4: revision note
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
-      delivery_fee:        parseFloat(deliveryFee.toFixed(2)),
-      subtotal:            parseFloat(skuSubtotal.toFixed(2)),
-      assemble_total:      parseFloat(assembleTotal.toFixed(2)),
+      delivery_fee:        deliveryFee,      // CB-46: 已於上方 round2，不再二次取整
+      subtotal:            skuSubtotal,
+      assemble_total:      assembleTotal,
       shipping_cost:       shippingCostWrite,
-      tax_amount:          parseFloat(tax.toFixed(2)),
-      grand_total:         parseFloat(grand.toFixed(2)),
+      tax_amount:          tax,
+      grand_total:         grand,
       quote_number:        quoteNum,
       // revision_number intentionally NOT changed — dealer's Resubmit bumps it.
     };
@@ -3419,7 +3485,9 @@ function getAdminShippingOverride() {
   if (raw === '') return null;            // 未填
   const v = parseFloat(raw);
   if (isNaN(v) || v < 0) return null;     // 非法值當未填
-  return v;                               // 含 0
+  // CB-46 (D8): 回傳前取整。admin 若輸入 123.456，grand 與 shipping_cost 必須
+  //   吃到同一個值(123.46)，否則「各行加總 === grand_total」恆等式當場破掉。
+  return round2(v);                       // 含 0
 }
 function setupAdminShippingInput() {
   const wrap = document.getElementById('adminShippingWrap');
