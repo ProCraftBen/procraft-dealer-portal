@@ -1,8 +1,18 @@
 /* ──────────────────────────────────────────────────────────────────────
- * ProCraft Dealer Portal — Unified Navigator Component (v1.2)
+ * ProCraft Dealer Portal — Unified Navigator Component (v1.3)
  *
  * Self-contained component that renders a consistent navbar + mobile menu
  * across all dealer- and admin-facing pages.
+ *
+ * v1.3 CHANGES (F9):
+ *   - Nav items may carry `superOnly: true`. Such items render only for
+ *     role === 'super_admin' and are filtered out for regular admins.
+ *     Applied to the Payments item (admin-payments.html) — the admin
+ *     payment management page is restricted to super_admin.
+ *   - Filtering happens once on the shared navItems array, so desktop
+ *     links and the mobile menu stay in sync automatically.
+ *   - Frontend visibility only. This is UX protection, not a security
+ *     boundary — actual data access is governed by Supabase RLS.
  *
  * v1.2 CHANGES:
  *   - Brand title updated to full name "ProCraft Cabinetry DC"
@@ -36,6 +46,7 @@
  *   - Admin / super_admin role → renders admin nav with [Admin] badge
  *     (Dashboard / Quotes / Dealers / Account / Tags / Change Password /
  *     Sign Out)
+ *   - super_admin role → additionally sees the Payments item (F9)
  *   - Active item highlighted by data-page match (white text + 2px gold
  *     underline)
  *   - Logo click → dashboard.html (dealer) or admin.html (admin)
@@ -65,7 +76,8 @@
   const ADMIN_NAV = [
     { page: 'dashboard',       label: 'Dashboard',       href: 'admin.html' },
     { page: 'quotes',          label: 'Quotes',          href: 'admin-quotes.html' },
-    { page: 'payments',        label: 'Payments',        href: 'admin-payments.html' },
+    // F9: super_admin only — regular admins never see this item.
+    { page: 'payments',        label: 'Payments',        href: 'admin-payments.html', superOnly: true },
     { page: 'dealers',         label: 'Dealers',         href: 'admin-dealers.html' },
     { page: 'accounts',        label: 'Account',         href: 'admin-accounts.html' },
     { page: 'tags',            label: 'Tags',            href: 'admin-tags.html' },
@@ -212,9 +224,11 @@
     }
 
     const isAdmin = role === 'admin' || role === 'super_admin';
+    // F9: exact role match — 'admin' must NOT satisfy this.
+    const isSuperAdmin = role === 'super_admin';
     const dataPage = (container.dataset.page || '').toLowerCase();
 
-    render(container, isAdmin, dataPage);
+    render(container, isAdmin, dataPage, isSuperAdmin);
     attachEventListeners();
   }
 
@@ -241,8 +255,11 @@
       '</nav>';
   }
 
-  function render(container, isAdmin, activePage) {
-    const navItems  = isAdmin ? ADMIN_NAV : DEALER_NAV;
+  function render(container, isAdmin, activePage, isSuperAdmin) {
+    // F9: drop superOnly items unless the viewer is super_admin. Filtering the
+    // shared array once keeps desktop links and the mobile menu identical.
+    const navItems  = (isAdmin ? ADMIN_NAV : DEALER_NAV)
+      .filter(function (item) { return !item.superOnly || isSuperAdmin; });
     const homeHref  = isAdmin ? 'admin.html' : 'dashboard.html';
     const adminBadge = isAdmin ? '<span class="pcd-nav-badge">Admin</span>' : '';
 
