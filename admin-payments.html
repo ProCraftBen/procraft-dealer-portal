@@ -31,7 +31,10 @@
     .btn-reset:hover { color: var(--text); }
 
     /* Table */
-    .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    /* overflow-x:auto — 表頭 white-space:nowrap 使表格 min-content 寬度超出手機視窗;
+       原本的 overflow:hidden 會把右側欄位裁掉且無法捲動。overflow-y:hidden 保留
+       border-radius 的裁切效果。參照 quotes.html 既有作法。 */
+    .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); }
@@ -157,8 +160,8 @@
 </head>
 <body>
 
-<!-- Unified Navigator (shared component). 'payments' is not yet in the admin nav map,
-     so no item highlights — adding a nav link is a separate follow-up, out of T5 scope. -->
+<!-- Unified Navigator (shared component). data-page="payments" matches the Payments
+     item in navigator.js ADMIN_NAV, which F9 marks superOnly (super_admin only). -->
 <div id="pcd-nav" data-page="payments"></div>
 
 <!-- ============================ LIST VIEW ============================ -->
@@ -465,9 +468,17 @@ function actResolveGhost(paymentId) {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
 
-  // 2) 非 admin/super_admin → dashboard(client 端 gate,照現有 admin 頁讀 role)
+  // 2) F9:本頁限 super_admin(涉及金流管理)。未授權者按 role 分流 redirect,
+  //    避免把一般 admin 丟到 dealer 端的 dashboard.html。
+  //    ⚠️ 前端 gate 是 UX 保護,不是安全邊界 —— 實際資料權限由 Supabase RLS 決定。
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
-  if (!['admin', 'super_admin'].includes(me && me.role)) { window.location.href = 'dashboard.html'; return; }
+  const role = me && me.role;
+  if (role !== 'super_admin') {
+    if (!role)                 window.location.href = 'login.html?error=session_expired';
+    else if (role === 'admin') window.location.href = 'admin.html';
+    else                       window.location.href = 'dashboard.html';
+    return;
+  }
 
   // 3) router:有 payment_id → 詳情;否則 → 列表
   const pid = getParam('payment_id');
