@@ -1114,6 +1114,20 @@ return total;
     doc.text(taxStr, valX, y, { align: 'right' });
     y += 6;
 
+    // ── CB-45 Receipt: Transaction Fee 明細行(Sales Tax 之後、Total 之前)──
+    //   讀 payment 存值;費率入 label 括號、右值只留金額。Invoice/Draft/Packing 無 receipt → 不畫。
+    if (receipt) {
+      const _rPct    = (receipt.feePercentage == null) ? 0 : Number(receipt.feePercentage);
+      const _rFeeAmt = Number(receipt.feeAmount || 0);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.muted);
+      doc.text(`Transaction Fee (${_rPct}%)`, totalsX, y);
+      doc.setTextColor(40, 40, 40);
+      doc.text(`$${_rFeeAmt.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+    }
+
     doc.setDrawColor(...COLORS.border);
     doc.line(totalsX, y, valX, y);
     y += 5;
@@ -1122,9 +1136,11 @@ return total;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...COLORS.darkGreen);
-    doc.text('Order Total', totalsX, y);
+    doc.text(receipt ? 'Total' : 'Order Total', totalsX, y);
     doc.text(
-      showPrices ? `$${totals.grand.toFixed(2)}` : '—',
+      receipt
+        ? `$${Number(receipt.totalPaid || 0).toFixed(2)}`
+        : (showPrices ? `$${totals.grand.toFixed(2)}` : '—'),
       valX, y, { align: 'right' }
     );
     y += 5;
@@ -1140,21 +1156,36 @@ return total;
       y += 4;
     }
 
-    // ── CB-45 Receipt 專屬區塊 ──
-    //   僅產 Receipt 時傳入 receipt;Invoice/Draft/Packing 為 null → 此段整段不執行,
-    //   totals 輸出與改動前 byte-identical。fee/total_paid 一律讀 payment 列存值(不現算)。
+    // ── CB-45 Receipt 專屬結尾 ──
+    //   Total(= 貨款 grand + Transaction Fee = total_paid)已在上方 Order Total 行以 receipt
+    //   label 顯示。此處續接 Paid / Balance Due,再放 Payment Method 與 PAID·付款時間。
+    //   Invoice/Draft/Packing 無 receipt → 整段不執行,輸出與改動前 byte-identical。
     if (receipt) {
-      const METHOD_LABEL = { card: 'Card', ach: 'ACH', check: 'Check', offline: 'Offline' };
-      const pct    = (receipt.feePercentage == null) ? 0 : Number(receipt.feePercentage);
-      const feeAmt = Number(receipt.feeAmount || 0);
-      const paid   = Number(receipt.totalPaid || 0);
+      const paid = Number(receipt.totalPaid || 0);
 
-      y += 2;
+      // Paid(純文字,不 highlight)
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text('Paid', totalsX, y);
+      doc.text(`$${paid.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+
+      // Balance Due(= Total − Paid = 0;已付款憑證恆為 0)
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Balance Due', totalsX, y);
+      doc.setTextColor(40, 40, 40);
+      doc.text('$0.00', valX, y, { align: 'right' });
+      y += 8;
+
       doc.setDrawColor(...COLORS.border);
       doc.line(totalsX, y, valX, y);
       y += 5;
 
       // Payment Method
+      const METHOD_LABEL = { card: 'Card', ach: 'ACH', check: 'Check', offline: 'Offline' };
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.muted);
@@ -1163,27 +1194,7 @@ return total;
       doc.text(METHOD_LABEL[receipt.paymentMethod] || receipt.paymentMethod || '—', valX, y, { align: 'right' });
       y += 6;
 
-      // Transaction Fee — 費率放 label 括號、右值只留金額,避免「2.99% + $3.01」被誤讀為兩者相加。
-      // 對齊 email E1c 的 "Transaction Fee (n%)" 風格;Q1:四方式一律顯示(Check/Offline 為 (0%) $0.00)。
-      doc.setTextColor(...COLORS.muted);
-      doc.text(`Transaction Fee (${pct}%)`, totalsX, y);
-      doc.setTextColor(40, 40, 40);
-      doc.text(`$${feeAmt.toFixed(2)}`, valX, y, { align: 'right' });
-      y += 6;
-
-      doc.setDrawColor(...COLORS.border);
-      doc.line(totalsX, y, valX, y);
-      y += 5;
-
-      // Total Paid(bold / darkGreen,同 Order Total 樣式)
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...COLORS.darkGreen);
-      doc.text('Total Paid', totalsX, y);
-      doc.text(`$${paid.toFixed(2)}`, valX, y, { align: 'right' });
-      y += 6;
-
-      // PAID · 付款時間(Q4;NY 時區,對齊 pdf-builder 其他日期慣例)
+      // PAID · 付款時間(NY 時區,對齊 pdf-builder 其他日期慣例)
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...COLORS.darkGreen);
