@@ -429,6 +429,9 @@ color: var(--green-dark);
     .success-msg { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 400px; margin-bottom: 32px; }
     .btn-dashboard { background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 14px 32px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 48px; }
 .btn-dashboard:hover { background: var(--green-mid); }
+    /* CB-43 T11 → T14-3: Pay Now 按鈕已移除 —— 新流程 submit 後是 Stock Review,
+       dealer 此時不能付款。保留 width 讓 Back to Dashboard 維持既有寬度。 */
+    #successOverlay .btn-dashboard { width: 260px; max-width: 80vw; }
 
     /* CB-4: modal dialogs (Request Revision / Resubmit confirm) */
     .cb4-modal {
@@ -791,8 +794,8 @@ color: var(--green-dark);
   <div class="success-title" id="successTitle">Purchase Order Submitted!</div>
   <div class="success-quote-num" id="successQuoteNum"></div>
   <div class="success-msg" id="successMsg">
-    Thank you! Your quote has been received.<br>
-    Our team will review it and get back to you shortly.<br>
+    Thank you! Your purchase order has been received.<br>
+    We're confirming stock availability for your items and will email you a payment link once it's ready.<br>
     A confirmation has been sent to your email.
   </div>
   <button class="btn-dashboard" onclick="window.location.href='dashboard.html'">
@@ -967,7 +970,8 @@ function saveDraftNotify()   { _pendingNotify = true;  saveDraft(); }
 // CB-4: view-mode model (sync with new-quote.html / step2 / modifications)
 //   'normal'      — dealer creating/editing own Draft, or new quote
 //   'admin-draft' — admin creating a quote on a dealer's behalf (adminDraft=1)
-//   'admin-edit'  — admin editing a dealer's Pending/Returned PO
+//   'admin-edit'  — admin editing a dealer's Stock Review/Returned PO
+//                   (CB-43 T14-3: was Pending/Returned)
 //   'review'      — dealer reviewing a returned PO (read-only; can only resubmit)
 // admin-draft is layered on top in init() (not produced by resolveViewMode).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -983,10 +987,14 @@ function resolveViewMode(status, isOwner, isAdmin) {
     if (isAdmin) return 'admin-edit';
     return 'review';
   }
-  if (status === 'Pending') return isAdmin ? 'admin-edit' : 'normal';
+  // CB-43 T14-3: 'Stock Review' 加入本分支 —— admin 必須能 Edit(Stock Review =
+  // 最後可修改的階段;有 admin-edit 才有 Request Revision → 「部分品項沒貨」才有解)。
+  // dealer 的 Stock Review 單由 init() 的 guard 攔下導回 quote-detail,
+  // 走不到這裡的 'normal'。'Pending' 保留作為部署窗口的緊急路徑
+  // (詳見 new-quote.html 同處註解)。
+  if (status === 'Stock Review' || status === 'Pending') return isAdmin ? 'admin-edit' : 'normal';
   return 'normal';
 }
-
 function buildModeParam() {
   if (viewMode === 'admin-edit') return '&mode=admin-edit';
   if (viewMode === 'review')     return '&mode=review';
@@ -1593,6 +1601,18 @@ let dealerIdToLoad = session.user.id;
   const adminDraftMode = (adminDraft || step1Data.adminDraft);
   if (adminDraftMode && viewMode === 'normal') viewMode = 'admin-draft';
   console.log('[CB-4] step3 viewMode:', { viewMode, quoteStatus, isAdminRole, isOwner, adminDraftMode });
+
+  // ── CB-43 T14-3 (R2): Stock Review 單 dealer 不可編輯 ──
+  // 與 new-quote.html / new-quote-step2.html / new-quote-modifications.html 同款 guard。
+  // 擋手打 URL 與瀏覽器上一頁;admin 不擋(必須能 Edit + Request Revision)。
+  // 真正的安全邊界是 RLS(dealer UPDATE policy 的 USING 不含 Stock Review);
+  // 前端只是 UX 防呆。已知限制:擋不到 bfcache 還原(不重跑 script)——
+  // 該情境由 submitQuote() 的 count:'exact' 檢查轉為 loud error(Q8-A)。
+  if (!isAdminRole && quoteStatus === 'Stock Review') {
+    console.warn('[CB-43 T14-3] Dealer blocked from editing a Stock Review quote; redirecting to quote detail.');
+    location.replace('quote-detail.html?id=' + encodeURIComponent(draftId));
+    return;
+  }
 
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
@@ -2798,25 +2818,33 @@ async function submitQuote() {
       if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
       nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
 
-      const { error: updateError } = await _supabase.from('quotes').update({
+      // CB-43 T14-3: 'Pending' → 'Stock Review'。重送可能改了品項,要重新確認庫存。
+      // Q8-A: 加 count:'exact'。RLS(dealer USING 僅 Draft/Returned)擋下時回 0 rows
+      //       且【不丟 error】—— 沒有這道檢查,bfcache 還原的頁面對 Stock Review 單
+      //       按 Submit 會靜默跳過 UPDATE,卻照樣刪除並重建 quote_items + 重寄一封信。
+      const { error: updateError, count: updateCount } = await _supabase.from('quotes').update({
         ...baseFields,
         po_number:       poNumber,
-        status:          'Pending',
+        status:          'Stock Review',
         quote_number:    quoteNum,
         revision_number: nextRevisionNumber,
         return_reason:   null,
-      }).eq('id', draftId);
+      }, { count: 'exact' }).eq('id', draftId);
       if (updateError) throw updateError;
+      if (updateCount === 0) {
+        throw new Error("Couldn't submit this order — its status may have changed. Please refresh the page and try again.");
+      }
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
 
   } else if (draftId && _existingPoNumber) {
-        // ── CB-32: Admin-edit 送出「已有 PO# 的 Pending 單」 ──
-        //   這種單已經有 po_number(submit 過、status=Pending),且非 Returned 重送
+        // ── CB-32: Admin-edit 送出「已有 PO# 的 Stock Review 單」 ──
+        //   這種單已經有 po_number(submit 過),且非 Returned 重送
         //   (Returned 已被上面分支1 接走)。若掉進下面的 Draft→Submit 分支會呼叫
         //   submit_purchase_order RPC → 配「新」號,導致 PO# 跳號。
-        //   正解:比照 Resubmit 分支,保留原 po_number、plain UPDATE、status='Pending',
-        //   不呼叫 RPC。revision_number 不 bump(admin 編輯 live 單,非 dealer 重送)。
+        //   正解:比照 Resubmit 分支,保留原 po_number、plain UPDATE、
+        //   status='Stock Review'(CB-43 T14-3: was 'Pending'),不呼叫 RPC。
+        //   revision_number 不 bump(admin 編輯 live 單,非 dealer 重送)。
         const { data: q } = await _supabase
           .from('quotes').select('po_number, quote_number, revision_number').eq('id', draftId).single();
         poNumber = _existingPoNumber || q?.po_number;
@@ -2825,13 +2853,18 @@ async function submitQuote() {
         nextRevisionNumber = _currentRevisionNumber;   // 不 bump
         if (!poNumber) throw new Error('PO number missing — cannot submit.');
   
-        const { error: updateError } = await _supabase.from('quotes').update({
+        // Q8-A: 加 count:'exact'(理由同分支1)。admin 走 admin_update_all_quotes,
+        //       理論上不會被擋,但 0 rows 也可能代表單被刪除或 id 不符 —— 一律 throw。
+        const { error: updateError, count: updateCount } = await _supabase.from('quotes').update({
           ...baseFields,
           po_number:    poNumber,
-          status:       'Pending',
+          status:       'Stock Review',
           quote_number: quoteNum,
-        }).eq('id', draftId);
+        }, { count: 'exact' }).eq('id', draftId);
         if (updateError) throw updateError;
+        if (updateCount === 0) {
+          throw new Error("Couldn't submit this order — it may have been removed or its status changed. Please refresh the page and try again.");
+        }
         await _supabase.from('quote_items').delete().eq('quote_id', draftId);
         quoteId = draftId;
   
@@ -2849,7 +2882,8 @@ async function submitQuote() {
       const { error: updateError } = await _supabase.from('quotes').update({
         ...baseFields,
         quote_number: quoteNum,
-        // po_number + status='Pending' 由 submit_purchase_order RPC 設定
+        // po_number + status 由 submit_purchase_order RPC 設定
+        // CB-43 T14-3(M2): RPC 現在寫 'Stock Review'(原為 'Pending')
       }).eq('id', draftId);
       if (updateError) throw updateError;
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
@@ -2873,7 +2907,8 @@ async function submitQuote() {
         ...baseFields,
         quote_number: quoteNum,
         draft_number: draftNumberForSave,
-        status:       'Draft',   // 立刻被 submit_purchase_order 翻成 'Pending'
+        status:       'Draft',   // 立刻被 submit_purchase_order 翻成 'Stock Review'
+                                 // ⚠️ 這裡【必須】是 'Draft' —— RPC 的前置值,勿改
       }).select().single();
       if (insError) throw insError;
       quoteId  = newQuote.id;
@@ -3008,12 +3043,25 @@ async function submitQuote() {
 
     if (_isResumingReturned) {
       document.getElementById('successTitle').textContent = 'Purchase Order Resubmitted!';
+      // CB-43 T14-3: 重送一樣進 Stock Review(重送可能改了品項,要重新確認庫存)
       document.getElementById('successMsg').innerHTML =
-        'Thank you! Your revised quote has been resubmitted.<br>' +
-        'Our team will review it and get back to you shortly.<br>' +
+        'Thank you! Your revised purchase order has been resubmitted.<br>' +
+        "We're re-confirming stock availability and will email you a payment link once it's ready.<br>" +
         'A confirmation has been sent to your email.';
     }
     document.getElementById('successQuoteNum').textContent = poNumber;
+    // CB-43 T14-3(Q3-B): admin 代 submit 的專屬文案。
+    //   T11 的 Pay Now 按鈕已移除 —— 新流程 submit 後是 Stock Review,dealer 不能付款。
+    //   N1: 本分支【必須】在上面的 _isResumingReturned 分支【之後】,以覆蓋其文案。
+    //   admin 對 Returned 單按 Submit 時兩者同時成立(_isResumingReturned 由
+    //   q.status === 'Returned' 設定,與 viewMode 無關)。此刻操作者是 admin,
+    //   「we'll email you a payment link」對他是錯的 —— 他要的下一步是放行。
+    //   successTitle 不覆寫:'Purchase Order Resubmitted!' 陳述客觀事實,對 admin 仍成立。
+    if (_isAdminSubmit) {
+      document.getElementById('successMsg').innerHTML =
+        "Purchase order submitted on the dealer's behalf. It's now in Stock Review — " +
+        'confirm stock on the order page to release it for payment.';
+    }
     document.getElementById('successOverlay').classList.add('show');
 
   } catch (err) {

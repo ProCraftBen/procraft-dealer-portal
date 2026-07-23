@@ -13,7 +13,8 @@
       --error:#C0392B;
       --status-draft:#9B59B6;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
-      --status-returned:#E07B39;
+      --status-returned:#E07B39; --status-payment:#64748B;
+      --status-stock-review:#0891B2;  /* CB-43 T14-1 */
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
@@ -25,7 +26,7 @@
     .btn-new-quote:hover { background: var(--green-mid); }
     .btn-new-quote svg { width: 13px; height: 13px; fill: currentColor; }
 
-    /* Stats bar — 6 cards now (Total / Draft / Returned / Pending / Processing / Complete) */
+    /* Stats bar — 6 cards now (Total / Draft / Revising / Pending / Payment / Order) */
     .stats-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
     @media (max-width: 900px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 480px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
@@ -107,9 +108,10 @@
 
     .status-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
     .status-badge.draft      { background: rgba(155,89,182,0.10); color: var(--status-draft); }
+    .status-badge.stock-review { background: rgba(8,145,178,0.12); color: var(--status-stock-review); }  /* CB-43 T14-1 */
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
-    .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
-    .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
+    .status-badge.payment-processing { background: rgba(100,116,139,0.12); color: var(--status-payment); }
+    .status-badge.order-processing   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
     .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
 
@@ -133,6 +135,20 @@
       letter-spacing: 0.05em;
     }
     .btn-edit-draft:hover { background: rgba(155,89,182,0.15); border-color: rgba(155,89,182,0.5); }
+
+    /* CB-43 T6: Pay Now — 列內主 CTA(綠),尺寸比照 .btn-edit-draft */
+    .btn-pay-now {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; color: #fff;
+      background: var(--green-dark);
+      border: 1px solid var(--green-dark);
+      border-radius: 3px; padding: 5px 10px;
+      cursor: pointer; transition: all 0.15s;
+      text-decoration: none; white-space: nowrap;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: 0.05em;
+    }
+    .btn-pay-now:hover { background: var(--green-mid); border-color: var(--green-mid); }
 
     /* Delete draft icon button — trash icon only */
     .btn-delete-draft {
@@ -307,8 +323,8 @@
     <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
     <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label">Revising</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
-    <div class="stat-card"><div class="stat-num" id="statProcessing">—</div><div class="stat-label">Processing</div></div>
-    <div class="stat-card"><div class="stat-num" id="statComplete">—</div><div class="stat-label">Complete</div></div>
+    <div class="stat-card"><div class="stat-num" id="statPaymentProcessing">—</div><div class="stat-label">Payment</div></div>
+    <div class="stat-card"><div class="stat-num" id="statOrderProcessing">—</div><div class="stat-label">Order</div></div>
   </div>
 
   <!-- Returned alert banner -->
@@ -327,9 +343,10 @@
         <option value="">All Statuses</option>
         <option value="Draft">Draft</option>
         <option value="Returned">Revising</option>
+        <option value="Stock Review">Stock Review</option>
         <option value="Pending">Pending</option>
-        <option value="Processing">Processing</option>
-        <option value="Complete">Complete</option>
+        <option value="Payment Processing">Payment Processing</option>
+        <option value="Order Processing">Order Processing</option>
         <option value="Closed">Closed</option>
       </select>
     </div>
@@ -421,8 +438,8 @@ let pendingDeleteId   = null;   // quote id queued for deletion
 let pendingDeleteName = null;   // job_name shown in modal
 
 const statusClass = {
-  Draft: 'draft', Pending: 'pending', Processing: 'processing',
-  Complete: 'complete', Closed: 'closed', Returned: 'returned'
+  Draft: 'draft', 'Stock Review': 'stock-review', Pending: 'pending', 'Payment Processing': 'payment-processing',
+  'Order Processing': 'order-processing', Closed: 'closed', Returned: 'returned'
 };
 
 // CB-2: Display-only status label map. DB status values are unchanged —
@@ -515,8 +532,8 @@ function updateStats() {
   document.getElementById('statDraft').textContent      = allQuotes.filter(q => q.status === 'Draft').length;
   document.getElementById('statReturned').textContent   = allQuotes.filter(q => q.status === 'Returned').length;
   document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
-  document.getElementById('statProcessing').textContent = allQuotes.filter(q => q.status === 'Processing').length;
-  document.getElementById('statComplete').textContent   = allQuotes.filter(q => q.status === 'Complete').length;
+  document.getElementById('statPaymentProcessing').textContent = allQuotes.filter(q => q.status === 'Payment Processing').length;
+  document.getElementById('statOrderProcessing').textContent = allQuotes.filter(q => q.status === 'Order Processing').length;
 }
 
 function updateReturnedAlert() {
@@ -554,6 +571,7 @@ function renderTable(quotes) {
     const statusText = statusLabel[q.status] || q.status;
     const isDraft    = q.status === 'Draft';
     const isReturned = q.status === 'Returned';
+    const isPending  = q.status === 'Pending';
     const safePo     = escapeHtml(q.po_number || q.draft_number || '—');  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
     const safeJob    = escapeHtml(q.job_name || '—');
 
@@ -596,6 +614,23 @@ function renderTable(quotes) {
           <td class="td-amount r">${fmt(q.grand_total)}</td>
           <td><span class="status-badge ${sc}">${statusText}</span></td>
           <td class="arrow-cell">→</td>
+        </tr>`;
+    }
+
+    // CB-43 T6: Pending row — 整列可點進 detail;Pay Now 帶 stopPropagation 於 target 階段攔截冒泡
+    if (isPending) {
+      return `
+        <tr class="row-clickable" onclick="window.location.href='quote-detail.html?id=${q.id}'">
+          <td>
+            <div class="td-po">${safePo}</div>
+            <div class="td-job">${safeJob}</div>
+          </td>
+          <td class="td-date">${formatDate(q.created_at)}</td>
+          <td class="td-amount r">${fmt(q.grand_total)}</td>
+          <td><span class="status-badge ${sc}">${statusText}</span></td>
+          <td class="draft-actions-cell">
+            <a class="btn-pay-now" href="payment.html?quote_id=${q.id}" onclick="event.stopPropagation()">Pay Now</a>
+          </td>
         </tr>`;
     }
 

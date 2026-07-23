@@ -21,6 +21,9 @@
       --status-processing: #3B82F6;
       --status-complete:   #16A34A;
       --status-closed:     #6B7280;
+      --status-returned:   #E07B39;
+      --status-payment:    #64748B;
+      --status-stock-review: #0891B2;  /* CB-43 T14-1 */
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
@@ -76,9 +79,13 @@
     .status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; }
     .status-dot.draft      { background: var(--status-draft); }
     .status-dot.pending    { background: var(--status-pending); }
+    .status-dot.stock-review { background: var(--status-stock-review); }  /* CB-43 T14-1 */
     .status-dot.processing { background: var(--status-processing); }
     .status-dot.complete   { background: var(--status-complete); }
     .status-dot.closed     { background: var(--status-closed); }
+    .status-dot.payment-processing { background: var(--status-payment); }
+    .status-dot.order-processing   { background: var(--status-complete); }
+    .status-dot.returned   { background: var(--status-returned); }
 
     /* Dealer list */
     .dealer-item { padding: 13px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; gap: 12px; }
@@ -203,10 +210,12 @@ const _supabase = createClient(
 
 const statusClass = {
   Draft: 'draft',
+  'Stock Review': 'stock-review',
   Pending: 'pending',
-  Processing: 'processing',
-  Complete: 'complete',
-  Closed: 'closed'
+  'Payment Processing': 'payment-processing',
+  'Order Processing': 'order-processing',
+  Closed: 'closed',
+  Returned: 'returned'
 };
 
 function formatDate(str) {

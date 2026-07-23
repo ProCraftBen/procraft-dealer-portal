@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft — Payment</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:#C9A84C; --gold-light:#E2C97E; --green-dark:#3e5a42; --green-mid:#4a6b4f;
+      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --bg:#F5F2EC; --white:#FFFFFF;
+      --error:#C0392B; --ok:#16A34A;
+      --status-draft:#9B59B6;
+      --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
+      --status-returned:#E07B39;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+
+    .page { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
+
+    .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); text-decoration: none; margin-bottom: 16px; transition: color 0.15s; }
+    .back-link:hover { color: var(--green-dark); }
+
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 28px; }
+    .card + .card { margin-top: 16px; }
+
+    .card-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); margin-bottom: 4px; }
+    .card-sub { font-size: 12px; color: var(--muted); margin-bottom: 22px; }
+
+    /* Quote summary strip */
+    .quote-strip { display: flex; flex-wrap: wrap; gap: 20px 32px; padding: 16px 18px; background: #F5F3EF; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 22px; }
+    .qs-item { display: flex; flex-direction: column; gap: 3px; }
+    .qs-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); }
+    .qs-value { font-size: 14px; font-weight: 500; color: var(--text); }
+    .qs-value.po { color: var(--green-dark); }
+    .qs-value.total { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; color: var(--green-dark); }
+
+    /* Method option cards */
+    .methods { display: flex; flex-direction: column; gap: 12px; margin-bottom: 22px; }
+    .method-opt { display: block; border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .method-opt:hover { border-color: var(--gold); }
+    .method-opt.selected { border-color: var(--green-dark); background: rgba(62,90,66,0.03); }
+    .method-opt input { position: absolute; opacity: 0; pointer-events: none; }
+    .mo-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .mo-name { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 500; color: var(--text); }
+    .mo-radio { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 50%; flex-shrink: 0; position: relative; transition: border-color 0.15s; }
+    .method-opt.selected .mo-radio { border-color: var(--green-dark); }
+    .method-opt.selected .mo-radio::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--green-dark); }
+    .mo-total { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 500; color: var(--green-dark); white-space: nowrap; }
+    .mo-fee { font-size: 12px; color: var(--muted); margin-top: 8px; padding-left: 28px; }
+
+    /* Generic amount breakdown rows (card/ach detail, check) */
+    .amount-rows { border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 22px; }
+    .amount-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; font-size: 13px; }
+    .amount-row + .amount-row { border-top: 1px solid var(--border); }
+    .amount-row .lbl { color: var(--muted); }
+    .amount-row .val { font-weight: 500; }
+    .amount-row.grand { background: #F5F3EF; }
+    .amount-row.grand .lbl { color: var(--green-dark); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; font-size: 11px; }
+    .amount-row.grand .val { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--green-dark); }
+
+    /* Buttons */
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: 3px; padding: 12px 22px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s, border-color 0.2s, color 0.2s; text-decoration: none; }
+    .btn-primary { background: var(--green-dark); color: #fff; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+    .btn .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    .btn.loading .spinner { display: inline-block; }
+    .btn.loading .btn-text { opacity: 0.7; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Inline notices */
+    .notice { border-radius: 3px; padding: 12px 16px; font-size: 13px; line-height: 1.55; margin-bottom: 18px; }
+    .notice.error { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); color: var(--error); }
+    .notice.info  { background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.25); color: #2c5aa0; }
+    .notice.warn  { background: rgba(201,168,76,0.10); border: 1px solid rgba(201,168,76,0.35); color: #8a6d1f; }
+    .notice.ok    { background: rgba(22,163,74,0.08);  border: 1px solid rgba(22,163,74,0.3);  color: #15803d; }
+    .notice.hidden { display: none; }
+
+    /* Big status blocks (completed / blocked / success / waiting) */
+    .state-block { text-align: center; padding: 26px 10px 8px; }
+    .state-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .state-icon svg { width: 28px; height: 28px; }
+    .state-icon.ok    { background: rgba(22,163,74,0.1); }
+    .state-icon.ok svg    { fill: var(--ok); }
+    .state-icon.block { background: rgba(192,57,43,0.08); }
+    .state-icon.block svg { fill: var(--error); }
+    .state-icon.wait  { background: rgba(59,130,246,0.08); }
+    .state-heading { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 400; color: var(--green-dark); margin-bottom: 8px; }
+    .state-text { font-size: 13px; color: var(--muted); line-height: 1.6; max-width: 420px; margin: 0 auto 22px; }
+
+    .wait-spinner { width: 30px; height: 30px; border: 3px solid rgba(59,130,246,0.2); border-top-color: var(--status-processing); border-radius: 50%; animation: spin 0.9s linear infinite; margin: 0 auto; }
+
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+    .status-badge.processing { background: rgba(59,130,246,0.1); color: var(--status-processing); }
+    .status-badge.confirmed  { background: rgba(22,163,74,0.1);  color: var(--status-complete); }
+    .status-badge.failed     { background: rgba(192,57,43,0.08); color: var(--error); }
+    .status-badge.cancelled  { background: rgba(107,114,128,0.1); color: var(--status-closed); }
+
+    /* Check upload */
+    .pay-to { padding: 14px 16px; background: #F5F3EF; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 8px; }
+    .pay-to .lbl { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .pay-to .val { font-size: 15px; font-weight: 500; color: var(--green-dark); }
+    .check-help { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+    .qb-note { font-size: 12px; color: var(--muted); line-height: 1.55; margin-bottom: 18px; }
+
+    .upload-zone { border: 1.5px dashed var(--border); border-radius: 4px; padding: 24px 18px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; margin-bottom: 8px; }
+    .upload-zone:hover { border-color: var(--gold); background: rgba(201,168,76,0.03); }
+    .upload-zone svg { width: 30px; height: 30px; fill: var(--muted); margin-bottom: 10px; }
+    .upload-zone .uz-main { font-size: 13px; color: var(--text); }
+    .upload-zone .uz-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .upload-zone.has-file { border-color: var(--green-dark); border-style: solid; background: rgba(62,90,66,0.03); }
+    .uz-filename { font-size: 13px; color: var(--green-dark); font-weight: 500; word-break: break-all; }
+    .heic-note { font-size: 11px; color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+    .sample-check { margin-bottom: 18px; }
+    .sample-check .sc-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .sample-check img.sample-check-img { width: 100%; border: 1px solid var(--border); border-radius: 4px; display: block; }
+    .sample-check .sc-box { width: 100%; aspect-ratio: 2.2 / 1; border: 1.5px dashed var(--border); border-radius: 4px;
+      background: repeating-linear-gradient(45deg, #faf9f6, #faf9f6 10px, #f3f1ea 10px, #f3f1ea 20px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--muted); gap: 4px; }
+    .sample-check .sc-box .sc-main { font-size: 13px; }
+    .sample-check .sc-box .sc-dim { font-size: 11px; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--green-dark); color: #fff; padding: 12px 22px; border-radius: 4px; font-size: 13px; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 600; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .page-loading { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 13px; }
+    .page-loading .wait-spinner { margin: 0 auto 16px; }
+  </style>
+</head>
+<body>
+
+<!-- Unified Navigator -->
+<div id="pcd-nav" data-page="quotes"></div>
+
+<div class="page">
+  <div id="payment-root">
+    <div class="page-loading">
+      <div class="wait-spinner"></div>
+      Loading payment details…
+    </div>
+  </div>
+</div>
+
+<!-- Unified Footer -->
+<div id="pcd-footer"></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/navigator.js"></script>
+<script src="components/footer.js"></script>
+<script>
+// =====================================================================
+// payment.html  |  CB-43 T4 — Dealer 付款頁
+// ---------------------------------------------------------------------
+// URL 契約:payment.html?quote_id=xxx
+// 連線一律走 config.js 的 window.SB_URL / window.SB_KEY / window.N8N_PAYMENT_WEBHOOK
+//
+// [CB-43 T4 / B1] Change Method 純自足設計:
+//   本頁「永遠只認最新一筆 payment 列」。Change Method 只會「回到選單 → 產生新列」,
+//   絕不 UPDATE 任何舊 payment 列(dealer RLS 也不允許 UPDATE payments)。
+//   → 舊 Check 列殘留無害(不走 QuickBooks)。
+//   → 舊 Card/ACH 列(及其 QuickBooks invoice)的 cancel / void 一律由 n8n 後續工作單負責,
+//     T4 不處理、不呼叫任何 cancel Edge Function。
+// =====================================================================
+
+const { createClient } = window.supabase;
+const _supabase = createClient(window.SB_URL, window.SB_KEY);
+
+// ── module state ──
+let userId         = null;   // 登入 dealer 的 auth uid
+let quoteId        = null;   // query string 的 quote_id
+let quote          = null;   // 當前 quote row
+let latestPayment  = null;   // 最新一筆 payment(可能為 null)
+let selectedMethod = null;   // 選單暫存:'card' / 'ach' / 'check'
+
+// ── fee 契約(百分數) ──
+let feeConfig = { card: 2.99, ach: 1, check: 0 };  // fallback 預設;init 時嘗試以 settings 覆寫(前端寬鬆)
+
+// ── helpers ──
+function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 100) / 100; }
+function fmt(n)     { return '$' + parseFloat(n || 0).toFixed(2); }
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function computeFee(method, base) {
+  const pct  = feeConfig[method] != null ? feeConfig[method] : 0;
+  const fee  = round2(base * (pct / 100));
+  const total = round2(base + fee);
+  return { pct, fee, total, base: round2(base) };
+}
+function methodLabel(m) {
+  return m === 'card' ? 'Credit / Debit Card'
+       : m === 'ach'  ? 'ACH Bank Transfer'
+       : m === 'check' ? 'Check'
+       : m || '—';
+}
+function root() { return document.getElementById('payment-root'); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// 各畫面共用的頂部返回連結
+function backLinkHtml() {
+  return `<a class="back-link" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">← Back to Order</a>`;
+}
+
+// quote 摘要條(PO# / Job Name / Order Total)
+function quoteStripHtml() {
+  const po  = escapeHtml(quote.po_number || quote.draft_number || '—');
+  const job = escapeHtml(quote.job_name || '—');
+  return `
+    <div class="quote-strip">
+      <div class="qs-item"><div class="qs-label">PO Number</div><div class="qs-value po">${po}</div></div>
+      <div class="qs-item"><div class="qs-label">Job Name</div><div class="qs-value">${job}</div></div>
+      <div class="qs-item"><div class="qs-label">Order Total</div><div class="qs-value total">${fmt(quote.grand_total)}</div></div>
+    </div>`;
+}
+
+// =====================================================================
+// init:auth 守門 → 取 quote_id → 查 quote + 最新 payment → renderGate
+// =====================================================================
+async function loadFeeConfig() {
+  // 前端寬鬆:讀 settings 覆寫費率;讀失敗/不齊 → 保留 fallback 預設,不擋付款(WF1 才真正收費)
+  try {
+    const { data, error } = await _supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', ['fee_card_percent', 'fee_ach_percent', 'fee_check_percent']);
+    if (error) throw error;
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = parseFloat(r.value); });
+    const next = { card: map.fee_card_percent, ach: map.fee_ach_percent, check: map.fee_check_percent };
+    if ([next.card, next.ach, next.check].every(v => typeof v === 'number' && !isNaN(v))) {
+      feeConfig = next;
+    } else {
+      console.warn('[payment] fee settings incomplete, using fallback feeConfig', next);
+    }
+  } catch (err) {
+    console.warn('[payment] loadFeeConfig failed, using fallback feeConfig:', err);
+  }
+}
+
+async function init() {
+  // 1. session
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+  userId = session.user.id;
+
+  // 2. dealer 守門(對齊 quotes.html)
+  const { data: me } = await _supabase
+    .from('dealers').select('role, is_active').eq('id', userId).single();
+  if (!me?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+  if (['admin', 'super_admin'].includes(me?.role)) { window.location.href = 'admin.html'; return; }
+
+  // 3. quote_id
+  quoteId = new URLSearchParams(window.location.search).get('quote_id');
+  if (!quoteId) { renderError('Invalid payment link', 'This link is missing an order number. Please open payment from your order page.'); return; }
+
+  // 4. 讀 quote + 最新 payment
+  await reloadData();
+
+  // 4.5 讀 settings 費率(覆寫 feeConfig 顯示值;失敗保留 fallback)
+  await loadFeeConfig();
+
+  // 5. 依現況分流
+  renderGate();
+}
+
+// 重新載入 quote + 最新 payment(refreshStatus / submit 後重用)
+async function reloadData() {
+  const { data: q, error: qErr } = await _supabase
+    .from('quotes')
+    .select('id, dealer_id, status, grand_total, po_number, draft_number, job_name')
+    .eq('id', quoteId)
+    .maybeSingle();
+
+  if (qErr) { console.error('[payment] load quote error:', qErr); quote = null; return; }
+  quote = q || null;
+  if (!quote) { latestPayment = null; return; }
+
+  const { data: pays, error: pErr } = await _supabase
+    .from('payments')
+    .select('id, payment_method, base_amount, fee_percentage, fee_amount, total_paid, status, created_at, quickbooks_payment_link')
+    .eq('quote_id', quoteId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (pErr) { console.error('[payment] load payments error:', pErr); latestPayment = null; return; }
+  latestPayment = (pays && pays.length) ? pays[0] : null;
+}
+
+// =====================================================================
+// renderGate:重複付款保護(一律只認最新一筆 payment 的 status)
+// =====================================================================
+function renderGate() {
+  if (!quote) { renderError('Order not found', "We couldn't load this order. The link may be incorrect, or you may not have access."); return; }
+
+  const s = quote.status;
+
+  // 不可付款狀態
+  if (s === 'Draft' || s === 'Returned' || s === 'Closed') {
+    renderBlocked('Payment unavailable', "This order can't accept payment in its current status. Please contact us if you have questions.");
+    return;
+  }
+
+  // 已進入出貨處理 → 付款已完成
+  if (s === 'Order Processing') {
+    renderCompleted();
+    return;
+  }
+
+  // 一般:可建立新 payment
+  if (s === 'Pending') {
+    renderMethodSelect();
+    return;
+  }
+
+  // 付款處理中 → 再看最新一筆 payment
+  if (s === 'Payment Processing') {
+    const ps = latestPayment ? latestPayment.status : null;
+    if (ps === 'confirmed') { renderCompleted(); return; }
+    if (ps === 'processing') { renderProcessingSummary(); return; }
+    // failed / cancelled / 無紀錄 → 視同可再付
+    renderMethodSelect();
+    return;
+  }
+
+  // 其他未知狀態 → 保守擋下
+  renderBlocked('Payment unavailable', "This order can't accept payment in its current status. Please contact us if you have questions.");
+}
+
+// =====================================================================
+// 畫面:方式選擇
+// =====================================================================
+function renderMethodSelect() {
+  selectedMethod = null;
+  const base = parseFloat(quote.grand_total || 0);
+  const card  = computeFee('card', base);
+  const ach   = computeFee('ach', base);
+  const check = computeFee('check', base);
+
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="card-title">Payment</div>
+      <div class="card-sub">Choose how you'd like to pay for this order.</div>
+      ${quoteStripHtml()}
+
+      <div class="methods" id="methods">
+        <label class="method-opt" data-method="card">
+          <input type="radio" name="pm" value="card"/>
+          <div class="mo-head">
+            <span class="mo-name"><span class="mo-radio"></span>Credit / Debit Card</span>
+            <span class="mo-total">${fmt(card.total)}</span>
+          </div>
+          <div class="mo-fee">Transaction Fee (2.99%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
+        </label>
+
+        <label class="method-opt" data-method="ach">
+          <input type="radio" name="pm" value="ach"/>
+          <div class="mo-head">
+            <span class="mo-name"><span class="mo-radio"></span>ACH Bank Transfer</span>
+            <span class="mo-total">${fmt(ach.total)}</span>
+          </div>
+          <div class="mo-fee">Transaction Fee (1%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
+        </label>
+
+        <label class="method-opt" data-method="check">
+          <input type="radio" name="pm" value="check"/>
+          <div class="mo-head">
+            <span class="mo-name"><span class="mo-radio"></span>Check</span>
+            <span class="mo-total">${fmt(check.total)}</span>
+          </div>
+          <div class="mo-fee">No Fee &nbsp;•&nbsp; Total to Pay: ${fmt(check.total)}</div>
+        </label>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnContinue" disabled>
+          <span class="btn-text">Continue to Payment</span>
+        </button>
+      </div>
+    </div>`;
+
+  // 選取互動
+  const opts = root().querySelectorAll('.method-opt');
+  opts.forEach(opt => {
+    opt.addEventListener('click', () => {
+      selectedMethod = opt.dataset.method;
+      opts.forEach(o => o.classList.toggle('selected', o === opt));
+      const radio = opt.querySelector('input');
+      if (radio) radio.checked = true;
+      document.getElementById('btnContinue').disabled = false;
+    });
+  });
+
+  document.getElementById('btnContinue').addEventListener('click', () => {
+    if (!selectedMethod) return;
+    if (selectedMethod === 'check') renderCheck();
+    else renderCardAch(selectedMethod);
+  });
+}
+
+// =====================================================================
+// 畫面:Card / ACH
+// =====================================================================
+function renderCardAch(method) {
+  const base = parseFloat(quote.grand_total || 0);
+  const f = computeFee(method, base);
+
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="card-title">${methodLabel(method)}</div>
+      <div class="card-sub">You'll be redirected to QuickBooks secure checkout to complete this payment.</div>
+      ${quoteStripHtml()}
+
+      <div class="amount-rows">
+        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(method)}</span></div>
+        <div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(f.base)}</span></div>
+        <div class="amount-row"><span class="lbl">Transaction Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">Total to Pay</span><span class="val">${fmt(f.total)}</span></div>
+      </div>
+
+      <div class="qb-note">Payments are processed by Intuit Payments Inc. (QuickBooks Payments). The fee shown reflects QuickBooks Payments processing costs.</div>
+
+      <div class="notice error hidden" id="payError"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnProceed">
+          <span class="spinner"></span><span class="btn-text">Proceed to Payment</span>
+        </button>
+        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
+      </div>
+    </div>`;
+
+  document.getElementById('btnChangeMethod').addEventListener('click', changeMethod);
+  document.getElementById('btnProceed').addEventListener('click', () => proceedCardAch(method, f));
+}
+
+async function proceedCardAch(method, f) {
+  const btn = document.getElementById('btnProceed');
+  const errEl = document.getElementById('payError');
+  errEl.classList.add('hidden');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  // ① 金額不信 client:只送 quote_id + payment_method,金額全由 WF1 依 grand_total + settings 費率自算
+  const payload = {
+    quote_id:       quoteId,
+    payment_method: method,
+  };
+
+  // ② 驗身分:帶 Supabase JWT,WF1 換回 uid 比對 quote.dealer_id
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  try {
+    // n8n 會:建 QuickBooks Invoice + 寫 payments 列 + 改 quote.status,並回傳 payment link。
+    const resp = await fetch(window.N8N_PAYMENT_WEBHOOK, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) throw new Error('Webhook responded ' + resp.status);
+
+    let data = {};
+    try { data = await resp.json(); } catch (_) { data = {}; }
+    const link = data.payment_link || data.paymentLink || data.url || data.link || null;
+
+    if (!link) throw new Error('No payment link returned');
+
+    // 成功:開新分頁跳 QuickBooks,本頁進入等待
+    window.open(link, '_blank');
+    renderWaiting(link);
+
+  } catch (err) {
+    console.error('[payment] card/ach webhook failed:', err);
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    errEl.textContent = 'Online payment is temporarily unavailable. Please try again later, or pay by check.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+// =====================================================================
+// 畫面:Check
+// =====================================================================
+const CHECK_ALLOWED_MIME = ['image/jpeg', 'image/png', 'application/pdf'];
+const CHECK_ALLOWED_EXT  = ['jpg', 'jpeg', 'png', 'pdf'];
+const CHECK_MAX_BYTES     = 5 * 1024 * 1024; // 5MB
+let _checkFile = null;
+
+function renderCheck() {
+  _checkFile = null;
+
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="card-title">Pay by Check</div>
+      <div class="card-sub">Upload a photo of your check — no need to mail it.</div>
+      ${quoteStripHtml()}
+
+      <div class="pay-to">
+        <div class="lbl">Make Check Payable To</div>
+        <div class="val">ProCraft Cabinetry DC LLC</div>
+      </div>
+      <div class="check-help">
+        Please write the check for <strong>${fmt(quote.grand_total)}</strong> payable to
+        <strong>ProCraft Cabinetry DC LLC</strong>, then upload a clear photo or scan of the front of the check below.
+      </div>
+
+      <!-- Sample check preview. 圖檔就緒後:把下方 <img> 註解打開、刪掉 .sc-placeholder 那個 div,src 指到 assets/sample-check.png -->
+      <div class="sample-check">
+        <div class="sc-label">Sample Check</div>
+        <!-- <img src="assets/sample-check.png" alt="Sample check example" class="sample-check-img"/> -->
+        <div class="sc-box sc-placeholder">
+          <div class="sc-main">Sample check image</div>
+          <div class="sc-dim">Recommended ~1000 × 450 px (≈ 2.2 : 1)</div>
+        </div>
+      </div>
+
+      <input type="file" id="checkFileInput" accept="image/jpeg,image/png,application/pdf" style="display:none;"/>
+      <div class="upload-zone" id="uploadZone">
+        <svg viewBox="0 0 24 24"><path d="M19 13v6H5v-6H3v6a2 2 0 002 2h14a2 2 0 002-2v-6h-2zM11 4.83L8.41 7.41 7 6l5-5 5 5-1.41 1.41L13 4.83V16h-2V4.83z"/></svg>
+        <div class="uz-main">Tap to upload check image</div>
+        <div class="uz-sub">JPG, PNG or PDF · Max 5MB</div>
+      </div>
+      <div class="heic-note">Accepted formats: JPG, PNG or PDF · File size under 5MB.</div>
+
+      <div class="notice error hidden" id="checkError"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnSubmitCheck" disabled>
+          <span class="spinner"></span><span class="btn-text">Submit Check</span>
+        </button>
+        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
+      </div>
+    </div>`;
+
+  const input = document.getElementById('checkFileInput');
+  const zone  = document.getElementById('uploadZone');
+  const errEl = document.getElementById('checkError');
+  const submitBtn = document.getElementById('btnSubmitCheck');
+
+  zone.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    errEl.classList.add('hidden');
+    const file = input.files && input.files[0];
+    if (!file) { resetCheckFile(zone, submitBtn); return; }
+
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const mimeOk = CHECK_ALLOWED_MIME.includes(file.type);
+    const extOk  = CHECK_ALLOWED_EXT.includes(ext);
+
+    // HEIC 特別提示
+    if (file.type === 'image/heic' || file.type === 'image/heif' || ext === 'heic' || ext === 'heif') {
+      resetCheckFile(zone, submitBtn);
+      errEl.textContent = "This photo format can't be uploaded. Please use JPG, PNG, or PDF instead.";
+      errEl.classList.remove('hidden');
+      input.value = '';
+      return;
+    }
+    if (!mimeOk && !extOk) {
+      resetCheckFile(zone, submitBtn);
+      errEl.textContent = 'Unsupported file type. Please upload a JPG, PNG, or PDF.';
+      errEl.classList.remove('hidden');
+      input.value = '';
+      return;
+    }
+    if (file.size > CHECK_MAX_BYTES) {
+      resetCheckFile(zone, submitBtn);
+      errEl.textContent = 'File is too large. Please upload a file under 5MB.';
+      errEl.classList.remove('hidden');
+      input.value = '';
+      return;
+    }
+
+    // 通過
+    _checkFile = file;
+    zone.classList.add('has-file');
+    zone.innerHTML = `
+      <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      <div class="uz-filename">${escapeHtml(file.name)}</div>
+      <div class="uz-sub">Tap to choose a different file</div>`;
+    zone.addEventListener('click', () => input.click()); // innerHTML 重寫後重新綁定
+    submitBtn.disabled = false;
+  });
+
+  document.getElementById('btnChangeMethod').addEventListener('click', changeMethod);
+  submitBtn.addEventListener('click', submitCheck);
+}
+
+function resetCheckFile(zone, submitBtn) {
+  _checkFile = null;
+  submitBtn.disabled = true;
+  zone.classList.remove('has-file');
+}
+
+async function submitCheck() {
+  if (!_checkFile) return;
+  const btn   = document.getElementById('btnSubmitCheck');
+  const errEl = document.getElementById('checkError');
+  errEl.classList.add('hidden');
+  btn.classList.add('loading');
+  btn.disabled = true;
+
+  const base = round2(quote.grand_total);
+
+  try {
+    // 1. 上傳 Storage:{auth_uid}/{quote_id}/{filename}
+    const ext = (_checkFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const filename = `check_${Date.now()}.${ext}`;
+    const path = `${userId}/${quoteId}/${filename}`;
+
+    const { data: upData, error: upErr } = await _supabase
+      .storage.from('payment-checks')
+      .upload(path, _checkFile, { upsert: false, contentType: _checkFile.type || undefined });
+    if (upErr) throw upErr;
+    const storedPath = (upData && upData.path) ? upData.path : path;
+
+    // 2. UPDATE quotes.status = 'Payment Processing'(先於 payments,避免孤兒 payment 列)
+    //    加 count:'exact' 檢查影響列數:若被 RLS 靜默擋掉(0 列)則 throw,不假成功。
+    //    .eq('status','Pending') 為意圖聲明 + 併發保護(兩分頁同送 Check,第二個 count=0 擋下)。
+    //    dealer UPDATE 需 quotes 上的 A1 policy 放行(Pending → Payment Processing);
+    //    見 migration:dealer_advance_quote_to_payment_processing。
+    const { error: updErr, count: updCount } = await _supabase
+      .from('quotes')
+      .update({ status: 'Payment Processing' }, { count: 'exact' })
+      .eq('id', quoteId)
+      .eq('status', 'Pending');
+    if (updErr) throw updErr;
+    if (updCount === 0) {
+      // count=0 代表 quote 已非 Pending(併發/已在處理中)或 RLS 未放行 —— 中止,且尚未建立 payments 列。
+      throw new Error("Couldn't update the order status. Please refresh and try again, or contact us.");
+    }
+
+    // 3. INSERT payments(dealer 只能寫 status='processing'、method 三選一 — 符合 RLS)
+    const { data: payRow, error: insErr } = await _supabase
+      .from('payments')
+      .insert({
+        quote_id:       quoteId,
+        payment_method: 'check',
+        base_amount:    base,
+        fee_percentage: 0,
+        fee_amount:     0,
+        total_paid:     base,
+        check_image_url: storedPath,   // 存 storage path,非 public url
+        status:         'processing',
+      })
+      .select('id')
+      .single();
+    if (insErr) throw insErr;
+    const paymentId = payRow.id;
+
+    // 4. 呼叫 send-payment-email(失敗只 log 不阻斷,對齊 send-quote-email 慣例)
+    try {
+      const { data: { session } } = await _supabase.auth.getSession();
+      await fetch(`${window.SB_URL}/functions/v1/send-payment-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ type: 'payment_submitted', quote_id: quoteId, payment_id: paymentId }),
+      });
+    } catch (emailErr) {
+      console.error('[payment] send-payment-email failed (non-blocking):', emailErr);
+    }
+
+    // 5. 成功畫面
+    renderCheckSuccess();
+
+  } catch (err) {
+    console.error('[payment] submit check failed:', err);
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    errEl.textContent = 'Submission failed: ' + (err.message || 'An unexpected error occurred. Please try again.');
+    errEl.classList.remove('hidden');
+  }
+}
+
+// =====================================================================
+// 畫面:現況(Payment Processing + 最新 payment=processing)
+// =====================================================================
+function renderProcessingSummary() {
+  const p = latestPayment;
+  const isCardAch = (p.payment_method === 'card' || p.payment_method === 'ach');
+  const contBtn = (isCardAch && p.quickbooks_payment_link)
+    ? `<a class="btn btn-primary" href="${escapeHtml(p.quickbooks_payment_link)}" target="_blank" rel="noopener"><span class="btn-text">Continue Payment</span></a>`
+    : '';
+  const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
+  const btnRowStyle = contBtn ? 'flex-direction:column; align-items:stretch;' : '';
+
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="card-title">Payment In Progress</div>
+      <div class="card-sub">A payment is already being processed for this order.</div>
+      ${quoteStripHtml()}
+
+      <div class="amount-rows">
+        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(p.payment_method)}</span></div>
+        <div class="amount-row"><span class="lbl">Amount</span><span class="val">${fmt(p.total_paid)}</span></div>
+        <div class="amount-row"><span class="lbl">Status</span><span class="val"><span class="status-badge processing">Processing</span></span></div>
+      </div>
+
+      ${isCardAch ? `<div class="notice info">If you completed payment in QuickBooks, it may take a moment to confirm. Use “Refresh Status” to check again.</div>` : `<div class="notice info">We've received your check image and will confirm once verified.</div>`}
+
+      <div class="btn-row" style="${btnRowStyle}">
+        ${contBtn}
+        <button class="${refreshCls}" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
+        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
+      </div>
+    </div>`;
+
+  document.getElementById('btnRefresh').addEventListener('click', refreshStatus);
+  document.getElementById('btnChangeMethod').addEventListener('click', changeMethod);
+}
+
+// =====================================================================
+// 畫面:等待付款確認(Card/ACH Proceed 成功後)
+// =====================================================================
+function renderWaiting(payLink) {
+  const payBtn = payLink
+    ? `<a class="btn btn-primary" href="${escapeHtml(payLink)}" target="_blank" rel="noopener"><span class="btn-text">Pay Now</span></a>`
+    : '';
+  const popupHint = payLink
+    ? `<div class="notice info">Didn't see the payment window? Your browser may have blocked the pop-up — tap <strong>Pay Now</strong> below to open it.</div>`
+    : '';
+
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="state-block">
+        <div class="wait-spinner"></div>
+        <div class="state-heading" style="margin-top:18px;">Waiting for payment confirmation…</div>
+        <div class="state-text">Complete your payment in the QuickBooks payment window, then tap “Refresh Status” to update this page.</div>
+      </div>
+      ${popupHint}
+      <div class="btn-row" style="flex-direction:column; align-items:stretch;">
+        ${payBtn}
+        <button class="btn btn-ghost" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
+      </div>
+    </div>`;
+
+  document.getElementById('btnRefresh').addEventListener('click', refreshStatus);
+}
+
+// =====================================================================
+// 畫面:完成 / 擋下 / Check 成功 / 錯誤
+// =====================================================================
+function renderCompleted() {
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="state-block">
+        <div class="state-icon ok"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+        <div class="state-heading">Payment Complete</div>
+        <div class="state-text">This order has already been paid. No further payment is required.</div>
+      </div>
+      <div class="btn-row" style="justify-content:center;">
+        <a class="btn btn-ghost" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">Back to Order</a>
+      </div>
+    </div>`;
+}
+
+function renderCheckSuccess() {
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="state-block">
+        <div class="state-icon ok"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+        <div class="state-heading">Check Submitted</div>
+        <div class="state-text">Check submitted. We'll notify you once received and confirmed.</div>
+      </div>
+      <div class="btn-row" style="justify-content:center;">
+        <a class="btn btn-primary" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">Back to Order</a>
+      </div>
+    </div>`;
+}
+
+function renderBlocked(heading, text) {
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="state-block">
+        <div class="state-icon block"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+        <div class="state-heading">${escapeHtml(heading)}</div>
+        <div class="state-text">${escapeHtml(text)}</div>
+      </div>
+      <div class="btn-row" style="justify-content:center;">
+        <a class="btn btn-ghost" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">Back to Order</a>
+      </div>
+    </div>`;
+}
+
+function renderError(heading, text) {
+  root().innerHTML = `
+    <div class="card">
+      <div class="state-block">
+        <div class="state-icon block"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div>
+        <div class="state-heading">${escapeHtml(heading)}</div>
+        <div class="state-text">${escapeHtml(text)}</div>
+      </div>
+      <div class="btn-row" style="justify-content:center;">
+        <a class="btn btn-ghost" href="quotes.html">Back to My Quotes</a>
+      </div>
+    </div>`;
+}
+
+// =====================================================================
+// 動作:Refresh / Change Method
+// =====================================================================
+async function refreshStatus() {
+  const btn = document.getElementById('btnRefresh');
+  if (btn) { btn.classList.add('loading'); btn.disabled = true; }
+  await reloadData();
+  renderGate();
+  showToast('Status updated.');
+}
+
+// [CB-43 T4 / B1] 純自足:只回選單、產生新列;絕不 UPDATE 任何舊 payment 列。
+// 舊 Card/ACH 列(含 QuickBooks invoice)的 cancel/void 由 n8n 後續工作單負責。
+function changeMethod() {
+  renderMethodSelect();
+}
+
+init();
+</script>
+</body>
+</html>

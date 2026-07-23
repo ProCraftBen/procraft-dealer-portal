@@ -14,7 +14,8 @@
       --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
       --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
-      --status-draft:#7A8C82; --status-returned:#E07B39;
+      --status-draft:#7A8C82; --status-returned:#E07B39; --status-payment:#64748B;
+      --status-stock-review:#0891B2;  /* CB-43 T14-1 */
       --error:#C0392B;
       --discount:#C0392B;   /* CB-40: 保留供歷史單 back-solve 折扣行紅色顯示 */
     }
@@ -41,11 +42,14 @@
     .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
     .status-badge { display: inline-block; padding: 5px 14px; border-radius: 3px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
+    .status-badge.stock-review { background: rgba(8,145,178,0.12); color: var(--status-stock-review); }  /* CB-43 T14-1 */
     .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
     .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
     .status-badge.draft      { background: rgba(122,140,130,0.12); color: var(--status-draft); }
     .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
+    .status-badge.payment-processing { background: rgba(100,116,139,0.12); color: var(--status-payment); }
+    .status-badge.order-processing   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .btn-action { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; }
     .btn-action:hover { background: var(--green-mid); }
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
@@ -55,6 +59,9 @@
     .btn-action.review-resubmit:hover { background: #c66a30; }
     .btn-action.admin-edit { background: var(--gold); color: #fff; }
     .btn-action.admin-edit:hover { background: #b69240; }
+    /* CB-43 T14-2: 放行按鈕。吃 T14-1 鎖定的 --status-stock-review,不新增色值。 */
+    .btn-action.stock-release { background: var(--status-stock-review); color: #fff; }
+    .btn-action.stock-release:hover { background: #0E7490; }
 
     /* ── Returned Reason Banner ── */
     .return-banner {
@@ -602,11 +609,14 @@ const _supabase = createClient(
 const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
 const statusClass = {
   Draft:'draft',
+  'Stock Review':'stock-review',
   Pending:'pending',
   Processing:'processing',
   Complete:'complete',
   Closed:'closed',
   Returned:'returned',
+  'Payment Processing':'payment-processing',
+  'Order Processing':'order-processing',
 };
 
 // CB-2: Display-only status label map. DB status values are unchanged —
@@ -616,13 +626,24 @@ const statusLabel = {
 };
 
 // ── C1: which statuses allow admin to edit shipping_cost ──
-const SHIPPING_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
+// CB-43 T14-3: 'Pending' → 'Stock Review'。T14 之後 Pending = 已放行、可付款,
+// 此時改運費是真競態:dealer 開著 payment.html(顯示舊 grand_total)→ 點 Proceed
+// → 送出舊值 → QuickBooks Invoice 金額與 quote 對不上。
+// Stock Review 才是「待確認/調整訂單」的正確歸屬。
+const SHIPPING_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned'];
 
 // ── CB-4: which statuses allow admin to enter Edit mode (revision flow) ──
-// Admin can edit dealer-submitted POs in Pending, and previously-returned
+// Admin can edit dealer-submitted POs in Stock Review, and previously-returned
 // POs in Returned (in case customer requests further changes). Draft has
-// its own admin-draft flow; Processing/Complete/Closed are locked.
-const ADMIN_EDIT_ALLOWED_STATUSES = ['Pending', 'Returned'];
+// its own admin-draft flow; Pending/Processing/Complete/Closed are locked.
+// CB-43 T14-3: 'Pending' → 'Stock Review'。Stock Review = 最後可修改的階段,
+// 放行 = 金額鎖定,之後只能付款。且 Stock Review 有了 Edit 才進得去 admin-edit
+// 模式 → 才有 Request Revision(退回 dealer 改單)→「部分品項沒貨」才有解。
+const ADMIN_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned'];
+
+// ── CB-43 T14-2: 放行按鈕的 inner HTML ──
+// 建立按鈕與「失敗還原按鈕」共用同一份,避免兩處文案漂移。
+const RELEASE_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Confirm Stock &amp; Send Payment Link';
 
 // ─────────────────────────────────────────────────────────────────────────
 // F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
@@ -1540,6 +1561,15 @@ function renderQuote(quote, dealer, addr) {
       Edit
     </button>` : '';
 
+  // ── CB-43 T14-2: 放行按鈕(僅 admin + status='Stock Review')──
+  // dealer 絕對看不到 —— 放行是內部動作(sales 確認庫存)。
+  // 這是 Stock Review → Pending 的唯一路徑:admin-quotes.html 的 Stock Review
+  // dropdown 已刻意排除 Pending(T14-1 R1),按鈕缺席 = 單子永遠卡住。
+  const canReleaseStock = _isAdmin && quote.status === 'Stock Review';
+  const releaseStockButtonHtml = canReleaseStock
+    ? `<button id="releaseStockBtn" class="btn-action stock-release" onclick="releaseStock()">${RELEASE_BTN_INNER}</button>`
+    : '';
+
 // ── Ship To 區塊(5 檔鏡像同一份 resolver)──
   const PROCRAFT_PICKUP_LINES = [
     'ProCraft Cabinetry DC LLC',
@@ -1790,6 +1820,32 @@ function renderQuote(quote, dealer, addr) {
       </button>`;
   }
 
+  // CB-43 T6: Pay Now — dealer 端、僅 Pending 顯示。付款失敗由 T8 退回 Pending 後按鈕自然重現。
+  const payNowButtonHtml = (!_isAdmin && quote.status === 'Pending')
+      ? `
+        <a class="btn-action" href="payment.html?quote_id=${quote.id}">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Pay Now
+        </a>`
+      : '';
+  
+    // CB-43 T15: Continue Payment — dealer 端、Payment Processing 顯示,連回 payment.html 續付同一張 invoice(同一筆 QBO link)。
+    const continuePaymentButtonHtml = (!_isAdmin && quote.status === 'Payment Processing')
+      ? `
+        <a class="btn-action" href="payment.html?quote_id=${quote.id}">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          Continue Payment
+        </a>`
+      : '';
+
+    // CB-45: Download Receipt — 僅 Order Processing(已付款)顯示;admin/dealer 皆可(憑證性質,Q3)。
+    const receiptButtonHtml = (quote.status === 'Order Processing')
+      ? `
+        <button class="btn-action" onclick="downloadReceipt()">
+          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+          Download Receipt
+        </button>`
+      : '';
   // ─────────────────────────────────────────────────────────────────────
   // CB-4: Returned banner — differs by viewer role.
   //
@@ -1850,9 +1906,13 @@ function renderQuote(quote, dealer, addr) {
       </div>
       <div class="header-right">
         <span class="status-badge ${sc}">${statusText}</span>
+        ${payNowButtonHtml}
+        ${continuePaymentButtonHtml}
         ${adminEditButtonHtml}
         ${internalDraftEditButtonHtml}
+        ${releaseStockButtonHtml}
         ${downloadButtonsHtml}
+        ${receiptButtonHtml}
       </div>
     </div>
 
@@ -2010,6 +2070,87 @@ async function saveShipping() {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// CB-43 T14-2: 放行 — Stock Review → Pending + 通知 dealer 可付款
+//
+// 寫序(硬規則,不可調換):
+//   ① UPDATE quotes(count:'exact' + status 守衛)
+//   ② 成功後才寄 email(非阻斷 — email 失敗不回滾狀態)
+//   ③ reload
+//
+// status 守衛(.eq('status','Stock Review'))防併發:兩個 admin 同時按 →
+// 只有一個 count=1,另一個 count=0。admin_update_all_quotes policy 沒有
+// WITH CHECK,DB 層不會擋,所以守衛必須在前端自己加。
+//
+// RLS silent failure:Supabase 被擋時回 0 rows 且無 error → count===0 一律當錯誤。
+// ──────────────────────────────────────────────────────────────────────
+async function releaseStock() {
+  if (!_isAdmin || !_quote) return;
+  if (_quote.status !== 'Stock Review') return;
+
+  const btn = document.getElementById('releaseStockBtn');
+  if (btn && btn.disabled) return;   // mid-flight 防呆:連點只算一次
+
+  const poLabel = _quote.po_number || _quote.draft_number || 'This order';
+  const ok = confirm(
+    'Confirm all items are in stock and release this order for payment?\n\n'
+    + poLabel + ' will move to Pending and the dealer will be emailed a payment link immediately.\n\n'
+    + 'This cannot be undone.'
+  );
+  if (!ok) return;
+
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Releasing...'; }
+
+  // ① quotes → Pending
+  try {
+    const upd = await _supabase
+      .from('quotes')
+      .update({ status: 'Pending' }, { count: 'exact' })
+      .eq('id', _quote.id)
+      .eq('status', 'Stock Review');
+    if (upd.error) throw upd.error;
+    if (upd.count === 0) {
+      alert('This order is no longer in Stock Review. It may have been changed by someone else.\n\nRefreshing now.');
+      window.location.reload();
+      return;
+    }
+  } catch (err) {
+    console.error('[releaseStock] update failed:', err);
+    alert('Failed to release this order: ' + (err.message || 'An unexpected error occurred.') + '\n\nPlease try again.');
+    if (btn) { btn.disabled = false; btn.innerHTML = RELEASE_BTN_INNER; }
+    return;
+  }
+
+  // ② email(非阻斷:狀態已放行,不回滾。但失敗必須明確告知 admin —
+  //    payment_ready 是 dealer「可以付款了」的唯一通知,靜默失敗 = dealer 失聯)。
+  //    刻意偏離 admin-payments.html 的 fire-and-forget:此處必須檢查 res.ok。
+  let emailOk = true;
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const res = await fetch(window.SB_URL + '/functions/v1/send-payment-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify({ type: 'payment_ready', quote_id: _quote.id }),
+    });
+    if (!res.ok) {
+      emailOk = false;
+      console.error('[releaseStock] send-payment-email returned', res.status);
+    }
+  } catch (emailErr) {
+    emailOk = false;
+    console.error('[releaseStock] send-payment-email failed (non-blocking):', emailErr);
+  }
+
+  // ③
+  alert(emailOk
+    ? 'Order released. The dealer has been notified and can now pay.'
+    : 'Order released to Pending, but the notification email failed to send.\n\nPlease contact the dealer manually.');
+  window.location.reload();
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // PDF download functions
 // F4.1 v2: pass sub_groups + modifications so PDF builder can render correctly
@@ -2116,6 +2257,63 @@ async function downloadInvoice() {
     quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
   );
   const filename = ProCraftPDF.getPdfFilename('invoice', {
+    poNumber:       _quote.po_number || 'Quote',
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+// CB-45: Download Receipt — 付款後(Order Processing)已付款憑證。
+// B3: 取該 quote 唯一的 confirmed payment 列(quote_id + status='confirmed' 保證單筆,
+//     order confirmed_at desc limit 1 為防呆)。dealer RLS 可讀自己的 payments。
+// fee/total_paid 讀 payment 列存值,不現算;confirmed_at ?? created_at 為 B2 fallback。
+async function downloadReceipt() {
+  if (!_quote || !_dealer) return;
+
+  const { data: pays, error: payErr } = await _supabase
+    .from('payments')
+    .select('payment_method, base_amount, fee_percentage, fee_amount, total_paid, confirmed_at, created_at')
+    .eq('quote_id', _quote.id)
+    .eq('status', 'confirmed')
+    .order('confirmed_at', { ascending: false })
+    .limit(1);
+
+  if (payErr) {
+    console.error('[CB-45] load confirmed payment failed:', payErr);
+    alert("Sorry — we couldn't load your receipt just now. Please try again, or contact us if it keeps happening.");
+    return;
+  }
+  if (!pays || !pays.length) {
+    console.warn('[CB-45] no confirmed payment row for quote', _quote.id);
+    alert("Sorry — we couldn't find a confirmed payment for this order. Please contact us and we'll help.");
+    return;
+  }
+
+  const p = pays[0];
+  const receipt = {
+    paymentMethod: p.payment_method,
+    feePercentage: p.fee_percentage,
+    feeAmount:     p.fee_amount,
+    totalPaid:     p.total_paid,
+    baseAmount:    p.base_amount,
+    confirmedAt:   p.confirmed_at || p.created_at,
+  };
+
+  const quoteDataForPdf = buildQuoteDataForPdf();
+
+  let doc;
+  try {
+    doc = await ProCraftPDF.buildReceiptPdf(
+      quoteDataForPdf, _dealer, _addr, { markupPercent: 0, receipt }
+    );
+  } catch (err) {
+    // CB-45 對帳斷言 fail-loud:live grand 與付款當時 base_amount 不一致 → 不出憑證。
+    console.error('[CB-45] receipt build blocked (reconciliation or render):', err);
+    alert("Sorry — we ran into a problem preparing this receipt. Please contact us and we'll sort it out for you.");
+    return;
+  }
+
+  const filename = ProCraftPDF.getPdfFilename('receipt', {
     poNumber:       _quote.po_number || 'Quote',
     revisionNumber: _quote.revision_number || 1,
   });

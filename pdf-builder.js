@@ -1021,6 +1021,7 @@ return total;
       pendingShipping = false,
       showPrices = true,
       startY,
+      receipt = null,          // CB-45: 僅產 Receipt 時傳入;Invoice/Draft 為 null
     } = context;
 
     const totalsX = pageW - margin - 70;
@@ -1139,6 +1140,64 @@ return total;
       y += 4;
     }
 
+    // ── CB-45 Receipt 專屬區塊 ──
+    //   僅產 Receipt 時傳入 receipt;Invoice/Draft/Packing 為 null → 此段整段不執行,
+    //   totals 輸出與改動前 byte-identical。fee/total_paid 一律讀 payment 列存值(不現算)。
+    if (receipt) {
+      const METHOD_LABEL = { card: 'Card', ach: 'ACH', check: 'Check', offline: 'Offline' };
+      const pct    = (receipt.feePercentage == null) ? 0 : Number(receipt.feePercentage);
+      const feeAmt = Number(receipt.feeAmount || 0);
+      const paid   = Number(receipt.totalPaid || 0);
+
+      y += 2;
+      doc.setDrawColor(...COLORS.border);
+      doc.line(totalsX, y, valX, y);
+      y += 5;
+
+      // Payment Method
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Payment Method', totalsX, y);
+      doc.setTextColor(40, 40, 40);
+      doc.text(METHOD_LABEL[receipt.paymentMethod] || receipt.paymentMethod || '—', valX, y, { align: 'right' });
+      y += 6;
+
+      // Transaction Fee — 費率放 label 括號、右值只留金額,避免「2.99% + $3.01」被誤讀為兩者相加。
+      // 對齊 email E1c 的 "Transaction Fee (n%)" 風格;Q1:四方式一律顯示(Check/Offline 為 (0%) $0.00)。
+      doc.setTextColor(...COLORS.muted);
+      doc.text(`Transaction Fee (${pct}%)`, totalsX, y);
+      doc.setTextColor(40, 40, 40);
+      doc.text(`$${feeAmt.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+
+      doc.setDrawColor(...COLORS.border);
+      doc.line(totalsX, y, valX, y);
+      y += 5;
+
+      // Total Paid(bold / darkGreen,同 Order Total 樣式)
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.darkGreen);
+      doc.text('Total Paid', totalsX, y);
+      doc.text(`$${paid.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+
+      // PAID · 付款時間(Q4;NY 時區,對齊 pdf-builder 其他日期慣例)
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.darkGreen);
+      const paidDateStr = receipt.confirmedAt
+        ? new Date(receipt.confirmedAt).toLocaleString('en-US', {
+            timeZone: 'America/New_York',
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit',
+          })
+        : '—';
+      doc.text(`PAID · ${paidDateStr}`, valX, y, { align: 'right' });
+      y += 5;
+    }
+
     return y;
   }
 
@@ -1249,6 +1308,7 @@ return total;
     const {
       doc, quoteData, items, headerContext, tableEndY, notes,
       showPrices, markupPercent = 0,
+      receipt = null,          // CB-45: Receipt 模式帶入;Invoice/Draft 為 null
     } = args;
     const { pageW, margin } = LAYOUT;
 
@@ -1312,6 +1372,17 @@ return total;
     // ── Grand total = billing base + assembly + shipping + tax ──
     const grand = billingBase + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
 
+    // ── CB-45 對帳斷言(裁決 Q2):Receipt 專用 ──
+    //   Receipt 的 Order Total 走 live 重算 grand(明細五行也是 live),fee/total_paid 讀
+    //   payment 列存值。正常流程金額付款後已凍結 → live grand == payment base_amount。
+    //   萬一 admin 於付款後動過單(F2 只凍 dealer)導致不一致,fail-loud 擋下,絕不靜默
+    //   出「Order Total 與 base+fee 對不上」的矛盾憑證。Invoice/Draft 無 receipt → 不觸發。
+    if (receipt && Math.abs(grand - Number(receipt.baseAmount)) > 0.01) {
+      console.error('[CB-45] Receipt reconciliation mismatch:',
+        { liveGrand: grand, paymentBaseAmount: receipt.baseAmount });
+      throw new Error('RECEIPT_RECONCILIATION_MISMATCH');
+    }
+
     const totals = {
       subtotal:          markedSubtotal,     // 顯示時併入 assembleTotal,見 _drawTotals
       modsTotal:         modsTotal,
@@ -1362,6 +1433,7 @@ return total;
       totals, taxExempt, freeShipping,
       pendingShipping,
       showPrices, startY: y,
+      receipt,               // CB-45: null 時 _drawTotals receipt 區塊不執行
     });
 
     _drawFooterBar(doc);
@@ -1470,6 +1542,39 @@ return total;
   }
 
   /**
+   * 建立 Receipt PDF（CB-45：付款後已付款憑證）
+   * 與 Invoice 同版型(item table mode='invoice'),差異全在 totals 區:
+   * 標題 RECEIPT + Payment Method / Transaction Fee / Total Paid / PAID。
+   * fee/total_paid 讀 options.receipt(payment 列存值,不現算);產生前於
+   * _finalizeWithTotals 內做 live grand vs base_amount 對帳斷言(不一致 fail-loud)。
+   */
+  async function buildReceiptPdf(quoteData, dealer, shippingAddress, options = {}) {
+    const { markupPercent = 0, receipt = null } = options;
+    const { doc, y, headerContext } = await _initDocAndDrawTop(
+      quoteData, dealer, shippingAddress, options,
+      'RECEIPT'
+    );
+
+    const { tableEndY, notes } = _drawItemTable(doc, {
+          items:            quoteData.items,
+          mode:             'invoice',
+          startY:           y,
+          markupPercent:    markupPercent,
+          constructionType: quoteData.construction_type,
+          headerContext:    headerContext,
+        });
+
+    _finalizeWithTotals({
+      doc, quoteData, items: quoteData.items,
+      headerContext, tableEndY, notes,
+      showPrices: true, markupPercent,
+      receipt,
+    });
+
+    return doc;
+  }
+
+  /**
    * 建立 Draft Quote PDF（Step 3 預覽用）
    * 改動 13/14: 與 Invoice 同步 — Assemble Fee 併入 Subtotal,無細項。
    */
@@ -1522,6 +1627,9 @@ return total;
     if (type === 'invoice') {
       return `ProCraft DC - Invoice - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
     }
+    if (type === 'receipt') {
+      return `ProCraft DC - Receipt - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
+    }
     if (type === 'draft-quote') {
       return `ProCraft DC - Draft Quote - ${dealerUid || 'Dealer'} - ${_getNYDateString()}.pdf`;
     }
@@ -1572,6 +1680,7 @@ return total;
 
     buildPackingListPdf: buildPackingListPdf,
     buildInvoicePdf:     buildInvoicePdf,
+    buildReceiptPdf:     buildReceiptPdf,
     buildDraftQuotePdf:  buildDraftQuotePdf,
     getPdfFilename:      getPdfFilename,
   };

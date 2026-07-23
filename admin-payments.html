@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Payments</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
+      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF; --error:#C0392B;
+      --status-processing:#3B82F6; --status-confirmed:#16A34A; --status-failed:#C0392B; --status-cancelled:#7A8C82;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+
+    /* Filters */
+    .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; align-items: end; }
+    .filter-group { display: flex; flex-direction: column; gap: 5px; }
+    .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .filter-select, .filter-input { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--cream); }
+    .filter-select:focus, .filter-input:focus { outline: none; border-color: var(--gold); }
+    .filter-actions { display: flex; gap: 8px; align-items: end; }
+    .btn-filter { height: 36px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; }
+    .btn-filter:hover { background: var(--green-mid); }
+    .btn-reset { height: 36px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px; cursor: pointer; }
+    .btn-reset:hover { color: var(--text); }
+
+    /* Table */
+    .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
+    .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .table-count { font-size: 11px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
+    .td-dealer { font-weight: 500; }
+    .td-dealer-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .td-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 12px; }
+
+    /* ===== Awaiting Payment section ===== */
+    .awaiting-head-right { display: flex; align-items: center; gap: 12px; }
+    .awaiting-search { height: 30px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--cream); width: 200px; max-width: 46vw; }
+    .awaiting-search:focus { outline: none; border-color: var(--gold); }
+    .await-actions { display: flex; gap: 8px; white-space: nowrap; }
+    .await-wait { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+    /* ===== Ghost Payments alert (CB-43 幽靈結案) =====
+       緊急梯度最高:幽靈 > 催款 > 一般清單。
+       色彩沿用既有 error 色(#C0392B = --error):實色用 var(--error),
+       半透明用 rgba(192,57,43,α)(同 .modal-error 慣例,非新色);
+       Unknown 灰 rgba(122,140,130,α) = --muted(同 s-cancelled badge)。 */
+    .ghost-banner { background: rgba(192,57,43,0.06); border: 1px solid rgba(192,57,43,0.30); border-left: 4px solid var(--error); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+    .ghost-banner-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid rgba(192,57,43,0.18); }
+    .ghost-banner-title { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--error); }
+    .ghost-banner-title .gb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--error); flex: 0 0 auto; }
+    .ghost-banner-count { font-size: 11px; color: var(--error); white-space: nowrap; }
+    .ghost-banner-sub { padding: 10px 20px 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .ghost-banner-sub strong { color: var(--text); font-weight: 500; }
+    .ghost-steps { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+    .ghost-steps li { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .ghost-list { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .ghost-row { background: var(--white); border: 1px solid rgba(192,57,43,0.20); border-radius: 4px; padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+    .ghost-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 180px; flex: 1 1 auto; }
+    .ghost-row-dealer { font-size: 13px; font-weight: 500; color: var(--text); }
+    .ghost-row-po { font-size: 11px; color: var(--muted); }
+    .ghost-amount { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; }
+    .ghost-cause { display: inline-block; padding: 3px 9px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; background: rgba(192,57,43,0.10); color: var(--error); }
+    .ghost-cause.c-unknown { background: rgba(122,140,130,0.14); color: var(--muted); }
+    .ghost-qb { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .ghost-qb .qb-id { color: var(--text); font-variant-numeric: tabular-nums; }
+    .ghost-resolve { flex: 0 0 auto; background: var(--error); color: #fff; border: none; border-radius: 3px; padding: 7px 16px; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
+    .ghost-resolve:hover { opacity: 0.88; }
+    .ghost-resolve:disabled { opacity: 0.5; cursor: default; }
+
+    /* Payment status badge */
+    .pay-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+    .pay-badge.s-processing { background: rgba(59,130,246,0.1);  color: var(--status-processing); }
+    .pay-badge.s-confirmed  { background: rgba(22,163,74,0.1);   color: var(--status-confirmed); }
+    .pay-badge.s-failed     { background: rgba(192,57,43,0.1);   color: var(--status-failed); }
+    .pay-badge.s-cancelled  { background: rgba(122,140,130,0.14);color: var(--status-cancelled); }
+
+    /* Method label */
+    .method-label { font-size: 11px; letter-spacing: 0.04em; }
+
+    /* View button */
+    .btn-view { display: inline-flex; align-items: center; gap: 5px; background: transparent; color: var(--green-dark); border: 1px solid var(--border); border-radius: 3px; padding: 5px 12px; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; text-decoration: none; }
+    .btn-view:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* Loading / message */
+    .msg-block { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--green-dark); color: #fff; padding: 12px 22px; border-radius: 4px; font-size: 12px; letter-spacing: 0.03em; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 2000; max-width: 90%; }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.error { background: var(--error); }
+
+    /* ===== Detail page ===== */
+    .back-link { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-decoration: none; margin-bottom: 18px; }
+    .back-link:hover { color: var(--green-dark); }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
+    .detail-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 20px 22px; }
+    .detail-card.full { grid-column: 1 / -1; }
+    .section-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); margin-bottom: 14px; }
+    .detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border-bottom: 1px solid #EFEBE1; font-size: 13px; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row .lbl { color: var(--muted); }
+    .detail-row .val { text-align: right; font-weight: 500; word-break: break-word; }
+    .view-quote-link { display: inline-flex; align-items: center; gap: 5px; color: var(--green-dark); text-decoration: none; font-weight: 500; }
+    .view-quote-link:hover { color: var(--gold); }
+    .qb-link-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .btn-mini { background: transparent; border: 1px solid var(--border); border-radius: 3px; padding: 4px 10px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; color: var(--green-dark); text-decoration: none; }
+    .btn-mini:hover { border-color: var(--gold); color: var(--gold); }
+    .check-img-wrap { margin-top: 6px; }
+    .check-img { max-width: 100%; border: 1px solid var(--border); border-radius: 4px; display: block; }
+    .check-img-note { font-size: 12px; color: var(--muted); padding: 12px 0; }
+    .cancel-hist-item { padding: 10px 0; border-bottom: 1px solid #EFEBE1; font-size: 12px; }
+    .cancel-hist-item:last-child { border-bottom: none; }
+    .cancel-hist-item .ch-meta { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+    #detail-actions:not(:empty) { margin-bottom: 16px; }
+    .detail-actions-bar { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    /* ===== Offline / Reminder form (in #pickerModal, opened from Awaiting rows) ===== */
+    .modal.picker { max-width: 560px; }
+    .picker-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--green-dark); }
+    .picker-back { background: none; border: none; color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 0; margin-bottom: 14px; }
+    .picker-back:hover { color: var(--green-dark); }
+
+    /* ===== Modal shells (used by Stage-2 actions) ===== */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.45); display: none; align-items: center; justify-content: center; z-index: 1500; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: var(--white); border-radius: 6px; width: 100%; max-width: 460px; padding: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--green-dark); margin-bottom: 6px; }
+    .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label { display: block; font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .modal-field textarea, .modal-field input { width: 100%; border: 1px solid var(--border); border-radius: 3px; padding: 9px 11px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--cream); }
+    .modal-field textarea { min-height: 84px; resize: vertical; }
+    .modal-field textarea:focus, .modal-field input:focus { outline: none; border-color: var(--gold); }
+    .modal-error { font-size: 12px; color: var(--error); margin-top: 4px; margin-bottom: 10px; display: none; padding: 10px 12px; background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; }
+    .modal-error.show { display: block; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .btn-primary { padding: 10px 22px; background: var(--green-dark); border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: #fff; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-primary.danger { background: var(--error); }
+    .btn-primary:disabled { opacity: 0.55; cursor: default; }
+    .btn-secondary { padding: 10px 22px; background: transparent; border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 12px; letter-spacing: 0.05em; cursor: pointer; color: var(--muted); }
+    .btn-secondary:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- Unified Navigator (shared component). 'payments' is not yet in the admin nav map,
+     so no item highlights — adding a nav link is a separate follow-up, out of T5 scope. -->
+<div id="pcd-nav" data-page="payments"></div>
+
+<!-- ============================ LIST VIEW ============================ -->
+<div class="page" id="list-view" style="display:none">
+<div class="page-header">
+    <div class="page-title">Payments</div>
+  </div>
+
+  <!-- ===== Ghost Payments alert (CB-43):有未結案幽靈才 render,否則保持空 ===== -->
+  <div id="ghostBanner"></div>
+
+  <!-- ===== Awaiting Payment (quotes: status=Pending, no payment yet) ===== -->
+  <div class="table-wrap" style="margin-bottom:16px;">
+    <div class="table-header">
+      <span class="table-title">Awaiting Payment</span>
+      <div class="awaiting-head-right">
+        <input type="text" class="awaiting-search" id="awaitingSearch" placeholder="Search PO# / Dealer"/>
+        <span class="table-count" id="awaitingCount">—</span>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>PO#</th>
+          <th>Dealer</th>
+          <th>Grand Total</th>
+          <th>Waiting (approx.)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="awaitingBody">
+        <tr><td colspan="5" class="td-empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label class="filter-label">Status</label>
+      <select class="filter-select" id="filterStatus">
+        <option value="">All Statuses</option>
+        <option value="processing">Processing</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="failed">Failed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Method</label>
+      <select class="filter-select" id="filterMethod">
+        <option value="">All Methods</option>
+        <option value="card">Card</option>
+        <option value="ach">ACH</option>
+        <option value="check">Check</option>
+        <option value="offline">Offline</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">From</label>
+      <input type="date" class="filter-input" id="filterFrom"/>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">To</label>
+      <input type="date" class="filter-input" id="filterTo"/>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Search (PO# / Dealer)</label>
+      <input type="text" class="filter-input" id="filterSearch" placeholder="PDC00123 or company name"/>
+    </div>
+    <div class="filter-actions">
+      <button class="btn-filter" id="btnFilter">Filter</button>
+      <button class="btn-reset" id="btnReset">Reset</button>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="table-title">Payment Records</span>
+      <span class="table-count" id="listCount">—</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>PO#</th>
+          <th>Dealer</th>
+          <th>Method</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="listBody">
+        <tr><td colspan="6" class="td-empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================ DETAIL VIEW ============================ -->
+<!-- Filled by renderDetail() — implemented in the next delivery segment (T5 part 2). -->
+<div class="page" id="detail-view" style="display:none"></div>
+
+<!-- Shared action modal (Cancel / Confirm / Resend / Record Offline) -->
+<div class="modal-overlay" id="actionModal">
+  <div class="modal">
+    <div class="modal-title" id="amTitle"></div>
+    <div class="modal-sub" id="amSub"></div>
+    <div id="amFields"></div>
+    <div class="modal-error" id="amError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="amCancel">Cancel</button>
+      <button class="btn-primary" id="amConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pending-quote picker modal (Record Offline / Resend Reminder, quote-level) -->
+<div class="modal-overlay" id="pickerModal">
+  <div class="modal picker">
+    <div id="pickerBody"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/navigator.js"></script>
+<script src="components/footer.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════════
+// admin-payments.html — CB-43 T5 (Admin 付款管理頁)
+// Segment 1: Supabase init + 權限 gate + router + 列表頁
+// (詳情頁 renderDetail + 4 個 admin actions 於 Segment 2 補入)
+// ════════════════════════════════════════════════════════════════════
+const { createClient } = window.supabase;
+const _supabase = createClient(window.SB_URL, window.SB_KEY);
+
+// ---- state ----
+let allPayments = [];          // 全部 payments(created_at DESC)
+let quoteMap    = {};          // quote_id  -> quote row
+let dealerMap   = {};          // dealer_id -> dealer row
+
+// ---- 顯示對照 ----
+const methodLabel = { card:'Card', ach:'ACH', check:'Check', offline:'Offline' };
+const statusLabel = { processing:'Processing', confirmed:'Confirmed', failed:'Failed', cancelled:'Cancelled' };
+
+// ---- helpers ----
+function getParam(k) { return new URLSearchParams(window.location.search).get(k); }
+
+function money(v) {
+  const n = Number(v || 0);
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+         ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let _toastTimer = null;
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function () { t.className = 'toast'; }, 3200);
+}
+
+// quote / dealer 讀取(join 後)
+function quoteOf(p)  { return quoteMap[p.quote_id] || {}; }
+function dealerOf(p) { const q = quoteOf(p); return dealerMap[q.dealer_id] || {}; }
+
+// ---- 幽靈成因推導(定案正則,四條全對稱:正記號判定,認不出標 Unknown)----
+//   status='failed'    且 failure_reason='Payment timeout (7 days)' → Timeout(WF3 N12 正記號)
+//   status='cancelled' 且 cancellation_reason='Method changed'      → Method changed(WF1 N5c 正記號)
+//   status='cancelled' 且 reason 非空且≠上者                          → Admin cancelled
+//   其餘(含非正記號的 failed)                                        → Unknown(不猜)
+function ghostCause(p) {
+  if (p.status === 'failed') {
+    if ((p.failure_reason || '').trim() === 'Payment timeout (7 days)') return { label: 'Timeout', cls: '' };
+  }
+  if (p.status === 'cancelled') {
+    var reason = (p.cancellation_reason || '').trim();
+    if (reason === 'Method changed') return { label: 'Method changed', cls: '' };
+    if (reason)                      return { label: 'Admin cancelled', cls: '' };
+  }
+  return { label: 'Unknown', cls: 'c-unknown' };
+}
+
+// ---- 幽靈警示區:未結案幽靈(detected 有值 且 resolved 為空)才 render ----
+//   顯示看 resolved_at(非 detected_at):只要 admin 未按 Resolve,不論 alert 發過幾次都留在此區。
+function renderGhostBanner() {
+  var host = document.getElementById('ghostBanner');
+  if (!host) return;
+
+  var ghosts = allPayments.filter(function (p) {
+    return p.ghost_detected_at && !p.ghost_resolved_at;
+  });
+  if (!ghosts.length) { host.innerHTML = ''; return; }   // 無幽靈:維持現狀,不佔位
+
+  var rows = ghosts.map(function (p) {
+    var d = dealerOf(p);
+    var q = quoteOf(p);
+    var cause = ghostCause(p);
+    var invId = p.quickbooks_invoice_id || '—';
+    var payId = p.quickbooks_payment_id || '—';   // WF3 偵測者可能為 '—'(V7 反查待辦),屬預期
+    return '' +
+      '<div class="ghost-row">' +
+        '<div class="ghost-row-main">' +
+          '<span class="ghost-row-dealer">' + escapeHtml(d.company_name || '—') + '</span>' +
+          '<span class="ghost-row-po">PO# ' + escapeHtml(q.po_number || '—') + '</span>' +
+        '</div>' +
+        '<span class="ghost-amount">' + money(p.total_paid) + '</span>' +
+        '<span class="ghost-cause ' + cause.cls + '">' + escapeHtml(cause.label) + '</span>' +
+        '<div class="ghost-qb">' +
+          '<span>Inv <span class="qb-id">' + escapeHtml(invId) + '</span></span>' +
+          '<span>Pay <span class="qb-id">' + escapeHtml(payId) + '</span></span>' +
+        '</div>' +
+        '<button class="ghost-resolve" title="Only records this as manually handled and removes it from the list. Does not refund or modify QuickBooks." onclick="actResolveGhost(\'' + escapeHtml(p.id) + '\')">Resolve</button>' +
+      '</div>';
+  }).join('');
+
+  host.innerHTML = '' +
+    '<div class="ghost-banner">' +
+      '<div class="ghost-banner-head">' +
+        '<span class="ghost-banner-title"><span class="gb-dot"></span>Ghost Payments</span>' +
+        '<span class="ghost-banner-count">' + ghosts.length + ' unresolved</span>' +
+      '</div>' +
+      '<div class="ghost-banner-sub">' +
+        '<strong>These invoices were cancelled or failed, but were paid — the money is in QuickBooks and usually needs to be refunded.</strong>' +
+        '<ol class="ghost-steps">' +
+          '<li>Use the Inv / Pay ID on each row to find the invoice in QuickBooks and confirm the balance is $0 (payment received).</li>' +
+          '<li>Refund the customer manually in QuickBooks.</li>' +
+          '<li>Return here and click <strong>Resolve</strong> to record it as handled — this only records it, it does not refund automatically.</li>' +
+        '</ol>' +
+      '</div>' +
+'<div class="ghost-list">' + rows + '</div>' +
+    '</div>';
+}
+
+// ---- Resolve Ghost Payment ----
+//   admin 在 QBO 對帳/退款後,按此記錄「已處理」→ 寫 ghost_resolved_at + note。
+//   只寫 payments 稽核欄,不動 quotes(resolve 是稽核標記,非狀態轉移)、不碰 QBO。
+function actResolveGhost(paymentId) {
+  const p = allPayments.find(function (x) { return x.id === paymentId; });
+  if (!p) { showToast('Payment not found. Please refresh.', true); return; }
+  const ph = 'e.g. Refunded ' + money(p.total_paid) + ' in QuickBooks';
+  openActionModal({
+    title: 'Resolve Ghost Payment',
+    sub: 'Mark this as handled after you have reconciled or refunded it in QuickBooks. This only records that it was resolved — it does not refund or modify QuickBooks.',
+    fieldsHtml:
+      '<div class="modal-field"><label>Resolution Note (optional)</label>' +
+      '<textarea id="amGhostNote" placeholder="' + escapeHtml(ph) + '"></textarea></div>',
+    confirmLabel: 'Mark as Resolved',
+    danger: false,
+    onConfirm: async function () {
+      const note = (document.getElementById('amGhostNote').value || '').trim();
+      const upd = await _supabase.from('payments')
+        .update({
+          ghost_resolved_at: new Date().toISOString(),
+          ghost_resolution_note: note || null,
+        }, { count: 'exact' })
+        .eq('id', paymentId);
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) throw new Error("Couldn't mark this payment resolved (0 rows). 狀態可能不一致,請人工核對。");
+      showToast('Ghost payment resolved.');
+      return true;
+    },
+    onDone: async function () {
+      try {
+        await loadData();
+        renderList(allPayments);
+        renderGhostBanner();
+      } catch (err) {
+        console.error('[admin-payments] refresh after resolve failed:', err);
+        showToast('Resolved, but refresh failed. Please reload.', true);
+      }
+    },
+  });
+}
+// ════════════════════════════════════════════════════════════════════
+// Init:權限 gate + router
+// ════════════════════════════════════════════════════════════════════
+(async function init() {
+  // 1) 未登入 → login
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  // 2) 非 admin/super_admin → dashboard(client 端 gate,照現有 admin 頁讀 role)
+  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  if (!['admin', 'super_admin'].includes(me && me.role)) { window.location.href = 'dashboard.html'; return; }
+
+  // 3) router:有 payment_id → 詳情;否則 → 列表
+  const pid = getParam('payment_id');
+  if (pid) {
+    showDetail(pid);
+  } else {
+    showList();
+  }
+})();
+
+// ════════════════════════════════════════════════════════════════════
+// 資料載入:三段分開撈、client join(零 embed 依賴)
+//   ① payments 全撈(created_at DESC)
+//   ② 依 quote_id 撈 quotes
+//   ③ 依 quotes.dealer_id 撈 dealers
+// ════════════════════════════════════════════════════════════════════
+async function loadData() {
+  const { data: payments, error: pErr } = await _supabase
+    .from('payments')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (pErr) throw pErr;
+  allPayments = payments || [];
+
+  // quotes
+  quoteMap = {};
+  const quoteIds = Array.from(new Set(allPayments.map(function (p) { return p.quote_id; }).filter(Boolean)));
+  if (quoteIds.length) {
+    const { data: quotes, error: qErr } = await _supabase
+      .from('quotes')
+      .select('id, po_number, job_name, grand_total, status, dealer_id')
+      .in('id', quoteIds);
+    if (qErr) throw qErr;
+    (quotes || []).forEach(function (q) { quoteMap[q.id] = q; });
+  }
+
+  // dealers
+  dealerMap = {};
+  const dealerIds = Array.from(new Set(Object.values(quoteMap).map(function (q) { return q.dealer_id; }).filter(Boolean)));
+  if (dealerIds.length) {
+    const { data: dealers, error: dErr } = await _supabase
+      .from('dealers')
+      .select('id, company_name, contact_name, email')
+      .in('id', dealerIds);
+    if (dErr) throw dErr;
+    (dealers || []).forEach(function (d) { dealerMap[d.id] = d; });
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 列表頁
+// ════════════════════════════════════════════════════════════════════
+async function showList() {
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+
+  // 綁定 filter 按鈕(只綁一次)
+  document.getElementById('btnFilter').onclick = applyFilters;
+  document.getElementById('btnReset').onclick  = resetFilters;
+  document.getElementById('filterSearch').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') applyFilters();
+  });
+
+  try {
+    await loadData();
+    renderList(allPayments);
+    renderGhostBanner();
+  } catch (err) {
+    console.error('[admin-payments] loadData failed:', err);
+    document.getElementById('listBody').innerHTML =
+      '<tr><td colspan="6" class="td-empty">Failed to load payments. Please refresh.</td></tr>';
+    document.getElementById('listCount').textContent = '—';
+    showToast('Failed to load payments.', true);
+  }
+
+  // Awaiting Payment 區:搜尋(只綁一次)+ 載入
+  document.getElementById('awaitingSearch').oninput = function (e) { renderAwaiting(e.target.value); };
+  try {
+    await loadAwaiting();
+    renderAwaiting('');
+  } catch (err) {
+    console.error('[admin-payments] loadAwaiting failed:', err);
+    document.getElementById('awaitingBody').innerHTML =
+      '<tr><td colspan="5" class="td-empty">Failed to load awaiting quotes.</td></tr>';
+    document.getElementById('awaitingCount').textContent = '—';
+  }
+}
+
+function applyFilters() {
+  const st     = document.getElementById('filterStatus').value;
+  const mt     = document.getElementById('filterMethod').value;
+  const from   = document.getElementById('filterFrom').value;   // yyyy-mm-dd or ''
+  const to     = document.getElementById('filterTo').value;
+  const search = document.getElementById('filterSearch').value.trim().toLowerCase();
+
+  const fromTs = from ? new Date(from + 'T00:00:00').getTime() : null;
+  const toTs   = to   ? new Date(to   + 'T23:59:59').getTime() : null;
+
+  const rows = allPayments.filter(function (p) {
+    if (st && p.status !== st) return false;
+    if (mt && p.payment_method !== mt) return false;
+
+    if (fromTs || toTs) {
+      const ts = p.created_at ? new Date(p.created_at).getTime() : 0;
+      if (fromTs && ts < fromTs) return false;
+      if (toTs && ts > toTs) return false;
+    }
+
+    if (search) {
+      const q  = quoteOf(p);
+      const d  = dealerOf(p);
+      const po = (q.po_number || '').toLowerCase();
+      const cn = (d.company_name || '').toLowerCase();
+      if (po.indexOf(search) === -1 && cn.indexOf(search) === -1) return false;
+    }
+    return true;
+  });
+
+  renderList(rows);
+}
+
+function resetFilters() {
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterMethod').value = '';
+  document.getElementById('filterFrom').value   = '';
+  document.getElementById('filterTo').value     = '';
+  document.getElementById('filterSearch').value = '';
+  renderList(allPayments);
+}
+
+function renderList(rows) {
+  const body = document.getElementById('listBody');
+  document.getElementById('listCount').textContent =
+    rows.length + (rows.length === 1 ? ' payment' : ' payments');
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="td-empty">No payments match your filters.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(function (p) {
+    const q  = quoteOf(p);
+    const d  = dealerOf(p);
+    const sc = 's-' + (p.status || '');
+    return '<tr>' +
+      '<td>' + escapeHtml(q.po_number || '—') +
+        (q.job_name ? '<div class="td-dealer-sub">' + escapeHtml(q.job_name) + '</div>' : '') + '</td>' +
+      '<td><div class="td-dealer">' + escapeHtml(d.company_name || '—') + '</div>' +
+        '<div class="td-dealer-sub">' + escapeHtml(d.contact_name || '') + '</div></td>' +
+      '<td><span class="method-label">' + escapeHtml(methodLabel[p.payment_method] || p.payment_method || '—') + '</span></td>' +
+      '<td>' + money(p.total_paid) + '</td>' +
+      '<td><span class="pay-badge ' + sc + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span>' +
+        '<div class="td-dealer-sub">' + escapeHtml(fmtDate(p.created_at)) + '</div></td>' +
+      '<td><a class="btn-view" href="admin-payments.html?payment_id=' + encodeURIComponent(p.id) + '">View</a></td>' +
+'</tr>';
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Awaiting Payment(quotes: status='Pending',尚無 payment 列)
+//   排序與「已等待天數」同源 admin_notified_at ASC(等最久排最上;NULL 墊底、顯示 —;近似值)。
+//   列動作複用 picker 的 Offline/Reminder 表單(pickerSelected + #pickerModal)。
+// ════════════════════════════════════════════════════════════════════
+let awaitingQuotes  = [];
+let awaitingDealers = {};
+let _awaitingTerm   = '';
+
+async function loadAwaiting() {
+  const { data: quotes, error } = await _supabase
+    .from('quotes')
+    .select('id, po_number, job_name, grand_total, dealer_id, admin_notified_at')
+    .eq('status', 'Pending')
+    .order('admin_notified_at', { ascending: true, nullsFirst: false });   // 等最久排最上;NULL 墊底
+  if (error) throw error;
+  awaitingQuotes = quotes || [];
+
+  awaitingDealers = {};
+  const ids = Array.from(new Set(awaitingQuotes.map(function (q) { return q.dealer_id; }).filter(Boolean)));
+  if (ids.length) {
+    const { data: dealers, error: dErr } = await _supabase
+      .from('dealers').select('id, company_name').in('id', ids);
+    if (dErr) throw dErr;
+    (dealers || []).forEach(function (d) { awaitingDealers[d.id] = d; });
+  }
+}
+
+function waitingDays(iso) {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return null;
+  return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+}
+
+function renderAwaiting(term) {
+  _awaitingTerm = term || '';
+  const t = _awaitingTerm.trim().toLowerCase();
+  const rows = awaitingQuotes.filter(function (q) {
+    if (!t) return true;
+    const d = awaitingDealers[q.dealer_id] || {};
+    return (q.po_number || '').toLowerCase().indexOf(t) !== -1
+        || (d.company_name || '').toLowerCase().indexOf(t) !== -1;
+  });
+
+  document.getElementById('awaitingCount').textContent =
+    rows.length + (rows.length === 1 ? ' quote' : ' quotes');
+
+  const body = document.getElementById('awaitingBody');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" class="td-empty">' +
+      (awaitingQuotes.length ? 'No quotes match your search.' : 'No quotes awaiting payment.') + '</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(function (q) {
+    const d = awaitingDealers[q.dealer_id] || {};
+    const days = waitingDays(q.admin_notified_at);
+    const daysStr = (days == null) ? '—' : ('~' + days + (days === 1 ? ' day' : ' days'));
+    return '<tr>' +
+      '<td>' + escapeHtml(q.po_number || '(no PO#)') +
+        (q.job_name ? '<div class="td-dealer-sub">' + escapeHtml(q.job_name) + '</div>' : '') + '</td>' +
+      '<td class="td-dealer">' + escapeHtml(d.company_name || '—') + '</td>' +
+      '<td>' + money(q.grand_total) + '</td>' +
+      '<td><span class="await-wait">' + daysStr + '</span></td>' +
+      '<td><div class="await-actions">' +
+        '<button class="btn-mini" onclick="awaitingOffline(\'' + q.id + '\')">Record Offline</button>' +
+        '<button class="btn-mini" onclick="awaitingResend(\'' + q.id + '\')">Send Reminder</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+// 列動作:設定 pickerSelected → 開既有 Offline/Reminder 表單(邏輯複用,契約一致)
+function awaitingOffline(id) {
+  pickerSelected = awaitingQuotes.find(function (q) { return q.id === id; }) || null;
+  if (!pickerSelected) return;
+  document.getElementById('pickerModal').classList.add('show');
+  pickerOffline();
+}
+
+function awaitingResend(id) {
+  pickerSelected = awaitingQuotes.find(function (q) { return q.id === id; }) || null;
+  if (!pickerSelected) return;
+  document.getElementById('pickerModal').classList.add('show');
+  pickerResend();
+}
+
+// 動作成功後同時刷新兩區(Payment Records + Awaiting)
+async function refreshAll() {
+  await loadData(); applyFilters();
+  await loadAwaiting(); renderAwaiting(_awaitingTerm);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 詳情頁(?payment_id=xxx)
+// ════════════════════════════════════════════════════════════════════
+let detailPayment       = null;   // 目前這筆 payment
+let detailQuote         = null;   // 對應 quote
+let detailDealer        = null;   // 對應 dealer
+let detailQuotePayments = [];     // 同 quote 的所有 payments(created_at DESC)
+                                  // —— 供 Cancellation History 與(Segment 2)最新判定
+
+async function showDetail(paymentId) {
+  document.getElementById('list-view').style.display = 'none';
+  const view = document.getElementById('detail-view');
+  view.style.display = 'block';
+  view.innerHTML = '<div class="msg-block">Loading…</div>';
+
+  try {
+    await loadDetail(paymentId);
+    renderDetail();
+  } catch (err) {
+    console.error('[admin-payments] loadDetail failed:', err);
+    view.innerHTML =
+      '<a class="back-link" href="admin-payments.html">← Back to Payments</a>' +
+      '<div class="msg-block">Failed to load this payment. It may not exist, or please refresh.</div>';
+  }
+}
+
+async function loadDetail(paymentId) {
+  // 1) 這筆 payment
+  const { data: pay, error: pErr } = await _supabase
+    .from('payments').select('*').eq('id', paymentId).single();
+  if (pErr) throw pErr;
+  detailPayment = pay;
+
+  // 2) 對應 quote
+  detailQuote = null;
+  if (pay.quote_id) {
+    const { data: q, error: qErr } = await _supabase
+      .from('quotes').select('id, po_number, job_name, grand_total, status, dealer_id')
+      .eq('id', pay.quote_id).single();
+    if (qErr) throw qErr;
+    detailQuote = q;
+  }
+
+  // 3) 對應 dealer
+  detailDealer = null;
+  if (detailQuote && detailQuote.dealer_id) {
+    const { data: d, error: dErr } = await _supabase
+      .from('dealers').select('id, company_name, contact_name, email')
+      .eq('id', detailQuote.dealer_id).single();
+    if (dErr) throw dErr;
+    detailDealer = d;
+  }
+
+  // 4) 同 quote 的所有 payments(供 Cancellation History + 最新判定)
+  detailQuotePayments = [];
+  if (pay.quote_id) {
+    const { data: list, error: lErr } = await _supabase
+      .from('payments').select('*').eq('quote_id', pay.quote_id)
+      .order('created_at', { ascending: false });
+    if (lErr) throw lErr;
+    detailQuotePayments = list || [];
+  }
+}
+
+function renderDetail() {
+  const p = detailPayment;
+  const q = detailQuote  || {};
+  const d = detailDealer || {};
+
+  const method    = methodLabel[p.payment_method] || p.payment_method || '—';
+  const pct       = (p.fee_percentage == null ? 0 : p.fee_percentage);
+  const feeStr    = pct + '% + ' + money(p.fee_amount);
+  const submitted = p.submitted_at || p.created_at;
+
+  // QuickBooks 區:任一欄位有值才顯示
+  const hasQB = !!(p.quickbooks_invoice_id || p.quickbooks_payment_link || p.quickbooks_customer_id || p.quickbooks_payment_id);
+  let qbHtml = '';
+  if (hasQB) {
+    let linkRow = '';
+    if (p.quickbooks_payment_link) {
+      linkRow =
+        '<div class="detail-row"><span class="lbl">Payment Link</span>' +
+        '<span class="val"><span class="qb-link-row">' +
+          '<button class="btn-mini" onclick="copyQbLink()">Copy</button>' +
+          '<a class="btn-mini" href="' + escapeHtml(p.quickbooks_payment_link) + '" target="_blank" rel="noopener">Open</a>' +
+        '</span></span></div>';
+    }
+    qbHtml =
+      '<div class="detail-card">' +
+        '<div class="section-title">QuickBooks</div>' +
+        (p.quickbooks_invoice_id  ? '<div class="detail-row"><span class="lbl">Invoice ID</span><span class="val">'  + escapeHtml(p.quickbooks_invoice_id)  + '</span></div>' : '') +
+        linkRow +
+        (p.quickbooks_customer_id ? '<div class="detail-row"><span class="lbl">Customer ID</span><span class="val">' + escapeHtml(p.quickbooks_customer_id) + '</span></div>' : '') +
+      '</div>';
+  }
+
+  // Check 圖:method=check 才顯示;有 path 者於下方 async 補 signed URL
+  let checkHtml = '';
+  if (p.payment_method === 'check') {
+    checkHtml =
+      '<div class="detail-card full">' +
+        '<div class="section-title">Check Image</div>' +
+        (p.check_image_url
+          ? '<div class="check-img-wrap" id="checkImgWrap"><div class="check-img-note">Loading image…</div></div>'
+          : '<div class="check-img-note">No check image on file.</div>') +
+      '</div>';
+  }
+
+  // Cancellation History:同 quote 之前 status='cancelled' 的紀錄
+  const cancelled = detailQuotePayments.filter(function (x) { return x.status === 'cancelled'; });
+  let cancelHtml = '';
+  if (cancelled.length) {
+    cancelHtml =
+      '<div class="detail-card full">' +
+        '<div class="section-title">Cancellation History</div>' +
+        cancelled.map(function (x) {
+          return '<div class="cancel-hist-item">' +
+            '<div class="ch-meta">' + escapeHtml(fmtDateTime(x.cancelled_at || x.created_at)) +
+              ' · ' + escapeHtml(methodLabel[x.payment_method] || x.payment_method || '') +
+              ' · ' + money(x.total_paid) + '</div>' +
+            '<div>' + escapeHtml(x.cancellation_reason || '(no reason recorded)') + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+  }
+
+  const view = document.getElementById('detail-view');
+  view.innerHTML =
+    '<a class="back-link" href="admin-payments.html">← Back to Payments</a>' +
+    '<div class="page-header"><div class="page-title">Payment Detail</div>' +
+      '<span class="pay-badge s-' + (p.status || '') + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span>' +
+    '</div>' +
+
+    // Admin Actions 容器(移到最上方:header 下、資料卡之上)
+    '<div id="detail-actions"></div>' +
+
+    '<div class="detail-grid">' +
+
+      // Dealer
+      '<div class="detail-card">' +
+        '<div class="section-title">Dealer</div>' +
+        '<div class="detail-row"><span class="lbl">Company</span><span class="val">' + escapeHtml(d.company_name || '—') + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Contact</span><span class="val">' + escapeHtml(d.contact_name || '—') + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Quote</span><span class="val">' +
+          (q.id ? '<a class="view-quote-link" href="quote-detail.html?id=' + encodeURIComponent(q.id) + '">' + escapeHtml(q.po_number || 'View Quote') + ' →</a>' : '—') +
+        '</span></div>' +
+      '</div>' +
+
+      // Payment amounts
+      '<div class="detail-card">' +
+        '<div class="section-title">Payment</div>' +
+        '<div class="detail-row"><span class="lbl">Method</span><span class="val">' + escapeHtml(method) + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Base Amount</span><span class="val">' + money(p.base_amount) + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Transaction Fee</span><span class="val">' + escapeHtml(feeStr) + '</span></div>' +
+        '<div class="detail-row"><span class="lbl">Total Paid</span><span class="val">' + money(p.total_paid) + '</span></div>' +
+        (p.payment_method === 'offline' && p.offline_note
+          ? '<div class="detail-row"><span class="lbl">Note</span><span class="val">' + escapeHtml(p.offline_note) + '</span></div>' : '') +
+      '</div>' +
+
+      qbHtml +
+
+      // Status
+      '<div class="detail-card">' +
+        '<div class="section-title">Status</div>' +
+        '<div class="detail-row"><span class="lbl">Payment Status</span><span class="val"><span class="pay-badge s-' + (p.status || '') + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span></span></div>' +
+        '<div class="detail-row"><span class="lbl">Submitted</span><span class="val">' + escapeHtml(fmtDateTime(submitted)) + '</span></div>' +
+        (q.status ? '<div class="detail-row"><span class="lbl">Order Status</span><span class="val">' + escapeHtml(q.status) + '</span></div>' : '') +
+      '</div>' +
+
+      checkHtml +
+      cancelHtml +
+    '</div>';
+
+  renderActions();
+
+  // Check 圖 signed URL(async 補;private bucket 存 path,需簽名才可顯示)
+  if (p.payment_method === 'check' && p.check_image_url) {
+    loadCheckImage(p.check_image_url);
+  }
+}
+
+async function loadCheckImage(path) {
+  const wrap = document.getElementById('checkImgWrap');
+  if (!wrap) return;
+  try {
+    const { data, error } = await _supabase.storage.from('payment-checks').createSignedUrl(path, 3600);
+    if (error || !data || !data.signedUrl) throw (error || new Error('no signed url'));
+    const img = document.createElement('img');
+    img.className = 'check-img';
+    img.alt = 'Check image';
+    img.src = data.signedUrl;
+    wrap.innerHTML = '';
+    wrap.appendChild(img);
+  } catch (err) {
+    console.error('[admin-payments] createSignedUrl failed:', err);
+    wrap.innerHTML = '<div class="check-img-note">Unable to load check image.</div>';
+  }
+}
+
+function copyQbLink() {
+  const link = detailPayment && detailPayment.quickbooks_payment_link;
+  if (!link) return;
+  navigator.clipboard.writeText(link).then(
+    function () { showToast('Payment link copied.'); },
+    function () { showToast('Copy failed.', true); }
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Admin Actions
+//   寫入順序(裁決 #1):一律先 quotes(count:'exact'),成功後才動 payments。
+//   count=0 → throw + UI 明示「狀態可能不一致」,不假成功。
+//   email 一律最後、非阻斷、log only、不回滾。成功後由 modal controller re-fetch 重繪。
+//   最新 payment 判定(裁決 #4):detailQuotePayments[0](created_at DESC)。
+// ════════════════════════════════════════════════════════════════════
+
+// send-payment-email:Bearer only(無 apikey),失敗只 log、不阻斷、不 throw。
+async function sendPaymentEmail(payload) {
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    await fetch(window.SB_URL + '/functions/v1/send-payment-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (emailErr) {
+    console.error('[admin-payments] send-payment-email failed (non-blocking):', emailErr);
+  }
+}
+
+// 依 quote / payment 狀態條件渲染 action bar
+function renderActions() {
+  const host = document.getElementById('detail-actions');
+  if (!host) return;
+  const q = detailQuote || {};
+  const p = detailPayment;
+  const latest = detailQuotePayments[0] || null;
+  const isThisLatest = !!(latest && p && latest.id === p.id);
+
+  const btns = [];
+
+  // Confirm / Cancel:quote=Payment Processing 且「這筆」就是最新且 processing
+  //（Offline / Resend 已移至列表頁 picker;詳情頁只留 Confirm / Cancel)
+  if (q.status === 'Payment Processing' && p.status === 'processing' && isThisLatest) {
+    btns.push('<button class="btn-primary" onclick="actConfirm()">Confirm Payment Received</button>');
+    btns.push('<button class="btn-primary danger" onclick="actCancel()">Cancel This Payment</button>');
+  }
+
+  host.innerHTML = btns.length
+    ? '<div class="detail-card full"><div class="section-title">Admin Actions</div>' +
+      '<div class="detail-actions-bar">' + btns.join('') + '</div></div>'
+    : '';
+}
+
+// ---- 共用 modal controller ----
+let _amOnConfirm = null;
+let _amOnDone = null;
+
+function openActionModal(cfg) {
+  document.getElementById('amTitle').textContent = cfg.title || '';
+  document.getElementById('amSub').textContent   = cfg.sub || '';
+  document.getElementById('amFields').innerHTML  = cfg.fieldsHtml || '';
+  const errEl = document.getElementById('amError');
+  errEl.textContent = ''; errEl.className = 'modal-error';
+  const confirmBtn = document.getElementById('amConfirm');
+  confirmBtn.textContent = cfg.confirmLabel || 'Confirm';
+  confirmBtn.className = 'btn-primary' + (cfg.danger ? ' danger' : '');
+  confirmBtn.disabled = false;
+  _amOnConfirm = cfg.onConfirm || null;
+  _amOnDone    = cfg.onDone || null;
+  document.getElementById('actionModal').classList.add('show');
+}
+
+function closeActionModal() {
+  document.getElementById('actionModal').classList.remove('show');
+  _amOnConfirm = null;
+  _amOnDone    = null;
+}
+
+function amShowError(msg) {
+  const errEl = document.getElementById('amError');
+  errEl.textContent = msg;
+  errEl.className = 'modal-error show';
+}
+
+function wireActionModal() {
+  document.getElementById('amCancel').onclick = closeActionModal;
+  document.getElementById('amConfirm').onclick = async function () {
+    if (!_amOnConfirm) return;
+    const btn = document.getElementById('amConfirm');
+    document.getElementById('amError').className = 'modal-error';  // 清錯誤
+    btn.disabled = true;
+    try {
+      const ok = await _amOnConfirm();
+      if (ok === false) { btn.disabled = false; return; }   // 驗證未過:錯誤已顯示,留在 modal
+      const onDone = _amOnDone;                             // 先捕捉(closeActionModal 會清空)
+      const pid = detailPayment ? detailPayment.id : null;
+      closeActionModal();
+      if (onDone)   { onDone(); }                           // list 情境:刷新幽靈區+主表
+      else if (pid) { showDetail(pid); }                    // detail 情境(Confirm/Cancel):維持原樣
+    } catch (err) {
+      console.error('[admin-payments] action failed:', err);
+      amShowError(err.message || 'Action failed. Please try again.');
+      btn.disabled = false;
+    }
+  };
+}
+
+// ---- Cancel This Payment ----
+  
+function actCancel() {
+  openActionModal({
+    title: 'Cancel This Payment',
+    sub: 'The order will return to Pending and the dealer will be notified. This cannot be undone.',
+    fieldsHtml: '<div class="modal-field"><label>Cancellation Reason</label>' +
+      '<textarea id="amReason" placeholder="Why is this payment being cancelled?"></textarea></div>',
+    confirmLabel: 'Cancel Payment',
+    danger: true,
+    onConfirm: async function () {
+      const reason = (document.getElementById('amReason').value || '').trim();
+      if (!reason) { amShowError('Please enter a cancellation reason.'); return false; }
+
+      // ① quotes → Pending
+      const upd = await _supabase.from('quotes')
+        .update({ status: 'Pending' }, { count: 'exact' })
+        .eq('id', detailQuote.id);
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ② payments → cancelled
+      const { data: { session } } = await _supabase.auth.getSession();
+      const updP = await _supabase.from('payments')
+        .update({
+          status: 'cancelled',
+          cancellation_reason: reason,
+          cancelled_by: session.user.id,
+          cancelled_at: new Date().toISOString(),
+        }, { count: 'exact' })
+        .eq('id', detailPayment.id);
+      if (updP.error) throw updP.error;
+      if (updP.count === 0) throw new Error("Order returned to Pending but the payment row didn't update (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ③ email(非阻斷)
+      await sendPaymentEmail({ type: 'payment_cancelled', quote_id: detailQuote.id, payment_id: detailPayment.id });
+      showToast('Payment cancelled.');
+      return true;
+    }
+  });
+}
+
+// ---- 3. Confirm Payment Received ----
+function actConfirm() {
+  openActionModal({
+    title: 'Confirm Payment Received',
+    sub: 'This marks the payment as confirmed and advances the order to Order Processing. The dealer will be notified.',
+    fieldsHtml: '',
+    confirmLabel: 'Confirm Payment',
+    danger: false,
+    onConfirm: async function () {
+      // ① quotes → Order Processing
+      const upd = await _supabase.from('quotes')
+        .update({ status: 'Order Processing' }, { count: 'exact' })
+        .eq('id', detailQuote.id);
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ② payments → confirmed
+      const { data: { session } } = await _supabase.auth.getSession();
+      const updP = await _supabase.from('payments')
+        .update({
+          status: 'confirmed',
+          confirmed_by: session.user.id,
+          confirmed_at: new Date().toISOString(),
+        }, { count: 'exact' })
+        .eq('id', detailPayment.id);
+      if (updP.error) throw updP.error;
+      if (updP.count === 0) throw new Error("Order advanced but the payment row didn't update (0 rows). 狀態可能不一致,請人工核對。");
+
+      // ③ email(非阻斷)
+      await sendPaymentEmail({ type: 'payment_confirmed', quote_id: detailQuote.id, payment_id: detailPayment.id });
+      showToast('Payment confirmed.');
+      return true;
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Offline / Reminder 表單(quote 層級,由 Awaiting 區的列動作開啟)
+//   pickerSelected = 目標 quote;#pickerModal 承載表單。
+//   picker「選單/搜尋」入口已於 T5-B 移除,Awaiting 區直接每列帶動作。
+// ════════════════════════════════════════════════════════════════════
+let pickerSelected = null;
+
+function closePendingPicker() {
+  document.getElementById('pickerModal').classList.remove('show');
+  pickerSelected = null;
+}
+
+// ---- Offline(quote 層級)----
+function pickerOffline() {
+  const q = pickerSelected;
+  const defaultAmt = (q && q.grand_total != null) ? Number(q.grand_total) : '';
+  document.getElementById('pickerBody').innerHTML =
+    '<button class="picker-back" onclick="closePendingPicker()">← Back</button>' +
+    '<div class="picker-title" style="margin-bottom:6px;">Record Offline Payment</div>' +
+    '<div class="modal-sub">' + escapeHtml(q.po_number || 'This quote') + ' — advances the order to Order Processing and notifies the dealer.</div>' +
+    '<div class="modal-field"><label>Amount (USD)</label>' +
+      '<input type="number" id="pkAmount" min="0" step="0.01" value="' + (defaultAmt === '' ? '' : defaultAmt) + '"/></div>' +
+    '<div class="modal-field"><label>Note (method / reference — saved for audit)</label>' +
+      '<input type="text" id="pkNote" placeholder="e.g. Wire ref #12345"/></div>' +
+    '<div class="modal-error" id="pkError"></div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="closePendingPicker()">Back</button>' +
+      '<button class="btn-primary" id="pkConfirm" onclick="doPickerOffline()">Record Payment</button>' +
+    '</div>';
+}
+
+async function doPickerOffline() {
+  const q = pickerSelected;
+  const amount = parseFloat(document.getElementById('pkAmount').value);
+  const note = (document.getElementById('pkNote').value || '').trim();
+  const errEl = document.getElementById('pkError');
+  errEl.className = 'modal-error';
+  if (isNaN(amount) || amount <= 0) {
+    errEl.textContent = 'Please enter a valid amount greater than 0.';
+    errEl.className = 'modal-error show';
+    return;
+  }
+  const btn = document.getElementById('pkConfirm');
+  btn.disabled = true;
+  try {
+    // ① quotes → Order Processing;WHERE 帶 status='Pending' 併發防護(裁決 Q1)
+    const upd = await _supabase.from('quotes')
+      .update({ status: 'Order Processing' }, { count: 'exact' })
+      .eq('id', q.id).eq('status', 'Pending');
+    if (upd.error) throw upd.error;
+    if (upd.count === 0) throw new Error('訂單狀態已變更,請重新整理。');
+
+    // ② INSERT offline payment(含 offline_note)
+    const { data: { session } } = await _supabase.auth.getSession();
+    const ins = await _supabase.from('payments')
+      .insert({
+        quote_id:       q.id,
+        payment_method: 'offline',
+        base_amount:    amount,
+        fee_percentage: 0,
+        fee_amount:     0,
+        total_paid:     amount,
+        status:         'confirmed',
+        offline_note:   note || null,
+        confirmed_by:   session.user.id,
+        confirmed_at:   new Date().toISOString(),
+      })
+      .select('id').single();
+    if (ins.error) throw ins.error;
+
+    // ③ email(非阻斷)
+    await sendPaymentEmail({ type: 'payment_confirmed', quote_id: q.id, payment_id: ins.data.id });
+
+    closePendingPicker();
+    showToast('Offline payment recorded.');
+    await refreshAll();   // 同時刷新 Payment Records + Awaiting
+  } catch (err) {
+    console.error('[admin-payments] picker offline failed:', err);
+    errEl.textContent = err.message || 'Failed. Please try again.';
+    errEl.className = 'modal-error show';
+    btn.disabled = false;
+  }
+}
+
+// ---- Resend Reminder(quote 層級;只 email,不改狀態)----
+function pickerResend() {
+  const q = pickerSelected;
+  document.getElementById('pickerBody').innerHTML =
+    '<button class="picker-back" onclick="closePendingPicker()">← Back</button>' +
+    '<div class="picker-title" style="margin-bottom:6px;">Resend Payment Reminder</div>' +
+    '<div class="modal-sub">Re-send the payment reminder email to the dealer for ' + escapeHtml(q.po_number || 'this quote') + '. No status will change.</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="closePendingPicker()">Back</button>' +
+      '<button class="btn-primary" id="pkConfirm" onclick="doPickerResend()">Send Reminder</button>' +
+    '</div>';
+}
+
+async function doPickerResend() {
+  const q = pickerSelected;
+  const btn = document.getElementById('pkConfirm');
+  btn.disabled = true;
+  await sendPaymentEmail({ type: 'payment_reminder', quote_id: q.id });   // 非阻斷、不 throw
+  closePendingPicker();
+  showToast('Reminder sent.');
+}
+
+// modal 按鈕綁定(頁載入即綁一次;modal DOM 為靜態,存在於 body)
+wireActionModal();
+  
+</script>
+
+<script src="components/feedback-widget.js?v=1.0"></script>
+</body>
+</html>

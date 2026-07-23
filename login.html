@@ -93,6 +93,17 @@
       display: none;
     }
     .error-msg.show { display: block; }
+    .info-msg {
+      background: rgba(62,90,66,0.06);
+      border: 1px solid rgba(62,90,66,0.22);
+      border-radius: 3px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--green-dark);
+      margin-bottom: 18px;
+      display: none;
+    }
+    .info-msg.show { display: block; }
     .field { margin-bottom: 18px; }
     .field label {
       display: block;
@@ -198,6 +209,7 @@
     <div class="card-title">Sign In</div>
     <div class="card-subtitle">Enter your credentials to access your account</div>
     <div class="error-msg" id="errorMsg"></div>
+    <div class="info-msg" id="infoMsg"></div>
     <div class="field">
       <label>Email Address</label>
       <input type="email" id="email" placeholder="you@company.com" autocomplete="email"/>
@@ -206,7 +218,7 @@
       <label>Password</label>
       <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
     </div>
-    <a href="#" class="forgot" onclick="forgotPassword(event)">Forgot password?</a>
+    <a href="#" class="forgot" id="forgotLink" onclick="forgotPassword(event)">Forgot password?</a>
     <button class="btn-login" id="loginBtn">Sign In</button>
     <div class="divider-or"><span>or</span></div>
     <a href="https://dc.procraftcabinetry.com/become-a-dealer/" target="_blank" class="btn-apply">Apply to Become a Dealer</a>
@@ -222,72 +234,301 @@
       window.SB_KEY
     );
 
-    const loginBtn = document.getElementById('loginBtn');
-    const errMsg   = document.getElementById('errorMsg');
+    // ═══════════════════════════════════════════════════════════════════
+    // CB-42 | Google reCAPTCHA v3 Login Gate
+    // -------------------------------------------------------------------
+    // 目的:Intuit / QuickBooks Payments 上架合規要求(CB-43 promote 前置)。
+    //
+    // 流程:頁面載入時預載 reCAPTCHA script(使右下角 badge 顯示,合規必需)
+    //       → 使用者點 Sign In 時才 grecaptcha.execute() 取 token
+    //       → POST verify-recaptcha Edge Function 驗 score
+    //       → 通過才呼叫 Supabase Auth。
+    //
+    // ⚠️ script 預載、token 延後取,兩者必須分開:
+    //    · script 若延後到點擊才載入 → badge 不會出現 → 違反 Google 條款
+    //    · token 若在頁面載入時就取 → 120 秒後過期 → 使用者慢慢打字就失效
+    //
+    // ⚠️ Kill switch(window.RECAPTCHA_ENABLED,定義於 config.js)
+    //    平常必須為 true。設為 false 會完全跳過 reCAPTCHA 驗證,
+    //    僅限以下兩種情況使用:
+    //      1. 緊急:reCAPTCHA 大量誤擋真人,導致 dealer 無法登入
+    //      2. Debug:本地或排錯時暫時關閉
+    //    使用後必須立即開 ticket 追蹤並在修復後改回 true。
+    //
+    // ⚠️ Fail-open 政策(Q-1 決議)
+    //    網路層失敗(script 載入失敗 / timeout / fetch error / HTTP 5xx)
+    //      → 放行,並以 console.error 留下 audit log
+    //    明確拒絕(HTTP 4xx / Google 回 success:false / score 過低)
+    //      → 擋下
+    //    理由:避免 Google 或 Edge Function 故障造成全站無法登入。
+    //
+    // ⚠️ 已知限制(記錄用,非 blocker)
+    //    此為前端 gate。Supabase Auth REST endpoint 本身仍為公開,
+    //    直接呼叫可繞過本驗證。本 ticket 定位為合規勾選項,非安全控制。
+    // ═══════════════════════════════════════════════════════════════════
+
+    const RECAPTCHA_SITE_KEY   = window.RECAPTCHA_SITE_KEY || '';
+    const RECAPTCHA_ENABLED    = (window.RECAPTCHA_ENABLED !== false) && !!RECAPTCHA_SITE_KEY;
+    const RECAPTCHA_VERIFY_URL = (window.SB_URL || '') + '/functions/v1/verify-recaptcha';
+    const RECAPTCHA_LOAD_TIMEOUT_MS = 10000;
+
+    // 使用 recaptcha.net 而非 google.com:google.com 在部分地區(中國大陸)
+    // 無法連線,會導致 script 永久 pending。recaptcha.net 為 Google 官方
+    // 替代網域,使用同一組 site key。
+    const RECAPTCHA_HOST = 'https://www.recaptcha.net';
+
+    if (!RECAPTCHA_SITE_KEY) {
+      console.error('[CB-42] RECAPTCHA_SITE_KEY not found in config.js — reCAPTCHA gate disabled.');
+    } else if (window.RECAPTCHA_ENABLED === false) {
+      console.error('[CB-42] reCAPTCHA gate is DISABLED via kill switch (RECAPTCHA_ENABLED = false).');
+    }
+
+    function logFailOpen(reason, detail) {
+      console.error('[CB-42] Fail-open triggered', {
+        reason: reason,
+        detail: detail || null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // 單例 Promise:重複呼叫不會重複插入 script tag。
+    let _recaptchaLoader = null;
+
+    function loadRecaptcha() {
+      if (_recaptchaLoader) return _recaptchaLoader;
+
+      _recaptchaLoader = new Promise(function (resolve, reject) {
+        if (window.grecaptcha && window.grecaptcha.execute) {
+          resolve();
+          return;
+        }
+
+        let settled = false;
+        const timer = setTimeout(function () {
+          if (settled) return;
+          settled = true;
+          reject(new Error('recaptcha_script_timeout'));
+        }, RECAPTCHA_LOAD_TIMEOUT_MS);
+
+        const s = document.createElement('script');
+        s.src   = RECAPTCHA_HOST + '/recaptcha/api.js?render=' + encodeURIComponent(RECAPTCHA_SITE_KEY);
+        s.async = true;
+        s.defer = true;
+
+        s.onload = function () {
+          if (settled) return;
+          if (!window.grecaptcha || !window.grecaptcha.ready) {
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error('recaptcha_object_missing'));
+            return;
+          }
+          window.grecaptcha.ready(function () {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve();
+          });
+        };
+
+        s.onerror = function () {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error('recaptcha_script_error'));
+        };
+
+        document.head.appendChild(s);
+      });
+
+      // 載入失敗時清掉 cache,讓使用者重試時可以再試一次。
+      _recaptchaLoader.catch(function () { _recaptchaLoader = null; });
+
+      return _recaptchaLoader;
+    }
+
+    // 頁面載入即預載 script,讓右下角 reCAPTCHA badge 顯示(Google 條款要求)。
+    // 此處「不」取 token,token 一律在使用者點擊當下才取,避免 120 秒過期。
+    // 預載失敗不擋任何流程,點擊時會自動重試。
+    if (RECAPTCHA_ENABLED) {
+      loadRecaptcha().catch(function (e) {
+        logFailOpen('recaptcha_preload_failed', String((e && e.message) || e));
+      });
+    }
+
+    // 呼叫後端驗證。回傳 { ok, failOpen?, score?, reason? }
+    async function verifyRecaptchaToken(token, action) {
+      let res;
+      try {
+        res = await fetch(RECAPTCHA_VERIFY_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': window.SB_KEY
+          },
+          body: JSON.stringify({ token: token, action: action })
+        });
+      } catch (e) {
+        logFailOpen('verify_network_error', String((e && e.message) || e));
+        return { ok: true, failOpen: true };
+      }
+
+      if (res.status >= 500) {
+        logFailOpen('verify_server_error', 'HTTP ' + res.status);
+        return { ok: true, failOpen: true };
+      }
+
+      if (!res.ok) {
+        console.error('[CB-42] Verification rejected by endpoint', { status: res.status });
+        return { ok: false, reason: 'verify_http_' + res.status };
+      }
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        logFailOpen('verify_invalid_json', String((e && e.message) || e));
+        return { ok: true, failOpen: true };
+      }
+
+      if (data && data.success === true) {
+        return { ok: true, score: data.score };
+      }
+
+      console.error('[CB-42] Verification failed', {
+        score:  data ? data.score : null,
+        reason: data ? data.reason : null
+      });
+      return { ok: false, reason: (data && data.reason) || 'verification_failed' };
+    }
+
+    // 完整 gate:取 token → 驗證。回傳 { ok, ... }
+    async function recaptchaGate(action) {
+      if (!RECAPTCHA_ENABLED) {
+        return { ok: true, skipped: true };
+      }
+
+      let token;
+      try {
+        await loadRecaptcha();
+        token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: action });
+      } catch (e) {
+        logFailOpen('recaptcha_client_error', String((e && e.message) || e));
+        return { ok: true, failOpen: true };
+      }
+
+      if (!token) {
+        logFailOpen('recaptcha_empty_token', 'action=' + action);
+        return { ok: true, failOpen: true };
+      }
+
+      return await verifyRecaptchaToken(token, action);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Login
+    // ═══════════════════════════════════════════════════════════════════
+
+    const loginBtn   = document.getElementById('loginBtn');
+    const forgotLink = document.getElementById('forgotLink');
+    const errMsg     = document.getElementById('errorMsg');
+    const infoMsg    = document.getElementById('infoMsg');
+
+    let busy = false;
+
+    function showError(text) {
+      infoMsg.classList.remove('show');
+      errMsg.textContent = text;
+      errMsg.classList.add('show');
+    }
+
+    function showInfo(text) {
+      errMsg.classList.remove('show');
+      infoMsg.textContent = text;
+      infoMsg.classList.add('show');
+    }
+
+    function clearMessages() {
+      errMsg.classList.remove('show');
+      infoMsg.classList.remove('show');
+    }
+
+    function setBusy(state, label) {
+      busy = state;
+      loginBtn.disabled     = state;
+      loginBtn.textContent  = label || 'Sign In';
+      forgotLink.style.pointerEvents = state ? 'none' : '';
+      forgotLink.style.opacity       = state ? '0.5' : '';
+    }
 
     // Enter key support
     document.getElementById('email').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') document.getElementById('password').focus();
     });
     document.getElementById('password').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') doLogin();
+      if (e.key === 'Enter' && !busy) doLogin();
     });
-    loginBtn.addEventListener('click', doLogin);
+    loginBtn.addEventListener('click', function () {
+      if (!busy) doLogin();
+    });
 
     async function doLogin() {
+      if (busy) return;
+
       const email    = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
 
       if (!email || !password) {
-        errMsg.textContent = 'Please enter your email and password.';
-        errMsg.classList.add('show');
+        showError('Please enter your email and password.');
         return;
       }
 
-      loginBtn.disabled    = true;
-      loginBtn.textContent = 'Signing in...';
-      errMsg.classList.remove('show');
+      clearMessages();
+      setBusy(true, 'Verifying...');
 
-      const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+      try {
+        // ── CB-42 gate ──
+        const gate = await recaptchaGate('login');
+        if (!gate.ok) {
+          showError('Verification failed. Please refresh the page and try again.');
+          return;
+        }
 
-      if (error) {
-        loginBtn.disabled    = false;
-        loginBtn.textContent = 'Sign In';
-        errMsg.textContent   = 'Invalid email or password. Please try again.';
-        errMsg.classList.add('show');
-        return;
-      }
+        loginBtn.textContent = 'Signing in...';
 
-      const { data: dealer, error: dealerError } = await _supabase
-        .from('dealers')
-        .select('role, is_active, profile_completed')
-        .eq('id', data.user.id)
-        .single();
-      
-      console.log('dealer:', dealer);
-      console.log('dealerError:', dealerError);
-      console.log('user id:', data.user.id);
+        const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
 
-      
-      
-      if (!dealer?.is_active) {
-        await _supabase.auth.signOut();
-        loginBtn.disabled = false;
-        loginBtn.textContent = 'Sign In';
-        errMsg.textContent = 'Your account has been deactivated. Please contact ProCraft DC.';
-        errMsg.classList.add('show');
-        return;
-      }
-      
-      console.log('role:', dealer?.role);
-      console.log('is admin:', ['admin','super_admin'].includes(dealer?.role));
-      if (['admin','super_admin'].includes(dealer?.role)) {
+        if (error) {
+          showError('Invalid email or password. Please try again.');
+          return;
+        }
+
+        const { data: dealer } = await _supabase
+          .from('dealers')
+          .select('role, is_active, profile_completed')
+          .eq('id', data.user.id)
+          .single();
+
+        if (!dealer?.is_active) {
+          await _supabase.auth.signOut();
+          showError('Your account has been deactivated. Please contact ProCraft DC.');
+          return;
+        }
+
+        if (['admin','super_admin'].includes(dealer?.role)) {
           window.location.href = 'admin.html';
         } else if (!dealer?.profile_completed) {
           window.location.href = 'dealer-profile.html';
         } else {
           window.location.href = 'dashboard.html';
         }
+
+      } catch (e) {
+        console.error('[login] Unexpected error', e);
+        showError('Something went wrong. Please try again.');
+      } finally {
+        setBusy(false, 'Sign In');
+      }
     }
 
     // Already logged in?
@@ -302,33 +543,56 @@
           await _supabase.auth.signOut();
           return;
         }
-        console.log('role:', dealer?.role);
-        console.log('is admin:', ['admin','super_admin'].includes(dealer?.role));
         if (['admin','super_admin'].includes(dealer?.role)) {
-            window.location.href = 'admin.html';
-          } else if (!dealer?.profile_completed) {
-            window.location.href = 'dealer-profile.html';
-          } else {
-            window.location.href = 'dashboard.html';
-          }
+          window.location.href = 'admin.html';
+        } else if (!dealer?.profile_completed) {
+          window.location.href = 'dealer-profile.html';
+        } else {
+          window.location.href = 'dashboard.html';
+        }
       }
     });
 
-  async function forgotPassword(e) {
-  e.preventDefault();
-  const email = document.getElementById('email').value.trim();
-  if (!email) {
-    errMsg.textContent = 'Please enter your email address first.';
-    errMsg.classList.add('show');
-    return;
-  }
-  const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: 'https://procraftben.github.io/procraft-dealer-portal/reset-password.html',
-  });
-  errMsg.classList.remove('show');
-  alert('If this email is registered, a reset link has been sent. Please check your inbox.');
-}
-    
+    // ═══════════════════════════════════════════════════════════════════
+    // Forgot password
+    // reCAPTCHA action = 'forgot_password'(與 login 分開計分)
+    // ═══════════════════════════════════════════════════════════════════
+
+    async function forgotPassword(e) {
+      e.preventDefault();
+      if (busy) return;
+
+      const email = document.getElementById('email').value.trim();
+      if (!email) {
+        showError('Please enter your email address first.');
+        return;
+      }
+
+      clearMessages();
+      setBusy(true, 'Verifying...');
+
+      try {
+        const gate = await recaptchaGate('forgot_password');
+        if (!gate.ok) {
+          showError('Verification failed. Please refresh the page and try again.');
+          return;
+        }
+
+        loginBtn.textContent = 'Sending...';
+
+        await _supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: new URL('reset-password.html', window.location.href).href,
+        });
+
+        showInfo('If this email is registered, a reset link has been sent. Please check your inbox.');
+
+      } catch (err) {
+        console.error('[forgotPassword] Unexpected error', err);
+        showError('Something went wrong. Please try again.');
+      } finally {
+        setBusy(false, 'Sign In');
+      }
+    }
   </script>
 </body>
 </html>

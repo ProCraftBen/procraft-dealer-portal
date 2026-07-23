@@ -65,6 +65,7 @@
   const ADMIN_NAV = [
     { page: 'dashboard',       label: 'Dashboard',       href: 'admin.html' },
     { page: 'quotes',          label: 'Quotes',          href: 'admin-quotes.html' },
+    { page: 'payments',        label: 'Payments',        href: 'admin-payments.html' },
     { page: 'dealers',         label: 'Dealers',         href: 'admin-dealers.html' },
     { page: 'accounts',        label: 'Account',         href: 'admin-accounts.html' },
     { page: 'tags',            label: 'Tags',            href: 'admin-tags.html' },
