@@ -3272,7 +3272,9 @@ async function submitQuote() {
             logistic_type:               logisticType,
             shipping_address:            shippingAddressPayload,
             assemble_total:              assembleTotal.toFixed(2),
-            subtotal:                    skuSubtotal.toFixed(2),
+            subtotal:                    skuSubtotal.toFixed(2),        // CB-47: 折後淨額
+            discount_total:              _t47q.discount.toFixed(2),     // CB-47
+            applied_discount_rules:      _appliedDiscountRules,          // CB-47
             modifications_total:         modsSubtotal.toFixed(2),
             modifications_total_taxable: taxableModsSubtotal.toFixed(2),  // F-TAX
             tax_base:                    taxBase.toFixed(2),               // F-TAX
@@ -3543,7 +3545,9 @@ async function requestRevision(note) {
             logistic_type:               logisticType,
             shipping_address:            shippingAddressPayload,
             assemble_total:              assembleTotal.toFixed(2),
-            subtotal:                    skuSubtotal.toFixed(2),
+            subtotal:                    skuSubtotal.toFixed(2),        // CB-47: 折後淨額
+            discount_total:              _t47r.discount.toFixed(2),     // CB-47
+            applied_discount_rules:      _appliedDiscountRules,          // CB-47
             modifications_total:         modsSubtotal.toFixed(2),
             modifications_total_taxable: taxableModsSubtotal.toFixed(2),
             tax_base:                    taxBase.toFixed(2),
