@@ -72,7 +72,16 @@
     .form-input { height: 38px; border: 1px solid var(--border); border-radius: 3px; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); transition: border-color 0.2s; }
     .form-input:focus { outline: none; border-color: var(--gold); }
     .form-input:disabled { background: var(--cream); color: var(--muted); }
+    /* CB-38: select 版本的 form control。沿用 .form-input 的 box 樣式,
+       但 select 需要 padding 兩側對稱(原生箭頭)且不可設 line-height。 */
+    .form-select { height: 38px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px 0 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); transition: border-color 0.2s; cursor: pointer; }
+    .form-select:focus { outline: none; border-color: var(--gold); }
+    .form-select:disabled { background: var(--cream); color: var(--muted); cursor: not-allowed; }
+    .form-select.is-empty { color: #b0b0b0; font-style: italic; }
     .form-hint { font-size: 10px; color: var(--muted); }
+    /* CB-38: 列表 Sales 欄 */
+    .td-unassigned { color: var(--muted); font-style: italic; }
+    .tag-inactive { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 2px; font-size: 9px; font-weight: 500; background: rgba(192,57,43,0.08); color: var(--error); }
     .checkbox-row { display: flex; align-items: center; gap: 8px; height: 38px; }
     .checkbox-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green-dark); cursor: pointer; }
     .checkbox-row label { font-size: 13px; color: var(--text); cursor: pointer; }
@@ -134,6 +143,7 @@
             <th>UID</th>
             <th>Location</th>
             <th>Email</th>
+            <th>Sales</th>
             <th>Slug</th>
             <th>Stock</th>
             <th>Non-Stock</th>
@@ -144,7 +154,7 @@
           </tr>
         </thead>
         <tbody id="dealersBody">
-          <tr><td colspan="11"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="12"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -199,6 +209,14 @@
             <label class="form-label">Optional Email 2</label>
             <input class="form-input" id="f_optional_email_2" type="email" placeholder="contact2@abccabinetry.com"/>
             <span class="form-hint">Optional. Second additional notification email.</span>
+          </div>
+          <!-- CB-38: Assigned Sales(必填)。options 由 loadSalesOptions() 動態填入。 -->
+          <div class="form-group full">
+            <label class="form-label">Assigned Sales <span class="required">*</span></label>
+            <select class="form-select is-empty" id="f_assigned_sales_id" onchange="onSalesSelectChange()">
+              <option value="">Select an admin…</option>
+            </select>
+            <span class="form-hint">The admin responsible for this dealer.</span>
           </div>
         </div>
       </div>
@@ -363,12 +381,20 @@ const _supabase = createClient(
 let editingDealerId = null;
 let deletingDealerId = null;
 
+// CB-38: 一次撈全表 dealers(id/contact_name/email/role),client 端分流:
+//   salesList     — role IN ('admin','super_admin'),用來建 dropdown
+//   dealerNameMap — 全部人員(含 dealer),用來解析任意 assigned_sales_id
+//                   → 支援 Q10:舊 admin 被改成 dealer 後仍能顯示名字 + (inactive)
+let salesList     = [];
+let dealerNameMap = {};
+
 // Required field id -> display label (aligned to form labels). Used by validation alert.
 const REQUIRED_FIELD_LABELS = {
   f_company_name:       'Company Name',
   f_contact_name:       'Contact Name',
   f_email:              'Email',
   f_phone:              'Phone',
+  f_assigned_sales_id:  'Assigned Sales',
   f_address_line1:      'Address Line 1',
   f_city:               'City',
   f_state:              'State',
@@ -431,11 +457,98 @@ function refreshFormErrorIfShown() {
   renderFormError(getMissingRequiredFields());
 }
 
+// ── CB-38: Assigned Sales ─────────────────────────────────────────
+// 一次查詢取回全部人員,建立兩份索引(dropdown 用 / 名稱解析用)。
+// 查詢次數不增加:原本就需要撈一次 admin 名單。
+async function loadSalesOptions() {
+  const { data, error } = await _supabase
+    .from('dealers')
+    .select('id, contact_name, email, role')
+    .order('contact_name');
+
+  if (error) {
+    console.error('[CB-38] loadSalesOptions failed:', error);
+    salesList = [];
+    dealerNameMap = {};
+    return;
+  }
+
+  const rows = data || [];
+  dealerNameMap = {};
+  rows.forEach(r => { dealerNameMap[r.id] = r; });
+  salesList = rows.filter(r => r.role === 'admin' || r.role === 'super_admin');
+
+  renderSalesOptions();
+}
+
+// 由 salesList 重建 dropdown。每次開 modal 前呼叫,清掉上一次 edit 可能
+// 注入的 (inactive account) option,避免跨筆殘留。
+function renderSalesOptions() {
+  const sel = document.getElementById('f_assigned_sales_id');
+  sel.innerHTML = '<option value="">Select an admin…</option>';
+  salesList.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = salesLabel(s);
+    sel.appendChild(opt);
+  });
+}
+
+// Q7:dropdown 顯示 contact_name (email)
+function salesLabel(s) {
+  const name = (s && s.contact_name) ? s.contact_name : '(no name)';
+  return s && s.email ? `${name} (${s.email})` : name;
+}
+
+// Q10:判斷某個 assigned_sales_id 是否仍是有效 admin
+function isActiveSales(id) {
+  const r = dealerNameMap[id];
+  return !!r && (r.role === 'admin' || r.role === 'super_admin');
+}
+
+// select 的 placeholder 灰體 + live validation(select 不觸發 'input',見下方 listener)
+function onSalesSelectChange() {
+  const sel = document.getElementById('f_assigned_sales_id');
+  sel.classList.toggle('is-empty', !sel.value);
+  refreshFormErrorIfShown();
+}
+
+// Q10 防護:若 dealer 的 assigned_sales_id 指向一個已不是 admin 的帳號,
+// dropdown 內沒有對應 option → select 會靜默 fallback 成空值,使用者一存檔
+// 就無聲清空歸屬。這裡在 prefill 前動態補一個標示為 inactive 的 option。
+function ensureSalesOption(id) {
+  if (!id) return;
+  const sel = document.getElementById('f_assigned_sales_id');
+  if (sel.querySelector(`option[value="${id}"]`)) return;
+
+  const r   = dealerNameMap[id];
+  const opt = document.createElement('option');
+  opt.value = id;
+  opt.textContent = (r ? salesLabel(r) : '(unknown account)') + ' — (inactive account)';
+  opt.style.color = '#7A8C82';
+  sel.appendChild(opt);
+}
+
+// 列表 Sales 欄的顯示內容
+function renderSalesCell(id) {
+  if (!id) return '<span class="td-unassigned">Unassigned</span>';
+  const r    = dealerNameMap[id];
+  const name = (r && r.contact_name) ? escapeHtml(r.contact_name) : '(unknown account)';
+  return isActiveSales(id) ? name : `${name}<span class="tag-inactive">inactive</span>`;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
+  await loadSalesOptions();   // CB-38:必須在 loadDealers() 之前,列表要用 dealerNameMap
   await loadDealers();
 }
 
@@ -450,7 +563,7 @@ async function loadDealers() {
   document.getElementById('tableCount').textContent = `${dealers?.length || 0} dealer${dealers?.length !== 1 ? 's' : ''}`;
 
   if (!dealers?.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
     return;
   }
 
@@ -460,6 +573,7 @@ async function loadDealers() {
       <td><span style="font-size:12px;font-weight:500;letter-spacing:0.1em;color:var(--green-dark);">${d.uid || '—'}</span></td>
       <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
       <td>${d.email || '—'}</td>
+      <td>${renderSalesCell(d.assigned_sales_id)}</td>
       <td><span style="font-size:11px;color:var(--muted);">${d.slug || '—'}</span></td>
       <td>${d.stock_multiplier ? `${d.stock_multiplier}x` : '—'}</td>
       <td>${d.non_stock_multiplier ? `${d.non_stock_multiplier}x` : '—'}</td>
@@ -501,6 +615,11 @@ async function openEditDealer(dealerId) {
   document.getElementById('uid_group').style.display       = 'flex';
   document.getElementById('f_secondary_email').value       = d.secondary_email || '';
   document.getElementById('f_optional_email_2').value      = d.optional_email_2 || '';
+  // CB-38:先重建 options(清掉上一筆殘留),再確保 option 存在(Q10 防護),最後賦值
+  renderSalesOptions();
+  ensureSalesOption(d.assigned_sales_id);
+  document.getElementById('f_assigned_sales_id').value      = d.assigned_sales_id || '';
+  onSalesSelectChange();
   document.getElementById('f_slug').value                  = d.slug || '';
   document.getElementById('f_address_line1').value         = d.address_line1 || '';
   document.getElementById('f_address_line2').value         = d.address_line2 || '';
@@ -547,6 +666,11 @@ function clearForm() {
     if (el) { el.value = ''; el.disabled = false; }
   });
   document.getElementById('f_tax_exempt').checked = false;
+  // CB-38:重建 options(清掉 edit 時可能注入的 inactive option)並回到未選狀態
+  renderSalesOptions();
+  document.getElementById('f_assigned_sales_id').value = '';
+  document.getElementById('f_assigned_sales_id').disabled = false;
+  onSalesSelectChange();
   document.getElementById('uid_group').style.display = 'none';
   document.getElementById('formError').classList.remove('show');
 }
@@ -562,6 +686,7 @@ async function saveDealer() {
     email:                   document.getElementById('f_email').value.trim(),
     phone:                   document.getElementById('f_phone').value.trim(),
     business_phone:          document.getElementById('f_business_phone').value.trim() || null,
+    assigned_sales_id:       document.getElementById('f_assigned_sales_id').value || null,
     slug:                    document.getElementById('f_slug').value.trim(),
     address_line1:           document.getElementById('f_address_line1').value.trim(),
     address_line2:           document.getElementById('f_address_line2').value.trim(),
@@ -606,6 +731,7 @@ async function saveDealer() {
         contact_name:            fields.contact_name,
         phone:                   fields.phone,
         business_phone:          fields.business_phone,
+        assigned_sales_id:       fields.assigned_sales_id,
         slug:                    fields.slug || null,
         address_line1:           fields.address_line1,
         address_line2:           fields.address_line2 || null,
@@ -738,9 +864,11 @@ document.getElementById('f_company_name').addEventListener('input', function() {
 });
 
 // Live validation: when the alert is visible, remove fields from the list as they get filled.
+// CB-38 陷阱 #1:<select> 在部分瀏覽器不觸發 'input',必須綁 'change'。
 Object.keys(REQUIRED_FIELD_LABELS).forEach(id => {
   const el = document.getElementById(id);
-  if (el) el.addEventListener('input', refreshFormErrorIfShown);
+  if (!el) return;
+  el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', refreshFormErrorIfShown);
 });
 
 function initMaps() {
