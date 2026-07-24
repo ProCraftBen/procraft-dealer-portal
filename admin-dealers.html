@@ -54,13 +54,16 @@
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px; }
     .modal-overlay.show { display: flex; }
-    .modal { background: var(--white); border-radius: 4px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
-    .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--white); z-index: 1; }
+    /* CB-47:改 flex column —— header/footer 固定,只有 body 捲動。
+       原本整個 modal overflow-y:auto,內容一長 footer 就被推到捲動區底部,
+       在 120% 縮放下 Save 會被視窗下緣切掉。 */
+    .modal { background: var(--white); border-radius: 4px; width: 100%; max-width: 600px; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--white); flex: 0 0 auto; }
     .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); }
     .modal-close { width: 32px; height: 32px; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; }
     .modal-close:hover { background: var(--cream); }
-    .modal-body { padding: 24px; }
-    .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+    .modal-body { padding: 20px 24px; flex: 1 1 auto; overflow-y: auto; min-height: 0; }
+    .modal-footer { padding: 14px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; background: var(--white); flex: 0 0 auto; }
     .form-section { margin-bottom: 24px; }
     .form-section-title { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -119,21 +122,46 @@
     .rule-hint          { font-size: 10px; color: var(--muted); line-height: 1.5; }
     .rule-note          { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
     .rule-note strong   { color: var(--text); font-weight: 500; }
-    .rule-card          { border: 1px solid var(--border); border-radius: 3px; padding: 14px; margin-bottom: 12px; background: var(--cream); }
-    .rule-card-head     { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .rule-idx           { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-    .rule-meta          { font-size: 10px; color: var(--muted); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
-    .btn-rule-del       { background: none; border: 1px solid var(--border); border-radius: 3px; padding: 3px 10px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.06em; color: var(--error); cursor: pointer; transition: background 0.2s; }
-    .btn-rule-del:hover { background: rgba(200,60,60,0.08); }
+    .rule-card          { border: 1px solid var(--border); border-radius: 3px; margin-bottom: 10px; background: var(--white); }
+    .rule-card.editing  { background: var(--cream); border-color: var(--gold); }
+    .rule-head          { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 10px 12px; }
+    .rule-head-main     { min-width: 0; flex: 1 1 auto; }
+    .rule-title         { font-size: 13px; color: var(--text); font-weight: 500; word-break: break-word; }
+    .rule-title.untitled{ color: var(--muted); font-style: italic; font-weight: 400; }
+    .rule-summary       { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.5; word-break: break-word; }
+    .rule-dirty         { display: inline-block; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #B8860B; background: rgba(201,168,76,0.16); border-radius: 2px; padding: 1px 5px; margin-left: 6px; vertical-align: 1px; }
+    .rule-head-btns     { display: flex; gap: 6px; flex: 0 0 auto; }
+    .rule-body          { padding: 0 12px 12px; border-top: 1px solid var(--border); }
+    .rule-meta          { font-size: 10px; color: var(--muted); margin-top: 10px; }
+    .btn-rule           { background: none; border: 1px solid var(--border); border-radius: 3px; padding: 3px 10px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.06em; color: var(--text); cursor: pointer; transition: background 0.2s, border-color 0.2s; white-space: nowrap; }
+    .btn-rule:hover     { background: var(--cream); }
+    .btn-rule.danger    { color: var(--error); }
+    .btn-rule.danger:hover { background: rgba(200,60,60,0.08); }
+    .btn-rule.primary   { color: var(--white); background: var(--green-dark); border-color: var(--green-dark); }
+    .btn-rule.primary:hover { opacity: 0.88; background: var(--green-dark); }
     .btn-add-rule       { width: 100%; height: 36px; background: none; border: 1px dashed var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); cursor: pointer; transition: border-color 0.2s, color 0.2s; }
     .btn-add-rule:hover { border-color: var(--gold); color: var(--gold); }
     .btn-add-rule:disabled { opacity: 0.5; cursor: default; }
-    .radio-row          { display: flex; align-items: center; gap: 18px; height: 38px; }
+    .radio-row          { display: flex; align-items: center; gap: 18px; height: 34px; }
     .radio-row label    { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
-    /* multi-select:沿用 .form-input 外框,但高度改 auto(原本固定 38px 會壓扁) */
-    .ms-select          { height: auto !important; padding: 6px !important; font-size: 12px; }
-    .ms-select:disabled { background: var(--white); color: var(--muted); opacity: 0.55; }
-    .rules-empty        { font-size: 11px; color: var(--muted); font-style: italic; padding: 10px 0 14px; }
+    .rules-empty        { font-size: 11px; color: var(--muted); font-style: italic; padding: 8px 0 12px; }
+    /* 勾選式多選 */
+    .pick-head          { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+    .pick-all           { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+    .pick-count         { font-size: 10px; color: var(--muted); white-space: nowrap; }
+    .pick-tools         { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+    .pick-search        { flex: 1 1 auto; height: 30px; border: 1px solid var(--border); border-radius: 3px; padding: 0 9px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .pick-search:focus  { outline: none; border-color: var(--gold); }
+    .pick-link          { font-size: 10px; color: var(--gold); background: none; border: none; cursor: pointer; padding: 0; letter-spacing: 0.04em; white-space: nowrap; }
+    .pick-link:hover    { text-decoration: underline; }
+    .pick-list          { border: 1px solid var(--border); border-radius: 3px; background: var(--white); max-height: 150px; overflow-y: auto; padding: 4px 0; }
+    .pick-list.locked   { background: var(--cream); opacity: 0.7; }
+    .pick-opt           { display: flex; align-items: center; gap: 7px; padding: 3px 9px; font-size: 12px; color: var(--text); cursor: pointer; line-height: 1.35; }
+    .pick-opt:hover     { background: var(--cream); }
+    .pick-list.locked .pick-opt:hover { background: transparent; }
+    .pick-opt input     { flex: 0 0 auto; }
+    .pick-opt span      { word-break: break-word; }
+    .pick-empty         { font-size: 11px; color: var(--muted); font-style: italic; padding: 8px 10px; }
   </style>
 </head>
 <body>
@@ -370,8 +398,8 @@
           Rules are matched against each catalog item on the dealer's quotes and applied automatically.
           Leaving a dropdown as <strong>All</strong> means that dimension is not filtered.
           Multiple matching rules stack. Discounts never reduce a unit price below $0.<br>
-          Rules apply to <strong>catalog items only</strong> — custom items are never discounted.
-          Changing a discount may move an order across a <strong>shipping fee tier</strong>.
+          Rules apply to <strong>catalog items only</strong> — custom items are never discounted.<br>
+          Click <strong>Save Rule</strong> to collapse a rule, then <strong>Save Changes</strong> below to store everything.
         </div>
         <div id="rulesList"></div>
         <div class="rules-empty" id="rulesEmpty">No discount rules. This dealer pays standard pricing.</div>
@@ -736,12 +764,35 @@ function clearForm() {
 //
 // construction_type 一律存小寫;door_styles 表內是 'Framed'/'Frameless',
 // 故載入時以 normalizeCt() 正規化(CB-47 F-01)。
+//
+// ── 卡片狀態機 ──
+//   新增 → editing(展開);Save Rule → collapsed(收合成摘要,輸入框隱藏,防誤點)
+//   Edit → 回到 editing
+//   ⚠️ 卡片的 Save Rule 只是「本地確認 + 收合」,不寫 DB。真正落庫在 Modal 底部的
+//      Save Changes / Add Dealer —— Create Dealer 時 dealer 尚未存在,無法即時寫入,
+//      兩條路徑必須一致,否則按 Cancel 會留下半套資料。
+//      未落庫的卡片在摘要列標示 UNSAVED。
 // ══════════════════════════════════════════════════════════════════════
 
 function normalizeCt(v) {
-  const s = String(v == null ? '' : v).trim().toLowerCase();
-  return (s === 'frameless') ? 'frameless' : 'framed';
+  const t = String(v == null ? '' : v).trim().toLowerCase();
+  return (t === 'frameless') ? 'frameless' : 'framed';
 }
+
+function ruleEscAttr(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+function ruleEscHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+const RULE_DIMS = {
+  ds:   { label: 'Door Style', all: 'All Door Styles', search: 'Search door styles…' },
+  sku:  { label: 'SKU Code',   all: 'All SKU Codes',   search: 'Search SKU codes…' },
+  type: { label: 'Type',       all: 'All Types',       search: null },
+};
 
 // Catalog 為 lazy load:只有真的要用到 rule UI 時才抓(door_styles + 兩張 SKU 表約 1,100 筆)。
 async function ensureRuleCatalog() {
@@ -762,11 +813,10 @@ async function ensureRuleCatalog() {
     if (fRes.error)  throw fRes.error;
     if (flRes.error) throw flRes.error;
 
-    const doorStyles = { framed: [], frameless: [] };
+    const ds = { framed: [], frameless: [] };
     (dsRes.data || []).forEach(function (d) {
       if (!d.style_code) return;
-      const ct = normalizeCt(d.construction_type);
-      doorStyles[ct].push({
+      ds[normalizeCt(d.construction_type)].push({
         code:  d.style_code,
         label: (d.style_name || d.style_code) + ' (' + d.style_code + ')'
                + (d.is_coming_soon ? ' — Coming Soon' : ''),
@@ -774,21 +824,22 @@ async function ensureRuleCatalog() {
     });
 
     function bucket(rows) {
-      const codes = [];
-      const typeSet = {};
-      (rows || []).forEach(function (s) {
-        if (s.sku_code) codes.push(s.sku_code);
-        if (s.type) typeSet[s.type] = true;
+      const codes = [], types = {};
+      (rows || []).forEach(function (r) {
+        if (r.sku_code) codes.push({ code: r.sku_code, label: r.sku_code });
+        if (r.type) types[r.type] = true;
       });
-      return { codes: codes, types: Object.keys(typeSet).sort() };
+      return {
+        codes: codes,
+        types: Object.keys(types).sort().map(function (t) { return { code: t, label: t }; }),
+      };
     }
-    const bF  = bucket(fRes.data);
-    const bFl = bucket(flRes.data);
+    const bF = bucket(fRes.data), bFl = bucket(flRes.data);
 
     _ruleCatalog = {
-      doorStyles: doorStyles,
-      skus:  { framed: bF.codes, frameless: bFl.codes },
-      types: { framed: bF.types, frameless: bFl.types },
+      ds:   ds,
+      sku:  { framed: bF.codes, frameless: bFl.codes },
+      type: { framed: bF.types, frameless: bFl.types },
     };
     return _ruleCatalog;
   })();
@@ -801,116 +852,206 @@ async function ensureRuleCatalog() {
   }
 }
 
-function ruleMsBlockHtml(uid, field, label, allLabel) {
+function ruleRow(uid) {
+  for (let i = 0; i < _ruleRows.length; i++) if (_ruleRows[i].uid === uid) return _ruleRows[i];
+  return null;
+}
+
+function ruleOptions(uid, field) {
+  const row = ruleRow(uid);
+  if (!row || !_ruleCatalog) return [];
+  return _ruleCatalog[field][row.ct] || [];
+}
+
+// ── 勾選式多選 ─────────────────────────────────────────────────────────
+function renderPickList(uid, field) {
+  const row = ruleRow(uid);
+  const box = document.getElementById('r' + uid + '_' + field + '_list');
+  if (!row || !box) return;
+
+  const isAll = row.all[field];
+  const opts  = ruleOptions(uid, field);
+  const q     = String(row.search[field] || '').trim().toLowerCase();
+  const shown = q ? opts.filter(function (o) { return o.label.toLowerCase().indexOf(q) !== -1; }) : opts;
+
+  box.classList.toggle('locked', isAll);
+
+  if (!shown.length) {
+    box.innerHTML = '<div class="pick-empty">No matches.</div>';
+  } else {
+    // 勾 All 時全部顯示打勾且不可點,讓「全選」的狀態一眼可見
+    box.innerHTML = shown.map(function (o) {
+      const checked = isAll || row.sel[field].indexOf(o.code) !== -1;
+      return '<label class="pick-opt">'
+           +   '<input type="checkbox"' + (checked ? ' checked' : '') + (isAll ? ' disabled' : '')
+           +     ' onchange="onRulePick(' + uid + ',\'' + field + '\',this.value,this.checked)"'
+           +     ' value="' + ruleEscAttr(o.code) + '"/>'
+           +   '<span>' + ruleEscHtml(o.label) + '</span>'
+           + '</label>';
+    }).join('');
+  }
+
+  const tools = document.getElementById('r' + uid + '_' + field + '_tools');
+  if (tools) tools.style.display = isAll ? 'none' : 'flex';
+
+  const cnt = document.getElementById('r' + uid + '_' + field + '_count');
+  if (cnt) {
+    cnt.textContent = isAll
+      ? ('All ' + opts.length)
+      : (row.sel[field].length + ' of ' + opts.length + ' selected');
+  }
+}
+
+function onRulePick(uid, field, code, checked) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  const i = row.sel[field].indexOf(code);
+  if (checked && i === -1) row.sel[field].push(code);
+  if (!checked && i !== -1) row.sel[field].splice(i, 1);
+  const cnt = document.getElementById('r' + uid + '_' + field + '_count');
+  if (cnt) cnt.textContent = row.sel[field].length + ' of ' + ruleOptions(uid, field).length + ' selected';
+}
+
+// 取消 All 時清空 —— 600 個 SKU 全打勾再一個個取消不切實際。
+// 要「挑一批」就用搜尋 + Select shown。
+function onRuleAll(uid, field) {
+  const row = ruleRow(uid);
+  const box = document.getElementById('r' + uid + '_' + field + '_all');
+  if (!row || !box) return;
+  row.all[field] = box.checked;
+  if (box.checked) row.sel[field] = [];
+  renderPickList(uid, field);
+}
+
+function onRuleSearch(uid, field, v) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  row.search[field] = v;
+  renderPickList(uid, field);
+}
+
+function pickSelectShown(uid, field) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  const q = String(row.search[field] || '').trim().toLowerCase();
+  ruleOptions(uid, field).forEach(function (o) {
+    if (q && o.label.toLowerCase().indexOf(q) === -1) return;
+    if (row.sel[field].indexOf(o.code) === -1) row.sel[field].push(o.code);
+  });
+  renderPickList(uid, field);
+}
+
+function pickClear(uid, field) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  row.sel[field] = [];
+  renderPickList(uid, field);
+}
+
+function pickBlockHtml(uid, field) {
+  const d = RULE_DIMS[field];
+  const searchHtml = d.search
+    ? '<input class="pick-search" type="text" placeholder="' + d.search + '"'
+      + ' oninput="onRuleSearch(' + uid + ',\'' + field + '\',this.value)"/>'
+    : '<span style="flex:1 1 auto;"></span>';
   return ''
     + '<div class="form-group full">'
-    +   '<label class="form-label">' + label + '</label>'
-    +   '<div class="checkbox-row">'
-    +     '<input type="checkbox" id="r' + uid + '_' + field + '_all" checked '
-    +            'onchange="onRuleAllToggle(' + uid + ',\'' + field + '\')"/>'
-    +     '<label for="r' + uid + '_' + field + '_all">' + allLabel + '</label>'
+    +   '<label class="form-label">' + d.label + '</label>'
+    +   '<div class="pick-head">'
+    +     '<label class="pick-all"><input type="checkbox" id="r' + uid + '_' + field + '_all" checked '
+    +            'onchange="onRuleAll(' + uid + ',\'' + field + '\')"/> ' + d.all + '</label>'
+    +     '<span class="pick-count" id="r' + uid + '_' + field + '_count"></span>'
     +   '</div>'
-    +   '<select class="form-input ms-select" id="r' + uid + '_' + field + '" multiple size="5" disabled></select>'
+    +   '<div class="pick-tools" id="r' + uid + '_' + field + '_tools" style="display:none;">'
+    +     searchHtml
+    +     '<button type="button" class="pick-link" onclick="pickSelectShown(' + uid + ',\'' + field + '\')">Select shown</button>'
+    +     '<button type="button" class="pick-link" onclick="pickClear(' + uid + ',\'' + field + '\')">Clear</button>'
+    +   '</div>'
+    +   '<div class="pick-list" id="r' + uid + '_' + field + '_list"></div>'
     + '</div>';
 }
 
 function ruleCardHtml(uid) {
   return ''
-    + '<div class="rule-card" id="rc_' + uid + '">'
-    +   '<div class="rule-card-head">'
-    +     '<span class="rule-idx" id="r' + uid + '_idx"></span>'
-    +     '<button type="button" class="btn-rule-del" onclick="deleteRuleCard(' + uid + ')">Delete Rule</button>'
-    +   '</div>'
-    +   '<div class="form-grid">'
-    +     '<div class="form-group full">'
-    +       '<label class="form-label">Rule Name <span class="required">*</span></label>'
-    +       '<input class="form-input" id="r' + uid + '_name" type="text" placeholder="LSW Framed 10%"/>'
-    +       '<div class="rule-hint">This name will be shown to the dealer on quotes, PDFs and emails.</div>'
+    + '<div class="rule-card editing" id="rc_' + uid + '">'
+    +   '<div class="rule-head">'
+    +     '<div class="rule-head-main">'
+    +       '<div class="rule-title" id="r' + uid + '_title"></div>'
+    +       '<div class="rule-summary" id="r' + uid + '_sum"></div>'
     +     '</div>'
-    +     '<div class="form-group full">'
-    +       '<label class="form-label">Construction Type <span class="required">*</span></label>'
-    +       '<div class="radio-row">'
-    +         '<label><input type="radio" name="r' + uid + '_ct" value="framed" checked '
-    +                 'onchange="onRuleConstructionChange(' + uid + ')"/> Framed</label>'
-    +         '<label><input type="radio" name="r' + uid + '_ct" value="frameless" '
-    +                 'onchange="onRuleConstructionChange(' + uid + ')"/> Frameless</label>'
+    +     '<div class="rule-head-btns" id="r' + uid + '_btns"></div>'
+    +   '</div>'
+    +   '<div class="rule-body" id="r' + uid + '_body">'
+    +     '<div class="form-grid" style="margin-top:12px;">'
+    +       '<div class="form-group full">'
+    +         '<label class="form-label">Rule Name <span class="required">*</span></label>'
+    +         '<input class="form-input" id="r' + uid + '_name" type="text" placeholder="LSW Framed 10%"/>'
+    +         '<div class="rule-hint">This name will be shown to the dealer on quotes and emails.</div>'
+    +       '</div>'
+    +       '<div class="form-group full">'
+    +         '<label class="form-label">Construction Type <span class="required">*</span></label>'
+    +         '<div class="radio-row">'
+    +           '<label><input type="radio" name="r' + uid + '_ct" value="framed" checked '
+    +                   'onchange="onRuleCt(' + uid + ')"/> Framed</label>'
+    +           '<label><input type="radio" name="r' + uid + '_ct" value="frameless" '
+    +                   'onchange="onRuleCt(' + uid + ')"/> Frameless</label>'
+    +         '</div>'
+    +       '</div>'
+    +       pickBlockHtml(uid, 'ds')
+    +       pickBlockHtml(uid, 'sku')
+    +       pickBlockHtml(uid, 'type')
+    +       '<div class="form-group">'
+    +         '<label class="form-label">Discount Type <span class="required">*</span></label>'
+    +         '<div class="radio-row">'
+    +           '<label><input type="radio" name="r' + uid + '_dt" value="percentage" checked '
+    +                   'onchange="onRuleDt(' + uid + ')"/> %</label>'
+    +           '<label><input type="radio" name="r' + uid + '_dt" value="amount" '
+    +                   'onchange="onRuleDt(' + uid + ')"/> Amount</label>'
+    +         '</div>'
+    +       '</div>'
+    +       '<div class="form-group">'
+    +         '<label class="form-label">Discount Value <span class="required">*</span></label>'
+    +         '<input class="form-input" id="r' + uid + '_dv" type="number" step="0.01" min="0" placeholder="10"/>'
+    +         '<div class="rule-hint" id="r' + uid + '_dvhint"></div>'
     +       '</div>'
     +     '</div>'
-    +     ruleMsBlockHtml(uid, 'ds',   'Door Style', 'All Door Styles')
-    +     ruleMsBlockHtml(uid, 'sku',  'SKU Code',   'All SKU Codes')
-    +     ruleMsBlockHtml(uid, 'type', 'Type',       'All Types')
-    +     '<div class="form-group">'
-    +       '<label class="form-label">Discount Type <span class="required">*</span></label>'
-    +       '<div class="radio-row">'
-    +         '<label><input type="radio" name="r' + uid + '_dt" value="percentage" checked '
-    +                 'onchange="onRuleDiscountTypeChange(' + uid + ')"/> %</label>'
-    +         '<label><input type="radio" name="r' + uid + '_dt" value="amount" '
-    +                 'onchange="onRuleDiscountTypeChange(' + uid + ')"/> Amount</label>'
-    +       '</div>'
-    +     '</div>'
-    +     '<div class="form-group">'
-    +       '<label class="form-label">Discount Value <span class="required">*</span></label>'
-    +       '<input class="form-input" id="r' + uid + '_dv" type="number" step="0.01" min="0" placeholder="10"/>'
-    +       '<div class="rule-hint" id="r' + uid + '_dvhint"></div>'
+    +     '<div class="rule-meta" id="r' + uid + '_meta"></div>'
+    +     '<div id="r' + uid + '_err" style="display:none;font-size:11px;color:var(--error);margin-top:8px;line-height:1.6;"></div>'
+    +     '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">'
+    +       '<button type="button" class="btn-rule danger" onclick="deleteRuleCard(' + uid + ')">Delete</button>'
+    +       '<button type="button" class="btn-rule primary" onclick="saveRuleCard(' + uid + ')">Save Rule</button>'
     +     '</div>'
     +   '</div>'
-    +   '<div class="rule-meta" id="r' + uid + '_meta"></div>'
     + '</div>';
-}
-
-// option 一律用 textContent 寫入,不走 innerHTML —— style_name / type 可能含 &(如 DOOR & FRAME)。
-function fillMsSelect(sel, items) {
-  if (!sel) return;
-  sel.innerHTML = '';
-  items.forEach(function (it) {
-    const opt = document.createElement('option');
-    opt.value = it.code;
-    opt.textContent = it.label;
-    sel.appendChild(opt);
-  });
-}
-
-function rebuildRuleSelects(uid, ct) {
-  if (!_ruleCatalog) return;
-  fillMsSelect(document.getElementById('r' + uid + '_ds'),
-    (_ruleCatalog.doorStyles[ct] || []));
-  fillMsSelect(document.getElementById('r' + uid + '_sku'),
-    (_ruleCatalog.skus[ct] || []).map(function (c) { return { code: c, label: c }; }));
-  fillMsSelect(document.getElementById('r' + uid + '_type'),
-    (_ruleCatalog.types[ct] || []).map(function (t) { return { code: t, label: t }; }));
 }
 
 function getRuleCt(uid) {
   const el = document.querySelector('input[name="r' + uid + '_ct"]:checked');
   return el ? el.value : 'framed';
 }
-
 function getRuleDt(uid) {
   const el = document.querySelector('input[name="r' + uid + '_dt"]:checked');
   return el ? el.value : 'percentage';
 }
 
-function onRuleAllToggle(uid, field) {
-  const box = document.getElementById('r' + uid + '_' + field + '_all');
-  const sel = document.getElementById('r' + uid + '_' + field);
-  if (!box || !sel) return;
-  sel.disabled = box.checked;
-  if (box.checked) {
-    Array.prototype.forEach.call(sel.options, function (o) { o.selected = false; });
-  }
-}
-
-// 切換 framed/frameless 後,三個下拉的選項來源整組換掉 → 舊選擇一律作廢,回到 All。
-function onRuleConstructionChange(uid) {
-  rebuildRuleSelects(uid, getRuleCt(uid));
+// 切換 framed/frameless → 三個維度的選項來源整組換掉,舊選擇一律作廢回到 All。
+function onRuleCt(uid) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  row.ct = getRuleCt(uid);
   ['ds', 'sku', 'type'].forEach(function (f) {
+    row.all[f] = true;
+    row.sel[f] = [];
+    row.search[f] = '';
     const box = document.getElementById('r' + uid + '_' + f + '_all');
     if (box) box.checked = true;
-    onRuleAllToggle(uid, f);
+    const inp = document.querySelector('#r' + uid + '_' + f + '_tools .pick-search');
+    if (inp) inp.value = '';
+    renderPickList(uid, f);
   });
 }
 
-function onRuleDiscountTypeChange(uid) {
+function onRuleDt(uid) {
   const dt   = getRuleDt(uid);
   const dv   = document.getElementById('r' + uid + '_dv');
   const hint = document.getElementById('r' + uid + '_dvhint');
@@ -926,77 +1067,166 @@ function onRuleDiscountTypeChange(uid) {
   }
 }
 
-// 還原已存 rule 的多選值。若 rule 引用的 style/sku/type 已從 catalog 下架,
-// 補一個標註過的 option 保留原值 —— 否則存檔時會被靜默清成「全部」。
-function applyMsValue(uid, field, arr) {
-  const box = document.getElementById('r' + uid + '_' + field + '_all');
-  const sel = document.getElementById('r' + uid + '_' + field);
-  if (!box || !sel) return;
+// ── 收合 / 展開 ────────────────────────────────────────────────────────
+function ruleSummaryText(uid) {
+  const row = ruleRow(uid);
+  if (!row) return '';
+  const part = function (f, allTxt) {
+    if (row.all[f]) return allTxt;
+    const n = row.sel[f].length;
+    if (n === 0) return '—';
+    if (n <= 3) return row.sel[f].join(', ');
+    return n + ' selected';
+  };
+  const dvEl = document.getElementById('r' + uid + '_dv');
+  const val  = (dvEl && dvEl.value !== '') ? parseFloat(dvEl.value) : 0;
+  const disc = (getRuleDt(uid) === 'percentage')
+    ? ((isFinite(val) ? val : 0) + '% off')
+    : ('$' + (isFinite(val) ? val.toFixed(2) : '0.00') + ' off');
+  return [
+    row.ct === 'frameless' ? 'Frameless' : 'Framed',
+    part('ds', 'All styles'),
+    part('sku', 'All SKUs'),
+    part('type', 'All types'),
+    disc,
+  ].join(' · ');
+}
 
-  const values = Array.isArray(arr) ? arr.filter(function (v) { return v != null; }) : [];
-  if (!values.length) { box.checked = true; onRuleAllToggle(uid, field); return; }
+function paintRuleHead(uid) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  const nameEl = document.getElementById('r' + uid + '_name');
+  const name   = nameEl ? nameEl.value.trim() : '';
+  const title  = document.getElementById('r' + uid + '_title');
+  const sum    = document.getElementById('r' + uid + '_sum');
+  const btns   = document.getElementById('r' + uid + '_btns');
+  const card   = document.getElementById('rc_' + uid);
+  const body   = document.getElementById('r' + uid + '_body');
+  if (!title || !sum || !btns || !card || !body) return;
 
-  box.checked  = false;
-  sel.disabled = false;
+  const idx = _ruleRows.indexOf(row) + 1;
+  title.className   = 'rule-title' + (name ? '' : ' untitled');
+  title.textContent = name || ('Rule ' + idx + ' — untitled');
 
-  const present = {};
-  Array.prototype.forEach.call(sel.options, function (o) { present[o.value] = o; });
+  const dirty = (row.collapsed && row.unsaved) ? '<span class="rule-dirty">Unsaved</span>' : '';
+  sum.innerHTML = row.collapsed
+    ? (ruleEscHtml(ruleSummaryText(uid)) + dirty)
+    : ('Rule ' + idx);
 
-  values.forEach(function (v) {
-    const key = String(v);
-    if (present[key]) { present[key].selected = true; return; }
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = key + ' — no longer in catalog';
-    opt.selected = true;
-    sel.insertBefore(opt, sel.firstChild);
+  card.classList.toggle('editing', !row.collapsed);
+  body.style.display = row.collapsed ? 'none' : 'block';
+  btns.innerHTML = row.collapsed
+    ? '<button type="button" class="btn-rule" onclick="editRuleCard(' + uid + ')">Edit</button>'
+      + '<button type="button" class="btn-rule danger" onclick="deleteRuleCard(' + uid + ')">Delete</button>'
+    : '';
+}
+
+function validateRuleCard(uid) {
+  const row  = ruleRow(uid);
+  const errs = [];
+  if (!row) return errs;
+  const name = document.getElementById('r' + uid + '_name').value.trim();
+  if (!name) errs.push('Rule Name is required.');
+  const raw = document.getElementById('r' + uid + '_dv').value;
+  const val = (raw === '') ? NaN : parseFloat(raw);
+  if (!isFinite(val) || val < 0) errs.push('Discount Value must be 0 or more.');
+  else if (getRuleDt(uid) === 'percentage' && val > 100) errs.push('Percentage cannot exceed 100.');
+  ['ds', 'sku', 'type'].forEach(function (f) {
+    if (!row.all[f] && !row.sel[f].length) {
+      errs.push('Choose at least one ' + RULE_DIMS[f].label + ', or tick "' + RULE_DIMS[f].all + '".');
+    }
   });
+  return errs;
+}
+
+function saveRuleCard(uid) {
+  const row = ruleRow(uid);
+  if (!row) return false;
+  const errEl = document.getElementById('r' + uid + '_err');
+  const errs  = validateRuleCard(uid);
+  if (errs.length) {
+    errEl.innerHTML = errs.map(function (e) { return '• ' + ruleEscHtml(e); }).join('<br>');
+    errEl.style.display = 'block';
+    return false;
+  }
+  errEl.style.display = 'none';
+  row.collapsed = true;
+  row.unsaved   = true;    // 尚未寫入 DB —— 需按 Modal 底部的 Save
+  document.getElementById('r' + uid + '_ds_list').innerHTML   = '';
+  document.getElementById('r' + uid + '_sku_list').innerHTML  = '';
+  document.getElementById('r' + uid + '_type_list').innerHTML = '';
+  paintRuleHead(uid);
+  refreshRuleIndices();
+  return true;
+}
+
+function editRuleCard(uid) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  row.collapsed = false;
+  paintRuleHead(uid);
+  ['ds', 'sku', 'type'].forEach(function (f) { renderPickList(uid, f); });
+}
+
+function deleteRuleCard(uid) {
+  const el = document.getElementById('rc_' + uid);
+  if (el) el.remove();
+  _ruleRows = _ruleRows.filter(function (r) { return r.uid !== uid; });
+  refreshRuleIndices();
 }
 
 function refreshRuleIndices() {
-  _ruleRows.forEach(function (row, i) {
-    const el = document.getElementById('r' + row.uid + '_idx');
-    if (el) el.textContent = 'Rule ' + (i + 1);
-  });
+  _ruleRows.forEach(function (r) { paintRuleHead(r.uid); });
   const empty = document.getElementById('rulesEmpty');
   if (empty) empty.style.display = _ruleRows.length ? 'none' : 'block';
 }
 
 function refreshRuleMeta(uid) {
-  const row = _ruleRows.filter(function (r) { return r.uid === uid; })[0];
+  const row = ruleRow(uid);
   const el  = document.getElementById('r' + uid + '_meta');
   if (!el) return;
-  if (!row || !row.id) { el.textContent = 'Not saved yet.'; return; }
-  const fmt = function (t) {
+  if (!row || !row.id) { el.textContent = 'Not saved to the database yet.'; return; }
+  const f = function (t) {
     if (!t) return '—';
     const d = new Date(t);
     return isNaN(d.getTime()) ? '—' : d.toLocaleString();
   };
-  el.textContent = 'Created ' + fmt(row.created_at) + ' · Updated ' + fmt(row.updated_at);
+  el.textContent = 'Created ' + f(row.created_at) + ' · Updated ' + f(row.updated_at);
 }
 
 function _addRuleCardSync(rule) {
   const uid = ++_ruleUidSeq;
+  const ct  = rule ? normalizeCt(rule.construction_type) : 'framed';
+  const arr = function (v) { return Array.isArray(v) ? v.slice() : []; };
+
   _ruleRows.push({
-    uid:        uid,
-    id:         (rule && rule.id) ? rule.id : null,
+    uid: uid,
+    id:  (rule && rule.id) ? rule.id : null,
     created_at: rule ? rule.created_at : null,
     updated_at: rule ? rule.updated_at : null,
+    ct: ct,
+    all: {
+      ds:   !(rule && Array.isArray(rule.door_styles) && rule.door_styles.length),
+      sku:  !(rule && Array.isArray(rule.sku_codes)   && rule.sku_codes.length),
+      type: !(rule && Array.isArray(rule.types)       && rule.types.length),
+    },
+    sel: {
+      ds:   rule ? arr(rule.door_styles) : [],
+      sku:  rule ? arr(rule.sku_codes)   : [],
+      type: rule ? arr(rule.types)       : [],
+    },
+    search:    { ds: '', sku: '', type: '' },
+    collapsed: !!rule,     // 既有規則預設收合;新增的展開讓人填
+    unsaved:   !rule,
   });
 
   document.getElementById('rulesList').insertAdjacentHTML('beforeend', ruleCardHtml(uid));
 
-  const ct  = rule ? normalizeCt(rule.construction_type) : 'framed';
   const ctR = document.querySelector('input[name="r' + uid + '_ct"][value="' + ct + '"]');
   if (ctR) ctR.checked = true;
 
-  rebuildRuleSelects(uid, ct);
-
   if (rule) {
     document.getElementById('r' + uid + '_name').value = rule.name || '';
-    applyMsValue(uid, 'ds',   rule.door_styles);
-    applyMsValue(uid, 'sku',  rule.sku_codes);
-    applyMsValue(uid, 'type', rule.types);
     const dt  = (rule.discount_type === 'amount') ? 'amount' : 'percentage';
     const dtR = document.querySelector('input[name="r' + uid + '_dt"][value="' + dt + '"]');
     if (dtR) dtR.checked = true;
@@ -1004,7 +1234,15 @@ function _addRuleCardSync(rule) {
       (rule.discount_value == null) ? '' : rule.discount_value;
   }
 
-  onRuleDiscountTypeChange(uid);
+  const row = ruleRow(uid);
+  ['ds', 'sku', 'type'].forEach(function (f) {
+    const box = document.getElementById('r' + uid + '_' + f + '_all');
+    if (box) box.checked = row.all[f];
+    // 收合狀態不渲染清單(600+ 個 checkbox),展開時才建 —— 保持 DOM 輕量
+    if (!row.collapsed) renderPickList(uid, f);
+  });
+
+  onRuleDt(uid);
   refreshRuleMeta(uid);
   refreshRuleIndices();
   return uid;
@@ -1027,14 +1265,6 @@ async function addRuleCard(rule) {
   }
 }
 
-// 移除卡片只影響畫面;DB 的刪除在存檔時由 persistRules() 的 diff 執行。
-function deleteRuleCard(uid) {
-  const el = document.getElementById('rc_' + uid);
-  if (el) el.remove();
-  _ruleRows = _ruleRows.filter(function (r) { return r.uid !== uid; });
-  refreshRuleIndices();
-}
-
 function resetRuleSection() {
   _ruleRows      = [];
   _existingRules = [];
@@ -1043,31 +1273,22 @@ function resetRuleSection() {
   refreshRuleIndices();
 }
 
-// 未勾 All 但一個都沒選 → 回 null,由 validateRules() 先擋下(DB CHECK 也擋空陣列)。
-function msValue(uid, field) {
-  const box = document.getElementById('r' + uid + '_' + field + '_all');
-  if (!box || box.checked) return null;          // NULL = 全部,不 filter 該維度
-  const sel = document.getElementById('r' + uid + '_' + field);
-  const out = [];
-  if (sel) {
-    Array.prototype.forEach.call(sel.options, function (o) { if (o.selected) out.push(o.value); });
-  }
-  return out.length ? out : null;
-}
-
 function collectRules() {
   return _ruleRows.map(function (row) {
-    const uid = row.uid;
+    const uid   = row.uid;
     const dvRaw = document.getElementById('r' + uid + '_dv').value;
+    const dim   = function (f) {
+      return row.all[f] ? null : (row.sel[f].length ? row.sel[f].slice() : null);
+    };
     return {
       uid: uid,
       id:  row.id,
       payload: {
         name:              document.getElementById('r' + uid + '_name').value.trim(),
         construction_type: getRuleCt(uid),
-        door_styles:       msValue(uid, 'ds'),
-        sku_codes:         msValue(uid, 'sku'),
-        types:             msValue(uid, 'type'),
+        door_styles:       dim('ds'),
+        sku_codes:         dim('sku'),
+        types:             dim('type'),
         discount_type:     getRuleDt(uid),
         discount_value:    (dvRaw === '' ? NaN : parseFloat(dvRaw)),
       },
@@ -1075,23 +1296,22 @@ function collectRules() {
   });
 }
 
+// Modal 存檔前:仍展開中的卡片自動跑一次驗證並收合,
+// 避免「忘了按 Save Rule → 規則靜默遺失」。
 function validateRules() {
   const errs = [];
-  collectRules().forEach(function (r, i) {
-    const n = i + 1;
-    const p = r.payload;
-    if (!p.name) errs.push('Rule ' + n + ': Rule Name is required.');
-    if (!isFinite(p.discount_value) || p.discount_value < 0) {
-      errs.push('Rule ' + n + ': Discount Value must be 0 or more.');
-    } else if (p.discount_type === 'percentage' && p.discount_value > 100) {
-      errs.push('Rule ' + n + ': Percentage discount cannot exceed 100.');
-    }
-    [['ds', 'Door Style'], ['sku', 'SKU Code'], ['type', 'Type']].forEach(function (pair) {
-      const box = document.getElementById('r' + r.uid + '_' + pair[0] + '_all');
-      if (box && !box.checked && !msValue(r.uid, pair[0])) {
-        errs.push('Rule ' + n + ': choose at least one ' + pair[1] + ', or tick "All".');
+  _ruleRows.forEach(function (row, i) {
+    const cardErrs = validateRuleCard(row.uid);
+    if (cardErrs.length) {
+      cardErrs.forEach(function (e) { errs.push('Rule ' + (i + 1) + ': ' + e); });
+      if (row.collapsed) {
+        row.collapsed = false;
+        paintRuleHead(row.uid);
+        ['ds', 'sku', 'type'].forEach(function (f) { renderPickList(row.uid, f); });
       }
-    });
+    } else if (!row.collapsed) {
+      saveRuleCard(row.uid);
+    }
   });
   return errs;
 }
@@ -1099,7 +1319,7 @@ function validateRules() {
 function showFormErrorList(headline, items) {
   const errEl = document.getElementById('formError');
   errEl.innerHTML = headline + '<ul>'
-    + items.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>';
+    + items.map(function (t) { return '<li>' + ruleEscHtml(t) + '</li>'; }).join('') + '</ul>';
   errEl.classList.add('show');
 }
 
@@ -1155,6 +1375,8 @@ async function persistRules(dealerId) {
       .insert(Object.assign({ dealer_id: dealerId }, r.payload));
     if (error) throw error;
   }
+
+  _ruleRows.forEach(function (row) { row.unsaved = false; });
 }
 
 async function saveDealer() {
