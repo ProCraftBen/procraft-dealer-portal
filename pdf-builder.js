@@ -666,11 +666,6 @@ return total;
       markupPercent = 0,
       constructionType = 'framed', // CB-22
       headerContext,
-      // CB-47 (Q-A3):markup 預覽的 Draft Quote 隱藏折扣列。此時品項單價必須
-      //   同步改成折後,否則品項加總 ≠ Subtotal —— dealer 交給終端客戶的文件
-      //   自己對不起來,比露出折扣更糟。⚠️ 本旗標必須與 _finalizeWithTotals
-      //   的 hideDiscount 同值,分開設會立刻不一致。
-      hideDiscount = false,
     } = context;
 
     const isPacking  = (mode === 'packing-list');
@@ -743,10 +738,11 @@ return total;
             const isCustom = !!item.is_custom;
             const assembleStatus = item.assemble_status || item.type || '';
             const skuDesc = item.sku_desc || '';
-            // CB-47:markup 只加在單價上,折扣額不隨 markup 放大(與 step3 同式)。
-            const _itemDisc       = Number(item.discount_amount || 0);
-            const markedUnitPrice = (item.unit_price * (1 + markupPercent))
-                                    - (hideDiscount ? _itemDisc : 0);
+            // CB-47:品項單價一律顯示【原價 × markup】,不含折扣。
+            //   揭露模式 → Subtotal 也顯示折前,兩者加總一致,折扣另列三行。
+            //   隱藏模式(markup 預覽)→ 整份 PDF 當作沒有折扣,Subtotal 亦為折前。
+            //   兩種模式下「品項加總 === Subtotal」皆成立,勿在此處扣折扣。
+            const markedUnitPrice = item.unit_price * (1 + markupPercent);
             const _noPrefixType = (item.sku_type || item.skuType || '').toUpperCase();
             const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
             const skuPrefix = (item.style_code && !_skipStylePrefix) ? item.style_code + '-' : '';
@@ -1356,7 +1352,13 @@ return total;
     const {
       doc, quoteData, items, headerContext, tableEndY, notes,
       showPrices, markupPercent = 0,
-      hideDiscount = false,      // CB-47:見 _drawItemTable 同名參數說明
+      // CB-47 (Q-A3):true = 整份 PDF【完全忽略折扣】——
+      //   Subtotal / Tax / Order Total 全部以折【前】為基礎,且不畫折扣列。
+      //   用於 markup 預覽的 Draft Quote:那是 dealer 交給終端客戶的報價,
+      //   不能讓客戶看出 dealer 對 ProCraft 有進價折扣。
+      //   ⚠️ 絕不可與 receipt 併用 —— 會使 live grand ≠ payments.base_amount,
+      //      CB-45 對帳斷言必然 throw。下方已加硬性防護。
+      hideDiscount = false,
       receipt = null,          // CB-45: Receipt 模式帶入;Invoice/Draft 為 null
     } = args;
     const { pageW, margin } = LAYOUT;
@@ -1370,15 +1372,20 @@ return total;
     const markedSubtotalGross = items.reduce(
       (s, i) => s + i.unit_price * (1 + markupPercent) * i.quantity, 0
     );
-    const discountLineTotal = items.reduce(
+    // 硬性防護:Receipt 一律揭露折扣,否則對帳斷言必爆。
+    const _hideDisc = hideDiscount && !receipt;
+    if (hideDiscount && receipt) {
+      console.warn('[CB-47] hideDiscount ignored for Receipt (would break CB-45 reconciliation)');
+    }
+
+    const discountLineTotal = _hideDisc ? 0 : items.reduce(
       (s, i) => s + Number(i.discount_amount || 0) * i.quantity, 0
     );
     const markedSubtotal = markedSubtotalGross - discountLineTotal;
 
-    // 折扣明細列只在「有折扣」且「非 markup 隱藏模式」時顯示
     const _appliedRules  = Array.isArray(quoteData.applied_discount_rules)
                              ? quoteData.applied_discount_rules : [];
-    const showDiscount   = !hideDiscount && discountLineTotal > 0.005;
+    const showDiscount   = discountLineTotal > 0.005;
 
     const assembleTotal = items.reduce(
       (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
@@ -1629,7 +1636,6 @@ return total;
           markupPercent:    markupPercent,
           constructionType: quoteData.construction_type,   // CB-22
           headerContext:    headerContext,
-          hideDiscount:     false,   // CB-47:Invoice 一律揭露折扣
         });
 
     _finalizeWithTotals({
@@ -1663,7 +1669,6 @@ return total;
           markupPercent:    markupPercent,
           constructionType: quoteData.construction_type,
           headerContext:    headerContext,
-          hideDiscount:     false,   // CB-47:Receipt 為付款憑證,一律揭露折扣
         });
 
     _finalizeWithTotals({
@@ -1686,8 +1691,8 @@ return total;
     // ── CB-47 (Q-A3) ──────────────────────────────────────────────────────
     //   markup 預覽的 Draft Quote 是 dealer 拿去給【終端客戶】看的報價。
     //   若印出「Discount · LSW Framed 10%」等於把 dealer 對 ProCraft 的進價
-    //   折扣攤給客戶,故隱藏折扣列,並由 _drawItemTable 同步改用折後單價,
-    //   維持「品項加總 === Subtotal」。無 markup 時照常揭露。
+    //   折扣攤給客戶,故整份 PDF 完全忽略折扣:品項單價、Subtotal、Tax、
+    //   Order Total 全部以折【前】為基礎。無 markup 時照常揭露折扣。
     const _hideDiscount = markupPercent > 0;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
@@ -1701,7 +1706,6 @@ return total;
         markupPercent:    markupPercent,
         constructionType: quoteData.construction_type,   // CB-22
         headerContext:    headerContext,
-        hideDiscount:     _hideDiscount,   // CB-47 Q-A3
       });
 
     _finalizeWithTotals({
