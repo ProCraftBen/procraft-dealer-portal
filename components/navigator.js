@@ -62,7 +62,7 @@
   style.textContent = `
     @media (min-width: 768px) {
       html {
-        font-size: 120%;
+        font-size: 200%;
       }
     }
   `;
