@@ -972,6 +972,7 @@ function reconstructGroupedItems(rawItems) {
       String(row.unit_price || 0),
       row.assemble_status || '',
       row.is_custom ? '1' : '0',
+      String(row.discount_amount || 0),   // CB-47:折扣不同就不該併成同一列
     ].join('||');
 
     if (!itemMap.has(key)) {
@@ -983,6 +984,8 @@ function reconstructGroupedItems(rawItems) {
         sku_type:        row.sku_type || null,
         assemble_status: row.assemble_status || 'RTA',
         unit_price:      parseFloat(row.unit_price || 0),
+        // CB-47 (D13):每 unit 折扣額(快照)。本檔【不重算規則】,只讀這個數字。
+        discount_amount: parseFloat(row.discount_amount || 0),
         msrp:            row.msrp || null,
         assemble_fee:    parseFloat(row.assemble_fee || 0),
         is_custom:       !!row.is_custom,
@@ -1643,6 +1646,37 @@ function renderQuote(quote, dealer, addr) {
   const mappingMaterialTotal = modsSubtotal - modBreakdown.modsDisplayTotal;
 
   // ─────────────────────────────────────────────────────────────────────
+  // CB-47: 折扣顯示。純讀快照 —— quotes.subtotal 已是折【後】淨額,
+  //   折前 = subtotal + discount_total。本檔不做任何規則匹配或金額重算,
+  //   Pending 以上的單因此永遠顯示送出當下的金額(snapshot 原則)。
+  //   舊單 discount_total 為 DEFAULT 0 → 整塊不渲染,畫面與 CB-46 後一致。
+  // ─────────────────────────────────────────────────────────────────────
+  const discountTotal   = parseFloat(quote.discount_total || 0);
+  const appliedRules    = Array.isArray(quote.applied_discount_rules)
+                            ? quote.applied_discount_rules : [];
+  const subtotalNetDisp   = skuSubtotal + mappingMaterialTotal;
+  const subtotalGrossDisp = subtotalNetDisp + discountTotal;
+
+  const discountRowsHtml = (discountTotal > 0)
+    ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div class="asm-breakdown">
+          ${appliedRules.map(function (r) {
+            return `<div class="asm-breakdown-row"><span>${escapeHtml(r.rule_name || 'Discount')}</span>` +
+                   `<span style="color:#8B6914;">−${fmt(r.discount_total)}</span></div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Total Discount</span>
+        <span class="total-val" style="color:#8B6914;">−${fmt(discountTotal)}</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Subtotal After Discount</span>
+        <span class="total-val">${fmt(subtotalNetDisp)}</span>
+      </div>`
+    : '';
+
+  // ─────────────────────────────────────────────────────────────────────
   // CB-40 removal (Path B / back-solve) — 2026-07-23
   //   原此處由 DB 快照反推 discount,供 CB-13 歷史單顯示 Discount 行。
   //   已完全移除:歷史單結案無人回看,且反推會把「取整落差」誤判為折扣
@@ -1939,7 +1973,8 @@ function renderQuote(quote, dealer, addr) {
       ${notesTableHtml}
 
       <div class="totals">
-        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(skuSubtotal + mappingMaterialTotal)}</span></div>
+        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(discountTotal > 0 ? subtotalGrossDisp : subtotalNetDisp)}</span></div>
+        ${discountRowsHtml}
         ${modsRowHtml}
         ${asmBreakdownHtml}
         ${shippingRowHtml}
@@ -2154,6 +2189,7 @@ function buildQuoteDataForPdf() {
       assemble_status: item.assemble_status,
       quantity:        item.sub_groups.reduce((s, g) => s + (parseInt(g.qty, 10) || 0), 0),
       unit_price:      item.unit_price,
+      discount_amount: parseFloat(item.discount_amount || 0),   // CB-47 (D13)
       msrp:            item.msrp || null,
       assemble_fee:    item.assemble_fee,
       sub_groups:      enrichSubGroupsForPdf(item.sub_groups, _itemCt),  // CB-25: 掛 mapping type/desc/tag 給 PDF
@@ -2193,6 +2229,11 @@ function buildQuoteDataForPdf() {
     construction_type:   resolveQuoteConstructionType(_groupedItems, _allDoorStyles),  // CB-22: PDF Order List 排序依據
     modifications_total:         parseFloat(modsTotal.toFixed(2)),
     modifications_total_taxable: parseFloat(taxableModsTotal.toFixed(2)),
+    // CB-47:折扣快照給 PDF 顯示用。金額本身已含在 items[].discount_amount,
+    //   pdf-builder 由此 live 重算,與 DB grand_total 收斂(CB-45 對帳不受影響)。
+    discount_total:         parseFloat(_quote.discount_total || 0),
+    applied_discount_rules: Array.isArray(_quote.applied_discount_rules)
+                              ? _quote.applied_discount_rules : null,
     _taxRate:      _taxRate,
     _taxExempt:    _taxExempt,
     _isPendingShipping: (_quote.logistic_type === 'shipping' && shippingCost === null),
