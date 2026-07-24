@@ -62,13 +62,12 @@
   style.textContent = `
     @media (min-width: 768px) {
       html {
-        font-size: 150%;
+        font-size: 120%;
       }
     }
   `;
   document.head.appendChild(style);
 })();
-
 
 (function () {
   'use strict';
