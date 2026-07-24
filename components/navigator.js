@@ -53,6 +53,24 @@
  *   - Hamburger menu on mobile, click outside to close
  *   - Sign Out → signOut() + redirect to login.html
  * ────────────────────────────────────────────────────────────────────── */
+
+// components/navigator.js: this section for zooming 120%
+
+(function injectGlobalStyles() {
+  const style = document.createElement('style');
+  style.id = 'global-ui-scale';
+  style.textContent = `
+    @media (min-width: 768px) {
+      html {
+        font-size: 120%;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+ * ────────────────────────────────────────────────────────────────────── */
+   
 (function () {
   'use strict';
 
