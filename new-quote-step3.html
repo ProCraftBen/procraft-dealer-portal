@@ -668,6 +668,18 @@ color: var(--green-dark);
         <span class="total-label">Subtotal</span>
         <span class="total-value" id="totalSubtotal">$0.00</span>
       </div>
+      <!-- CB-47: 折扣區塊。無折扣時整塊隱藏,畫面與 CB-46 完成後完全一致。 -->
+      <div id="discountRow" style="display:none;">
+        <div id="discountBreakdown" style="padding:4px 0 6px 16px;"></div>
+        <div class="total-row" style="padding-top:2px;">
+          <span class="total-label">Total Discount</span>
+          <span class="total-value" id="totalDiscount" style="color:#8B6914;">−$0.00</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">Subtotal After Discount</span>
+          <span class="total-value" id="totalSubtotalNet">$0.00</span>
+        </div>
+      </div>
       <!-- CB-27: Modifications 改成標題 + by-type 明細 + Total(仿 assembleRow) -->
       <div id="modsRow" style="display:none;">
         <div class="total-row" style="padding-bottom:2px;">
@@ -949,6 +961,10 @@ let draftId   = null;
 let allDoorStyles = [];  // CB-5 需求1/2: door_styles 快取
 let allSkusFramed    = [];  // CB-9: tag 查表用(skus_framed)
 let allSkusFrameless = [];  // CB-9: tag 查表用(skus_frameless)
+
+// ── CB-47: Personal Discount Rules ──
+let dealerDiscountRules  = [];    // 該 dealer 的規則,created_at ASC(顯示與扣抵順序皆依此)
+let _appliedDiscountRules = null; // computeItemDiscounts() 產出的快照;無折扣時為 null
 
 let _isResumingReturned     = false;
 let _currentRevisionNumber  = 1;
@@ -1384,6 +1400,138 @@ function round2(x) {
   return s * Math.round(Number((Math.abs(n) * 100).toPrecision(15))) / 100;
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// CB-47 · Personal Discount Rules — 全庫唯一一處規則匹配與折扣計算
+//
+// 折扣算完後寫進 item.discount_amount(每 unit),再隨 quote_items 落庫。
+// 下游(quote-detail / pdf-builder / send-quote-email)一律只讀這個數字,
+// 絕不重新匹配規則 —— 這是 CB-47 不會出現「多檔算法漂移」的原因,勿破壞。
+//
+// ⚠️ 三個階段 0 診斷出的陷阱,改動前務必先讀:
+//   1. Type 指 SKU 的 BASE/WALL/TALL(item.skuType / quote_items.sku_type),
+//      不是 RTA/Assembled(item.type / assemble_status)。寫錯會靜默全不匹配。
+//   2. Door style 不是 SKU 欄位,而是報價時選的 → 比對 item.style_code。
+//   3. construction_type 在 door_styles 是 'Framed'/'Frameless',在 DB 規則是
+//      小寫 → 兩邊都要 normalizeCt()。
+//
+// D8:custom items 一律不套用。理由不只是業務決定 —— custom item 的
+//     construction_type 在「新建」是小寫、在「續編」(loadDraftItems 無
+//     style_code 可 join)是 null,允許匹配會造成同一張 Draft 重開後金額漂移。
+// ═════════════════════════════════════════════════════════════════════════════
+
+function normalizeCt(v) {
+  const t = String(v == null ? '' : v).trim().toLowerCase();
+  return (t === 'frameless') ? 'frameless' : (t === 'framed' ? 'framed' : '');
+}
+
+// 單一維度比對:rule 值為 NULL / 空陣列 → 該維度不 filter(= 全部)。
+function matchRuleDim(ruleValues, itemValue) {
+  if (ruleValues == null) return true;
+  if (!Array.isArray(ruleValues) || !ruleValues.length) return true;
+  if (itemValue == null || itemValue === '') return false;
+  const target = String(itemValue).trim().toUpperCase();
+  for (let i = 0; i < ruleValues.length; i++) {
+    if (String(ruleValues[i]).trim().toUpperCase() === target) return true;
+  }
+  return false;
+}
+
+function matchRuleToItem(rule, item) {
+  if (!rule || !item) return false;
+  if (item.is_custom === true) return false;                       // D8
+  const itemCt = normalizeCt(item.construction_type);
+  if (!itemCt) return false;                                       // 無法判定 → 不套用
+  if (itemCt !== normalizeCt(rule.construction_type)) return false;
+  if (!matchRuleDim(rule.door_styles, item.style_code)) return false;
+  if (!matchRuleDim(rule.sku_codes,   item.sku_code))   return false;
+  if (!matchRuleDim(rule.types,       item.skuType))    return false;   // ⚠ skuType,非 type
+  return true;
+}
+
+// 對 step2Data 每個品項算出 discount_amount(每 unit),同時產出 rule 快照。
+// 多 rule 命中時各自獨立疊加;總折扣觸及單價上限時,依 created_at ASC 順序
+// 扣抵,額度用盡後續 rule 分到 0(Q-A1)。順序扣抵可保證「各 rule 顯示金額
+// 之和 === Total Discount」,summary 不會加不起來。
+function computeItemDiscounts() {
+  const rules = Array.isArray(dealerDiscountRules) ? dealerDiscountRules : [];
+  const agg   = {};   // rule.id -> { total, skus }
+
+  (step2Data || []).forEach(function (item) {
+    item.discount_amount = 0;
+    if (!rules.length || item.is_custom === true) return;
+
+    const unitGross = round2(item.unit_price || 0);
+    if (!(unitGross > 0)) return;
+
+    let remaining = unitGross;
+
+    for (let k = 0; k < rules.length; k++) {
+      if (remaining <= 0) break;
+      const r = rules[k];
+      if (!matchRuleToItem(r, item)) continue;
+
+      const val = Number(r.discount_value) || 0;
+      const raw = (r.discount_type === 'percentage')
+        ? round2(unitGross * val / 100)
+        : round2(val);
+      if (!(raw > 0)) continue;
+
+      const taken = Math.min(raw, remaining);      // Cap at $0
+      remaining   = round2(remaining - taken);
+
+      if (!agg[r.id]) agg[r.id] = { total: 0, skus: {} };
+      agg[r.id].total = round2(agg[r.id].total + round2(taken * (item.quantity || 0)));
+      agg[r.id].skus[(item.style_code ? item.style_code + '-' : '') + (item.sku_code || '')] = true;
+    }
+
+    item.discount_amount = round2(unitGross - remaining);
+  });
+
+  // 快照依 rules 原順序(created_at ASC),且只收實際產生折扣的 rule
+  //(否則 summary / PDF / email 會出現 -$0.00 的空行)。
+  const snap = [];
+  rules.forEach(function (r) {
+    const a = agg[r.id];
+    if (!a || !(a.total > 0)) return;
+    snap.push({
+      rule_id:           r.id,
+      rule_name:         r.name,
+      construction_type: r.construction_type,
+      discount_type:     r.discount_type,
+      discount_value:    Number(r.discount_value) || 0,
+      matched_skus:      Object.keys(a.skus).sort(),
+      discount_total:    a.total,
+    });
+  });
+  _appliedDiscountRules = snap.length ? snap : null;
+
+  const t = computeSkuTotals(0);
+  console.log('[CB-47] discounts computed:',
+    'rules=' + rules.length,
+    'applied=' + (snap.length),
+    'gross=$' + t.gross.toFixed(2),
+    'discount=$' + t.discount.toFixed(2),
+    'net=$' + t.net.toFixed(2));
+
+  return _appliedDiscountRules;
+}
+
+// SKU 小計的唯一計算入口 —— 五個呼叫點(renderReview / updateMarkupPreview /
+// saveDraft / submitQuote / requestRevision)全部走這裡,避免漏改造成金額 leak。
+// discount 採「減法導出」而非獨立累加:兩個值各自 round2 其和可能差 1 分,
+// 減法可保證 gross − discount ≡ net(對齊 CB-46 處理 CB-27 分桶的作法)。
+function computeSkuTotals(markupPct) {
+  const m    = 1 + (Number(markupPct) || 0);
+  const rows = step2Data || [];
+  const gross = round2(rows.reduce(function (s, i) {
+    return s + (i.unit_price * m) * i.quantity;
+  }, 0));
+  const net = round2(rows.reduce(function (s, i) {
+    return s + ((i.unit_price * m) - (i.discount_amount || 0)) * i.quantity;
+  }, 0));
+  return { gross: gross, net: net, discount: round2(gross - net) };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2.1 — Render mods inside Description column (NO fees).
 //
@@ -1650,14 +1798,32 @@ let dealerIdToLoad = session.user.id;
   // CB-5 需求1/2: 載入 door_styles(整單 lead time + non-stock 判斷)
   // CB-9: 同時載入 skus_framed / skus_frameless 的 tag(Order List Tag 欄查表用)。
   //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
-  const [styleRes, framedRes, framelessRes] = await Promise.all([
+  const [styleRes, framedRes, framelessRes, rulesRes] = await Promise.all([
     _supabase.from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true),
     _supabase.from('skus_framed').select('sku_code, tag, type, description, needs_confirmation'),
     _supabase.from('skus_frameless').select('sku_code, tag, type, description, needs_confirmation'),
+    // CB-47: 折扣規則。dealer 端靠 RLS(dealer_ddr_select_own)只讀得到自己的;
+    //        admin 代建時 dealerIdToLoad 已是被代建 dealer 的 id,故兩種身分皆正確。
+    _supabase.from('dealer_discount_rules').select('*')
+      .eq('dealer_id', dealerIdToLoad).order('created_at', { ascending: true }),
   ]);
   allDoorStyles    = styleRes.data     || [];
   allSkusFramed    = framedRes.data    || [];
   allSkusFrameless = framelessRes.data || [];
+
+  // ── CB-47 ──────────────────────────────────────────────────────────────
+  // 規則載入後【立刻】算一次折扣,寫進 step2Data 每個 item 的 discount_amount。
+  // ⚠️ 這是本檔唯一的呼叫點,且必須早於任何小計計算(renderReview / saveDraft /
+  //    submitQuote / requestRevision / updateMarkupPreview 都吃 discount_amount)。
+  //    D2:Draft 每次打開都重算,admin 改過的規則會立即反映;Pending 以上的單
+  //    不會走到這支頁面,快照因此不受影響。
+  if (rulesRes.error) {
+    console.error('[CB-47] failed to load discount rules:', rulesRes.error);
+    dealerDiscountRules = [];
+  } else {
+    dealerDiscountRules = rulesRes.data || [];
+  }
+  computeItemDiscounts();
 
   setInterval(async () => {
     const { data: check } = await _supabase
@@ -1779,6 +1945,24 @@ function calcAsmByType(data) {
     byType[t].total += item.assemble_fee * item.quantity;
   });
   return byType;
+}
+
+// CB-47:折扣明細列。rule_name 由 admin 手填 → 一律 escapeHtml。
+function renderDiscountRows(discountTotal, netSubtotalDisplay) {
+  const row = document.getElementById('discountRow');
+  if (!row) return;
+  if (!(discountTotal > 0)) { row.style.display = 'none'; return; }
+  row.style.display = 'block';
+
+  const list = Array.isArray(_appliedDiscountRules) ? _appliedDiscountRules : [];
+  document.getElementById('discountBreakdown').innerHTML = list.map(function (r) {
+    return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
+      <span>${escapeHtml(r.rule_name || 'Discount')}</span>
+      <span style="color:#8B6914;">−$${round2(r.discount_total).toFixed(2)}</span></div>`;
+  }).join('');
+
+  document.getElementById('totalDiscount').textContent    = `−$${discountTotal.toFixed(2)}`;
+  document.getElementById('totalSubtotalNet').textContent = `$${netSubtotalDisplay.toFixed(2)}`;
 }
 
 function renderAsmBreakdown(byType, showPrices, containerId) {
@@ -2122,7 +2306,10 @@ function buildItemRowsHtml(markupPct) {
 // whether mods are taxable (would be confusing and not aligned with the spec).
 // ─────────────────────────────────────────────────────────────────────────────
 function applyTotals(opts) {
-  const skuSubtotal         = opts.skuSubtotal;
+  const skuSubtotal         = opts.skuSubtotal;          // CB-47: 折【後】淨額
+  const skuSubtotalGross    = (opts.skuSubtotalGross == null)
+                                ? opts.skuSubtotal
+                                : opts.skuSubtotalGross;  // CB-47: 折【前】,僅供顯示與運費級距
   const modsSubtotal        = opts.modsSubtotal;
   const taxableModsSubtotal = opts.taxableModsSubtotal || 0;
   const assembleTotal       = opts.assembleTotal;
@@ -2136,7 +2323,9 @@ function applyTotals(opts) {
   const modBreakdown         = calcModByType(step2Data, _ct);
 
   // ── CB-46: 加數先各自取整 ──
-  const skuSubtotalR  = round2(skuSubtotal);
+  const skuSubtotalR      = round2(skuSubtotal);
+  const skuSubtotalGrossR = round2(skuSubtotalGross);
+  const discountTotalR    = round2(skuSubtotalGrossR - skuSubtotalR);   // CB-47:減法導出
   const modsSubtotalR = round2(modsSubtotal);
   const taxableModsR  = round2(taxableModsSubtotal);
   const assembleTotalR = round2(assembleTotal);
@@ -2147,6 +2336,10 @@ function applyTotals(opts) {
   const modsDisplayR         = round2(modBreakdown.modsDisplayTotal);
   const mappingMaterialTotal = round2(modsSubtotalR - modsDisplayR);
 
+  // CB-47 D5:tax base 用折【後】小計。
+  // CB-47 D6:shipping 級距同樣用折【後】billingBase —— 業主 override,
+  //   dealer 使用折扣就承擔級距後果(折後掉出 $12,000 即失去免運)。
+  //   ⚠️ 勿改回 gross,那是 PM 原始拍板後被推翻的版本。
   const taxBase     = round2(skuSubtotalR + taxableModsR);
   const billingBase = round2(skuSubtotalR + modsSubtotalR);
 
@@ -2232,7 +2425,14 @@ function applyTotals(opts) {
   const tax   = round2(taxBase * taxRate);
   const grand = round2(skuSubtotalR + modsSubtotalR + assembleTotalR + shippingForTotalR + tax);
 
-  document.getElementById('totalSubtotal').textContent = `$${round2(skuSubtotalR + mappingMaterialTotal).toFixed(2)}`;
+  // ── CB-47 顯示(D10)──
+  //   有折扣 → Subtotal 顯示折前,下方列出各 rule 明細 + Total Discount + 折後小計
+  //   無折扣 → 與 CB-46 完成後完全一致
+  const _subNetDisplay   = round2(skuSubtotalR + mappingMaterialTotal);
+  const _subGrossDisplay = round2(skuSubtotalGrossR + mappingMaterialTotal);
+  document.getElementById('totalSubtotal').textContent =
+    `$${(discountTotalR > 0 ? _subGrossDisplay : _subNetDisplay).toFixed(2)}`;
+  renderDiscountRows(discountTotalR, _subNetDisplay);
 
   const modsRow = document.getElementById('modsRow');
   if (modBreakdown.modsDisplayTotal > 0) {
@@ -2354,7 +2554,8 @@ function renderReview() {
     document.getElementById('reviewNotes').textContent = step1Data.notes;
   }
 
-  const skuSubtotal          = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  const _t47                 = computeSkuTotals(0);   // CB-47
+  const skuSubtotal          = _t47.net;
   const modsSubtotal         = calcTotalModsCost(step2Data);
   const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
   const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
@@ -2381,6 +2582,7 @@ function renderReview() {
 
   applyTotals({
     skuSubtotal:          skuSubtotal,
+    skuSubtotalGross:     _t47.gross,           // CB-47
     modsSubtotal:         modsSubtotal,
     taxableModsSubtotal:  taxableModsSubtotal,  // F-TAX
     assembleTotal:        assembleTotal,
@@ -2422,7 +2624,9 @@ function buildItemsPayload(quoteId) {
         assemble_status:     item.type,
         sub_index:           g.sub_index || (i + 1),
         quantity:            g.qty,
-        unit_price:          item.unit_price,
+        unit_price:          item.unit_price,     // CB-47: 保留原價,折扣另存
+        // CB-47 (D13): 每 unit 折扣額,已過 cap at $0。下游一律讀這欄,不重算規則。
+        discount_amount:     round2(item.discount_amount || 0),
         msrp:                item.msrp || null,
         assemble_fee:        item.assemble_fee || 0,
         // F-TAX: modifications array now includes tax_status per mod entry
@@ -2477,6 +2681,7 @@ function buildQuoteDataForPdf(opts) {
       assemble_status: i.type,
       quantity:        i.quantity,
       unit_price:      i.unit_price,
+      discount_amount: round2(i.discount_amount || 0),   // CB-47 (D13)
       msrp:            i.msrp || null,
       assemble_fee:    i.assemble_fee || 0,
       sub_groups:      enrichSubGroupsForPdf(getNormalizedSubGroups(i), _pdfConstructionType),  // CB-25: 掛 mapping type/desc/tag 給 PDF
@@ -2486,7 +2691,11 @@ function buildQuoteDataForPdf(opts) {
     };
   });
 
-  const skuSubtotalNow         = step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0);
+  // CB-47: 用折【後】淨額。pdf-builder 也是由 items 的 unit_price − discount_amount
+  //   live 重算,兩邊同式 → PDF 的 Order Total 與 DB grand_total 收斂,
+  //   Receipt 的 CB-45 對帳斷言不會被折扣打破。
+  const _t47p                  = computeSkuTotals(0);
+  const skuSubtotalNow         = _t47p.net;
   const modsSubtotalNow        = calcTotalModsCost(step2Data);
   const taxableModsSubtotalNow = calcTaxableModsCost(step2Data);  // F-TAX
 
@@ -2516,6 +2725,9 @@ function buildQuoteDataForPdf(opts) {
     _taxExempt:  !!dealer?.tax_exempt,
     modifications_total:         round2(modsSubtotalNow),
     modifications_total_taxable: _pdfTaxableR,  // F-TAX
+    // CB-47: 折扣快照給 PDF 顯示用(金額本身已含在 items.discount_amount 內)
+    discount_total:         _t47p.discount,
+    applied_discount_rules: _appliedDiscountRules,
   };
 
   if (Object.prototype.hasOwnProperty.call(opts, 'shippingCostOverride')) {
@@ -2579,7 +2791,8 @@ async function saveDraft() {
     }
 
     // ── CB-46: 加數一律先各自取整，再相加(見 round2 說明) ──
-    const skuSubtotal          = round2(step2Data.reduce(function(s,i) { return s + i.unit_price * i.quantity; }, 0));
+    const _t47s                = computeSkuTotals(0);   // CB-47
+    const skuSubtotal          = _t47s.net;             // 折後淨額(quotes.subtotal 存這個)
     const modsSubtotal         = round2(calcTotalModsCost(step2Data));
     const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
     const assembleTotal        = round2(step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0));
@@ -2632,11 +2845,14 @@ async function saveDraft() {
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
       delivery_fee:        deliveryFee,      // CB-46: 已於上方 round2，不再二次取整
-      subtotal:            skuSubtotal,
+      subtotal:            skuSubtotal,      // CB-47: 折後淨額;折前 = subtotal + discount_total
       assemble_total:      assembleTotal,
       shipping_cost:       (shippingForDb === null) ? null : round2(shippingForDb),
       tax_amount:          tax,
       grand_total:         grand,
+      // CB-47: 每次存 Draft 都重新快照(D2)
+      discount_total:         _t47s.discount,
+      applied_discount_rules: _appliedDiscountRules,
     };
 
     // ── CB-36: admin_notified_at 寫入規則 ──
@@ -2800,7 +3016,8 @@ async function submitQuote() {
     const dealerId = await resolveDealerId(session);
 
     // ── CB-46: 加數一律先各自取整，再相加 ──
-    const skuSubtotal          = round2(step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0));
+    const _t47q                = computeSkuTotals(0);   // CB-47
+    const skuSubtotal          = _t47q.net;             // 折後淨額
     const modsSubtotal         = round2(calcTotalModsCost(step2Data));
     const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
     const assembleTotal        = round2(step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0));
@@ -2857,11 +3074,14 @@ async function submitQuote() {
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
       delivery_fee:        deliveryFee,      // CB-46: 已於上方 round2，不再二次取整
-      subtotal:            skuSubtotal,
+      subtotal:            skuSubtotal,      // CB-47: 折後淨額
       assemble_total:      assembleTotal,
       shipping_cost:       shippingCostWrite,
       tax_amount:          tax,
       grand_total:         grand,
+      // CB-47: 送出即凍結快照,之後 admin 改規則不影響本張單
+      discount_total:         _t47q.discount,
+      applied_discount_rules: _appliedDiscountRules,
     };
 
     let poNumber;
@@ -3184,7 +3404,8 @@ async function requestRevision(note) {
 
     // ── financials (identical to submitQuote) ──
     // ── CB-46: 加數一律先各自取整，再相加 ──
-    const skuSubtotal         = round2(step2Data.reduce((s,i) => s + i.unit_price * i.quantity, 0));
+    const _t47r               = computeSkuTotals(0);   // CB-47
+    const skuSubtotal         = _t47r.net;             // 折後淨額
     const modsSubtotal        = round2(calcTotalModsCost(step2Data));
     const taxableModsSubtotal = round2(calcTaxableModsCost(step2Data));
     const assembleTotal       = round2(step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0));
@@ -3243,11 +3464,13 @@ async function requestRevision(note) {
       notes:               step1Data.notes || null,
       logistic_type:       logisticType,
       delivery_fee:        deliveryFee,      // CB-46: 已於上方 round2，不再二次取整
-      subtotal:            skuSubtotal,
+      subtotal:            skuSubtotal,      // CB-47: 折後淨額
       assemble_total:      assembleTotal,
       shipping_cost:       shippingCostWrite,
       tax_amount:          tax,
       grand_total:         grand,
+      discount_total:         _t47r.discount,       // CB-47
+      applied_discount_rules: _appliedDiscountRules, // CB-47
       quote_number:        quoteNum,
       // revision_number intentionally NOT changed — dealer's Resubmit bumps it.
     };
@@ -3590,13 +3813,17 @@ function updateMarkupPreview() {
   document.getElementById('itemsTableBody').innerHTML = result.rowsHtml;
   document.getElementById('notesTableMount').innerHTML = renderNotesTable(result.notes);
 
-  const markedSkuSubtotal    = step2Data.reduce((s,i) => s + i.unit_price*(1+markupPct)*i.quantity, 0);
+  // CB-47 Q-A3:step3 的 markup 預覽【仍顯示】折扣區塊,只有 Draft Quote PDF 隱藏。
+  //   markup 只加在單價上,折扣額不隨 markup 放大(與 pdf-builder 同式)。
+  const _t47m                = computeSkuTotals(markupPct);
+  const markedSkuSubtotal    = _t47m.net;
   const modsSubtotal         = calcTotalModsCost(step2Data);
   const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
   const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
 
   applyTotals({
     skuSubtotal:          markedSkuSubtotal,
+    skuSubtotalGross:     _t47m.gross,          // CB-47
     modsSubtotal:         modsSubtotal,
     taxableModsSubtotal:  taxableModsSubtotal,  // F-TAX
     assembleTotal:        assembleTotal,
