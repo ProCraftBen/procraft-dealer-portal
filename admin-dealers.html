@@ -115,6 +115,25 @@
       font-style: italic;
       opacity: 1;
     }
+    /* ── CB-47: Personal Discount Rules ─────────────────────────── */
+    .rule-hint          { font-size: 10px; color: var(--muted); line-height: 1.5; }
+    .rule-note          { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 12px; }
+    .rule-note strong   { color: var(--text); font-weight: 500; }
+    .rule-card          { border: 1px solid var(--border); border-radius: 3px; padding: 14px; margin-bottom: 12px; background: var(--cream); }
+    .rule-card-head     { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .rule-idx           { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .rule-meta          { font-size: 10px; color: var(--muted); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .btn-rule-del       { background: none; border: 1px solid var(--border); border-radius: 3px; padding: 3px 10px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.06em; color: var(--error); cursor: pointer; transition: background 0.2s; }
+    .btn-rule-del:hover { background: rgba(200,60,60,0.08); }
+    .btn-add-rule       { width: 100%; height: 36px; background: none; border: 1px dashed var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+    .btn-add-rule:hover { border-color: var(--gold); color: var(--gold); }
+    .btn-add-rule:disabled { opacity: 0.5; cursor: default; }
+    .radio-row          { display: flex; align-items: center; gap: 18px; height: 38px; }
+    .radio-row label    { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+    /* multi-select:沿用 .form-input 外框,但高度改 auto(原本固定 38px 會壓扁) */
+    .ms-select          { height: auto !important; padding: 6px !important; font-size: 12px; }
+    .ms-select:disabled { background: var(--white); color: var(--muted); opacity: 0.55; }
+    .rules-empty        { font-size: 11px; color: var(--muted); font-style: italic; padding: 10px 0 14px; }
   </style>
 </head>
 <body>
@@ -341,6 +360,23 @@
           </div>
         </div>
       </div>
+
+      <!-- ── CB-47: Personal Discount Rules ─────────────────────────────
+           條列式規則,dealer 建 quote 時自動比對品項套用折扣。
+           規則只影響 SKU 小計(不影響 Modifications / Assemble Fee)。 -->
+      <div class="form-section">
+        <div class="form-section-title">Personal Discount Rules</div>
+        <div class="rule-note">
+          Rules are matched against each catalog item on the dealer's quotes and applied automatically.
+          Leaving a dropdown as <strong>All</strong> means that dimension is not filtered.
+          Multiple matching rules stack. Discounts never reduce a unit price below $0.<br>
+          Rules apply to <strong>catalog items only</strong> — custom items are never discounted.
+          Changing a discount may move an order across a <strong>shipping fee tier</strong>.
+        </div>
+        <div id="rulesList"></div>
+        <div class="rules-empty" id="rulesEmpty">No discount rules. This dealer pays standard pricing.</div>
+        <button type="button" class="btn-add-rule" id="btnAddRule" onclick="addRuleCard()">+ Add Rule</button>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -387,6 +423,13 @@ let deletingDealerId = null;
 //                   → 支援 Q10:舊 admin 被改成 dealer 後仍能顯示名字 + (inactive)
 let salesList     = [];
 let dealerNameMap = {};
+
+// ── CB-47: Personal Discount Rules 狀態 ──
+let _ruleCatalog        = null;   // { doorStyles:{framed,frameless}, skus:{...}, types:{...} }
+let _ruleCatalogPromise = null;   // in-flight guard(避免連點 [+ Add Rule] 重複抓)
+let _ruleRows           = [];     // 畫面上每張卡:[{ uid, id, created_at, updated_at }]
+let _ruleUidSeq         = 0;
+let _existingRules      = [];     // 開 modal 當下的 DB 現況,供存檔時 diff
 
 // Required field id -> display label (aligned to form labels). Used by validation alert.
 const REQUIRED_FIELD_LABELS = {
@@ -645,6 +688,9 @@ async function openEditDealer(dealerId) {
   document.getElementById('f_lng').value               = d.lng || '';
   document.getElementById('f_address_formatted').value = d.address_formatted || '';
 
+  // CB-47: 載入該 dealer 現有的折扣規則(存檔時以 _existingRules 做 diff)
+  await loadDealerRules(dealerId);
+
   document.getElementById('formError').classList.remove('show');
   document.getElementById('modalOverlay').classList.add('show');
 }
@@ -672,7 +718,443 @@ function clearForm() {
   document.getElementById('f_assigned_sales_id').disabled = false;
   onSalesSelectChange();
   document.getElementById('uid_group').style.display = 'none';
+  resetRuleSection();   // CB-47
   document.getElementById('formError').classList.remove('show');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CB-47 · Personal Discount Rules
+// ──────────────────────────────────────────────────────────────────────
+// 規則在 dealer 建 quote 時由 new-quote-step3.html 比對品項後套用。
+// 本檔只負責 CRUD;所有金額計算都不在這裡。
+//
+// ⚠️ 兩個容易寫錯的地方(CB-47 階段 0 診斷):
+//   1. Type 指的是 SKU 的 BASE / WALL / TALL...(quote_items.sku_type),
+//      不是 RTA / Assembled(assemble_status)。兩者在前端都叫 "type"。
+//   2. Door Style 存 style_code(穩定),不存 style_name(可改名)。
+//      SKU 表沒有 door_style 欄位 —— door style 是報價時選的,不是 SKU 屬性。
+//
+// construction_type 一律存小寫;door_styles 表內是 'Framed'/'Frameless',
+// 故載入時以 normalizeCt() 正規化(CB-47 F-01)。
+// ══════════════════════════════════════════════════════════════════════
+
+function normalizeCt(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  return (s === 'frameless') ? 'frameless' : 'framed';
+}
+
+// Catalog 為 lazy load:只有真的要用到 rule UI 時才抓(door_styles + 兩張 SKU 表約 1,100 筆)。
+async function ensureRuleCatalog() {
+  if (_ruleCatalog) return _ruleCatalog;
+  if (_ruleCatalogPromise) return _ruleCatalogPromise;
+
+  _ruleCatalogPromise = (async function () {
+    const [dsRes, fRes, flRes] = await Promise.all([
+      _supabase.from('door_styles')
+        .select('style_code, style_name, construction_type, is_coming_soon')
+        .eq('is_active', true).order('style_code').limit(5000),
+      _supabase.from('skus_framed')
+        .select('sku_code, type').eq('active', true).order('sku_code').limit(5000),
+      _supabase.from('skus_frameless')
+        .select('sku_code, type').eq('active', true).order('sku_code').limit(5000),
+    ]);
+    if (dsRes.error) throw dsRes.error;
+    if (fRes.error)  throw fRes.error;
+    if (flRes.error) throw flRes.error;
+
+    const doorStyles = { framed: [], frameless: [] };
+    (dsRes.data || []).forEach(function (d) {
+      if (!d.style_code) return;
+      const ct = normalizeCt(d.construction_type);
+      doorStyles[ct].push({
+        code:  d.style_code,
+        label: (d.style_name || d.style_code) + ' (' + d.style_code + ')'
+               + (d.is_coming_soon ? ' — Coming Soon' : ''),
+      });
+    });
+
+    function bucket(rows) {
+      const codes = [];
+      const typeSet = {};
+      (rows || []).forEach(function (s) {
+        if (s.sku_code) codes.push(s.sku_code);
+        if (s.type) typeSet[s.type] = true;
+      });
+      return { codes: codes, types: Object.keys(typeSet).sort() };
+    }
+    const bF  = bucket(fRes.data);
+    const bFl = bucket(flRes.data);
+
+    _ruleCatalog = {
+      doorStyles: doorStyles,
+      skus:  { framed: bF.codes, frameless: bFl.codes },
+      types: { framed: bF.types, frameless: bFl.types },
+    };
+    return _ruleCatalog;
+  })();
+
+  try {
+    return await _ruleCatalogPromise;
+  } catch (err) {
+    _ruleCatalogPromise = null;   // 允許重試
+    throw err;
+  }
+}
+
+function ruleMsBlockHtml(uid, field, label, allLabel) {
+  return ''
+    + '<div class="form-group full">'
+    +   '<label class="form-label">' + label + '</label>'
+    +   '<div class="checkbox-row">'
+    +     '<input type="checkbox" id="r' + uid + '_' + field + '_all" checked '
+    +            'onchange="onRuleAllToggle(' + uid + ',\'' + field + '\')"/>'
+    +     '<label for="r' + uid + '_' + field + '_all">' + allLabel + '</label>'
+    +   '</div>'
+    +   '<select class="form-input ms-select" id="r' + uid + '_' + field + '" multiple size="5" disabled></select>'
+    + '</div>';
+}
+
+function ruleCardHtml(uid) {
+  return ''
+    + '<div class="rule-card" id="rc_' + uid + '">'
+    +   '<div class="rule-card-head">'
+    +     '<span class="rule-idx" id="r' + uid + '_idx"></span>'
+    +     '<button type="button" class="btn-rule-del" onclick="deleteRuleCard(' + uid + ')">Delete Rule</button>'
+    +   '</div>'
+    +   '<div class="form-grid">'
+    +     '<div class="form-group full">'
+    +       '<label class="form-label">Rule Name <span class="required">*</span></label>'
+    +       '<input class="form-input" id="r' + uid + '_name" type="text" placeholder="LSW Framed 10%"/>'
+    +       '<div class="rule-hint">This name will be shown to the dealer on quotes, PDFs and emails.</div>'
+    +     '</div>'
+    +     '<div class="form-group full">'
+    +       '<label class="form-label">Construction Type <span class="required">*</span></label>'
+    +       '<div class="radio-row">'
+    +         '<label><input type="radio" name="r' + uid + '_ct" value="framed" checked '
+    +                 'onchange="onRuleConstructionChange(' + uid + ')"/> Framed</label>'
+    +         '<label><input type="radio" name="r' + uid + '_ct" value="frameless" '
+    +                 'onchange="onRuleConstructionChange(' + uid + ')"/> Frameless</label>'
+    +       '</div>'
+    +     '</div>'
+    +     ruleMsBlockHtml(uid, 'ds',   'Door Style', 'All Door Styles')
+    +     ruleMsBlockHtml(uid, 'sku',  'SKU Code',   'All SKU Codes')
+    +     ruleMsBlockHtml(uid, 'type', 'Type',       'All Types')
+    +     '<div class="form-group">'
+    +       '<label class="form-label">Discount Type <span class="required">*</span></label>'
+    +       '<div class="radio-row">'
+    +         '<label><input type="radio" name="r' + uid + '_dt" value="percentage" checked '
+    +                 'onchange="onRuleDiscountTypeChange(' + uid + ')"/> %</label>'
+    +         '<label><input type="radio" name="r' + uid + '_dt" value="amount" '
+    +                 'onchange="onRuleDiscountTypeChange(' + uid + ')"/> Amount</label>'
+    +       '</div>'
+    +     '</div>'
+    +     '<div class="form-group">'
+    +       '<label class="form-label">Discount Value <span class="required">*</span></label>'
+    +       '<input class="form-input" id="r' + uid + '_dv" type="number" step="0.01" min="0" placeholder="10"/>'
+    +       '<div class="rule-hint" id="r' + uid + '_dvhint"></div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="rule-meta" id="r' + uid + '_meta"></div>'
+    + '</div>';
+}
+
+// option 一律用 textContent 寫入,不走 innerHTML —— style_name / type 可能含 &(如 DOOR & FRAME)。
+function fillMsSelect(sel, items) {
+  if (!sel) return;
+  sel.innerHTML = '';
+  items.forEach(function (it) {
+    const opt = document.createElement('option');
+    opt.value = it.code;
+    opt.textContent = it.label;
+    sel.appendChild(opt);
+  });
+}
+
+function rebuildRuleSelects(uid, ct) {
+  if (!_ruleCatalog) return;
+  fillMsSelect(document.getElementById('r' + uid + '_ds'),
+    (_ruleCatalog.doorStyles[ct] || []));
+  fillMsSelect(document.getElementById('r' + uid + '_sku'),
+    (_ruleCatalog.skus[ct] || []).map(function (c) { return { code: c, label: c }; }));
+  fillMsSelect(document.getElementById('r' + uid + '_type'),
+    (_ruleCatalog.types[ct] || []).map(function (t) { return { code: t, label: t }; }));
+}
+
+function getRuleCt(uid) {
+  const el = document.querySelector('input[name="r' + uid + '_ct"]:checked');
+  return el ? el.value : 'framed';
+}
+
+function getRuleDt(uid) {
+  const el = document.querySelector('input[name="r' + uid + '_dt"]:checked');
+  return el ? el.value : 'percentage';
+}
+
+function onRuleAllToggle(uid, field) {
+  const box = document.getElementById('r' + uid + '_' + field + '_all');
+  const sel = document.getElementById('r' + uid + '_' + field);
+  if (!box || !sel) return;
+  sel.disabled = box.checked;
+  if (box.checked) {
+    Array.prototype.forEach.call(sel.options, function (o) { o.selected = false; });
+  }
+}
+
+// 切換 framed/frameless 後,三個下拉的選項來源整組換掉 → 舊選擇一律作廢,回到 All。
+function onRuleConstructionChange(uid) {
+  rebuildRuleSelects(uid, getRuleCt(uid));
+  ['ds', 'sku', 'type'].forEach(function (f) {
+    const box = document.getElementById('r' + uid + '_' + f + '_all');
+    if (box) box.checked = true;
+    onRuleAllToggle(uid, f);
+  });
+}
+
+function onRuleDiscountTypeChange(uid) {
+  const dt   = getRuleDt(uid);
+  const dv   = document.getElementById('r' + uid + '_dv');
+  const hint = document.getElementById('r' + uid + '_dvhint');
+  if (!dv || !hint) return;
+  if (dt === 'percentage') {
+    dv.setAttribute('max', '100');
+    dv.placeholder = '10';
+    hint.textContent = 'Percent off each unit (0–100).';
+  } else {
+    dv.removeAttribute('max');
+    dv.placeholder = '50.00';
+    hint.textContent = 'Fixed amount off each unit (USD).';
+  }
+}
+
+// 還原已存 rule 的多選值。若 rule 引用的 style/sku/type 已從 catalog 下架,
+// 補一個標註過的 option 保留原值 —— 否則存檔時會被靜默清成「全部」。
+function applyMsValue(uid, field, arr) {
+  const box = document.getElementById('r' + uid + '_' + field + '_all');
+  const sel = document.getElementById('r' + uid + '_' + field);
+  if (!box || !sel) return;
+
+  const values = Array.isArray(arr) ? arr.filter(function (v) { return v != null; }) : [];
+  if (!values.length) { box.checked = true; onRuleAllToggle(uid, field); return; }
+
+  box.checked  = false;
+  sel.disabled = false;
+
+  const present = {};
+  Array.prototype.forEach.call(sel.options, function (o) { present[o.value] = o; });
+
+  values.forEach(function (v) {
+    const key = String(v);
+    if (present[key]) { present[key].selected = true; return; }
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = key + ' — no longer in catalog';
+    opt.selected = true;
+    sel.insertBefore(opt, sel.firstChild);
+  });
+}
+
+function refreshRuleIndices() {
+  _ruleRows.forEach(function (row, i) {
+    const el = document.getElementById('r' + row.uid + '_idx');
+    if (el) el.textContent = 'Rule ' + (i + 1);
+  });
+  const empty = document.getElementById('rulesEmpty');
+  if (empty) empty.style.display = _ruleRows.length ? 'none' : 'block';
+}
+
+function refreshRuleMeta(uid) {
+  const row = _ruleRows.filter(function (r) { return r.uid === uid; })[0];
+  const el  = document.getElementById('r' + uid + '_meta');
+  if (!el) return;
+  if (!row || !row.id) { el.textContent = 'Not saved yet.'; return; }
+  const fmt = function (t) {
+    if (!t) return '—';
+    const d = new Date(t);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString();
+  };
+  el.textContent = 'Created ' + fmt(row.created_at) + ' · Updated ' + fmt(row.updated_at);
+}
+
+function _addRuleCardSync(rule) {
+  const uid = ++_ruleUidSeq;
+  _ruleRows.push({
+    uid:        uid,
+    id:         (rule && rule.id) ? rule.id : null,
+    created_at: rule ? rule.created_at : null,
+    updated_at: rule ? rule.updated_at : null,
+  });
+
+  document.getElementById('rulesList').insertAdjacentHTML('beforeend', ruleCardHtml(uid));
+
+  const ct  = rule ? normalizeCt(rule.construction_type) : 'framed';
+  const ctR = document.querySelector('input[name="r' + uid + '_ct"][value="' + ct + '"]');
+  if (ctR) ctR.checked = true;
+
+  rebuildRuleSelects(uid, ct);
+
+  if (rule) {
+    document.getElementById('r' + uid + '_name').value = rule.name || '';
+    applyMsValue(uid, 'ds',   rule.door_styles);
+    applyMsValue(uid, 'sku',  rule.sku_codes);
+    applyMsValue(uid, 'type', rule.types);
+    const dt  = (rule.discount_type === 'amount') ? 'amount' : 'percentage';
+    const dtR = document.querySelector('input[name="r' + uid + '_dt"][value="' + dt + '"]');
+    if (dtR) dtR.checked = true;
+    document.getElementById('r' + uid + '_dv').value =
+      (rule.discount_value == null) ? '' : rule.discount_value;
+  }
+
+  onRuleDiscountTypeChange(uid);
+  refreshRuleMeta(uid);
+  refreshRuleIndices();
+  return uid;
+}
+
+async function addRuleCard(rule) {
+  const btn = document.getElementById('btnAddRule');
+  try {
+    if (btn) btn.disabled = true;
+    await ensureRuleCatalog();
+    return _addRuleCardSync(rule);
+  } catch (err) {
+    console.error('[CB-47] catalog load failed:', err);
+    const errEl = document.getElementById('formError');
+    errEl.innerHTML = 'Could not load the product catalog for discount rules. Please close and reopen this dialog.';
+    errEl.classList.add('show');
+    return null;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// 移除卡片只影響畫面;DB 的刪除在存檔時由 persistRules() 的 diff 執行。
+function deleteRuleCard(uid) {
+  const el = document.getElementById('rc_' + uid);
+  if (el) el.remove();
+  _ruleRows = _ruleRows.filter(function (r) { return r.uid !== uid; });
+  refreshRuleIndices();
+}
+
+function resetRuleSection() {
+  _ruleRows      = [];
+  _existingRules = [];
+  const list = document.getElementById('rulesList');
+  if (list) list.innerHTML = '';
+  refreshRuleIndices();
+}
+
+// 未勾 All 但一個都沒選 → 回 null,由 validateRules() 先擋下(DB CHECK 也擋空陣列)。
+function msValue(uid, field) {
+  const box = document.getElementById('r' + uid + '_' + field + '_all');
+  if (!box || box.checked) return null;          // NULL = 全部,不 filter 該維度
+  const sel = document.getElementById('r' + uid + '_' + field);
+  const out = [];
+  if (sel) {
+    Array.prototype.forEach.call(sel.options, function (o) { if (o.selected) out.push(o.value); });
+  }
+  return out.length ? out : null;
+}
+
+function collectRules() {
+  return _ruleRows.map(function (row) {
+    const uid = row.uid;
+    const dvRaw = document.getElementById('r' + uid + '_dv').value;
+    return {
+      uid: uid,
+      id:  row.id,
+      payload: {
+        name:              document.getElementById('r' + uid + '_name').value.trim(),
+        construction_type: getRuleCt(uid),
+        door_styles:       msValue(uid, 'ds'),
+        sku_codes:         msValue(uid, 'sku'),
+        types:             msValue(uid, 'type'),
+        discount_type:     getRuleDt(uid),
+        discount_value:    (dvRaw === '' ? NaN : parseFloat(dvRaw)),
+      },
+    };
+  });
+}
+
+function validateRules() {
+  const errs = [];
+  collectRules().forEach(function (r, i) {
+    const n = i + 1;
+    const p = r.payload;
+    if (!p.name) errs.push('Rule ' + n + ': Rule Name is required.');
+    if (!isFinite(p.discount_value) || p.discount_value < 0) {
+      errs.push('Rule ' + n + ': Discount Value must be 0 or more.');
+    } else if (p.discount_type === 'percentage' && p.discount_value > 100) {
+      errs.push('Rule ' + n + ': Percentage discount cannot exceed 100.');
+    }
+    [['ds', 'Door Style'], ['sku', 'SKU Code'], ['type', 'Type']].forEach(function (pair) {
+      const box = document.getElementById('r' + r.uid + '_' + pair[0] + '_all');
+      if (box && !box.checked && !msValue(r.uid, pair[0])) {
+        errs.push('Rule ' + n + ': choose at least one ' + pair[1] + ', or tick "All".');
+      }
+    });
+  });
+  return errs;
+}
+
+function showFormErrorList(headline, items) {
+  const errEl = document.getElementById('formError');
+  errEl.innerHTML = headline + '<ul>'
+    + items.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>';
+  errEl.classList.add('show');
+}
+
+async function loadDealerRules(dealerId) {
+  resetRuleSection();
+  const { data, error } = await _supabase
+    .from('dealer_discount_rules')
+    .select('*')
+    .eq('dealer_id', dealerId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('[CB-47] loadDealerRules failed:', error);
+    _existingRules = [];
+    return;
+  }
+  _existingRules = data || [];
+  for (const r of _existingRules) {
+    await addRuleCard(r);
+  }
+}
+
+async function persistRules(dealerId) {
+  const rows    = collectRules();
+  const keepIds = rows.filter(function (r) { return r.id; }).map(function (r) { return r.id; });
+
+  // 1) DELETE —— 開 modal 當下存在、但已從畫面移除的
+  const toDelete = _existingRules
+    .filter(function (r) { return keepIds.indexOf(r.id) === -1; })
+    .map(function (r) { return r.id; });
+  if (toDelete.length) {
+    const { error } = await _supabase
+      .from('dealer_discount_rules').delete().in('id', toDelete);
+    if (error) throw error;
+  }
+
+  // 2) UPDATE
+  for (const r of rows) {
+    if (!r.id) continue;
+    const { error } = await _supabase
+      .from('dealer_discount_rules').update(r.payload).eq('id', r.id);
+    if (error) throw error;
+  }
+
+  // 3) INSERT —— 逐筆序列化,不可改成單次 batch insert。
+  //    同一 statement 內所有 row 的 NOW() 完全相同 → created_at 一致,
+  //    而 CB-47 的顯示順序與「cap 觸頂時依 created_at ASC 順序扣抵」(Q-A1)
+  //    都依賴這個欄位排序,一致就失去確定性。
+  for (const r of rows) {
+    if (r.id) continue;
+    const { error } = await _supabase
+      .from('dealer_discount_rules')
+      .insert(Object.assign({ dealer_id: dealerId }, r.payload));
+    if (error) throw error;
+  }
 }
 
 async function saveDealer() {
@@ -721,6 +1203,13 @@ async function saveDealer() {
     return;
   }
 
+  // CB-47: rules 驗證(前端先擋,DB CHECK 為第二道防線)
+  const ruleErrs = validateRules();
+  if (ruleErrs.length) {
+    showFormErrorList('Please correct the following discount rules:', ruleErrs);
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = editingDealerId ? 'Saving...' : 'Creating...';
 
@@ -759,6 +1248,7 @@ async function saveDealer() {
         asm_fee_frameless_roll_out_tray: parseFloat(fields.asm_fee_frameless_roll_out_tray) || 0,
       }).eq('id', editingDealerId);
       if (error) throw error;
+      await persistRules(editingDealerId);   // CB-47
       showToast('Dealer updated successfully.');
     } else {
       const { data: { session } } = await _supabase.auth.getSession();
@@ -785,6 +1275,18 @@ async function saveDealer() {
       );
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Failed to create dealer.');
+
+      // ── CB-47 (D9): rules 由前端直接寫入,需要 Edge Function 回傳新 dealer id ──
+      const pendingRules = collectRules();
+      if (pendingRules.length) {
+        if (!result.dealer_id) {
+          throw new Error('Dealer was created, but the discount rules could not be saved: '
+            + 'create-dealer did not return a dealer id. Deploy the CB-47 version of the '
+            + 'create-dealer function, then add the rules via Edit Dealer.');
+        }
+        _existingRules = [];          // 新 dealer 無既有 rules → 全部走 INSERT
+        await persistRules(result.dealer_id);
+      }
       showToast('Dealer created. Welcome email sent.');
     }
     closeModal();
