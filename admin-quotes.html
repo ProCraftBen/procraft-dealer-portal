@@ -319,6 +319,8 @@
     <div class="stat-card"><div class="stat-num" id="statPaymentProcessing" style="color:var(--status-payment)">—</div><div class="stat-label">Payment</div></div>
     <div class="stat-card"><div class="stat-num" id="statOrderProcessing" style="color:var(--status-complete)">—</div><div class="stat-label">Order</div></div>
   </div>
+  <!-- CB-38 陷阱 #3:stat 卡是對「過濾後」的資料計算的,此行標示目前範圍。 -->
+  <div id="statsScope" style="font-size:10px;color:var(--muted);letter-spacing:0.06em;margin:-8px 0 14px 2px;">All quotes</div>
 
   <div class="filters">
     <div class="filter-group">
@@ -332,6 +334,14 @@
         <option value="Payment Processing">Payment Processing</option>
         <option value="Order Processing">Order Processing</option>
         <option value="Closed">Closed</option>
+      </select>
+    </div>
+    <!-- CB-38:Sales filter。options 由 init() 動態填入。
+         粒度粗於 Dealer,故置於 Dealer 之前(漏斗順序)。 -->
+    <div class="filter-group">
+      <label class="filter-label">Sales</label>
+      <select class="filter-select" id="filterSales">
+        <option value="">All Sales</option>
       </select>
     </div>
     <div class="filter-group">
@@ -527,6 +537,18 @@ const statusLabel = {
 
 let allQuotes = [], allDealers = {};
 
+// ── CB-38 ─────────────────────────────────────────────────────────
+// currentUserId / currentUserRole:決定 Sales filter 的 default 值
+// salesList:role IN ('admin','super_admin'),用來建 Sales dropdown
+// defaultSalesValue:resetFilters() 要回到的值(Q3)
+let currentUserId    = null;
+let currentUserRole  = null;
+let salesList        = [];
+let defaultSalesValue = '';
+// Sales filter 的特殊 value(不會與 uuid 衝突)
+const SALES_ME   = '__me__';
+const SALES_NONE = '__none__';
+
 // 用來記住每個 quote 的「目前 select 顯示值之前是什麼」，方便 Cancel 時還原
 const _previousStatus = {};
 
@@ -572,17 +594,26 @@ async function init() {
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   if (!['admin','super_admin'].includes(me && me.role)) { window.location.href = 'dashboard.html'; return; }
 
+  // CB-38:記下當前使用者,供 Sales filter 的 default 與 "My Dealers" 使用
+  currentUserId   = session.user.id;
+  currentUserRole = me.role;
+
+  // CB-38:select 加 role 與 assigned_sales_id(Q2 需要 role 才能分流兩個 dropdown)
   const { data: dealers } = await _supabase
     .from('dealers')
-    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state')
+    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state, role, assigned_sales_id')
     .order('company_name');
 
   if (dealers) {
     dealers.forEach(function(d) { allDealers[d.id] = d; });
 
+    // CB-38 Q2:只有 role='dealer' 才進 Dealer / Draft dropdown。
+    // 修正既有瑕疵 —— 過去未過濾,admin 帳號會出現在兩個 dealer 下拉中。
+    const dealerOnly = dealers.filter(function(d) { return d.role === 'dealer'; });
+
     // Filter dropdown
     const filterSel = document.getElementById('filterDealer');
-    dealers.forEach(function(d) {
+    dealerOnly.forEach(function(d) {
       const opt = document.createElement('option');
       opt.value = d.id; opt.textContent = d.company_name;
       filterSel.appendChild(opt);
@@ -590,14 +621,100 @@ async function init() {
 
     // Modal dropdown
     const modalSel = document.getElementById('draftDealerSelect');
-    dealers.forEach(function(d) {
+    dealerOnly.forEach(function(d) {
       const opt2 = document.createElement('option');
       opt2.value = d.id; opt2.textContent = d.company_name;
       modalSel.appendChild(opt2);
     });
+
+    // CB-38:Sales dropdown(同一份資料過濾出 admin / super_admin)
+    salesList = dealers.filter(function(d) {
+      return d.role === 'admin' || d.role === 'super_admin';
+    }).sort(function(a, b) {
+      return String(a.contact_name || '').localeCompare(String(b.contact_name || ''));
+    });
+    buildSalesFilter();
   }
 
   await loadQuotes();
+}
+
+// ── CB-38: Sales filter ────────────────────────────────────────────
+// 選項順序:My Dealers / All Sales / Unassigned / 各 admin
+// Default:admin → My Dealers;super_admin → All Sales
+function buildSalesFilter() {
+  const sel = document.getElementById('filterSales');
+  sel.innerHTML = '';
+
+  const add = function(value, label) {
+    const opt = document.createElement('option');
+    opt.value = value; opt.textContent = label;
+    sel.appendChild(opt);
+  };
+
+  add(SALES_ME,   'My Dealers');
+  add('',         'All Sales');
+  add(SALES_NONE, 'Unassigned');
+  salesList.forEach(function(s) {
+    add(s.id, salesLabel(s));
+  });
+
+  defaultSalesValue = (currentUserRole === 'admin') ? SALES_ME : '';
+  sel.value = defaultSalesValue;
+}
+
+// Q7:contact_name (email)
+function salesLabel(s) {
+  const name = (s && s.contact_name) ? s.contact_name : '(no name)';
+  return (s && s.email) ? (name + ' (' + s.email + ')') : name;
+}
+
+// 依 Sales filter 目前的值,算出符合的 dealer_id 陣列。
+// 回傳 null = 不加任何條件(All Sales)。
+function resolveSalesDealerIds() {
+  const val = document.getElementById('filterSales').value;
+  if (!val) return null;                       // All Sales
+
+  const target = (val === SALES_ME) ? currentUserId : val;
+
+  return Object.keys(allDealers).filter(function(id) {
+    const d = allDealers[id];
+    if (!d || d.role !== 'dealer') return false;
+    return (val === SALES_NONE) ? !d.assigned_sales_id
+                                : d.assigned_sales_id === target;
+  });
+}
+
+// 目前是否套了任何 filter(供 #statsScope 判斷)
+function anyFilterActive() {
+  return !!(document.getElementById('filterStatus').value
+         || document.getElementById('filterDealer').value
+         || document.getElementById('filterFrom').value
+         || document.getElementById('filterTo').value
+         || (document.getElementById('filterSearch').value || '').trim()
+         || document.getElementById('filterSales').value);
+}
+
+function updateStatsScope() {
+  const el = document.getElementById('statsScope');
+  if (el) el.textContent = anyFilterActive() ? 'Filtered view' : 'All quotes';
+}
+
+// Q6:空結果文案分情境,讓「過濾正確但無資料」與「查詢壞掉」可區分。
+// 進一步區分兩種空:名下無 dealer vs 有 dealer 但無 quote。
+function emptyStateMessage() {
+  const val = document.getElementById('filterSales').value;
+  if (!val) return 'No quotes found.';
+
+  const ids = resolveSalesDealerIds();
+  const noDealer = !ids || ids.length === 0;
+
+  if (val === SALES_ME)   return noDealer ? 'No dealers assigned to you yet.'
+                                          : 'No quotes from your dealers yet.';
+  if (val === SALES_NONE) return noDealer ? 'All dealers have been assigned.'
+                                          : 'No quotes from unassigned dealers.';
+  return noDealer ? 'No dealers assigned to this sales.'
+                  : 'No quotes from this sales\u2019 dealers.';
 }
 
 // ── Load Quotes ────────────────────────────────────────────────────
@@ -609,8 +726,20 @@ async function loadQuotes() {
   const from   = document.getElementById('filterFrom').value;
   const to     = document.getElementById('filterTo').value;
 
+  // CB-38:Sales → dealer_id[]。null = All Sales(不加條件)。
+  // 陷阱 #2:空陣列傳給 .in() 會產生無效的 PostgREST 語法,必須短路。
+  const salesDealerIds = resolveSalesDealerIds();
+  if (salesDealerIds && salesDealerIds.length === 0) {
+    allQuotes = [];
+    renderStats();
+    renderTable();
+    updateStatsScope();
+    return;
+  }
+
   if (status) query = query.eq('status', status);
   if (dealer) query = query.eq('dealer_id', dealer);
+  if (salesDealerIds) query = query.in('dealer_id', salesDealerIds);
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
 
@@ -631,6 +760,7 @@ async function loadQuotes() {
   allQuotes = quotes || [];
   renderStats();
   renderTable();
+  updateStatsScope();   // CB-38
 }
 
 // ── Stats ──────────────────────────────────────────────────────────
@@ -650,7 +780,7 @@ function renderTable() {
   const tbody = document.getElementById('quotesBody');
 
   if (!allQuotes.length) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes found.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
     return;
   }
 
@@ -1527,6 +1657,8 @@ function resetFilters() {
   document.getElementById('filterFrom').value   = '';
   document.getElementById('filterTo').value     = '';
   document.getElementById('filterSearch').value = '';
+  // CB-38 Q3:Sales 回到 landing 時的 default(admin → My Dealers),而非清空
+  document.getElementById('filterSales').value  = defaultSalesValue;
   loadQuotes();
 }
 
