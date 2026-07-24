@@ -666,6 +666,11 @@ return total;
       markupPercent = 0,
       constructionType = 'framed', // CB-22
       headerContext,
+      // CB-47 (Q-A3):markup 預覽的 Draft Quote 隱藏折扣列。此時品項單價必須
+      //   同步改成折後,否則品項加總 ≠ Subtotal —— dealer 交給終端客戶的文件
+      //   自己對不起來,比露出折扣更糟。⚠️ 本旗標必須與 _finalizeWithTotals
+      //   的 hideDiscount 同值,分開設會立刻不一致。
+      hideDiscount = false,
     } = context;
 
     const isPacking  = (mode === 'packing-list');
@@ -738,7 +743,10 @@ return total;
             const isCustom = !!item.is_custom;
             const assembleStatus = item.assemble_status || item.type || '';
             const skuDesc = item.sku_desc || '';
-            const markedUnitPrice = item.unit_price * (1 + markupPercent);
+            // CB-47:markup 只加在單價上,折扣額不隨 markup 放大(與 step3 同式)。
+            const _itemDisc       = Number(item.discount_amount || 0);
+            const markedUnitPrice = (item.unit_price * (1 + markupPercent))
+                                    - (hideDiscount ? _itemDisc : 0);
             const _noPrefixType = (item.sku_type || item.skuType || '').toUpperCase();
             const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
             const skuPrefix = (item.style_code && !_skipStylePrefix) ? item.style_code + '-' : '';
@@ -1034,11 +1042,40 @@ return total;
     doc.setTextColor(...COLORS.muted);
     doc.text('Subtotal', totalsX, y);
     doc.setTextColor(40, 40, 40);
+    // CB-47:有折扣時 Subtotal 顯示折【前】,折後另起一行(D10)。
+    //   markup 隱藏模式(showDiscount=false)則直接顯示淨額,且品項單價亦為淨額,
+    //   兩者加總一致 —— 交給終端客戶的文件不會對不起來。
+    const _subNet   = totals.subtotal + totals.mappingMaterialTotal;
+    const _subGross = (totals.subtotalGross == null ? totals.subtotal : totals.subtotalGross)
+                      + totals.mappingMaterialTotal;
     doc.text(
-      showPrices ? `$${(totals.subtotal + totals.mappingMaterialTotal).toFixed(2)}` : '—',
+      showPrices ? `$${(totals.showDiscount ? _subGross : _subNet).toFixed(2)}` : '—',
       valX, y, { align: 'right' }
     );
     y += 6;
+
+    // ── CB-47: 折扣明細 + Total Discount + Subtotal After Discount ──
+    if (showPrices && totals.showDiscount) {
+      doc.setFontSize(7);
+      (totals.appliedRules || []).forEach(function (r) {
+        doc.setTextColor(...COLORS.muted);
+        doc.text(String(r.rule_name || 'Discount'), totalsX + 4, y);
+        doc.setTextColor(140, 100, 20);
+        doc.text(`-$${Number(r.discount_total || 0).toFixed(2)}`, valX, y, { align: 'right' });
+        y += 4;
+      });
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Total Discount', totalsX, y);
+      doc.setTextColor(140, 100, 20);
+      doc.text(`-$${totals.discountTotal.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Subtotal After Discount', totalsX, y);
+      doc.setTextColor(40, 40, 40);
+      doc.text(`$${_subNet.toFixed(2)}`, valX, y, { align: 'right' });
+      y += 6;
+    }
 
     // ── Modifications (CB-27 改動 B: 按 type 分組明細 + Total) ──
     if (showPrices && totals.modsDisplayTotal > 0) {
@@ -1319,13 +1356,29 @@ return total;
     const {
       doc, quoteData, items, headerContext, tableEndY, notes,
       showPrices, markupPercent = 0,
+      hideDiscount = false,      // CB-47:見 _drawItemTable 同名參數說明
       receipt = null,          // CB-45: Receipt 模式帶入;Invoice/Draft 為 null
     } = args;
     const { pageW, margin } = LAYOUT;
 
-    const markedSubtotal = items.reduce(
+    // ── CB-47 (D13):折扣的唯一金額載體是 items[].discount_amount ──
+    //   本檔【不讀規則、不重算匹配】,只把每 unit 折扣額扣掉。
+    //   markedSubtotal 由 gross 減去折扣後即為淨額,taxBase / billingBase / grand
+    //   因此全部自動正確,Receipt 的 CB-45 對帳斷言也自動通過。
+    //   ⚠️ 勿改回只算 unit_price × qty —— 那會讓 PDF 金額高於 DB grand_total,
+    //      Receipt 會直接 throw RECEIPT_RECONCILIATION_MISMATCH。
+    const markedSubtotalGross = items.reduce(
       (s, i) => s + i.unit_price * (1 + markupPercent) * i.quantity, 0
     );
+    const discountLineTotal = items.reduce(
+      (s, i) => s + Number(i.discount_amount || 0) * i.quantity, 0
+    );
+    const markedSubtotal = markedSubtotalGross - discountLineTotal;
+
+    // 折扣明細列只在「有折扣」且「非 markup 隱藏模式」時顯示
+    const _appliedRules  = Array.isArray(quoteData.applied_discount_rules)
+                             ? quoteData.applied_discount_rules : [];
+    const showDiscount   = !hideDiscount && discountLineTotal > 0.005;
 
     const assembleTotal = items.reduce(
       (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
@@ -1429,6 +1482,11 @@ return total;
       modByType:            modByType.byType,       // CB-27: by-type 明細
       modByTypeOrdered:     modByType.ordered,      // CB-27: 顯示順序(CB-22)
       mappingMaterialTotal: mappingMaterialTotal,   // CB-27: 併入 Subtotal 顯示
+      // ── CB-47 顯示用 ──
+      subtotalGross:     markedSubtotalGross,
+      discountTotal:     discountLineTotal,
+      appliedRules:      _appliedRules,
+      showDiscount:      showDiscount,
       assembleTotal:     assembleTotal,
       shipping:          shipping,
       tax:               tax,
@@ -1452,7 +1510,9 @@ return total;
     // CB-27: Modifications 變多行(標題 + N type + Total)、Assemble Fee 獨立一行
     const MODS_H     = modsDisplayTotal > 0 ? (5 + modByType.ordered.length * 4 + 6) : 0;
     const ASM_H      = assembleTotal > 0 ? 6 : 0;
-    const TOTALS_H   = 45 + MODS_H + ASM_H;
+    // CB-47:每 rule 一行 4mm + Total Discount 6mm + Subtotal After Discount 6mm
+    const DISC_H     = showDiscount ? (_appliedRules.length * 4 + 12) : 0;
+    const TOTALS_H   = 45 + MODS_H + ASM_H + DISC_H;
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
     if (y + NEEDED > 275) {
       doc.addPage();
@@ -1569,12 +1629,14 @@ return total;
           markupPercent:    markupPercent,
           constructionType: quoteData.construction_type,   // CB-22
           headerContext:    headerContext,
+          hideDiscount:     false,   // CB-47:Invoice 一律揭露折扣
         });
 
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
+      hideDiscount: false,           // CB-47
     });
 
     return doc;
@@ -1601,12 +1663,14 @@ return total;
           markupPercent:    markupPercent,
           constructionType: quoteData.construction_type,
           headerContext:    headerContext,
+          hideDiscount:     false,   // CB-47:Receipt 為付款憑證,一律揭露折扣
         });
 
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
+      hideDiscount: false,           // CB-47
       receipt,
     });
 
@@ -1619,6 +1683,12 @@ return total;
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
+    // ── CB-47 (Q-A3) ──────────────────────────────────────────────────────
+    //   markup 預覽的 Draft Quote 是 dealer 拿去給【終端客戶】看的報價。
+    //   若印出「Discount · LSW Framed 10%」等於把 dealer 對 ProCraft 的進價
+    //   折扣攤給客戶,故隱藏折扣列,並由 _drawItemTable 同步改用折後單價,
+    //   維持「品項加總 === Subtotal」。無 markup 時照常揭露。
+    const _hideDiscount = markupPercent > 0;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'DRAFT QUOTE'
@@ -1631,12 +1701,14 @@ return total;
         markupPercent:    markupPercent,
         constructionType: quoteData.construction_type,   // CB-22
         headerContext:    headerContext,
+        hideDiscount:     _hideDiscount,   // CB-47 Q-A3
       });
 
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
+      hideDiscount: _hideDiscount,         // CB-47 Q-A3
     });
 
     return doc;
