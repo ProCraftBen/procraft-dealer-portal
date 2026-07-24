@@ -1689,11 +1689,16 @@ return total;
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
     // ── CB-47 (Q-A3) ──────────────────────────────────────────────────────
-    //   markup 預覽的 Draft Quote 是 dealer 拿去給【終端客戶】看的報價。
+    //   Draft Quote 是 dealer 拿去給【終端客戶】看的報價文件,不是對帳單。
     //   若印出「Discount · LSW Framed 10%」等於把 dealer 對 ProCraft 的進價
-    //   折扣攤給客戶,故整份 PDF 完全忽略折扣:品項單價、Subtotal、Tax、
-    //   Order Total 全部以折【前】為基礎。無 markup 時照常揭露折扣。
-    const _hideDiscount = markupPercent > 0;
+    //   折扣攤給客戶,故整份 PDF【一律】忽略折扣 —— 含 markup 0% 的情況:
+    //     品項單價、Subtotal、Tax、Order Total 全部以折【前】為基礎,不畫折扣列。
+    //
+    //   ⚠️ 因此 Draft Quote PDF 的 Order Total 會【高於】dealer 實付金額。
+    //      這是刻意的:折後真實金額在 Step 3 畫面、quote-detail、Invoice、
+    //      Receipt 與確認信都看得到,Draft Quote 唯一的用途是對外報價。
+    //      Invoice / Receipt 為 ProCraft ↔ dealer 之間的憑證,一律揭露折扣。
+    const _hideDiscount = true;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'DRAFT QUOTE'
