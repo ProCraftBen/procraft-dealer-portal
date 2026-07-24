@@ -44,6 +44,8 @@
     tbody tr:last-child { border-bottom: none; }
     tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
     .td-dealer { font-weight: 500; }
+    .td-sales { font-size: 12px; }
+    .td-unassigned { color: var(--muted); font-style: italic; }
     .td-dealer-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
     .td-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 12px; }
 
@@ -187,13 +189,14 @@
         <tr>
           <th>PO#</th>
           <th>Dealer</th>
+          <th>Sales</th>
           <th>Grand Total</th>
           <th>Waiting (approx.)</th>
           <th></th>
         </tr>
       </thead>
       <tbody id="awaitingBody">
-        <tr><td colspan="5" class="td-empty">Loading…</td></tr>
+        <tr><td colspan="6" class="td-empty">Loading…</td></tr>
       </tbody>
     </table>
   </div>
@@ -255,6 +258,7 @@
         <tr>
           <th>PO#</th>
           <th>Dealer</th>
+          <th>Sales</th>
           <th>Method</th>
           <th>Amount</th>
           <th>Status</th>
@@ -262,7 +266,7 @@
         </tr>
       </thead>
       <tbody id="listBody">
-        <tr><td colspan="6" class="td-empty">Loading…</td></tr>
+        <tr><td colspan="7" class="td-empty">Loading…</td></tr>
       </tbody>
     </table>
   </div>
@@ -320,6 +324,7 @@ let dealerMap   = {};          // dealer_id -> dealer row
 // ⚠️ 本頁為 client-side 過濾,與 admin-quotes 的 server-side 機制不同。
 let currentUserId     = null;
 let salesList         = [];
+let salesNameMap      = {};   // CB-38.1:id -> admin row,列表 Sales 欄反查用
 let _salesFilterBuilt = false;   // showList() 每次進列表都會跑,避免重複 append
 const SALES_ME   = '__me__';
 const SALES_NONE = '__none__';
@@ -567,6 +572,17 @@ async function loadSalesList() {
     return;
   }
   salesList = data || [];
+  salesNameMap = {};
+  salesList.forEach(function (s) { salesNameMap[s.id] = s; });
+}
+
+// CB-38.1:列表 Sales 欄。salesNameMap 只含 admin/super_admin,
+// 查不到 = 該 id 已不是 admin(Q10 情境)或已被刪除。
+function renderSalesCell(id) {
+  if (!id) return '<span class="td-unassigned">Unassigned</span>';
+  const r = salesNameMap[id];
+  if (!r) return '<span class="td-unassigned">(inactive)</span>';
+  return escapeHtml(r.contact_name || '(no name)');
 }
 
 // 選項順序:My Dealers / All Sales / Unassigned / 各 admin
@@ -629,7 +645,7 @@ async function showList() {
   } catch (err) {
     console.error('[admin-payments] loadData failed:', err);
     document.getElementById('listBody').innerHTML =
-      '<tr><td colspan="6" class="td-empty">Failed to load payments. Please refresh.</td></tr>';
+      '<tr><td colspan="7" class="td-empty">Failed to load payments. Please refresh.</td></tr>';
     document.getElementById('listCount').textContent = '—';
     showToast('Failed to load payments.', true);
   }
@@ -642,7 +658,7 @@ async function showList() {
   } catch (err) {
     console.error('[admin-payments] loadAwaiting failed:', err);
     document.getElementById('awaitingBody').innerHTML =
-      '<tr><td colspan="5" class="td-empty">Failed to load awaiting quotes.</td></tr>';
+      '<tr><td colspan="6" class="td-empty">Failed to load awaiting quotes.</td></tr>';
     document.getElementById('awaitingCount').textContent = '—';
   }
 }
@@ -713,7 +729,7 @@ function renderList(rows) {
     rows.length + (rows.length === 1 ? ' payment' : ' payments');
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="6" class="td-empty">' + listEmptyMessage() + '</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="td-empty">' + listEmptyMessage() + '</td></tr>';
     return;
   }
 
@@ -726,6 +742,7 @@ function renderList(rows) {
         (q.job_name ? '<div class="td-dealer-sub">' + escapeHtml(q.job_name) + '</div>' : '') + '</td>' +
       '<td><div class="td-dealer">' + escapeHtml(d.company_name || '—') + '</div>' +
         '<div class="td-dealer-sub">' + escapeHtml(d.contact_name || '') + '</div></td>' +
+      '<td class="td-sales">' + renderSalesCell(d.assigned_sales_id) + '</td>' +
       '<td><span class="method-label">' + escapeHtml(methodLabel[p.payment_method] || p.payment_method || '—') + '</span></td>' +
       '<td>' + money(p.total_paid) + '</td>' +
       '<td><span class="pay-badge ' + sc + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span>' +
@@ -799,7 +816,7 @@ function renderAwaiting(term) {
 
   const body = document.getElementById('awaitingBody');
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="5" class="td-empty">' +
+    body.innerHTML = '<tr><td colspan="6" class="td-empty">' +
       awaitingEmptyMessage(t, sl) + '</td></tr>';
     return;
   }
@@ -811,6 +828,7 @@ function renderAwaiting(term) {
       '<td>' + escapeHtml(q.po_number || '(no PO#)') +
         (q.job_name ? '<div class="td-dealer-sub">' + escapeHtml(q.job_name) + '</div>' : '') + '</td>' +
       '<td class="td-dealer">' + escapeHtml(d.company_name || '—') + '</td>' +
+      '<td class="td-sales">' + renderSalesCell(d.assigned_sales_id) + '</td>' +
       '<td>' + money(q.grand_total) + '</td>' +
       '<td><span class="await-wait">' + daysStr + '</span></td>' +
       '<td><div class="await-actions">' +
