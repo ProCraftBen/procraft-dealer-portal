@@ -62,6 +62,10 @@
     .td-po { font-weight: 500; color: var(--green-dark); font-size: 13px; }
     .td-dealer { font-weight: 500; }
     .td-dealer-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    /* CB-38.1: Sales 欄 */
+    .td-sales { font-size: 12px; }
+    .td-unassigned { color: var(--muted); font-style: italic; }
+    .tag-inactive { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 2px; font-size: 9px; font-weight: 500; background: rgba(192,57,43,0.08); color: #c0392b; }
     .td-amount { font-weight: 500; text-align: right; }
     .td-amount.draft-dash { color: var(--muted); font-style: italic; font-weight: 400; }
     .td-date { color: var(--muted); white-space: nowrap; }
@@ -379,6 +383,7 @@
           <tr>
             <th>PO # / Job Name</th>
             <th>Dealer</th>
+            <th>Sales</th>
             <th>Date</th>
             <th style="text-align:right">Total</th>
             <th>Status</th>
@@ -386,7 +391,7 @@
           </tr>
         </thead>
         <tbody id="quotesBody">
-          <tr><td colspan="6"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="7"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -669,6 +674,17 @@ function salesLabel(s) {
   return (s && s.email) ? (name + ' (' + s.email + ')') : name;
 }
 
+// CB-38.1:列表 Sales 欄。allDealers 是全表(含 admin),可直接反查。
+// 欄寬有限,只顯示 contact_name。
+function renderSalesCell(id) {
+  if (!id) return '<span class="td-unassigned">Unassigned</span>';
+  const r = allDealers[id];
+  if (!r) return '<span class="td-unassigned">(unknown)</span>';
+  const name = escapeHtml(r.contact_name || r.company_name || '(no name)');
+  const active = (r.role === 'admin' || r.role === 'super_admin');
+  return active ? name : name + '<span class="tag-inactive">inactive</span>';
+}
+
 // 依 Sales filter 目前的值,算出符合的 dealer_id 陣列。
 // 回傳 null = 不加任何條件(All Sales)。
 function resolveSalesDealerIds() {
@@ -780,7 +796,7 @@ function renderTable() {
   const tbody = document.getElementById('quotesBody');
 
   if (!allQuotes.length) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
     return;
   }
 
@@ -1011,13 +1027,14 @@ function renderTable() {
             (q.po_number && q.draft_number ? '<div style="font-size:10px;color:var(--muted);">Draft ID: ' + escapeHtml(q.draft_number) + '</div>' : '') +
         '</td>' +
         '<td><div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
+        '<td class="td-sales">' + renderSalesCell(dealer.assigned_sales_id) + '</td>' +
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
         statusCellHtml +
         actionCellHtml +
       '</tr>' +
       '<tr class="detail-row" id="detail-' + idx + '">' +
-        '<td colspan="6" class="detail-cell">' +
+        '<td colspan="7" class="detail-cell">' +
           '<div class="detail-inner">' +
             reasonBanner +
             '<div class="detail-grid">' +
