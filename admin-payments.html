@@ -176,7 +176,7 @@
   <!-- ===== Awaiting Payment (quotes: status=Pending, no payment yet) ===== -->
   <div class="table-wrap" style="margin-bottom:16px;">
     <div class="table-header">
-      <span class="table-title">Awaiting Payment</span>
+      <span class="table-title">Awaiting Payment <span style="font-weight:400;letter-spacing:0.04em;text-transform:none;color:var(--muted);">(follows Sales filter)</span></span>
       <div class="awaiting-head-right">
         <input type="text" class="awaiting-search" id="awaitingSearch" placeholder="Search PO# / Dealer"/>
         <span class="table-count" id="awaitingCount">—</span>
@@ -217,6 +217,14 @@
         <option value="ach">ACH</option>
         <option value="check">Check</option>
         <option value="offline">Offline</option>
+      </select>
+    </div>
+    <!-- CB-38:Sales filter。options 由 loadSalesList() 動態填入。
+         Status/Method 是 payment 屬性,Sales/日期/搜尋是範圍屬性,故置於此。 -->
+    <div class="filter-group">
+      <label class="filter-label">Sales</label>
+      <select class="filter-select" id="filterSales">
+        <option value="">All Sales</option>
       </select>
     </div>
     <div class="filter-group">
@@ -305,6 +313,16 @@ const _supabase = createClient(window.SB_URL, window.SB_KEY);
 let allPayments = [];          // 全部 payments(created_at DESC)
 let quoteMap    = {};          // quote_id  -> quote row
 let dealerMap   = {};          // dealer_id -> dealer row
+
+// ── CB-38 ─────────────────────────────────────────────────────────
+// 本頁限 super_admin(F9),故 default 恆為 All Sales('')。
+// "My Dealers" 仍保留 —— super_admin 本身也可能是某些 dealer 的 sales。
+// ⚠️ 本頁為 client-side 過濾,與 admin-quotes 的 server-side 機制不同。
+let currentUserId     = null;
+let salesList         = [];
+let _salesFilterBuilt = false;   // showList() 每次進列表都會跑,避免重複 append
+const SALES_ME   = '__me__';
+const SALES_NONE = '__none__';
 
 // ---- 顯示對照 ----
 const methodLabel = { card:'Card', ach:'ACH', check:'Check', offline:'Offline' };
@@ -480,6 +498,9 @@ function actResolveGhost(paymentId) {
     return;
   }
 
+  // CB-38:記下當前使用者,供 Sales filter 的 "My Dealers" 使用
+  currentUserId = session.user.id;
+
   // 3) router:有 payment_id → 詳情;否則 → 列表
   const pid = getParam('payment_id');
   if (pid) {
@@ -521,11 +542,68 @@ async function loadData() {
   if (dealerIds.length) {
     const { data: dealers, error: dErr } = await _supabase
       .from('dealers')
-      .select('id, company_name, contact_name, email')
+      .select('id, company_name, contact_name, email, assigned_sales_id')
       .in('id', dealerIds);
     if (dErr) throw dErr;
     (dealers || []).forEach(function (d) { dealerMap[d.id] = d; });
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// CB-38:Sales filter
+//   dealerMap 只含「有 payment 的 dealer」,不含 admin 帳號,
+//   因此 Sales 名單必須獨立查詢。
+// ════════════════════════════════════════════════════════════════════
+async function loadSalesList() {
+  const { data, error } = await _supabase
+    .from('dealers')
+    .select('id, contact_name, email, role')
+    .in('role', ['admin', 'super_admin'])
+    .order('contact_name');
+
+  if (error) {
+    console.error('[CB-38] loadSalesList failed:', error);
+    salesList = [];
+    return;
+  }
+  salesList = data || [];
+}
+
+// 選項順序:My Dealers / All Sales / Unassigned / 各 admin
+// 本頁限 super_admin,default 恆為 All Sales('')。
+function buildSalesFilter() {
+  if (_salesFilterBuilt) return;   // showList() 可能被多次呼叫
+  const sel = document.getElementById('filterSales');
+  sel.innerHTML = '';
+
+  const add = function (value, label) {
+    const opt = document.createElement('option');
+    opt.value = value; opt.textContent = label;
+    sel.appendChild(opt);
+  };
+
+  add(SALES_ME,   'My Dealers');
+  add('',         'All Sales');
+  add(SALES_NONE, 'Unassigned');
+  salesList.forEach(function (s) { add(s.id, salesLabel(s)); });
+
+  sel.value = '';
+  _salesFilterBuilt = true;
+}
+
+// Q7:contact_name (email)
+function salesLabel(s) {
+  const name = (s && s.contact_name) ? s.contact_name : '(no name)';
+  return (s && s.email) ? (name + ' (' + s.email + ')') : name;
+}
+
+// 判斷某個 assigned_sales_id 是否符合目前 Sales filter。
+// val 為空 = All Sales(恆為 true)。
+function salesMatches(assignedId, val) {
+  if (!val) return true;
+  if (val === SALES_NONE) return !assignedId;
+  const target = (val === SALES_ME) ? currentUserId : val;
+  return assignedId === target;
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -544,6 +622,8 @@ async function showList() {
 
   try {
     await loadData();
+    await loadSalesList();   // CB-38:Sales 名單需獨立查詢
+    buildSalesFilter();      // CB-38:內建 _salesFilterBuilt 防重複 append
     renderList(allPayments);
     renderGhostBanner();
   } catch (err) {
@@ -570,6 +650,7 @@ async function showList() {
 function applyFilters() {
   const st     = document.getElementById('filterStatus').value;
   const mt     = document.getElementById('filterMethod').value;
+  const sl     = document.getElementById('filterSales').value;   // CB-38
   const from   = document.getElementById('filterFrom').value;   // yyyy-mm-dd or ''
   const to     = document.getElementById('filterTo').value;
   const search = document.getElementById('filterSearch').value.trim().toLowerCase();
@@ -580,6 +661,9 @@ function applyFilters() {
   const rows = allPayments.filter(function (p) {
     if (st && p.status !== st) return false;
     if (mt && p.payment_method !== mt) return false;
+
+    // CB-38:payment → quote → dealer → assigned_sales_id
+    if (sl && !salesMatches(dealerOf(p).assigned_sales_id, sl)) return false;
 
     if (fromTs || toTs) {
       const ts = p.created_at ? new Date(p.created_at).getTime() : 0;
@@ -598,6 +682,7 @@ function applyFilters() {
   });
 
   renderList(rows);
+  renderAwaiting(_awaitingTerm);   // CB-38 Q4:上方 Awaiting 區塊同步套用 Sales filter
 }
 
 function resetFilters() {
@@ -606,7 +691,20 @@ function resetFilters() {
   document.getElementById('filterFrom').value   = '';
   document.getElementById('filterTo').value     = '';
   document.getElementById('filterSearch').value = '';
+  // CB-38 Q3:本頁限 super_admin,default 恆為 All Sales
+  document.getElementById('filterSales').value  = '';
   renderList(allPayments);
+  renderAwaiting(_awaitingTerm);   // CB-38 Q4
+}
+
+// CB-38 Q6:payments 列表空結果文案(Sales 情境優先於通用訊息)
+function listEmptyMessage() {
+  const el = document.getElementById('filterSales');
+  const sl = el ? el.value : '';
+  if (sl === SALES_ME)   return 'No payments from your dealers.';
+  if (sl === SALES_NONE) return 'No payments from unassigned dealers.';
+  if (sl)                return 'No payments from this sales\u2019 dealers.';
+  return 'No payments match your filters.';
 }
 
 function renderList(rows) {
@@ -615,7 +713,7 @@ function renderList(rows) {
     rows.length + (rows.length === 1 ? ' payment' : ' payments');
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="6" class="td-empty">No payments match your filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="td-empty">' + listEmptyMessage() + '</td></tr>';
     return;
   }
 
@@ -659,7 +757,7 @@ async function loadAwaiting() {
   const ids = Array.from(new Set(awaitingQuotes.map(function (q) { return q.dealer_id; }).filter(Boolean)));
   if (ids.length) {
     const { data: dealers, error: dErr } = await _supabase
-      .from('dealers').select('id, company_name').in('id', ids);
+      .from('dealers').select('id, company_name, assigned_sales_id').in('id', ids);
     if (dErr) throw dErr;
     (dealers || []).forEach(function (d) { awaitingDealers[d.id] = d; });
   }
@@ -672,12 +770,26 @@ function waitingDays(iso) {
   return Math.max(0, Math.floor((Date.now() - t) / 86400000));
 }
 
+// CB-38 Q6:Awaiting 區空結果文案。區分「無資料」「搜尋無果」「Sales 過濾無果」。
+function awaitingEmptyMessage(term, sl) {
+  if (!awaitingQuotes.length) return 'No quotes awaiting payment.';
+  if (term) return 'No quotes match your search.';
+  if (sl === SALES_ME)   return 'No quotes awaiting payment from your dealers.';
+  if (sl === SALES_NONE) return 'No quotes awaiting payment from unassigned dealers.';
+  if (sl)                return 'No quotes awaiting payment from this sales\u2019 dealers.';
+  return 'No quotes awaiting payment.';
+}
+
 function renderAwaiting(term) {
   _awaitingTerm = term || '';
-  const t = _awaitingTerm.trim().toLowerCase();
+  const t  = _awaitingTerm.trim().toLowerCase();
+  const sl = document.getElementById('filterSales').value;   // CB-38 Q4
+
   const rows = awaitingQuotes.filter(function (q) {
-    if (!t) return true;
     const d = awaitingDealers[q.dealer_id] || {};
+    // CB-38 Q4:與下方 payments 列表共用同一個 Sales filter
+    if (sl && !salesMatches(d.assigned_sales_id, sl)) return false;
+    if (!t) return true;
     return (q.po_number || '').toLowerCase().indexOf(t) !== -1
         || (d.company_name || '').toLowerCase().indexOf(t) !== -1;
   });
@@ -688,7 +800,7 @@ function renderAwaiting(term) {
   const body = document.getElementById('awaitingBody');
   if (!rows.length) {
     body.innerHTML = '<tr><td colspan="5" class="td-empty">' +
-      (awaitingQuotes.length ? 'No quotes match your search.' : 'No quotes awaiting payment.') + '</td></tr>';
+      awaitingEmptyMessage(t, sl) + '</td></tr>';
     return;
   }
   body.innerHTML = rows.map(function (q) {
