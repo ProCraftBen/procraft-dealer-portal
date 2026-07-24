@@ -53,6 +53,23 @@
  *            Step 2.5, Step 3, and any future page that uses this header.
  * ============================================================ */
 
+// components/navigator.js: this section for zooming 120%
+
+(function injectGlobalStyles() {
+  const style = document.createElement('style');
+  style.id = 'global-ui-scale';
+  style.textContent = `
+    @media (min-width: 768px) {
+      html {
+        zoom: 1.2;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+// 
+
 (function () {
   'use strict';
 
