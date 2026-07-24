@@ -162,6 +162,17 @@
     .pick-opt input     { flex: 0 0 auto; }
     .pick-opt span      { word-break: break-word; }
     .pick-empty         { font-size: 11px; color: var(--muted); font-style: italic; padding: 8px 10px; }
+    /* 可收合的規則說明 */
+    .rule-help          { border: 1px solid var(--border); border-radius: 3px; margin-bottom: 12px; background: var(--cream); }
+    .rule-help > summary { cursor: pointer; list-style: none; padding: 8px 12px; font-size: 11px; letter-spacing: 0.06em; color: var(--gold); user-select: none; }
+    .rule-help > summary::-webkit-details-marker { display: none; }
+    .rule-help > summary::before { content: '▸ '; }
+    .rule-help[open] > summary::before { content: '▾ '; }
+    .rule-help-body     { padding: 0 14px 12px; font-size: 11px; color: var(--muted); line-height: 1.7; }
+    .rule-help-body b   { color: var(--text); font-weight: 500; }
+    .rule-help-body ul  { margin: 4px 0 10px; padding-left: 16px; }
+    .rule-help-body li  { margin-bottom: 3px; }
+    .rule-help-eg       { background: var(--white); border: 1px solid var(--border); border-radius: 3px; padding: 8px 10px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; color: var(--text); line-height: 1.6; white-space: pre; overflow-x: auto; }
   </style>
 </head>
 <body>
@@ -401,6 +412,47 @@
           Rules apply to <strong>catalog items only</strong> — custom items are never discounted.<br>
           Click <strong>Save Rule</strong> to collapse a rule, then <strong>Save Changes</strong> below to store everything.
         </div>
+        <details class="rule-help">
+          <summary>How discount rules work</summary>
+          <div class="rule-help-body">
+            <b>Matching</b>
+            <ul>
+              <li>A rule applies to an item only when <b>every</b> dimension matches — construction type, door style, SKU code and type.</li>
+              <li>Within one dimension, matching <b>any</b> of the ticked values is enough.</li>
+              <li><b>All</b> means that dimension is not filtered at all — the rule matches every value, including products added to the catalog later.</li>
+              <li>Custom items are never discounted.</li>
+            </ul>
+
+            <b>Stacking &amp; order</b>
+            <ul>
+              <li>Every matching rule is applied independently and the discounts add up. A percentage is always taken off the <b>original</b> unit price, not off the running balance — so the order of the rules does not change the total.</li>
+              <li>A discount can never take a unit below <b>$0</b>. If the combined discounts would, the rules are applied <b>oldest first</b> until the unit price is used up; later rules then take $0.</li>
+              <li>The dealer sees the rules listed oldest first. There is no manual sort — deleting and re-creating a rule moves it to the end.</li>
+            </ul>
+
+            <b>What it affects</b>
+            <ul>
+              <li>Discounts reduce the <b>product subtotal</b> only. Modifications and assembly fees are never discounted.</li>
+              <li>Sales tax and the shipping tier are calculated on the <b>discounted</b> subtotal.</li>
+              <li>The <b>Rule Name</b> is shown to the dealer on Step 3, the quote page, the Invoice and the confirmation email — so name it in customer-safe language.</li>
+              <li>The Draft Quote PDF deliberately <b>hides</b> discounts: it is the document the dealer hands to their own customer.</li>
+            </ul>
+
+            <b>When changes take effect</b>
+            <ul>
+              <li>New quotes and drafts still being edited pick up the current rules immediately.</li>
+              <li>Quotes already submitted keep the amounts they were sent with. Editing or deleting a rule never changes an existing order.</li>
+            </ul>
+
+            <b>Example</b>
+            <div class="rule-help-eg">Rule 1  Framed / LSG / All SKUs / All types / 10%
+Rule 2  Framed / All styles / All SKUs / BASE / $50
+
+LSG-3DB30   $1,012.00   -$101.20 (Rule 1)  -$50.00 (Rule 2)  =  $860.80
+LSE-3DB30   $1,012.00                      -$50.00 (Rule 2)  =  $962.00
+LSG-W3030     $400.00   -$40.00  (Rule 1)                    =  $360.00</div>
+          </div>
+        </details>
         <div id="rulesList"></div>
         <div class="rules-empty" id="rulesEmpty">No discount rules. This dealer pays standard pricing.</div>
         <button type="button" class="btn-add-rule" id="btnAddRule" onclick="addRuleCard()">+ Add Rule</button>
