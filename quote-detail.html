@@ -780,7 +780,7 @@ const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
 const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 // Store for PDF generation
-let _quote = null, _dealer = null, _addr = null, _isAdmin = false;
+let _quote = null, _dealer = null, _addr = null, _isAdmin = false, _me = null;
 let _returnHistory = [];
 let _groupedItems = null; // F4.1 v2: items reconstructed into per-SKU sub_groups
 let _allDoorStyles = [];  // CB-5 需求1: door_styles 快取(整單 lead time)
@@ -1389,9 +1389,10 @@ async function init() {
     .from('quotes').select('*, quote_items(*)').eq('id', quoteId).single();
   if (qErr || !quote) { showError('Quote not found.'); return; }
 
-  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  const { data: me } = await _supabase.from('dealers').select('company_name, role').eq('id', session.user.id).single();
   const isAdmin = ['admin','super_admin'].includes(me?.role);
   _isAdmin = isAdmin;
+  _me = { company_name: me?.company_name, role: me?.role };   // CB-50: 當下登入者（download stamp 用）
   if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
 
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
@@ -2244,7 +2245,7 @@ async function downloadDraftQuote() {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildDraftQuotePdf(
-    quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
+    quoteDataForPdf, _dealer, _addr, { markupPercent: 0, stamp: { mode: 'download', user: _me } }
   );
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
     poNumber:       _quote.po_number || _quote.draft_number || 'Draft',  // 雙編號制
@@ -2258,7 +2259,7 @@ async function downloadPackingList() {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildPackingListPdf(
-    quoteDataForPdf, _dealer, _addr
+    quoteDataForPdf, _dealer, _addr, { stamp: { mode: 'download', user: _me } }
   );
   const filename = ProCraftPDF.getPdfFilename('packing-list', {
     poNumber:       _quote.po_number || 'Quote',
@@ -2271,7 +2272,7 @@ async function downloadInvoice() {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildInvoicePdf(
-    quoteDataForPdf, _dealer, _addr, { markupPercent: 0 }
+    quoteDataForPdf, _dealer, _addr, { markupPercent: 0, stamp: { mode: 'download', user: _me } }
   );
   const filename = ProCraftPDF.getPdfFilename('invoice', {
     poNumber:       _quote.po_number || 'Quote',
@@ -2321,7 +2322,7 @@ async function downloadReceipt() {
   let doc;
   try {
     doc = await ProCraftPDF.buildReceiptPdf(
-      quoteDataForPdf, _dealer, _addr, { markupPercent: 0, receipt }
+      quoteDataForPdf, _dealer, _addr, { markupPercent: 0, receipt, stamp: { mode: 'download', user: _me } }
     );
   } catch (err) {
     // CB-45 對帳斷言 fail-loud:live grand 與付款當時 base_amount 不一致 → 不出憑證。
