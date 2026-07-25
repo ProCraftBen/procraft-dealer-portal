@@ -954,6 +954,7 @@ const _supabase = createClient(
 );
 
 let dealer    = null;
+let _meStamp  = null;   // CB-50: 當下登入者（download stamp 用；step3 admin-draft 時 dealer≠登入者）
 let step1Data = null;
 let step2Data = null;
 let shippingAddress = null;
@@ -1732,10 +1733,11 @@ async function init() {
   _isResumingReturned = !!step1Data.isResumingReturned;
 
   const { data: meRow } = await _supabase
-    .from('dealers').select('is_active, role').eq('id', session.user.id).single();
+    .from('dealers').select('is_active, role, company_name').eq('id', session.user.id).single();
   if (!meRow?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
 
   const isAdminRole = meRow?.role === 'admin' || meRow?.role === 'super_admin';
+  _meStamp = { company_name: meRow?.company_name, role: meRow?.role };   // CB-50
 
 let dealerIdToLoad = session.user.id;
   let quoteStatus    = null;   // CB-4: server-side status drives viewMode
@@ -3215,8 +3217,8 @@ async function submitQuote() {
       markupPercent:        0,
     });
     quoteDataForPdf.po_number = poNumber;
-    const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress);
-    const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0 });
+    const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress, { stamp: { mode: 'email' } });
+    const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0, stamp: { mode: 'email' } });
 
     const pdfA = packingDoc.output('datauristring').split(',')[1];
     const pdfB = invoiceDoc.output('datauristring').split(',')[1];
@@ -3488,8 +3490,8 @@ async function requestRevision(note) {
     // ── regenerate revised PDFs (no markup) ──
     const quoteDataForPdf = buildQuoteDataForPdf({ shippingCostOverride: shippingCostWrite, markupPercent: 0 });
     quoteDataForPdf.po_number = poNumber;
-    const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress);
-    const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0 });
+    const packingDoc = await ProCraftPDF.buildPackingListPdf(quoteDataForPdf, dealer, shippingAddress, { stamp: { mode: 'email' } });
+    const invoiceDoc = await ProCraftPDF.buildInvoicePdf(quoteDataForPdf, dealer, shippingAddress, { markupPercent: 0, stamp: { mode: 'email' } });
     const pdfA = packingDoc.output('datauristring').split(',')[1];
     const pdfB = invoiceDoc.output('datauristring').split(',')[1];
 
@@ -3847,7 +3849,7 @@ async function downloadPDF() {
   }
   const quoteDataForPdf = buildQuoteDataForPdf(_pdfOpts);
   const doc = await ProCraftPDF.buildDraftQuotePdf(
-    quoteDataForPdf, dealer, shippingAddress, { markupPercent: markupPct }
+    quoteDataForPdf, dealer, shippingAddress, { markupPercent: markupPct, stamp: { mode: 'download', user: _meStamp } }
   );
   const previewRevisionNumber = _isResumingReturned ? (_currentRevisionNumber || 1) + 1 : 1;
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
