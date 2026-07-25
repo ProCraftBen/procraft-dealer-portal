@@ -607,6 +607,54 @@ return total;
     doc.setPage(totalPages);
   }
 
+  // ── CB-50: PDF Traceability Stamp helpers ──────────────────────
+  function _roleDisplay(role) {
+    const MAP = { super_admin: 'Super Admin', admin: 'Admin', dealer: 'Dealer' };
+    return MAP[role] || role || '';
+  }
+
+  function _getNYStampTimestamp() {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+      hour12: false, timeZoneName: 'short',
+    }).formatToParts(new Date());
+    const p = {};
+    parts.forEach(function (x) { p[x.type] = x.value; });
+    const hh = p.hour === '24' ? '00' : p.hour;
+    return `${p.year}-${p.month}-${p.day} ${hh}:${p.minute} ${p.timeZoneName}`;
+  }
+
+  function _drawStamp(doc, stamp) {
+    if (!stamp || !stamp.mode) return;
+    const ts = _getNYStampTimestamp();
+    let text;
+    if (stamp.mode === 'email') {
+      text = `SYSTEM EMAIL COPY · ${ts}`;
+    } else if (stamp.mode === 'download') {
+      const u        = stamp.user || {};
+      const company  = u.company_name || '—';
+      const roleDisp = _roleDisplay(u.role);
+      text = roleDisp
+        ? `Downloaded by: ${company} (${roleDisp}) · ${ts}`
+        : `Downloaded by: ${company} · ${ts}`;
+    } else {
+      return;
+    }
+    const { margin } = LAYOUT;
+    const STAMP_Y = 281;
+    const total = doc.getNumberOfPages();
+    for (let p = 1; p <= total; p++) {
+      doc.setPage(p);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(136, 136, 136);
+      doc.text(text, margin, STAMP_Y, { align: 'left' });
+    }
+    doc.setPage(total);
+  }
+
   // ----------------------------------------
   // F4.2: Items 表格繪製
   // ----------------------------------------
@@ -1615,6 +1663,7 @@ return total;
 
     _finalizePackingListWithTcAndNotes({ doc, quoteData, headerContext, tableEndY, notes });
 
+    _drawStamp(doc, options.stamp);   // CB-50
     return doc;
   }
 
@@ -1645,6 +1694,7 @@ return total;
       hideDiscount: false,           // CB-47
     });
 
+    _drawStamp(doc, options.stamp);   // CB-50
     return doc;
   }
 
@@ -1679,6 +1729,7 @@ return total;
       receipt,
     });
 
+    _drawStamp(doc, options.stamp);   // CB-50
     return doc;
   }
 
@@ -1720,6 +1771,7 @@ return total;
       hideDiscount: _hideDiscount,         // CB-47 Q-A3
     });
 
+    _drawStamp(doc, options.stamp);   // CB-50
     return doc;
   }
 
@@ -1792,6 +1844,7 @@ return total;
     _drawBillShipBlock:      _drawBillShipBlock,
     _drawFooterBar:          _drawFooterBar,
     _addPageNumbers:         _addPageNumbers,
+    _drawStamp:              _drawStamp,
     _drawItemTable:          _drawItemTable,
     _drawNotesTable:         _drawNotesTable,
     _drawAssembledSummary:   _drawAssembledSummary,              // 改動 15
