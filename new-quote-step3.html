@@ -1895,12 +1895,24 @@ async function cb53Hydrate(q) {
 }
 
 async function init() {
-  const { data:{ session } } = await _supabase.auth.getSession();
-  if (!session) { window.location.href = 'login.html'; return; }
-
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
   const adminDraft = params.get('adminDraft') === '1';
+
+  const { data:{ session } } = await _supabase.auth.getSession();
+  if (!session) {
+    // CB-53 Guard 3: 帶 redirect 回跳,登入後回到同一張單的 step3。
+    //   只在有 draftId 時帶(其他情境沒有可回的目的地)。
+    //   用相對路徑即可 —— login.html 端以 new URL('.', location.href) 解析,
+    //   staging 子目錄與 production 根目錄都正確(B-14)。
+    if (draftId) {
+      const target = 'new-quote-step3.html?draft=' + encodeURIComponent(draftId);
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(target);
+    } else {
+      window.location.href = 'login.html';
+    }
+    return;
+  }
 
   // CB-53: 先讀原始值但【不】立刻 gate —— gate 已下移至兩道 guard 之後。
   const s1 = sessionStorage.getItem('quoteStep1');
