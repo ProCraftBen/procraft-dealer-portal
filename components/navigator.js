@@ -4,6 +4,31 @@
  * Self-contained component that renders a consistent navbar + mobile menu
  * across all dealer- and admin-facing pages.
  *
+ * v1.5 CHANGES (CB-51.1 — headless discount mode):
+ *   - HEADLESS MODE. When a page has NO #pcd-nav but DOES have
+ *     #pcd-discount-mount, this file skips nav rendering entirely and runs
+ *     only the discount half: identity resolution, rules query, strip
+ *     injection, modal. Used by the new-quote step1/2/2.5/3 flow, which is
+ *     served by components/quote-flow-header.js (that file renders the
+ *     mount point, then dynamically loads this script).
+ *   - Visibility is decided by the EFFECTIVE DEALER ID — "which dealer is
+ *     this quote flow serving?" — not by the viewer's role:
+ *       dealer            -> own uid
+ *       admin proxying    -> sessionStorage.adminDraftDealerId /
+ *                            quoteStep1.dealerIdForQuote, else the owner of
+ *                            ?draft={id}  (mirrors quote-flow-header.js and
+ *                            new-quote-step3.html dealerIdToLoad)
+ *       admin, no target  -> null (hidden; admins have no discounts)
+ *   - HARD GATE (B-11). RLS policy `admin_ddr_select` is `is_admin()` with
+ *     NO dealer_id restriction, so for an admin the client-side .eq() is the
+ *     ONLY thing scoping the read. resolveEffectiveDealerId() therefore
+ *     returns a validated UUID or null, and initHeadless() issues NO QUERY
+ *     AT ALL on null. undefined/null/malformed ids must never reach .eq().
+ *   - Admin-proxy sessions label ownership: the strip reads
+ *     "{COMPANY} — DISCOUNT" and the modal title "{Company}'s Discounts".
+ *   - Full mode (v1.4) is untouched: same code path, same DOM, same query.
+ *     Headless never writes to a container it does not own and fails silent.
+ *
  * v1.4 CHANGES (CB-51 — My Discount pill):
  *   - Dealers who have at least one row in `dealer_discount_rules` get a
  *     gold outlined "MY DISCOUNT" pill as the FIRST item of the desktop
@@ -85,6 +110,10 @@
 // components/navigator.js: this section for zooming 120%
 
 (function injectGlobalStyles() {
+  // v1.5: quote-flow-header.js injects an identical rule under the same id.
+  // Both files can now be present on one page, so guard against a duplicate
+  // element (the id must stay unique even though the effect is idempotent).
+  if (document.getElementById('global-ui-scale')) return;
   const style = document.createElement('style');
   style.id = 'global-ui-scale';
   style.textContent = `
@@ -102,7 +131,12 @@
 (function () {
   'use strict';
 
-  // ── Constants ────────────────────────────────────────────────────
+  // v1.5: this file may now be loaded dynamically by quote-flow-header.js.
+  // Guard against a page that also carries a static <script> tag for it.
+  if (window.__pcdNavigatorLoaded) return;
+  window.__pcdNavigatorLoaded = true;
+
+  // ── Constants ──
   const SUPABASE_URL  = window.SB_URL;
   const SUPABASE_ANON = window.SB_KEY;
   const LOGO_URL      = 'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png';
@@ -257,6 +291,8 @@
     .pcd-dmo-title {
       margin: 0; font-family: 'Cormorant Garamond', serif;
       font-size: 22px; font-weight: 500; letter-spacing: 0.02em; color: #2f3d31;
+      /* v1.5: admin-proxy titles carry a company name of unbounded length. */
+      min-width: 0; overflow-wrap: anywhere;
     }
     .pcd-dmo-close {
       background: none; border: none; cursor: pointer;
@@ -299,6 +335,40 @@
       .pcd-dmo-row > span:first-child { width: auto; }
     }
 
+    /* ══ CB-51.1: headless discount strip ════════════════════════════
+       Full-width band rendered directly under .pcd-qfh-bar in the
+       new-quote flow. Deliberately NOT the .pcd-discount-pill treatment:
+       the quote-flow bar is already at its width budget, so the strip
+       takes its own row instead of competing for space inside the bar.
+       Only rendered when there is something to show, so pages without
+       rules keep the exact 60px header they have today. */
+    .pcd-discount-strip {
+      box-sizing: border-box;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; height: 28px; padding: 0 14px;
+      background: #354d38;
+      border: none; border-top: 1px solid rgba(201,168,76,0.45);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: #C9A84C; cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+    }
+    .pcd-discount-strip:hover,
+    .pcd-discount-strip:focus-visible {
+      background: rgba(201,168,76,0.10); color: #E3C87A;
+    }
+    .pcd-ds-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; flex: none;
+      border: 1px solid currentColor; border-radius: 999px;
+      font-size: 8px; line-height: 1; letter-spacing: 0;
+    }
+    /* Long company names truncate here; the modal title carries the full
+       name and is allowed to wrap. */
+    .pcd-ds-label {
+      min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
     /* ── T-Z FALLBACK (leave commented unless staging test T-Z fails) ──
        injectGlobalStyles() applies html { zoom: 1.2 } at >=768px. If the
        overlay renders larger than the viewport or the panel sits off
@@ -330,21 +400,56 @@
   let _dmoPrevOverflow = null;   // body overflow before opening
   let _dmoEscHandler  = null;    // bound only while the modal is open
 
+  // CB-51.1 state (headless only — all three stay at their defaults in
+  // full mode, so every v1.4 code path behaves exactly as before)
+  let _headless    = false;             // true -> inject the strip, not the pill
+  let _dmoTitle    = null;              // modal title override; null -> 'My Discounts'
+  let _stripLabel  = 'My Discount';     // strip text; overridden when proxying
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   // ── Lifecycle ────────────────────────────────────────────────────
   // Run as soon as the script loads. Script is at end of <body>, so DOM is
   // already parsed and the #pcd-nav container exists.
   //
   // v1.1: Render skeleton FIRST (synchronously) before any async work,
   // so users see the green nav bar + logo immediately.
+  //
+  // v1.5: two entry points. #pcd-nav -> full mode (unchanged). Otherwise, if
+  // the page provides #pcd-discount-mount, run headless. init() previously
+  // ran unconditionally and returned immediately when #pcd-nav was absent,
+  // so moving the call inside the branch is behaviour-preserving.
   const _initialContainer = document.getElementById('pcd-nav');
   if (_initialContainer) {
     injectStyles();
     renderSkeleton(_initialContainer);
+    init().catch(function (err) {
+      console.warn('[navigator] init failed:', err);
+    });
+  } else {
+    bootHeadless();
   }
 
-  init().catch(function (err) {
-    console.warn('[navigator] init failed:', err);
-  });
+  // quote-flow-header.js appends this script only after its bar (and the
+  // mount point) is in the DOM, so the mount is normally already there. The
+  // DOMContentLoaded retry covers a page that adds a static <script> tag.
+  function bootHeadless() {
+    if (document.getElementById('pcd-discount-mount')) {
+      startHeadless();
+      return;
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        if (document.getElementById('pcd-discount-mount')) startHeadless();
+      }, { once: true });
+    }
+  }
+
+  function startHeadless() {
+    initHeadless().catch(function (err) {
+      console.warn('[navigator][CB-51.1] headless init failed:', err);
+    });
+  }
 
   async function init() {
     const container = document.getElementById('pcd-nav');
@@ -568,7 +673,8 @@
 
       if (gen !== _navGeneration) return;     // nav was rebuilt — abandon
       _discountRules = rows;
-      injectPill();
+      // CB-51.1: _headless is false in full mode, so this is injectPill().
+      if (_headless) injectPillHeadless(); else injectPill();
     } catch (e) {
       console.warn('[navigator][CB-51] discount pill load error:', e);
     } finally {
@@ -677,7 +783,9 @@
     el.innerHTML =
       '<div class="pcd-dmo-panel">' +
         '<div class="pcd-dmo-head">' +
-          '<h2 class="pcd-dmo-title" id="pcd-dmo-title">My Discounts</h2>' +
+          // CB-51.1: _dmoTitle is null in full mode -> 'My Discounts'.
+          '<h2 class="pcd-dmo-title" id="pcd-dmo-title">' +
+            escapeHtml(_dmoTitle || 'My Discounts') + '</h2>' +
           '<button type="button" class="pcd-dmo-close" id="pcd-dmo-close" aria-label="Close">&times;</button>' +
         '</div>' +
         '<div class="pcd-dmo-body">' + rows + '</div>' +
@@ -754,6 +862,216 @@
 
     if (_dmoTrigger && document.body.contains(_dmoTrigger)) _dmoTrigger.focus();
     _dmoTrigger = null;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════
+   * CB-51.1 — Headless mode
+   * Runs on pages that have no nav but do have #pcd-discount-mount.
+   * Read-only: SELECT on dealers / quotes / dealer_discount_rules only.
+   * ════════════════════════════════════════════════════════════════ */
+
+  async function initHeadless() {
+    const mount = document.getElementById('pcd-discount-mount');
+    if (!mount) return;
+    if (!window.supabase || !window.supabase.createClient) {
+      console.warn('[navigator][CB-51.1] Supabase client library not loaded');
+      return;
+    }
+
+    _headless = true;
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // Every failure below returns silently. Headless does not own any
+    // container on the page and must never clear or write to one.
+    let session = null;
+    try {
+      const result = await _supabase.auth.getSession();
+      session = result.data ? result.data.session : null;
+    } catch (e) {
+      return;
+    }
+    if (!session) return;
+
+    let role = null;
+    try {
+      const { data: me } = await _supabase
+        .from('dealers')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+      role = me ? me.role : null;
+    } catch (e) {
+      return;
+    }
+
+    const effectiveDealerId = await resolveEffectiveDealerId(session, role);
+
+    // ══ B-11 HARD GATE ══════════════════════════════════════════════
+    // For an admin, RLS places no dealer_id restriction on this table, so
+    // the .eq() inside loadDiscountPill() is the only scope there is. A
+    // null here means "no confirmed subject" and MUST end the function —
+    // no query, no injection, no DOM footprint.
+    if (effectiveDealerId === null) return;
+
+    injectStyles();
+
+    if (effectiveDealerId !== session.user.id) {
+      const name = await fetchDealerDisplayName(effectiveDealerId);
+      _stripLabel = name ? (name + ' \u2014 Discount') : 'Dealer Discount';
+      // Never fall back to 'My Discounts' when proxying — that would
+      // misattribute another dealer's rules to the viewer.
+      _dmoTitle   = name ? (possessive(name) + ' Discounts') : 'Dealer Discounts';
+    }
+
+    loadDiscountPill(effectiveDealerId);
+  }
+
+  // Returns a validated dealer UUID, or null. Six gates, all early-return;
+  // there is no fall-through path that yields an unvalidated value.
+  async function resolveEffectiveDealerId(session, role) {
+    // G1 — identity preconditions
+    if (!session || !session.user) return null;
+    if (!isNonEmptyString(session.user.id)) return null;
+    if (!isNonEmptyString(role)) return null;
+
+    const viewerId = session.user.id;
+    const isAdmin  = (role === 'admin' || role === 'super_admin');
+    // Exact match, same as v1.4 — a future role must opt in explicitly.
+    const isDealer = (role === 'dealer');
+
+    // G2 — dealer viewing their own flow. RLS (dealer_ddr_select_own) and
+    // the .eq() agree, so this path is double-covered.
+    if (isDealer) return viewerId;
+
+    // G3 — neither dealer nor admin
+    if (!isAdmin) return null;
+
+    // ══ admin only from here. Each return null below is a real barrier
+    //    against an unscoped read, not a cosmetic check. ══
+    let target = null;
+
+    // Source 1 (preferred): sessionStorage. Same precedence as
+    // quote-flow-header.js readContext().
+    const hint = readAdminDealerIdHint();
+    const adminDraftFlag = (urlParam('adminDraft') === '1') || isNonEmptyString(hint);
+
+    if (adminDraftFlag && isNonEmptyString(hint)) {
+      target = hint;
+    } else {
+      // Source 2 (fallback): admin opened someone else's existing draft.
+      // Mirrors quote-flow-header.js resolveAsyncContext() and
+      // new-quote-step3.html dealerIdToLoad.
+      const draftId = urlParam('draft');
+      if (isNonEmptyString(draftId)) {
+        const ownerId = await fetchQuoteOwnerId(draftId);
+        if (isNonEmptyString(ownerId)) target = ownerId;
+      }
+    }
+
+    // G4 — no subject resolved (admin working under their own account)
+    if (!isNonEmptyString(target)) return null;
+
+    // G5 — subject is the viewer: admins hold no discount rules
+    if (target === viewerId) return null;
+
+    // G6 — shape assertion. target originates from sessionStorage or from a
+    // row keyed by a URL parameter; anything that is not a UUID is treated
+    // as tampered and must not reach .eq().
+    if (!UUID_RE.test(target)) {
+      console.warn('[navigator][CB-51.1] effective dealer id failed shape check — aborting');
+      return null;
+    }
+
+    return target;
+  }
+
+  // Idempotent. Shares the #pcd-discount-pill id with full mode so the
+  // modal's aria-expanded bookkeeping works unchanged; the two modes never
+  // coexist on a page (nav pages carry no #pcd-discount-mount).
+  function injectPillHeadless() {
+    if (document.getElementById('pcd-discount-pill')) return;
+    const mount = document.getElementById('pcd-discount-mount');
+    if (!mount) return;
+
+    mount.innerHTML =
+      '<button type="button" class="pcd-discount-strip" id="pcd-discount-pill"' +
+              ' aria-haspopup="dialog" aria-expanded="false">' +
+        '<span class="pcd-ds-badge" aria-hidden="true">%</span>' +
+        '<span class="pcd-ds-label">' + escapeHtml(_stripLabel) + '</span>' +
+      '</button>';
+
+    const btn = document.getElementById('pcd-discount-pill');
+    if (btn) btn.addEventListener('click', function () { openDiscountModal(btn); });
+  }
+
+  // ── Headless helpers ─────────────────────────────────────────────
+
+  function isNonEmptyString(v) {
+    return typeof v === 'string' && v.trim().length > 0;
+  }
+
+  function urlParam(name) {
+    try {
+      return new URLSearchParams(window.location.search).get(name);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // quoteStep1.dealerIdForQuote first, then adminDraftDealerId — the same
+  // precedence quote-flow-header.js uses. Both are null for a dealer's own
+  // flow, so this never fires outside admin-proxy sessions.
+  function readAdminDealerIdHint() {
+    let hint = null;
+    try {
+      const raw = sessionStorage.getItem('quoteStep1');
+      if (raw) {
+        const s1 = JSON.parse(raw);
+        if (s1 && isNonEmptyString(s1.dealerIdForQuote)) hint = s1.dealerIdForQuote;
+      }
+    } catch (e) { /* malformed JSON — treat as absent */ }
+    if (!hint) {
+      try {
+        const v = sessionStorage.getItem('adminDraftDealerId');
+        if (isNonEmptyString(v)) hint = v;
+      } catch (e) { /* storage unavailable — treat as absent */ }
+    }
+    return hint;
+  }
+
+  async function fetchQuoteOwnerId(quoteId) {
+    try {
+      const { data } = await _supabase
+        .from('quotes')
+        .select('dealer_id')
+        .eq('id', quoteId)
+        .single();
+      return (data && data.dealer_id) ? data.dealer_id : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function fetchDealerDisplayName(dealerId) {
+    try {
+      const { data } = await _supabase
+        .from('dealers')
+        .select('company_name, contact_name')
+        .eq('id', dealerId)
+        .single();
+      if (!data) return null;
+      if (isNonEmptyString(data.company_name)) return data.company_name.trim();
+      if (isNonEmptyString(data.contact_name)) return data.contact_name.trim();
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // "ABC Kitchen" -> "ABC Kitchen's";  "Ross" -> "Ross'"
+  function possessive(name) {
+    const n = String(name == null ? '' : name).trim();
+    return /[sS]$/.test(n) ? (n + "'") : (n + "'s");
   }
 
   // ── Helpers ──────────────────────────────────────────────────────
