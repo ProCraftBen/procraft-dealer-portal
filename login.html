@@ -472,6 +472,55 @@
       if (!busy) doLogin();
     });
 
+    // ─────────────────────────────────────────────────────────────────────
+    // CB-53 U4 — 登入後回跳(Guard 3 的 login 端)
+    //
+    // ⚠️ B-14:staging 掛在子目錄 /procraft-dealer-portal-staging/,
+    //    production 在網域根目錄;且 procraftben.github.io 是 GitHub Pages
+    //    共享網域,同帳號每個 repo 共用同一個 origin。因此:
+    //      • 基準必須用 new URL('.', location.href) 執行期推導,絕不硬寫路徑
+    //      • 只比對 origin 不夠 —— 還要求 pathname 以 appBase.pathname 開頭,
+    //        否則同 origin 的跨 repo 跳轉擋不住
+    //
+    // ⚠️ B-03:任一道校驗失敗一律靜默落回預設去處,不提示、不重試。
+    // ⚠️ B-08:profile_completed 閘門不可被 redirect 繞過。
+    // ─────────────────────────────────────────────────────────────────────
+    const CB53_REDIRECT_WHITELIST = ['new-quote-step3.html'];
+
+    function cb53GetSafeRedirect() {
+      try {
+        const raw = new URLSearchParams(window.location.search).get('redirect');
+        if (!raw) return null;
+        if (raw.indexOf('..') !== -1) return null;                         // 路徑穿越
+        if (raw.charAt(0) === '/' || raw.charAt(0) === '\\') return null;  // //evil.com、絕對路徑
+
+        const appBase = new URL('.', window.location.href);                // B-14: 執行期推導
+        const target  = new URL(raw, appBase);
+
+        if (target.origin !== window.location.origin) return null;
+        if (target.pathname.indexOf(appBase.pathname) !== 0) return null;  // B-14: 前綴校驗
+
+        const file = target.pathname.slice(appBase.pathname.length);
+        if (CB53_REDIRECT_WHITELIST.indexOf(file) === -1) return null;
+
+        return target.pathname + target.search;                            // 丟棄 hash
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // 登入後去處。既有優先序完全不變(admin → profile gate → dashboard),
+    // 只在「admin 預設」與「dashboard 預設」兩處插入 redirect。
+    function cb53ResolveLoginTarget(dealer) {
+      if (['admin','super_admin'].includes(dealer?.role)) {
+        return cb53GetSafeRedirect() || 'admin.html';
+      }
+      if (!dealer?.profile_completed) {
+        return 'dealer-profile.html';        // B-08: 不可被 redirect 繞過
+      }
+      return cb53GetSafeRedirect() || 'dashboard.html';
+    }
+
     async function doLogin() {
       if (busy) return;
 
