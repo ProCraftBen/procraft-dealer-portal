@@ -1,5 +1,5 @@
 /* ============================================================
- * ProCraft Dealer Portal — Quote Flow Header Component v1.3
+ * ProCraft Dealer Portal — Quote Flow Header Component v1.4
  *
  * Renders a minimal header for the new-quote step1/2/2.5/3 flow:
  *  - (Optional) Orange "Admin Mode" bar
@@ -51,6 +51,25 @@
  *            persists for the full flow.
  *            Single-file change resolves banner on Step 2 (second entry),
  *            Step 2.5, Step 3, and any future page that uses this header.
+ *
+ * v1.4 (CB-51.1): Discount visibility in the quote flow.
+ *            Renders an empty <div id="pcd-discount-mount"> under the green
+ *            bar and then dynamically loads components/navigator.js, which
+ *            detects "no #pcd-nav but a #pcd-discount-mount" and runs in
+ *            headless mode: it resolves which dealer this flow is serving,
+ *            reads that dealer's discount rules and injects a clickable
+ *            strip + modal into the mount.
+ *
+ *            THIS FILE OWNS NO DISCOUNT LOGIC. It does not query
+ *            dealer_discount_rules, does not format rules and does not
+ *            build the modal — navigator.js is the single owner of all of
+ *            that (CB-51). All this file contributes is the mount point and
+ *            the load order.
+ *
+ *            The script is appended AFTER renderSkeleton() has put the
+ *            mount in the DOM, so navigator.js always finds it. That makes
+ *            ordering a property of this file rather than of every page's
+ *            <script> tag sequence — the four step pages need no change.
  * ============================================================ */
 
 // components/navigator.js: this section for zooming 120%
@@ -210,6 +229,16 @@
       background: rgba(255,255,255,0.05);
     }
 
+    /* CB-51.1: mount point for the headless discount strip.
+       Empty until navigator.js injects into it, and it only does so when
+       the flow is serving a dealer who actually has rules — so pages with
+       nothing to show keep the exact header they have today.
+       Deliberately NOT sticky: .pcd-qfh-wrap is only as tall as its
+       children, so .pcd-qfh-bar's own sticky positioning has no travel
+       room and this header already scrolls away on these pages. The strip
+       matches that behaviour instead of inventing a different one. */
+    #pcd-discount-mount:empty { display: none; }
+
     /* Mobile (<500px) — hide step labels, keep circles */
     @media (max-width: 500px) {
       .pcd-qfh-step-label { display: none; }
@@ -263,7 +292,22 @@
         <div class="pcd-qfh-steps">${stepsHtml}</div>
         <button class="pcd-qfh-discard" id="pcd-qfh-discard">Discard</button>
       </div>
+      <div id="pcd-discount-mount"></div>
     `;
+  }
+
+  // ── CB-51.1: hand the discount half over to navigator.js ──────────
+  // Called immediately after renderSkeleton(), so the mount already exists
+  // when the script starts executing. Idempotent, and a no-op if the mount
+  // is missing for any reason.
+  function loadDiscountModule() {
+    if (document.getElementById('pcd-navigator-headless')) return;
+    if (!document.getElementById('pcd-discount-mount')) return;
+    const s = document.createElement('script');
+    s.id    = 'pcd-navigator-headless';
+    s.src   = 'components/navigator.js';
+    s.async = false;
+    document.body.appendChild(s);
   }
 
   // ── Context resolution (sync only — DB-aware bits resolved later) ──
@@ -452,6 +496,7 @@
 
     injectCss();
     renderSkeleton(container, currentStep);
+    loadDiscountModule();
 
     bindBehaviors({
       draftId:            ctx.draftId,
