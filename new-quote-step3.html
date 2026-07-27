@@ -1830,7 +1830,19 @@ let dealerIdToLoad = session.user.id;
   if (adminDraftMode && viewMode === 'normal') viewMode = 'admin-draft';
   console.log('[CB-4] step3 viewMode:', { viewMode, quoteStatus, isAdminRole, isOwner, adminDraftMode });
 
-  // ── CB-43 T14-3 (R2): Stock Review 單 dealer 不可編輯 ──
+  // ── CB-53 Guard 2: 狀態白名單(取代 CB-43 T14-3 的 Stock Review 黑名單)──
+  //   涵蓋 Stock Review / Pending / Payment Processing / Order Processing /
+  //   Closed / Cancelled 及任何未知值。admin 不擋(必須能 Edit + Request Revision)。
+  if (!isAdminRole && quoteStatus && CB53_DEALER_EDITABLE_STATUSES.indexOf(quoteStatus) === -1) {
+    console.warn('[CB-53 Guard2] Dealer blocked from editing a "' + quoteStatus + '" quote; redirecting to quote detail.');
+    location.replace('quote-detail.html?id=' + encodeURIComponent(draftId));
+    return;
+  }
+
+  // ── CB-53: 原 sessionStorage gate,位置下移至兩道 guard 之後 ──
+  //   U1 階段語意完全不變(缺任一 key 即回 step1);U2 會在此處改為
+  //   「draftId 存在則 hydration,否則才回 step1」。
+  if (!step1Data || !step2Data) { window.location.href = 'new-quote.html'; return; }
 
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
