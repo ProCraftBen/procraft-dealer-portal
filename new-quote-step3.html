@@ -1715,6 +1715,42 @@ async function obtainDraftNumber() {
   return data;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-53: dealer 可從 [Estimate Created] 信直接進入 step3。
+//   為了讓 Guard 1(owner/查無單)與 Guard 2(狀態白名單)在「sessionStorage
+//   缺失」時也生效,quotes 查詢與兩道 guard 都必須排在 sessionStorage gate
+//   【之前】。U1 僅做序列重排 + 新增 guard,暖路徑行為完全不變。
+// ─────────────────────────────────────────────────────────────────────────────
+
+// CB-53 Guard 1: 查無單 / 非 owner 的錯誤卡片(不導頁,原地顯示)。
+function cb53ShowLoadError(message) {
+  document.body.innerHTML =
+    '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+    'background:#F5F2EC;font-family:Arial,Helvetica,sans-serif;padding:24px;">' +
+      '<div style="max-width:460px;width:100%;background:#fff;border:1px solid #DDD8CC;' +
+      'border-radius:4px;padding:36px 32px;text-align:center;">' +
+        '<div style="font-family:Georgia,serif;font-size:20px;color:#3e5a42;margin-bottom:14px;">' +
+          'Unable to Open This Estimate' +
+        '</div>' +
+        '<div style="font-size:14px;line-height:1.65;color:#2C3A32;margin-bottom:26px;">' +
+          message +
+        '</div>' +
+        '<a href="dashboard.html" style="display:inline-block;background:#3e5a42;color:#fff;' +
+        'text-decoration:none;padding:12px 30px;border-radius:3px;font-size:12px;font-weight:bold;' +
+        'letter-spacing:0.15em;text-transform:uppercase;">Back to Dashboard</a>' +
+      '</div>' +
+    '</div>';
+}
+
+// CB-53 Guard 2: dealer 端可編輯狀態白名單。
+//   與 RLS 政策 dealer_update_own_quotes_when_editable 的 USING 逐字對齊
+//   (dealer_id = auth.uid() AND status IN ('Draft','Returned'))。
+//   取代原 CB-43 T14-3 的 Stock Review 單點黑名單 —— 白名單為 fail-safe:
+//   未知/遺留狀態(如舊值 'Processing'/'Complete')自動被擋,不會誤放行。
+//   已知限制沿用 T14-3:擋不到 bfcache 還原(不重跑 script),該情境由
+//   submitQuote() 的 count:'exact' 檢查轉為 loud error(Q8-A)。
+const CB53_DEALER_EDITABLE_STATUSES = ['Draft', 'Returned'];
+
 async function init() {
   const { data:{ session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -1723,14 +1759,15 @@ async function init() {
   draftId = params.get('draft') || null;
   const adminDraft = params.get('adminDraft') === '1';
 
+  // CB-53: 先讀原始值但【不】立刻 gate —— gate 已下移至兩道 guard 之後。
   const s1 = sessionStorage.getItem('quoteStep1');
   const s2 = sessionStorage.getItem('quoteStep2');
-  if (!s1 || !s2) { window.location.href = 'new-quote.html'; return; }
+  if (s1) { try { step1Data = JSON.parse(s1); } catch (_) { step1Data = null; } }
+  if (s2) { try { step2Data = JSON.parse(s2); } catch (_) { step2Data = null; } }
 
-  step1Data = JSON.parse(s1);
-  step2Data = JSON.parse(s2);
-
-  _isResumingReturned = !!step1Data.isResumingReturned;
+  // U0/V-1: isResumingReturned 全 repo 無寫入端,此處恆為 false,
+  //   真正驅動是下方 q.status === 'Returned'。保留僅為不改動既有語意。
+  _isResumingReturned = !!(step1Data && step1Data.isResumingReturned);
 
   const { data: meRow } = await _supabase
     .from('dealers').select('is_active, role, company_name').eq('id', session.user.id).single();
@@ -1743,28 +1780,44 @@ let dealerIdToLoad = session.user.id;
   let quoteStatus    = null;   // CB-4: server-side status drives viewMode
   let quoteOwnerId   = null;   // CB-4: quote owner for isOwner check
   if (draftId) {
-  const { data: q } = await _supabase
+    // CB-53 D-1: select('*') 已稽核放行 —— quotes 23 欄零敏感欄位,
+    //   且 quote-detail.html 對 dealer 早已 select('*')。加寬是為了讓 U2 的
+    //   hydration 取得 job_name / notes / shipping_address_id / delivery_fee /
+    //   return_reason,並避免日後新增欄位漏加。
+    const { data: q, error: qErr } = await _supabase
       .from('quotes')
-      .select('dealer_id, revision_number, po_number, draft_number, status, logistic_type, shipping_cost, subtotal, admin_notified_at')
+      .select('*')
       .eq('id', draftId).single();
-    if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
-    if (q) {
-      quoteStatus            = q.status || null;
-      quoteOwnerId           = q.dealer_id || null;
-      _currentRevisionNumber = q.revision_number || 1;
-      _existingPoNumber      = q.po_number || null;
-      _existingDraftNumber   = q.draft_number || null;   // 雙編號制
-      _existingAdminNotifiedAt = q.admin_notified_at || null;   // CB-36: 已通知時間(驅動 Notify 是否首次)
-      _existingLogisticType  = q.logistic_type || null;
-      _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
-                                 ? null
-                                 : parseFloat(q.shipping_cost);
-      _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
-                                 ? null
-                                 : parseFloat(q.subtotal);
-      if (q.status === 'Returned') _isResumingReturned = true;
+
+    // ── CB-53 Guard 1: 查無單 / 非 owner ──
+    //   RLS(dealer_select_own_quotes: dealer_id = auth.uid())擋下非本人的單,
+    //   回傳 error 或 null。原本忽略 error 會靜默落入一張空白新單,
+    //   dealer 從轉寄信件點進來時會踩到。
+    if (qErr || !q) {
+      console.warn('[CB-53 Guard1] Quote not accessible:', draftId, qErr);
+      cb53ShowLoadError(
+        'We couldn\'t find this estimate, or it isn\'t associated with your account. ' +
+        'If you reached this page from an email, please make sure you\'re signed in with the correct account.'
+      );
+      return;
     }
-  } else if (step1Data.dealerIdForQuote) {
+
+    if (q.dealer_id) dealerIdToLoad = q.dealer_id;
+    quoteStatus            = q.status || null;
+    quoteOwnerId           = q.dealer_id || null;
+    _currentRevisionNumber = q.revision_number || 1;
+    _existingPoNumber      = q.po_number || null;
+    _existingDraftNumber   = q.draft_number || null;   // 雙編號制
+    _existingAdminNotifiedAt = q.admin_notified_at || null;   // CB-36: 已通知時間(驅動 Notify 是否首次)
+    _existingLogisticType  = q.logistic_type || null;
+    _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
+                               ? null
+                               : parseFloat(q.shipping_cost);
+    _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
+                               ? null
+                               : parseFloat(q.subtotal);
+    if (q.status === 'Returned') _isResumingReturned = true;
+  } else if (step1Data && step1Data.dealerIdForQuote) {
     dealerIdToLoad = step1Data.dealerIdForQuote;
   }
 
@@ -1773,21 +1826,11 @@ let dealerIdToLoad = session.user.id;
   isAdminViewer = isAdminRole;
   const isOwner = quoteOwnerId && quoteOwnerId === session.user.id;
   viewMode = resolveViewMode(quoteStatus, isOwner, isAdminRole);
-  const adminDraftMode = (adminDraft || step1Data.adminDraft);
+  const adminDraftMode = (adminDraft || (step1Data && step1Data.adminDraft));
   if (adminDraftMode && viewMode === 'normal') viewMode = 'admin-draft';
   console.log('[CB-4] step3 viewMode:', { viewMode, quoteStatus, isAdminRole, isOwner, adminDraftMode });
 
   // ── CB-43 T14-3 (R2): Stock Review 單 dealer 不可編輯 ──
-  // 與 new-quote.html / new-quote-step2.html / new-quote-modifications.html 同款 guard。
-  // 擋手打 URL 與瀏覽器上一頁;admin 不擋(必須能 Edit + Request Revision)。
-  // 真正的安全邊界是 RLS(dealer UPDATE policy 的 USING 不含 Stock Review);
-  // 前端只是 UX 防呆。已知限制:擋不到 bfcache 還原(不重跑 script)——
-  // 該情境由 submitQuote() 的 count:'exact' 檢查轉為 loud error(Q8-A)。
-  if (!isAdminRole && quoteStatus === 'Stock Review') {
-    console.warn('[CB-43 T14-3] Dealer blocked from editing a Stock Review quote; redirecting to quote detail.');
-    location.replace('quote-detail.html?id=' + encodeURIComponent(draftId));
-    return;
-  }
 
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
