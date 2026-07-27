@@ -1715,22 +1715,214 @@ async function obtainDraftNumber() {
   return data;
 }
 
-async function init() {
-  const { data:{ session } } = await _supabase.auth.getSession();
-  if (!session) { window.location.href = 'login.html'; return; }
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-53: dealer 可從 [Estimate Created] 信直接進入 step3。
+//   為了讓 Guard 1(owner/查無單)與 Guard 2(狀態白名單)在「sessionStorage
+//   缺失」時也生效,quotes 查詢與兩道 guard 都必須排在 sessionStorage gate
+//   【之前】。U1 僅做序列重排 + 新增 guard,暖路徑行為完全不變。
+// ─────────────────────────────────────────────────────────────────────────────
 
+// CB-53 Guard 1: 查無單 / 非 owner 的錯誤卡片(不導頁,原地顯示)。
+function cb53ShowLoadError(message) {
+  document.body.innerHTML =
+    '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+    'background:#F5F2EC;font-family:Arial,Helvetica,sans-serif;padding:24px;">' +
+      '<div style="max-width:460px;width:100%;background:#fff;border:1px solid #DDD8CC;' +
+      'border-radius:4px;padding:36px 32px;text-align:center;">' +
+        '<div style="font-family:Georgia,serif;font-size:20px;color:#3e5a42;margin-bottom:14px;">' +
+          'Unable to Open This Estimate' +
+        '</div>' +
+        '<div style="font-size:14px;line-height:1.65;color:#2C3A32;margin-bottom:26px;">' +
+          message +
+        '</div>' +
+        '<a href="dashboard.html" style="display:inline-block;background:#3e5a42;color:#fff;' +
+        'text-decoration:none;padding:12px 30px;border-radius:3px;font-size:12px;font-weight:bold;' +
+        'letter-spacing:0.15em;text-transform:uppercase;">Back to Dashboard</a>' +
+      '</div>' +
+    '</div>';
+}
+
+// CB-53 Guard 2: dealer 端可編輯狀態白名單。
+//   與 RLS 政策 dealer_update_own_quotes_when_editable 的 USING 逐字對齊
+//   (dealer_id = auth.uid() AND status IN ('Draft','Returned'))。
+//   取代原 CB-43 T14-3 的 Stock Review 單點黑名單 —— 白名單為 fail-safe:
+//   未知/遺留狀態(如舊值 'Processing'/'Complete')自動被擋,不會誤放行。
+//   已知限制沿用 T14-3:擋不到 bfcache 還原(不重跑 script),該情境由
+//   submitQuote() 的 count:'exact' 檢查轉為 loud error(Q8-A)。
+const CB53_DEALER_EDITABLE_STATUSES = ['Draft', 'Returned'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-53 U2 — 冷入口 hydration
+//
+// dealer 從 [Estimate Created] 信直達 step3 時 sessionStorage 是空的。
+// 這裡用 quotes 那一列 + quote_items 重建 quoteStep1 / quoteStep2 兩把 key,
+// 寫回 sessionStorage 後,後續所有前後導覽(step3→step1→step3、
+// step3→modifications→step3)完全沿用既有 sessionStorage-first 邏輯,
+// 三個既有檔案(new-quote / step2 / modifications)一行都不用改。
+//
+// ⚠️ B-01(本票 P0):quoteStep1 與 quoteStep2 必須【同時】寫入。
+//    全 repo 只有 new-quote.html 會寫 quoteStep1;modifications 永遠只寫
+//    quoteStep2。若這裡只寫 s2,dealer 按 Back to Modifications 再往前回
+//    step3 會二次撞 gate 被丟回 step1 —— 本票等於失效。
+//
+// ⚠️ Q-D1:cart 重建以 new-quote-step2.html 的 loadDraftItems() 為基準,
+//    不是 modifications 版。mods 版缺 construction_type / is_stock /
+//    needs_confirmation;缺 construction_type 會讓 CB-47 折扣在
+//    matchRuleToItem() 的「if (!itemCt) return false」全數靜默失效
+//    ——不報錯,金額直接算錯。
+//
+// ⚠️ 三處同步:本函式 / new-quote-step2.html / new-quote-modifications.html。
+//    三份行為【刻意不同】:只有本函式保留 is_custom(B-12),勿盲目對齊。
+// ─────────────────────────────────────────────────────────────────────────────
+
+// U0/V-1: 逐鍵對齊 new-quote.html:1436-1445 的 quoteData(11 鍵)。
+//   已確認 isResumingReturned / quoteStatus 不在該 shape 內 —— 前者全 repo
+//   無寫入端(step3 靠 q.status === 'Returned' 驅動),後者只存在於 1153 的
+//   預鋪墊 shape。兩者都不補,冷熱入口鍵集因此嚴格相等。
+function cb53BuildStep1FromQuote(q) {
+  return {
+    poNumber:          q.po_number || q.draft_number || null,   // 雙編號制
+    jobName:           q.job_name,
+    notes:             q.notes || '',
+    shippingMode:      q.shipping_address_id ? 'different' : 'same',
+    shippingAddressId: q.shipping_address_id || null,
+    logisticType:      q.logistic_type || 'pickup',
+    deliveryFee:       q.delivery_fee || 0,
+    adminDraft:        false,          // 冷入口一律 dealer 讀自己的單
+    dealerIdForQuote:  null,           // 同上:非 admin 代建情境
+    viewMode:          viewMode,       // init() 此時已解析完成
+    returnReason:      (q.status === 'Returned') ? (q.return_reason || null) : null,
+  };
+}
+
+// cart 重建。以 step2 版為基準,兩處刻意加強:
+//   (a) B-12 排序 guard —— custom item 的 style_code 可為 null
+//       (new-quote-step2.html 2547-2567 三分支有兩支給 null),
+//       原版 a.style_code.localeCompare() 會拋 TypeError 讓整個 init 中斷。
+//       而 custom item 只出現在 admin 經手的單 = 本票的主要母體,必修。
+//   (b) B-12 is_custom —— 兩份既有 loadDraftItems 都沒把 quote_items.is_custom
+//       讀回 cart,submit 時 buildItemsPayload 以 !!undefined 寫回 false,
+//       永久蓋掉旗標。step3 是唯一會寫 DB 的一支,在這裡守住即可讓冷入口
+//       完全乾淨;暖入口仍有此問題,留獨立票一次修三處。
+async function cb53BuildCartFromDb(quoteId) {
+  const { data: items, error } = await _supabase
+    .from('quote_items').select('*').eq('quote_id', quoteId);
+  if (error) throw error;
+  if (!items || !items.length) return [];
+
+  const skuAll = allSkusFramed.concat(allSkusFrameless);
+  const groupsByKey = new Map();
+
+  const sorted = items.slice().sort(function (a, b) {
+    const sa = a.style_code || '', sb = b.style_code || '';      // (a) null guard
+    if (sa !== sb) return sa.localeCompare(sb);
+    const ka = a.sku_code || '', kb = b.sku_code || '';
+    if (ka !== kb) return ka.localeCompare(kb);
+    const ta = a.assemble_status || '', tb = b.assemble_status || '';
+    if (ta !== tb) return ta.localeCompare(tb);
+    return (a.sub_index || 1) - (b.sub_index || 1);
+  });
+
+  sorted.forEach(function (row) {
+    const key = (row.style_code || '') + '-' + row.sku_code + '-' + row.assemble_status;
+
+    if (!groupsByKey.has(key)) {
+      const style = allDoorStyles.find(function (s) { return s.style_code === row.style_code; });
+      const ct    = style ? (style.construction_type || null) : null;
+      // needs_confirmation 依 construction 決定查哪張 SKU 表(同 getTagForItem)
+      const src   = (String(ct || '').toLowerCase() === 'frameless') ? allSkusFrameless : allSkusFramed;
+      const sku   = src.find(function (s) { return s.sku_code === row.sku_code; })
+                 || skuAll.find(function (s) { return s.sku_code === row.sku_code; });
+
+      groupsByKey.set(key, {
+        key:                key,
+        style_code:         row.style_code,
+        style_name:         row.style_name || row.style_code,
+        sku_code:           row.sku_code,
+        sku_desc:           row.sku_desc || (sku ? sku.description : row.sku_code),
+        skuType:            row.sku_type || '',
+        construction_type:  ct,                                  // CB-5 / CB-47 關鍵
+        is_stock:           style ? style.is_stock : null,       // CB-5
+        needs_confirmation: sku ? !!sku.needs_confirmation : false,  // CB-29
+        is_custom:          !!row.is_custom,                     // (b) B-12
+        type:               row.assemble_status,
+        quantity:           0,
+        unit_price:         parseFloat(row.unit_price),
+        msrp:               parseFloat(row.msrp || 0),
+        assemble_fee:       parseFloat(row.assemble_fee || 0),
+        sub_groups:         [],
+      });
+    }
+
+    const cartItem = groupsByKey.get(key);
+    const rowQty = parseInt(row.quantity, 10) || 0;
+    cartItem.quantity += rowQty;
+    cartItem.sub_groups.push({
+      sub_index:           parseInt(row.sub_index, 10) || (cartItem.sub_groups.length + 1),
+      qty:                 rowQty,
+      modifications:       Array.isArray(row.modifications) ? row.modifications : [],
+      // step2 版寫法(保留 'unprocessed');刻意不採 mods 版的
+      // 「unprocessed → skipped」強制轉換,否則冷熱入口狀態不一致。
+      modification_status: row.modification_status
+        || (row.assemble_status === 'RTA' ? 'skipped' : 'unprocessed'),
+    });
+  });
+
+  const out = [];
+  groupsByKey.forEach(function (item) {
+    item.sub_groups.forEach(function (g, i) { g.sub_index = i + 1; });
+    out.push(item);
+  });
+  return out;
+}
+
+// 主入口:重建兩把 key 並【同時】寫入 sessionStorage(B-01)。
+async function cb53Hydrate(q) {
+  const s1   = cb53BuildStep1FromQuote(q);
+  const cart = await cb53BuildCartFromDb(q.id);
+
+  sessionStorage.setItem('quoteStep1', JSON.stringify(s1));
+  sessionStorage.setItem('quoteStep2', JSON.stringify(cart));
+
+  step1Data = s1;
+  step2Data = cart;
+
+  console.log('[CB-53] hydrated from DB:',
+    'draft=' + (q.draft_number || q.po_number || q.id),
+    'status=' + q.status,
+    'items=' + cart.length,
+    'custom=' + cart.filter(function (i) { return i.is_custom; }).length);
+}
+
+async function init() {
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
   const adminDraft = params.get('adminDraft') === '1';
 
+  const { data:{ session } } = await _supabase.auth.getSession();
+  if (!session) {
+    // CB-53 Guard 3: 帶 redirect 回跳,登入後回到同一張單的 step3。
+    //   只在有 draftId 時帶(其他情境沒有可回的目的地)。
+    //   用相對路徑即可 —— login.html 端以 new URL('.', location.href) 解析,
+    //   staging 子目錄與 production 根目錄都正確(B-14)。
+    if (draftId) {
+      const target = 'new-quote-step3.html?draft=' + encodeURIComponent(draftId);
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(target);
+    } else {
+      window.location.href = 'login.html';
+    }
+    return;
+  }
+
+  // CB-53: 先讀原始值但【不】立刻 gate —— gate 已下移至兩道 guard 之後。
   const s1 = sessionStorage.getItem('quoteStep1');
   const s2 = sessionStorage.getItem('quoteStep2');
-  if (!s1 || !s2) { window.location.href = 'new-quote.html'; return; }
+  if (s1) { try { step1Data = JSON.parse(s1); } catch (_) { step1Data = null; } }
+  if (s2) { try { step2Data = JSON.parse(s2); } catch (_) { step2Data = null; } }
 
-  step1Data = JSON.parse(s1);
-  step2Data = JSON.parse(s2);
-
-  _isResumingReturned = !!step1Data.isResumingReturned;
+  // U0/V-1: isResumingReturned 全 repo 無寫入端,此處恆為 false,
+  //   真正驅動是下方 q.status === 'Returned'。保留僅為不改動既有語意。
+  _isResumingReturned = !!(step1Data && step1Data.isResumingReturned);
 
   const { data: meRow } = await _supabase
     .from('dealers').select('is_active, role, company_name').eq('id', session.user.id).single();
@@ -1742,29 +1934,47 @@ async function init() {
 let dealerIdToLoad = session.user.id;
   let quoteStatus    = null;   // CB-4: server-side status drives viewMode
   let quoteOwnerId   = null;   // CB-4: quote owner for isOwner check
+  let cb53QuoteRow   = null;   // CB-53: hydration 用的完整 quotes 列
   if (draftId) {
-  const { data: q } = await _supabase
+    // CB-53 D-1: select('*') 已稽核放行 —— quotes 23 欄零敏感欄位,
+    //   且 quote-detail.html 對 dealer 早已 select('*')。加寬是為了讓 U2 的
+    //   hydration 取得 job_name / notes / shipping_address_id / delivery_fee /
+    //   return_reason,並避免日後新增欄位漏加。
+    const { data: q, error: qErr } = await _supabase
       .from('quotes')
-      .select('dealer_id, revision_number, po_number, draft_number, status, logistic_type, shipping_cost, subtotal, admin_notified_at')
+      .select('*')
       .eq('id', draftId).single();
-    if (q?.dealer_id) dealerIdToLoad = q.dealer_id;
-    if (q) {
-      quoteStatus            = q.status || null;
-      quoteOwnerId           = q.dealer_id || null;
-      _currentRevisionNumber = q.revision_number || 1;
-      _existingPoNumber      = q.po_number || null;
-      _existingDraftNumber   = q.draft_number || null;   // 雙編號制
-      _existingAdminNotifiedAt = q.admin_notified_at || null;   // CB-36: 已通知時間(驅動 Notify 是否首次)
-      _existingLogisticType  = q.logistic_type || null;
-      _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
-                                 ? null
-                                 : parseFloat(q.shipping_cost);
-      _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
-                                 ? null
-                                 : parseFloat(q.subtotal);
-      if (q.status === 'Returned') _isResumingReturned = true;
+
+    // ── CB-53 Guard 1: 查無單 / 非 owner ──
+    //   RLS(dealer_select_own_quotes: dealer_id = auth.uid())擋下非本人的單,
+    //   回傳 error 或 null。原本忽略 error 會靜默落入一張空白新單,
+    //   dealer 從轉寄信件點進來時會踩到。
+    if (qErr || !q) {
+      console.warn('[CB-53 Guard1] Quote not accessible:', draftId, qErr);
+      cb53ShowLoadError(
+        'We couldn\'t find this estimate, or it isn\'t associated with your account. ' +
+        'If you reached this page from an email, please make sure you\'re signed in with the correct account.'
+      );
+      return;
     }
-  } else if (step1Data.dealerIdForQuote) {
+
+    cb53QuoteRow = q;                       // CB-53: 留給下方 hydration
+    if (q.dealer_id) dealerIdToLoad = q.dealer_id;
+    quoteStatus            = q.status || null;
+    quoteOwnerId           = q.dealer_id || null;
+    _currentRevisionNumber = q.revision_number || 1;
+    _existingPoNumber      = q.po_number || null;
+    _existingDraftNumber   = q.draft_number || null;   // 雙編號制
+    _existingAdminNotifiedAt = q.admin_notified_at || null;   // CB-36: 已通知時間(驅動 Notify 是否首次)
+    _existingLogisticType  = q.logistic_type || null;
+    _existingShippingCost  = (q.shipping_cost === null || q.shipping_cost === undefined)
+                               ? null
+                               : parseFloat(q.shipping_cost);
+    _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
+                               ? null
+                               : parseFloat(q.subtotal);
+    if (q.status === 'Returned') _isResumingReturned = true;
+  } else if (step1Data && step1Data.dealerIdForQuote) {
     dealerIdToLoad = step1Data.dealerIdForQuote;
   }
 
@@ -1773,19 +1983,25 @@ let dealerIdToLoad = session.user.id;
   isAdminViewer = isAdminRole;
   const isOwner = quoteOwnerId && quoteOwnerId === session.user.id;
   viewMode = resolveViewMode(quoteStatus, isOwner, isAdminRole);
-  const adminDraftMode = (adminDraft || step1Data.adminDraft);
+  const adminDraftMode = (adminDraft || (step1Data && step1Data.adminDraft));
   if (adminDraftMode && viewMode === 'normal') viewMode = 'admin-draft';
   console.log('[CB-4] step3 viewMode:', { viewMode, quoteStatus, isAdminRole, isOwner, adminDraftMode });
 
-  // ── CB-43 T14-3 (R2): Stock Review 單 dealer 不可編輯 ──
-  // 與 new-quote.html / new-quote-step2.html / new-quote-modifications.html 同款 guard。
-  // 擋手打 URL 與瀏覽器上一頁;admin 不擋(必須能 Edit + Request Revision)。
-  // 真正的安全邊界是 RLS(dealer UPDATE policy 的 USING 不含 Stock Review);
-  // 前端只是 UX 防呆。已知限制:擋不到 bfcache 還原(不重跑 script)——
-  // 該情境由 submitQuote() 的 count:'exact' 檢查轉為 loud error(Q8-A)。
-  if (!isAdminRole && quoteStatus === 'Stock Review') {
-    console.warn('[CB-43 T14-3] Dealer blocked from editing a Stock Review quote; redirecting to quote detail.');
+  // ── CB-53 Guard 2: 狀態白名單(取代 CB-43 T14-3 的 Stock Review 黑名單)──
+  //   涵蓋 Stock Review / Pending / Payment Processing / Order Processing /
+  //   Closed / Cancelled 及任何未知值。admin 不擋(必須能 Edit + Request Revision)。
+  if (!isAdminRole && quoteStatus && CB53_DEALER_EDITABLE_STATUSES.indexOf(quoteStatus) === -1) {
+    console.warn('[CB-53 Guard2] Dealer blocked from editing a "' + quoteStatus + '" quote; redirecting to quote detail.');
     location.replace('quote-detail.html?id=' + encodeURIComponent(draftId));
+    return;
+  }
+
+  // ── CB-53: sessionStorage gate(U2 放寬)──
+  //   有 draftId → 往下走 hydration(此時 Guard 1/2 已放行,單存在且可編輯)。
+  //   沒有 draftId → 沒有任何資料來源,維持原本回 step1 的行為。
+  const cb53NeedsHydration = !!(cb53QuoteRow && (!step1Data || !step2Data));
+  if ((!step1Data || !step2Data) && !cb53NeedsHydration) {
+    window.location.href = 'new-quote.html';
     return;
   }
 
@@ -1809,9 +2025,23 @@ let dealerIdToLoad = session.user.id;
     _supabase.from('dealer_discount_rules').select('*')
       .eq('dealer_id', dealerIdToLoad).order('created_at', { ascending: true }),
   ]);
+  
   allDoorStyles    = styleRes.data     || [];
   allSkusFramed    = framedRes.data    || [];
   allSkusFrameless = framelessRes.data || [];
+
+  // ── CB-53 U2: 冷入口 hydration ──
+  //   位置固定:必須在 door_styles / skus 載入【之後】(重建 cart 要查表),
+  //   且在 computeItemDiscounts()【之前】(折扣要吃重建好的 step2Data)。
+  if (cb53NeedsHydration) {
+    try {
+      await cb53Hydrate(cb53QuoteRow);
+    } catch (hydrateErr) {
+      console.error('[CB-53] hydration failed:', hydrateErr);
+      cb53ShowLoadError('We couldn\'t load this estimate right now. Please try again in a moment.');
+      return;
+    }
+  }
 
   // ── CB-47 ──────────────────────────────────────────────────────────────
   // 規則載入後【立刻】算一次折扣,寫進 step2Data 每個 item 的 discount_amount。
