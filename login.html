@@ -564,13 +564,7 @@
           return;
         }
 
-        if (['admin','super_admin'].includes(dealer?.role)) {
-          window.location.href = 'admin.html';
-        } else if (!dealer?.profile_completed) {
-          window.location.href = 'dealer-profile.html';
-        } else {
-          window.location.href = 'dashboard.html';
-        }
+        window.location.href = cb53ResolveLoginTarget(dealer);   // CB-53
 
       } catch (e) {
         console.error('[login] Unexpected error', e);
@@ -592,13 +586,7 @@
           await _supabase.auth.signOut();
           return;
         }
-        if (['admin','super_admin'].includes(dealer?.role)) {
-          window.location.href = 'admin.html';
-        } else if (!dealer?.profile_completed) {
-          window.location.href = 'dealer-profile.html';
-        } else {
-          window.location.href = 'dashboard.html';
-        }
+        window.location.href = cb53ResolveLoginTarget(dealer);   // CB-53
       }
     });
 
