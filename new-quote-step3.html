@@ -647,9 +647,9 @@ color: var(--green-dark);
           <tr>
             <th>#</th>
             <th>Tag</th>
+            <th class="th-right">Qty</th>
             <th>SKU</th>
             <th>Description</th>
-            <th class="th-right">Qty</th>
             <th>Assembled?</th>
             <th class="th-right">Unit Price</th>
             <th class="th-right">Mod Fee</th>
@@ -2483,9 +2483,9 @@ function buildItemRowsHtml(markupPct) {
               <tr class="${trClass}">
                 <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${parentNum}</td>
                 <td style="font-size:12px;white-space:nowrap;">${tagCellHtml}</td>
+                <td class="td-right">${subQty}</td>
                 <td class="td-sku">${skuCellHtml}</td>
                 <td class="td-desc">${descCellHtml}</td>
-                <td class="td-right">${subQty}</td>
                 <td style="font-size:12px;">${assembledHtml}</td>
                 <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
                 <td class="td-right">${modFeeCellHtml}</td>
@@ -2506,9 +2506,9 @@ function buildItemRowsHtml(markupPct) {
                 <tr class="mapping-row">
                   <td>#${parentNum}.${k + 1}</td>
                   <td style="font-size:12px;white-space:nowrap;">${escapeHtml(info.tag)}</td>
+                  <td class="td-right">${map.qty}</td>
                   <td class="td-sku">${mapSkuCell}</td>
                   <td class="td-desc">${mapDescCell}</td>
-                  <td class="td-right">${map.qty}</td>
                   <td style="font-size:12px;color:var(--muted);">—</td>
                   <td class="td-right">$${map.unit.toFixed(2)}</td>
                   <td class="td-right"><span style="color:var(--muted);">—</span></td>
