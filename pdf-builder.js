@@ -729,8 +729,8 @@ return total;
     const C_ZEBRA   = [220, 220, 214];  // 隔一個 item 上色(白 item 不上色)
 
     const head = isPacking
-      ? [['#', 'Type', 'SKU', 'Description', 'Qty', 'Asm?']]
-      : [['#', 'Type', 'SKU', 'Description', 'Qty', 'Asm?',
+      ? [['#', 'Type', 'Qty', 'SKU', 'Description', 'Asm?']]
+      : [['#', 'Type', 'Qty', 'SKU', 'Description', 'Asm?',
           'Unit Price', 'Mod Fee', 'Asm Fee', 'Total']];
 
     const body = [];
@@ -846,14 +846,14 @@ return total;
               const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
 
               if (isPacking) {
-                body.push([String(parentNum), tagCell, skuCellText, skuDesc, subQty, assembledCell]);
+                body.push([String(parentNum), tagCell, subQty, skuCellText, skuDesc, assembledCell]);
               } else {
                 const modFeeTotal = parentPerSubModCost * subQty;
                 const asmFeeTotal = (item.assemble_fee || 0) * subQty;
                 // CB-25 改動 C:Total 折前(用 markedUnitPrice,不套促銷折扣)
                 const lineTotal   = (markedUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
                 body.push([
-                  String(parentNum), tagCell, skuCellText, skuDesc, subQty, assembledCell,
+                  String(parentNum), tagCell, subQty, skuCellText, skuDesc, assembledCell,
                   `$${markedUnitPrice.toFixed(2)}`,
                   modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
                   asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
@@ -870,10 +870,10 @@ return total;
                 const mapSku = `${mapPrefix}${map.code}`;
                 const mapNum = `${parentNum}.${k + 1}`;
                 if (isPacking) {
-                  body.push([mapNum, (map.tag || ''), mapSku, (map.desc || ''), map.qty, '—']);
+                  body.push([mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), '—']);
                 } else {
                   body.push([
-                    mapNum, (map.tag || ''), mapSku, (map.desc || ''), map.qty, '—',
+                    mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), '—',
                     `$${map.unit.toFixed(2)}`, '—', '—', `$${map.total.toFixed(2)}`,
                   ]);
                 }
@@ -890,17 +890,17 @@ return total;
       ? {
           0: { cellWidth: 10 },
           1: { cellWidth: 14, overflow: 'linebreak' },
-          2: { cellWidth: 64, overflow: 'linebreak' },
-          3: { cellWidth: 62, overflow: 'linebreak' },
-          4: { halign: 'right', cellWidth: 14 },
+          2: { halign: 'right', cellWidth: 14 },
+          3: { cellWidth: 64, overflow: 'linebreak' },
+          4: { cellWidth: 62, overflow: 'linebreak' },
           5: { cellWidth: 24 },
         }
       : {
           0: { cellWidth: 12 },
           1: { cellWidth: 12, overflow: 'linebreak' },
-          2: { cellWidth: 52, overflow: 'linebreak' },
-          3: { cellWidth: 24, overflow: 'linebreak' },
-          4: { halign: 'right', cellWidth: 10 },
+          2: { halign: 'right', cellWidth: 10 },
+          3: { cellWidth: 52, overflow: 'linebreak' },
+          4: { cellWidth: 24, overflow: 'linebreak' },
           5: { cellWidth: 18 },
           6: { halign: 'right', cellWidth: 16, fontSize: 8 },
           7: { halign: 'right', cellWidth: 14, fontSize: 8 },
