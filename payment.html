@@ -318,8 +318,11 @@ function renderGate() {
     return;
   }
 
-  // 已進入出貨處理 → 付款已完成
-  if (s === 'Order Processing') {
+  // 已進入出貨處理 / 已結案 → 付款已完成
+  // CB-55 B-4:'Order Completed' 必須明列。若省略會掉進函式最後的
+  //   catch-all,dealer 開已完成訂單的付款頁會看到「Payment unavailable」,
+  //   而不是完成畫面 —— 感謝信寄出後最容易被 dealer 撞見的一頁。
+  if (s === 'Order Processing' || s === 'Order Completed') {
     renderCompleted();
     return;
   }
@@ -765,13 +768,22 @@ function renderWaiting(payLink) {
 // 畫面:完成 / 擋下 / Check 成功 / 錯誤
 // =====================================================================
 function renderCompleted() {
+  // CB-55 B-4:Order Processing 與 Order Completed 共用此畫面,文案分流。
+  //   對 dealer 而言兩者都是「不必再付款」,差別只在訂單進度。
+  //   刻意讀 quote.status 而非改函式簽章 —— renderGate 有多處呼叫此函式
+  //   (含 Payment Processing + payment confirmed 的路徑),改簽章會波及全部。
+  const _isDone   = !!(quote && quote.status === 'Order Completed');
+  const _heading  = _isDone ? 'Order Complete' : 'Payment Complete';
+  const _stateTxt = _isDone
+    ? 'This order has been completed. Thank you for your business — no further payment is required.'
+    : 'This order has already been paid. No further payment is required.';
   root().innerHTML = `
     ${backLinkHtml()}
     <div class="card">
       <div class="state-block">
         <div class="state-icon ok"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-        <div class="state-heading">Payment Complete</div>
-        <div class="state-text">This order has already been paid. No further payment is required.</div>
+        <div class="state-heading">${_heading}</div>
+        <div class="state-text">${_stateTxt}</div>
       </div>
       <div class="btn-row" style="justify-content:center;">
         <a class="btn btn-ghost" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">Back to Order</a>
