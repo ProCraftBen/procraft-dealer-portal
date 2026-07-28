@@ -1186,11 +1186,19 @@ function actCancel() {
       if (!reason) { amShowError('Please enter a cancellation reason.'); return false; }
 
       // ① quotes → Pending
+      //   CB-55 B-10a:補 status 守衛。
+      //   renderActions() 只在 quote='Payment Processing' 時渲染此按鈕,但那是
+      //   【開啟 modal 當下的快照】——detailQuote 之後不再重撈。若 modal 停留期間
+      //   WF2 確認了付款(→Order Processing)、super_admin 再按 Complete
+      //   (→Order Completed),此處無守衛的 UPDATE 會把終局態拖回 Pending。
+      //   守衛把前端的前置條件搬到寫入當下,順帶擋住兩個 admin 同時操作。
+      //   值刻意與 renderActions() 的判斷一致,不引入新語意。
       const upd = await _supabase.from('quotes')
         .update({ status: 'Pending' }, { count: 'exact' })
-        .eq('id', detailQuote.id);
+        .eq('id', detailQuote.id)
+        .eq('status', 'Payment Processing');
       if (upd.error) throw upd.error;
-      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
+      if (upd.count === 0) throw new Error("This order is no longer awaiting payment confirmation — its status was changed by someone else. Nothing was cancelled. 請重新整理後再試。");
 
       // ② payments → cancelled
       const { data: { session } } = await _supabase.auth.getSession();
@@ -1223,11 +1231,15 @@ function actConfirm() {
     danger: false,
     onConfirm: async function () {
       // ① quotes → Order Processing
+      //   CB-55 B-10a:補 status 守衛(理由同 actCancel)。
+      //   這一處風險更高:無守衛時會把 Order Completed 拖回 Order Processing,
+      //   而感謝信已經寄給 dealer —— 狀態與對外承諾不一致,且靜默無警。
       const upd = await _supabase.from('quotes')
         .update({ status: 'Order Processing' }, { count: 'exact' })
-        .eq('id', detailQuote.id);
+        .eq('id', detailQuote.id)
+        .eq('status', 'Payment Processing');
       if (upd.error) throw upd.error;
-      if (upd.count === 0) throw new Error("Couldn't update the order status (0 rows). 狀態可能不一致,請人工核對。");
+      if (upd.count === 0) throw new Error("This order is no longer awaiting payment confirmation — its status was changed by someone else. Nothing was confirmed. 請重新整理後再試。");
 
       // ② payments → confirmed
       const { data: { session } } = await _supabase.auth.getSession();
