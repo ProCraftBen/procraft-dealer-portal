@@ -24,6 +24,7 @@
       --status-returned:   #E07B39;
       --status-payment:    #64748B;
       --status-stock-review: #0891B2;  /* CB-43 T14-1 */
+      --status-order-completed: #0F766E;  /* CB-55 Q-4 */
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
 
@@ -85,6 +86,7 @@
     .status-dot.closed     { background: var(--status-closed); }
     .status-dot.payment-processing { background: var(--status-payment); }
     .status-dot.order-processing   { background: var(--status-complete); }
+    .status-dot.order-completed    { background: var(--status-order-completed); }  /* CB-55 */
     .status-dot.returned   { background: var(--status-returned); }
 
     /* Dealer list */
@@ -214,6 +216,7 @@ const statusClass = {
   Pending: 'pending',
   'Payment Processing': 'payment-processing',
   'Order Processing': 'order-processing',
+  'Order Completed': 'order-completed',   // CB-55
   Closed: 'closed',
   Returned: 'returned'
 };
