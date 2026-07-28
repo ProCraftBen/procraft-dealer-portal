@@ -14,6 +14,7 @@
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
       --status-returned:#E07B39; --status-payment:#64748B;
       --status-stock-review:#0891B2;  /* CB-43 T14-1 */
+      --status-order-completed:#0F766E;  /* CB-55 Q-4 */
       --close-grey:#7A8C82;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
@@ -85,7 +86,11 @@
     .status-badge-closed   { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(107,114,128,0.12); color: var(--status-closed); }
     .status-badge-payment-processing { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(100,116,139,0.12); color: var(--status-payment); }
     .status-badge-order-processing   { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(22,163,74,0.10);   color: var(--status-complete); }
+    .status-badge-order-completed    { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(15,118,110,0.12); color: var(--status-order-completed); }  /* CB-55 */
 
+    /* CB-55: 列內完成按鈕(僅 super_admin,僅 Order Processing 列) */
+    .btn-complete-order { margin-left: 6px; height: 24px; padding: 0 10px; background: var(--status-order-completed); color: #fff; border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; vertical-align: middle; }
+    .btn-complete-order:hover { background: #115E59; }
     /* Action cell — wraps View + Delete */
     .action-cell-wrap { display: inline-flex; align-items: center; gap: 6px; }
     .btn-view-quote {
@@ -337,6 +342,7 @@
         <option value="Pending">Pending</option>
         <option value="Payment Processing">Payment Processing</option>
         <option value="Order Processing">Order Processing</option>
+        <option value="Order Completed">Order Completed</option>
         <option value="Closed">Closed</option>
       </select>
     </div>
@@ -516,6 +522,8 @@
 <script src="config.js"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
+<!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
+<script src="components/order-complete.js"></script>
 <script>
 const SUPABASE_URL  = window.SB_URL;
 const SUPABASE_ANON = window.SB_KEY;
@@ -530,6 +538,7 @@ const statusClass = {
   Pending:'pending',
   'Payment Processing':'payment-processing',
   'Order Processing':'order-processing',
+  'Order Completed':'order-completed',   // CB-55
   Closed:'closed',
   Returned:'returned',
 };
@@ -814,6 +823,10 @@ function renderTable() {
     const isPaymentProcessing = q.status === 'Payment Processing';
     const isOrderProcessing   = q.status === 'Order Processing';
     const isStockReview       = q.status === 'Stock Review';   // CB-43 T14-1
+    const isOrderCompleted    = q.status === 'Order Completed';   // CB-55
+    // CB-55:Complete 僅限 super_admin。沿用 init() 已存的 currentUserRole,
+    //   不另設旗標(對齊 F9 的 role === 'super_admin' 判斷方式)。
+    const isSuperAdmin        = (currentUserRole === 'super_admin');
 
     // 把當前 status 暫存起來，方便 Modal Cancel 時還原
     _previousStatus[q.id] = q.status;
@@ -940,9 +953,29 @@ function renderTable() {
         } else if (isPaymentProcessing) {
           // CB-43: 付款狀態唯讀，不可手動改（只能由 payment action 驅動）
           statusCellHtml = '<td><span class="status-badge-payment-processing">Payment Processing</span></td>';
-        } else if (isOrderProcessing) {
+  } else if (isOrderProcessing) {
           // CB-43: 付款狀態唯讀，不可手動改（只能由 payment action 驅動）
-          statusCellHtml = '<td><span class="status-badge-order-processing">Order Processing</span></td>';
+          // CB-55: super_admin 額外看到 Complete 按鈕(結案 + 寄感謝信)。
+          //   ⚠️ B-5:整列有展開 onclick,帶按鈕的版本必須 stopPropagation,
+          //      否則按 Complete 會同時展開/收合該列。
+          //   非 super_admin 維持原本的純 <td>,不加 stopPropagation ——
+          //   避免改變既有「點狀態欄可展開列」的行為。
+          statusCellHtml = isSuperAdmin
+            ? '<td onclick="event.stopPropagation()" style="white-space:nowrap">' +
+                '<span class="status-badge-order-processing">Order Processing</span>' +
+                '<button id="complete-' + q.id + '" class="btn-complete-order" ' +
+                  'onclick="completeOrder(\'' + q.id + '\')">Complete</button>' +
+              '</td>'
+            : '<td><span class="status-badge-order-processing">Order Processing</span></td>';
+        } else if (isOrderCompleted) {
+          // ═══ CB-55 ══════════════════════════════════════════════════════
+          // 終局態,比照 Closed:唯讀 badge、無 dropdown、無任何動作按鈕(Q-5)。
+          // 必須有【專屬分支】。若省略會掉進最後的 catch-all else,那裡的
+          // select 只有 <option value="Pending">,且因 q.status !== 'Pending'
+          // 不會 selected → 瀏覽器 fallback 顯示 "Pending" → admin 按 Save
+          // 就把已結案的單靜默改回 Pending。(與 T14-1 R1 同一個陷阱)
+          // ════════════════════════════════════════════════════════════════
+          statusCellHtml = '<td><span class="status-badge-order-completed">Order Completed</span></td>';
         } else if (isStockReview) {
           // ═══ CB-43 T14-1 (R1) ═══════════════════════════════════════════
           // Stock Review 必須有【專屬分支】。若省略，會掉進最後的 catch-all
@@ -1136,7 +1169,27 @@ async function saveStatus(quoteId) {
   if (q) q.status = newStatus;
   _previousStatus[quoteId] = newStatus;
   renderStats();
-  showToast('Status updated to ' + newStatus);
+showToast('Status updated to ' + newStatus);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// CB-55: 完成訂單 — Order Processing → Order Completed + 感謝信
+//
+// 實作全部在 components/order-complete.js,與 quote-detail.html 共用同一份。
+// 此處只把本頁的 context 交給模組。
+// onDone 用 loadQuotes() 而非整頁 reload:重新撈資料並重繪 stats/table,
+// 同時保留使用者當前的 filter 與搜尋條件。
+// ════════════════════════════════════════════════════════════════════
+async function completeOrder(quoteId) {
+  const q = allQuotes.find(function (x) { return x.id === quoteId; });
+  if (!q) return;
+  await window.ProCraftOrderComplete.run({
+    supabase:     _supabase,
+    quote:        q,
+    isSuperAdmin: (currentUserRole === 'super_admin'),
+    buttonEl:     document.getElementById('complete-' + quoteId),
+    onDone:       function () { loadQuotes(); }
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════
