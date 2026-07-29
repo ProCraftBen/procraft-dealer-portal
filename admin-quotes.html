@@ -318,13 +318,13 @@
     </button>
   </div>
 
-<!-- 7-card stats: Total / Draft / Revising / Stock Review / Pending / Payment Processing / Order Processing -->
+<!-- 7-card stats: Total / Draft / Revising / Stock Review / Waiting / Payment Processing / Order Processing -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
     <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
-    <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label">Revising</div></div>
+    <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label" data-pc-status-short="Returned">Revising</div></div>
     <div class="stat-card"><div class="stat-num" id="statStockReview" style="color:var(--status-stock-review)">—</div><div class="stat-label">Stock Review</div></div>
-    <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label">Pending</div></div>
+    <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label" data-pc-status-short="Pending">Waiting</div></div>
     <div class="stat-card"><div class="stat-num" id="statPaymentProcessing" style="color:var(--status-payment)">—</div><div class="stat-label">Payment</div></div>
     <div class="stat-card"><div class="stat-num" id="statOrderProcessing" style="color:var(--status-complete)">—</div><div class="stat-label">Order</div></div>
   </div>
@@ -337,9 +337,9 @@
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
         <option value="Draft">Draft</option>
-        <option value="Returned">Revising</option>
+        <option value="Returned" data-pc-status-label="Returned">Revising</option>
         <option value="Stock Review">Stock Review</option>
-        <option value="Pending">Pending</option>
+        <option value="Pending" data-pc-status-label="Pending">Waiting for Payment</option>
         <option value="Payment Processing">Payment Processing</option>
         <option value="Order Processing">Order Processing</option>
         <option value="Order Completed">Order Completed</option>
@@ -520,6 +520,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/status-label.js?v=1.0"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
 <!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
@@ -543,11 +544,10 @@ const statusClass = {
   Returned:'returned',
 };
 
-// CB-2: Display-only status label map. DB status values are unchanged —
-// this only affects what the badge text shows. 'Returned' (DB) → 'Revising' (UI).
-const statusLabel = {
-  Returned: 'Revising',
-};
+// CB-56: quote status 顯示名改由 components/status-label.js 提供(單一真相)。
+//   原本此處的 inline `const statusLabel` 已移除 —— 各頁不得再 hardcode。
+//   'Pending' → 'Waiting for Payment'、'Returned' → 'Revising' 皆在該檔。
+//   ⚠️ 上方 statusClass 是 CSS class 對照表,與顯示名無關,維持不動。
 
 let allQuotes = [], allDealers = {};
 
@@ -816,8 +816,8 @@ function renderTable() {
     const dealer     = allDealers[q.dealer_id] || {};
     const items      = q.quote_items || [];
     const sc         = statusClass[q.status] || 'pending';
-    // CB-2: display-only label; falls back to raw DB status for all other values.
-    const statusText = statusLabel[q.status] || q.status;
+    // CB-56: display-only label,由 status-label.js 提供;查無則 fallback 回 DB 原值。
+    const statusText = pcQuoteStatusLabel(q.status);
     const isDraft    = q.status === 'Draft';
     const isReturned = q.status === 'Returned';
     const isClosed   = q.status === 'Closed';
