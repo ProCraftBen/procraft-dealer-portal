@@ -673,7 +673,8 @@ function buildSalesFilter() {
     add(s.id, salesLabel(s));
   });
 
-  defaultSalesValue = (currentUserRole === 'admin') ? SALES_ME : '';
+  // Q-01:admin 與 super_admin 一律預設 All Sales('')。
+  defaultSalesValue = '';
   sel.value = defaultSalesValue;
 }
 
