@@ -178,7 +178,7 @@
   <!-- ===== Awaiting Payment (quotes: status=Pending, no payment yet) ===== -->
   <div class="table-wrap" style="margin-bottom:16px;">
     <div class="table-header">
-      <span class="table-title">Awaiting Payment <span style="font-weight:400;letter-spacing:0.04em;text-transform:none;color:var(--muted);">(follows Sales filter)</span></span>
+      <span class="table-title"><span data-pc-status-label="Pending">Waiting for Payment</span> <span style="font-weight:400;letter-spacing:0.04em;text-transform:none;color:var(--muted);">(follows Sales filter)</span></span>
       <div class="awaiting-head-right">
         <input type="text" class="awaiting-search" id="awaitingSearch" placeholder="Search PO# / Dealer"/>
         <span class="table-count" id="awaitingCount">—</span>
@@ -302,6 +302,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/status-label.js?v=1.0"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
 <script>
@@ -1176,7 +1177,7 @@ function wireActionModal() {
 function actCancel() {
   openActionModal({
     title: 'Cancel This Payment',
-    sub: 'The order will return to Pending and the dealer will be notified. This cannot be undone.',
+    sub: 'The order will return to ' + pcQuoteStatusLabel('Pending') + ' and the dealer will be notified. This cannot be undone.',
     fieldsHtml: '<div class="modal-field"><label>Cancellation Reason</label>' +
       '<textarea id="amReason" placeholder="Why is this payment being cancelled?"></textarea></div>',
     confirmLabel: 'Cancel Payment',
@@ -1211,7 +1212,7 @@ function actCancel() {
         }, { count: 'exact' })
         .eq('id', detailPayment.id);
       if (updP.error) throw updP.error;
-      if (updP.count === 0) throw new Error("Order returned to Pending but the payment row didn't update (0 rows). 狀態可能不一致,請人工核對。");
+      if (updP.count === 0) throw new Error("Order returned to " + pcQuoteStatusLabel('Pending') + " but the payment row didn't update (0 rows). 狀態可能不一致,請人工核對。");
 
       // ③ email(非阻斷)
       await sendPaymentEmail({ type: 'payment_cancelled', quote_id: detailQuote.id, payment_id: detailPayment.id });
