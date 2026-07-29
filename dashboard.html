@@ -104,7 +104,7 @@
 
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total Quotes</div></div>
-    <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label">Pending</div></div>
+    <div class="stat-num" id="statPending">—</div><div class="stat-label" data-pc-status-short="Pending">Waiting</div>
     <div class="stat-card"><div class="stat-num" id="statInProgress">—</div><div class="stat-label">In Progress</div></div>
   </div>
 
@@ -138,6 +138,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/status-label.js?v=1.0"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
 <script>
@@ -157,10 +158,10 @@
     'Returned': 'returned'
   };
 
-  // CB-2: display-only label — 'Returned' (DB) → 'Revising' (UI)
-  const statusLabel = {
-    'Returned': 'Revising'
-  };
+  // CB-56: quote status 顯示名改由 components/status-label.js 提供(單一真相)。
+  //   原本此處的 inline `const statusLabel` 已移除 —— 各頁不得再 hardcode。
+  //   'Pending' → 'Waiting for Payment'、'Returned' → 'Revising' 皆在該檔。
+  //   ⚠️ 上方 statusClass 是 CSS class 對照表,與顯示名無關,維持不動。
 
   function formatDate(str) {
     const d = new Date(str);
@@ -245,7 +246,7 @@
               <div class="quote-job-line">${safeJob}</div>
             </div>
             <div class="quote-right">
-              <div class="quote-status ${sc}">${statusLabel[q.status] || q.status}</div>
+              <div class="quote-status ${sc}">${pcQuoteStatusLabel(q.status)}</div>
               <div class="quote-date">${formatDate(q.created_at)}</div>
             </div>
           </div>`;
