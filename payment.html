@@ -125,6 +125,19 @@
     .sample-check .sc-box .sc-main { font-size: 13px; }
     .sample-check .sc-box .sc-dim { font-size: 11px; }
 
+    /* ── CB-56 項目 B:Proceed 前確認 modal(沿用 quotes.html 的 .modal-* 命名與視覺)── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.5); z-index: 500; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: var(--white); border-radius: 4px; padding: 28px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; }
+    .modal-icon-wrap { width: 48px; height: 48px; background: rgba(59,130,246,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    .modal-icon-wrap svg { width: 22px; height: 22px; fill: var(--status-processing); }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); margin-bottom: 10px; }
+    .modal-amount { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 16px; }
+    .modal-amount strong { color: var(--green-dark); font-weight: 500; }
+    .modal-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+    .modal-note.last { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
     /* Toast */
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--green-dark); color: #fff; padding: 12px 22px; border-radius: 4px; font-size: 13px; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 600; pointer-events: none; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -152,6 +165,23 @@
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- CB-56 項目 B:Proceed 確認 modal
+     ⚠️ 必須放在 #payment-root 之外 —— root().innerHTML 每次換畫面都會整片抹掉,
+        modal 若在裡面會連同事件監聽一起被銷毀。 -->
+<div class="modal-overlay" id="payConfirmModal" role="dialog" aria-modal="true" aria-labelledby="payConfirmTitle">
+  <div class="modal-box">
+    <div class="modal-icon-wrap"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+    <div class="modal-title" id="payConfirmTitle">Confirm Payment</div>
+    <div class="modal-amount" id="payConfirmAmount">&mdash;</div>
+    <div class="modal-note">After you confirm, please stay on this page &mdash; the secure QuickBooks payment window can take a few seconds to open.</div>
+    <div class="modal-note last">If the window doesn&rsquo;t appear, don&rsquo;t close this page. A payment link button will appear here shortly, and you can open the window from there.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnPayConfirmCancel">Cancel</button>
+      <button class="btn btn-primary" id="btnPayConfirmOk"><span class="btn-text">Confirm &amp; Continue</span></button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
@@ -453,7 +483,58 @@ function renderCardAch(method) {
     </div>`;
 
   document.getElementById('btnChangeMethod').addEventListener('click', changeMethod);
-  document.getElementById('btnProceed').addEventListener('click', () => proceedCardAch(method, f));
+  // CB-56 項目 B:先跳確認 modal;Confirm 後才走原本的 proceedCardAch(其邏輯一行未改)。
+  document.getElementById('btnProceed').addEventListener('click', () => openPayConfirm(method, f));
+}
+
+// =====================================================================
+// CB-56 項目 B:Proceed 前的確認 modal
+// ---------------------------------------------------------------------
+// 情境:dealer 點 Proceed 後 QuickBooks 視窗要數秒才跳出,dealer 常以為
+//       沒反應就離開 → 付款未完成。這層 gate 只負責「先講清楚再送出」。
+//
+// ⚠️ 不改 proceedCardAch() 任何一行 —— loading / 錯誤 / 跳轉仍由它自己管。
+// ⚠️ modal 開啟期間完全不碰 btnProceed(不加 loading、不 disable),
+//    否則按 Cancel 後按鈕會殘留在不可用狀態(B-10)。
+// ⚠️ 文案刻意寫 "will appear here shortly" 而非承諾必然出現 —— pay link
+//    是 webhook 回應後才有,n8n 失敗時不會產生(B-11)。
+// =====================================================================
+let _pendingProceed = null;   // { method, f } —— 等待 Confirm 的付款意圖
+
+function openPayConfirm(method, f) {
+  const overlay = document.getElementById('payConfirmModal');
+  // 保險:markup 不在(理論上不可能)就直接走原流程,不要卡住 dealer 付款
+  if (!overlay) { proceedCardAch(method, f); return; }
+  _pendingProceed = { method: method, f: f };
+  document.getElementById('payConfirmAmount').innerHTML =
+    `You&rsquo;re about to pay <strong>${fmt(f.total)}</strong> by <strong>${escapeHtml(methodLabel(method))}</strong>.`;
+  overlay.classList.add('show');
+  const ok = document.getElementById('btnPayConfirmOk');
+  if (ok) ok.focus();
+}
+
+function closePayConfirm() {
+  const overlay = document.getElementById('payConfirmModal');
+  if (overlay) overlay.classList.remove('show');
+  _pendingProceed = null;
+}
+
+// markup 是靜態的(在 #payment-root 之外),所以監聽器全域只綁一次,
+// 不隨畫面重繪重綁 —— 避免重複綁定累加。
+function wirePayConfirm() {
+  const overlay = document.getElementById('payConfirmModal');
+  if (!overlay) return;
+  document.getElementById('btnPayConfirmCancel').addEventListener('click', closePayConfirm);
+  document.getElementById('btnPayConfirmOk').addEventListener('click', () => {
+    const pend = _pendingProceed;
+    closePayConfirm();
+    if (pend) proceedCardAch(pend.method, pend.f);
+  });
+  // 點背景 / ESC = Cancel(非破壞性動作,安全)
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePayConfirm(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('show')) closePayConfirm();
+  });
 }
 
 async function proceedCardAch(method, f) {
@@ -852,6 +933,7 @@ function changeMethod() {
   renderMethodSelect();
 }
 
+wirePayConfirm();   // CB-56 項目 B:monitor 只綁一次,必須早於任何 render
 init();
 </script>
 </body>
