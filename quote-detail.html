@@ -580,6 +580,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/status-label.js?v=1.0"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
 <!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
@@ -620,11 +621,10 @@ const statusClass = {
   'Order Completed':'order-completed',   // CB-55
 };
 
-// CB-2: Display-only status label map. DB status values are unchanged —
-// this only affects what the badge text shows. 'Returned' (DB) → 'Revising' (UI).
-const statusLabel = {
-  Returned: 'Revising',
-};
+// CB-56: quote status 顯示名改由 components/status-label.js 提供(單一真相)。
+//   原本此處的 inline `const statusLabel` 已移除 —— 各頁不得再 hardcode。
+//   'Pending' → 'Waiting for Payment'、'Returned' → 'Revising' 皆在該檔。
+//   ⚠️ 上方 statusClass 是 CSS class 對照表,與顯示名無關,維持不動。
 
 // ── C1: which statuses allow admin to edit shipping_cost ──
 // CB-43 T14-3: 'Pending' → 'Stock Review'。T14 之後 Pending = 已放行、可付款,
@@ -1527,8 +1527,8 @@ function toggleReturnHistory() {
 
 function renderQuote(quote, dealer, addr) {
   const sc    = statusClass[quote.status] || 'pending';
-  // CB-2: display-only label; falls back to raw DB status for all other values.
-  const statusText = statusLabel[quote.status] || quote.status;
+// CB-56: display-only label,由 status-label.js 提供;查無則 fallback 回 DB 原值。
+  const statusText = pcQuoteStatusLabel(quote.status);
   const isReturned = quote.status === 'Returned';
 
   // Back link target — admin → admin-quotes, dealer → quotes
@@ -2135,7 +2135,7 @@ async function releaseStock() {
   const poLabel = _quote.po_number || _quote.draft_number || 'This order';
   const ok = confirm(
     'Confirm all items are in stock and release this order for payment?\n\n'
-    + poLabel + ' will move to Pending and the dealer will be emailed a payment link immediately.\n\n'
+    + poLabel + ' will move to ' + pcQuoteStatusLabel('Pending') + ' and the dealer will be emailed a payment link immediately.\n\n'
     + 'This cannot be undone.'
   );
   if (!ok) return;
@@ -2188,7 +2188,7 @@ async function releaseStock() {
   // ③
   alert(emailOk
     ? 'Order released. The dealer has been notified and can now pay.'
-    : 'Order released to Pending, but the notification email failed to send.\n\nPlease contact the dealer manually.');
+    : 'Order released to ' + pcQuoteStatusLabel('Pending') + ', but the notification email failed to send.\n\nPlease contact the dealer manually.');
   window.location.reload();
 }
 
