@@ -401,7 +401,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>Credit / Debit Card</span>
             <span class="mo-total">${fmt(card.total)}</span>
           </div>
-          <div class="mo-fee">Transaction Fee (2.99%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
+          <div class="mo-fee">Transaction Fee (${card.pct}%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
         </label>
 
         <label class="method-opt" data-method="ach">
@@ -410,7 +410,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>ACH Bank Transfer</span>
             <span class="mo-total">${fmt(ach.total)}</span>
           </div>
-          <div class="mo-fee">Transaction Fee (1%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
+          <div class="mo-fee">Transaction Fee (${ach.pct}%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
         </label>
 
         <label class="method-opt" data-method="check">
@@ -787,8 +787,39 @@ function renderProcessingSummary() {
   const contBtn = (isCardAch && p.quickbooks_payment_link)
     ? `<a class="btn btn-primary" href="${escapeHtml(p.quickbooks_payment_link)}" target="_blank" rel="noopener"><span class="btn-text">Continue Payment</span></a>`
     : '';
-  const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
+const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
   const btnRowStyle = contBtn ? 'flex-direction:column; align-items:stretch;' : '';
+
+  // ── CB-56 項目 C:Transaction Fee 明細 ──
+  // 一律讀 payment 列【存值】,不現算(對齊 pdf-builder receipt 的既有原則:
+  // 付款當下的金額已凍結,重算會與 total_paid 產生漂移)。
+  // fee_percentage 存的是百分數(2.99 / 1),不是小數 —— 不可再乘 100。
+  // 任一欄位缺漏、或 base+fee 與 total_paid 對不上 → 退回單行 Amount。
+  // 寧缺勿錯:推導只會把資料問題藏起來,所以刻意不用 total_paid - base 補算。
+  const _base = (p.base_amount    == null) ? null : parseFloat(p.base_amount);
+  const _fee  = (p.fee_amount     == null) ? null : parseFloat(p.fee_amount);
+  const _paid = (p.total_paid     == null) ? null : parseFloat(p.total_paid);
+  const _pct  = (p.fee_percentage != null) ? parseFloat(p.fee_percentage)
+              : (feeConfig[p.payment_method] != null ? feeConfig[p.payment_method] : null);
+
+  const _canBreakdown = isCardAch
+    && [_base, _fee, _paid, _pct].every(v => typeof v === 'number' && !isNaN(v))
+    && round2(_base + _fee) === round2(_paid);
+
+  if (isCardAch && !_canBreakdown) {
+    console.warn('[payment] fee breakdown unavailable — falling back to single Amount row', {
+      base_amount: p.base_amount, fee_amount: p.fee_amount,
+      total_paid: p.total_paid, fee_percentage: p.fee_percentage,
+    });
+  }
+
+  // grand 行刻意用 "Total" 而非 "Total Paid" —— 此畫面 payment status 正是
+  // processing,錢尚未確認收到;若後續失敗退回可再付,"Paid" 即為錯誤陳述。
+  const amountRowsHtml = _canBreakdown
+    ? `<div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(_base)}</span></div>
+        <div class="amount-row"><span class="lbl">Transaction Fee (${_pct}%)</span><span class="val">${fmt(_fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">Total</span><span class="val">${fmt(_paid)}</span></div>`
+    : `<div class="amount-row"><span class="lbl">Amount</span><span class="val">${fmt(p.total_paid)}</span></div>`;
 
   root().innerHTML = `
     ${backLinkHtml()}
@@ -799,8 +830,8 @@ function renderProcessingSummary() {
 
       <div class="amount-rows">
         <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(p.payment_method)}</span></div>
-        <div class="amount-row"><span class="lbl">Amount</span><span class="val">${fmt(p.total_paid)}</span></div>
         <div class="amount-row"><span class="lbl">Status</span><span class="val"><span class="status-badge processing">Processing</span></span></div>
+        ${amountRowsHtml}
       </div>
 
       ${isCardAch ? `<div class="notice info">If you completed payment in QuickBooks, it may take a moment to confirm. Use “Refresh Status” to check again.</div>` : `<div class="notice info">We've received your check image and will confirm once verified.</div>`}
@@ -832,7 +863,7 @@ function renderWaiting(payLink) {
     <div class="card">
       <div class="state-block">
         <div class="wait-spinner"></div>
-        <div class="state-heading" style="margin-top:18px;">Waiting for payment confirmation…</div>
+        <div class="state-heading" style="margin-top:18px;">Payment window opened — awaiting confirmation…</div>
         <div class="state-text">Complete your payment in the QuickBooks payment window, then tap “Refresh Status” to update this page.</div>
       </div>
       ${popupHint}
