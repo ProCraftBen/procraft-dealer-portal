@@ -15,6 +15,7 @@
       --status-returned:#E07B39; --status-payment:#64748B;
       --status-stock-review:#0891B2;  /* CB-43 T14-1 */
       --status-order-completed:#0F766E;  /* CB-55 Q-4 */
+      --status-cancelled:#B91C1C;  /* CB-57 Q-2:終態,灰紅 */
       --close-grey:#7A8C82;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
@@ -87,6 +88,7 @@
     .status-badge-payment-processing { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(100,116,139,0.12); color: var(--status-payment); }
     .status-badge-order-processing   { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(22,163,74,0.10);   color: var(--status-complete); }
     .status-badge-order-completed    { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(15,118,110,0.12); color: var(--status-order-completed); }  /* CB-55 */
+    .status-badge-cancelled          { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(185,28,28,0.10); color: var(--status-cancelled); }  /* CB-57 */
 
     /* CB-55: 列內完成按鈕(僅 super_admin,僅 Order Processing 列) */
     .btn-complete-order { margin-left: 6px; height: 24px; padding: 0 10px; background: var(--status-order-completed); color: #fff; border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; vertical-align: middle; }
@@ -541,9 +543,10 @@ const statusClass = {
   'Order Processing':'order-processing',
   'Order Completed':'order-completed',   // CB-55
   Closed:'closed',
+  Closed:'closed',
   Returned:'returned',
+  'Cancelled':'cancelled',   // CB-57
 };
-
 // CB-56: quote status 顯示名改由 components/status-label.js 提供(單一真相)。
 //   原本此處的 inline `const statusLabel` 已移除 —— 各頁不得再 hardcode。
 //   'Pending' → 'Waiting for Payment'、'Returned' → 'Revising' 皆在該檔。
@@ -825,6 +828,7 @@ function renderTable() {
     const isOrderProcessing   = q.status === 'Order Processing';
     const isStockReview       = q.status === 'Stock Review';   // CB-43 T14-1
     const isOrderCompleted    = q.status === 'Order Completed';   // CB-55
+    const isCancelled         = q.status === 'Cancelled';   // CB-57
     // CB-55:Complete 僅限 super_admin。沿用 init() 已存的 currentUserRole,
     //   不另設旗標(對齊 F9 的 role === 'super_admin' 判斷方式)。
     const isSuperAdmin        = (currentUserRole === 'super_admin');
@@ -997,7 +1001,16 @@ function renderTable() {
                 '<option value="Closed" class="close-option">✕ Close Quote</option>' +
               '</select>' +
               '<button id="save-' + q.id + '" onclick="saveStatus(\'' + q.id + '\')" style="display:none;margin-left:6px;height:28px;padding:0 10px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;">Save</button>' +
-            '</td>';
+          '</td>';
+        } else if (isCancelled) {
+          // ═══ CB-57 (B2) ═════════════════════════════════════════════════
+          // 終局態,比照 Order Completed / Closed:唯讀 badge、無 dropdown、
+          // 無動作按鈕。必須有【專屬分支】——否則掉進 catch-all else,select
+          // fallback 顯示 "Pending",admin 按 Save 就把 Cancelled 靜默改回
+          // Pending(T14-1 / CB-55 同款陷阱)。Cancelled 只由 admin-payments
+          // 的 Close 按鈕產生,永不入任何 status select。
+          // ════════════════════════════════════════════════════════════════
+          statusCellHtml = '<td><span class="status-badge-cancelled">Cancelled</span></td>';
         } else {
           // Pending only: 下拉僅保留 Pending + Close（付款狀態不可手動繞過）
       statusCellHtml =
