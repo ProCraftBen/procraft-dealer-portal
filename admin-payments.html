@@ -50,12 +50,6 @@
     .td-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 12px; }
 
     /* ===== Awaiting Payment section ===== */
-    /* CB-56 U10:列數多時不無限延長 —— 內層捲動容器,約 6 列高後 Y 捲動。
-       max-height 430px ≈ thead 31px + 6 × 66px(單列含 PO# + job 副行 + 動作鈕)。
-       thead 用 sticky 釘住,捲動時表頭不消失;背景 #F5F3EF 為實色,不會透出列內容。
-       捲動容器只包 <table>,不包 .table-header —— 標題與搜尋框必須留在原位。 */
-    .await-scroll { max-height: 430px; overflow: auto; -webkit-overflow-scrolling: touch; }
-    .await-scroll thead th { position: sticky; top: 0; z-index: 2; }
     .awaiting-head-right { display: flex; align-items: center; gap: 12px; }
     .awaiting-search { height: 30px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--cream); width: 200px; max-width: 46vw; }
     .awaiting-search:focus { outline: none; border-color: var(--gold); }
@@ -184,12 +178,12 @@
   <!-- ===== Awaiting Payment (quotes: status=Pending, no payment yet) ===== -->
   <div class="table-wrap" style="margin-bottom:16px;">
     <div class="table-header">
-      <span class="table-title"><span id="awaitingCount">—</span> <span id="awaitingCountNoun">Quotes</span> <span data-pc-status-label="Pending">Waiting for Payment</span></span>
+      <span class="table-title">Awaiting Payment <span style="font-weight:400;letter-spacing:0.04em;text-transform:none;color:var(--muted);">(follows Sales filter)</span></span>
       <div class="awaiting-head-right">
         <input type="text" class="awaiting-search" id="awaitingSearch" placeholder="Search PO# / Dealer"/>
+        <span class="table-count" id="awaitingCount">—</span>
       </div>
     </div>
-  <div class="await-scroll">
     <table>
       <thead>
         <tr>
@@ -205,7 +199,6 @@
         <tr><td colspan="6" class="td-empty">Loading…</td></tr>
       </tbody>
     </table>
-    </div>
   </div>
 
   <div class="filters">
@@ -666,8 +659,7 @@ async function showList() {
     console.error('[admin-payments] loadAwaiting failed:', err);
     document.getElementById('awaitingBody').innerHTML =
       '<tr><td colspan="6" class="td-empty">Failed to load awaiting quotes.</td></tr>';
-    document.getElementById('awaitingCount').textContent    = '—';
-    document.getElementById('awaitingCountNoun').textContent = 'Quotes';
+    document.getElementById('awaitingCount').textContent = '—';
   }
 }
 
@@ -819,11 +811,8 @@ function renderAwaiting(term) {
         || (d.company_name || '').toLowerCase().indexOf(t) !== -1;
   });
 
-  // CB-56 U10:數量移進標題 —— 「11 Quotes Waiting for Payment」。
-  // 分兩個 textContent 寫入(不用 innerHTML),data-pc-status-label 的
-  // 水合標記才不會被覆蓋掉。
-  document.getElementById('awaitingCount').textContent    = rows.length;
-  document.getElementById('awaitingCountNoun').textContent = (rows.length === 1 ? 'Quote' : 'Quotes');
+  document.getElementById('awaitingCount').textContent =
+    rows.length + (rows.length === 1 ? ' quote' : ' quotes');
 
   const body = document.getElementById('awaitingBody');
   if (!rows.length) {
