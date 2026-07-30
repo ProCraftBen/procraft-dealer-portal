@@ -845,6 +845,7 @@ function renderAwaiting(term) {
       '<td><div class="await-actions">' +
         '<button class="btn-mini" onclick="awaitingOffline(\'' + q.id + '\')">Record Offline</button>' +
         '<button class="btn-mini" onclick="awaitingResend(\'' + q.id + '\')">Send Reminder</button>' +
+        '<button class="btn-mini danger" onclick="awaitingClose(\'' + q.id + '\')">Close Order</button>' +
       '</div></td>' +
     '</tr>';
   }).join('');
@@ -863,6 +864,84 @@ function awaitingResend(id) {
   if (!pickerSelected) return;
   document.getElementById('pickerModal').classList.add('show');
   pickerResend();
+}
+
+// CB-57:Close Pending Order(super_admin only,終態 Cancelled,不可逆)。
+//   走既有 openActionModal 確認彈窗。寫序 quotes(Pending 守衛 + count:exact)
+//   先 → payments 後。onDone 傳 refreshAll,避免 wireActionModal fallback 去
+//   showDetail(stale pid)(B5)。
+function awaitingClose(id) {
+  const q = awaitingQuotes.find(function (x) { return x.id === id; }) || null;
+  if (!q) return;
+  openActionModal({
+    title: 'Close Order (Cancel)',
+    sub: 'PO# ' + (q.po_number || '(no PO#)') + ' will be permanently cancelled and the dealer notified. This cannot be undone.',
+    fieldsHtml: '',
+    confirmLabel: 'Close Order',
+    danger: true,
+    onDone: refreshAll,
+    onConfirm: async function () {
+      // ① quotes → Cancelled(Pending 守衛 + count:exact)。
+      //    affected===0 → 單已不在 Pending → 立即中止,不碰 payment。
+      const upd = await _supabase.from('quotes')
+        .update({ status: 'Cancelled' }, { count: 'exact' })
+        .eq('id', q.id)
+        .eq('status', 'Pending');
+      if (upd.error) throw upd.error;
+      if (upd.count === 0) {
+        amShowError("This order is no longer Pending — its status was changed by someone else. Nothing was cancelled. 請重新整理後再試。");
+        return false;
+      }
+
+      // ② pre-SELECT 候選 payment 列(B9,唯讀):存 invoice id 供錯誤文案。
+      //    候選為空 = 無 invoice = 純狀態 close → 整段跳過(B1/B8:count 0 正常,不 throw)。
+      const cand = await _supabase.from('payments')
+        .select('id, quickbooks_invoice_id')
+        .eq('quote_id', q.id)
+        .eq('status', 'processing')
+        .not('quickbooks_invoice_id', 'is', null);
+      if (cand.error) throw cand.error;
+
+      // ③ 有 invoice → 標 cancelled(cancelled_at 必寫,A1 教訓:漏寫則 Void Cleanup 抓不到)。
+      let cleanupFailedInvoices = '';
+      if (cand.data && cand.data.length) {
+        const updP = await _supabase.from('payments')
+          .update({
+            status:              'cancelled',
+            cancelled_at:        new Date().toISOString(),
+            cancelled_by:        currentUserId,
+            cancellation_reason: 'Order cancelled by admin (Pending close)',
+          }, { count: 'exact' })
+          .eq('quote_id', q.id)
+          .eq('status', 'processing')
+          .not('quickbooks_invoice_id', 'is', null);
+
+        // Q1:部分 commit 錯誤 —— quote 已 Cancelled 不回滾。記下 invoice id,稍後 alert
+        //     指向 QBO 人工核對(避免退化成靜默的活 invoice)。不 return —— 見 ④。
+        if (updP.error || updP.count === 0) {
+          cleanupFailedInvoices = cand.data
+            .map(function (r) { return r.quickbooks_invoice_id; })
+            .filter(Boolean).join(', ');
+        }
+      }
+
+      // ④ 通知 dealer(非阻斷)。order 已取消,dealer 一律通知,與 invoice 清理成敗無關。
+      //    send-followup-email 內部重撈驗 status==='Cancelled'。
+      await sendFollowupEmail({ notification_type: 'order_cancelled', quote_id: q.id });
+
+      // ⑤ 若 payment/invoice 清理失敗 → alert admin 去 QBO 手動核對(dealer 已另行通知)。
+      if (cleanupFailedInvoices) {
+        window.alert(
+          "Order was cancelled and the dealer notified, but the payment/invoice cleanup FAILED.\n\n" +
+          "Please open QuickBooks and manually check whether these invoices need voiding:\n" +
+          cleanupFailedInvoices + "\n\n(The order is already Cancelled and cannot be rolled back.)"
+        );
+      } else {
+        showToast('Order cancelled.');
+      }
+      return true;
+    }
+  });
 }
 
 // 動作成功後同時刷新兩區(Payment Records + Awaiting)
@@ -1104,6 +1183,24 @@ async function sendPaymentEmail(payload) {
   }
 }
 
+// CB-57:send-followup-email。Bearer only,失敗只 log、不阻斷、不 throw。
+// ⚠️ 契約與 send-payment-email 不同:欄位是 notification_type(非 type),
+//    且函式內部會重撈 quote 驗 status,故呼叫端必須在 quotes 寫入成功後才呼叫。
+async function sendFollowupEmail(payload) {
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    await fetch(window.SB_URL + '/functions/v1/send-followup-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (emailErr) {
+    console.error('[admin-payments] send-followup-email failed (non-blocking):', emailErr);
+  }
+}
 // 依 quote / payment 狀態條件渲染 action bar
 function renderActions() {
   const host = document.getElementById('detail-actions');
