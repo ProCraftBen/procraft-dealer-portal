@@ -27,6 +27,7 @@
       --status-payment:    #64748B;
       --status-stock-review: #0891B2;  /* CB-43 T14-1 */
       --status-order-completed: #0F766E;  /* CB-55 Q-4 */
+      --status-cancelled: #B91C1C;  /* CB-57 Q-2:終態,灰紅 */
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
@@ -71,6 +72,7 @@
     .quote-status.payment-processing { color: var(--status-payment); }
     .quote-status.order-processing   { color: var(--status-complete); }
     .quote-status.order-completed    { color: var(--status-order-completed); }  /* CB-55 */
+    .quote-status.cancelled          { color: var(--status-cancelled); }  /* CB-57 */
     .quote-status.returned   { color: var(--status-returned); }
     .quote-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
@@ -155,7 +157,8 @@
     'Order Processing': 'order-processing',
     'Order Completed': 'order-completed',   // CB-55
     'Closed': 'closed',
-    'Returned': 'returned'
+    'Returned': 'returned',
+    'Cancelled': 'cancelled'   // CB-57
   };
 
   // CB-56: quote status 顯示名改由 components/status-label.js 提供(單一真相)。
