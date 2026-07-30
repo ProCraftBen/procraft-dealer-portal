@@ -125,6 +125,19 @@
     .sample-check .sc-box .sc-main { font-size: 13px; }
     .sample-check .sc-box .sc-dim { font-size: 11px; }
 
+    /* ── CB-56 項目 B:Proceed 前確認 modal(沿用 quotes.html 的 .modal-* 命名與視覺)── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.5); z-index: 500; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: var(--white); border-radius: 4px; padding: 28px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; }
+    .modal-icon-wrap { width: 48px; height: 48px; background: rgba(59,130,246,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    .modal-icon-wrap svg { width: 22px; height: 22px; fill: var(--status-processing); }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); margin-bottom: 10px; }
+    .modal-amount { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 16px; }
+    .modal-amount strong { color: var(--green-dark); font-weight: 500; }
+    .modal-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+    .modal-note.last { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
     /* Toast */
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--green-dark); color: #fff; padding: 12px 22px; border-radius: 4px; font-size: 13px; opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 600; pointer-events: none; }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -152,6 +165,23 @@
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- CB-56 項目 B:Proceed 確認 modal
+     ⚠️ 必須放在 #payment-root 之外 —— root().innerHTML 每次換畫面都會整片抹掉,
+        modal 若在裡面會連同事件監聽一起被銷毀。 -->
+<div class="modal-overlay" id="payConfirmModal" role="dialog" aria-modal="true" aria-labelledby="payConfirmTitle">
+  <div class="modal-box">
+    <div class="modal-icon-wrap"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+    <div class="modal-title" id="payConfirmTitle">Confirm Payment</div>
+    <div class="modal-amount" id="payConfirmAmount">&mdash;</div>
+    <div class="modal-note">After you confirm, please stay on this page &mdash; the secure QuickBooks payment window can take a few seconds to open.</div>
+    <div class="modal-note last">If the window doesn&rsquo;t appear, don&rsquo;t close this page. A payment link button will appear here shortly, and you can open the window from there.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnPayConfirmCancel">Cancel</button>
+      <button class="btn btn-primary" id="btnPayConfirmOk"><span class="btn-text">Confirm &amp; Continue</span></button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
@@ -371,7 +401,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>Credit / Debit Card</span>
             <span class="mo-total">${fmt(card.total)}</span>
           </div>
-          <div class="mo-fee">Transaction Fee (2.99%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
+          <div class="mo-fee">Transaction Fee (${card.pct}%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
         </label>
 
         <label class="method-opt" data-method="ach">
@@ -380,7 +410,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>ACH Bank Transfer</span>
             <span class="mo-total">${fmt(ach.total)}</span>
           </div>
-          <div class="mo-fee">Transaction Fee (1%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
+          <div class="mo-fee">Transaction Fee (${ach.pct}%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
         </label>
 
         <label class="method-opt" data-method="check">
@@ -453,7 +483,58 @@ function renderCardAch(method) {
     </div>`;
 
   document.getElementById('btnChangeMethod').addEventListener('click', changeMethod);
-  document.getElementById('btnProceed').addEventListener('click', () => proceedCardAch(method, f));
+  // CB-56 項目 B:先跳確認 modal;Confirm 後才走原本的 proceedCardAch(其邏輯一行未改)。
+  document.getElementById('btnProceed').addEventListener('click', () => openPayConfirm(method, f));
+}
+
+// =====================================================================
+// CB-56 項目 B:Proceed 前的確認 modal
+// ---------------------------------------------------------------------
+// 情境:dealer 點 Proceed 後 QuickBooks 視窗要數秒才跳出,dealer 常以為
+//       沒反應就離開 → 付款未完成。這層 gate 只負責「先講清楚再送出」。
+//
+// ⚠️ 不改 proceedCardAch() 任何一行 —— loading / 錯誤 / 跳轉仍由它自己管。
+// ⚠️ modal 開啟期間完全不碰 btnProceed(不加 loading、不 disable),
+//    否則按 Cancel 後按鈕會殘留在不可用狀態(B-10)。
+// ⚠️ 文案刻意寫 "will appear here shortly" 而非承諾必然出現 —— pay link
+//    是 webhook 回應後才有,n8n 失敗時不會產生(B-11)。
+// =====================================================================
+let _pendingProceed = null;   // { method, f } —— 等待 Confirm 的付款意圖
+
+function openPayConfirm(method, f) {
+  const overlay = document.getElementById('payConfirmModal');
+  // 保險:markup 不在(理論上不可能)就直接走原流程,不要卡住 dealer 付款
+  if (!overlay) { proceedCardAch(method, f); return; }
+  _pendingProceed = { method: method, f: f };
+  document.getElementById('payConfirmAmount').innerHTML =
+    `You&rsquo;re about to pay <strong>${fmt(f.total)}</strong> by <strong>${escapeHtml(methodLabel(method))}</strong>.`;
+  overlay.classList.add('show');
+  const ok = document.getElementById('btnPayConfirmOk');
+  if (ok) ok.focus();
+}
+
+function closePayConfirm() {
+  const overlay = document.getElementById('payConfirmModal');
+  if (overlay) overlay.classList.remove('show');
+  _pendingProceed = null;
+}
+
+// markup 是靜態的(在 #payment-root 之外),所以監聽器全域只綁一次,
+// 不隨畫面重繪重綁 —— 避免重複綁定累加。
+function wirePayConfirm() {
+  const overlay = document.getElementById('payConfirmModal');
+  if (!overlay) return;
+  document.getElementById('btnPayConfirmCancel').addEventListener('click', closePayConfirm);
+  document.getElementById('btnPayConfirmOk').addEventListener('click', () => {
+    const pend = _pendingProceed;
+    closePayConfirm();
+    if (pend) proceedCardAch(pend.method, pend.f);
+  });
+  // 點背景 / ESC = Cancel(非破壞性動作,安全)
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePayConfirm(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('show')) closePayConfirm();
+  });
 }
 
 async function proceedCardAch(method, f) {
@@ -706,8 +787,39 @@ function renderProcessingSummary() {
   const contBtn = (isCardAch && p.quickbooks_payment_link)
     ? `<a class="btn btn-primary" href="${escapeHtml(p.quickbooks_payment_link)}" target="_blank" rel="noopener"><span class="btn-text">Continue Payment</span></a>`
     : '';
-  const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
+const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
   const btnRowStyle = contBtn ? 'flex-direction:column; align-items:stretch;' : '';
+
+  // ── CB-56 項目 C:Transaction Fee 明細 ──
+  // 一律讀 payment 列【存值】,不現算(對齊 pdf-builder receipt 的既有原則:
+  // 付款當下的金額已凍結,重算會與 total_paid 產生漂移)。
+  // fee_percentage 存的是百分數(2.99 / 1),不是小數 —— 不可再乘 100。
+  // 任一欄位缺漏、或 base+fee 與 total_paid 對不上 → 退回單行 Amount。
+  // 寧缺勿錯:推導只會把資料問題藏起來,所以刻意不用 total_paid - base 補算。
+  const _base = (p.base_amount    == null) ? null : parseFloat(p.base_amount);
+  const _fee  = (p.fee_amount     == null) ? null : parseFloat(p.fee_amount);
+  const _paid = (p.total_paid     == null) ? null : parseFloat(p.total_paid);
+  const _pct  = (p.fee_percentage != null) ? parseFloat(p.fee_percentage)
+              : (feeConfig[p.payment_method] != null ? feeConfig[p.payment_method] : null);
+
+  const _canBreakdown = isCardAch
+    && [_base, _fee, _paid, _pct].every(v => typeof v === 'number' && !isNaN(v))
+    && round2(_base + _fee) === round2(_paid);
+
+  if (isCardAch && !_canBreakdown) {
+    console.warn('[payment] fee breakdown unavailable — falling back to single Amount row', {
+      base_amount: p.base_amount, fee_amount: p.fee_amount,
+      total_paid: p.total_paid, fee_percentage: p.fee_percentage,
+    });
+  }
+
+  // grand 行刻意用 "Total" 而非 "Total Paid" —— 此畫面 payment status 正是
+  // processing,錢尚未確認收到;若後續失敗退回可再付,"Paid" 即為錯誤陳述。
+  const amountRowsHtml = _canBreakdown
+    ? `<div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(_base)}</span></div>
+        <div class="amount-row"><span class="lbl">Transaction Fee (${_pct}%)</span><span class="val">${fmt(_fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">Total</span><span class="val">${fmt(_paid)}</span></div>`
+    : `<div class="amount-row"><span class="lbl">Amount</span><span class="val">${fmt(p.total_paid)}</span></div>`;
 
   root().innerHTML = `
     ${backLinkHtml()}
@@ -718,8 +830,8 @@ function renderProcessingSummary() {
 
       <div class="amount-rows">
         <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(p.payment_method)}</span></div>
-        <div class="amount-row"><span class="lbl">Amount</span><span class="val">${fmt(p.total_paid)}</span></div>
         <div class="amount-row"><span class="lbl">Status</span><span class="val"><span class="status-badge processing">Processing</span></span></div>
+        ${amountRowsHtml}
       </div>
 
       ${isCardAch ? `<div class="notice info">If you completed payment in QuickBooks, it may take a moment to confirm. Use “Refresh Status” to check again.</div>` : `<div class="notice info">We've received your check image and will confirm once verified.</div>`}
@@ -751,7 +863,7 @@ function renderWaiting(payLink) {
     <div class="card">
       <div class="state-block">
         <div class="wait-spinner"></div>
-        <div class="state-heading" style="margin-top:18px;">Waiting for payment confirmation…</div>
+        <div class="state-heading" style="margin-top:18px;">Payment window opened — awaiting confirmation…</div>
         <div class="state-text">Complete your payment in the QuickBooks payment window, then tap “Refresh Status” to update this page.</div>
       </div>
       ${popupHint}
@@ -852,6 +964,7 @@ function changeMethod() {
   renderMethodSelect();
 }
 
+wirePayConfirm();   // CB-56 項目 B:monitor 只綁一次,必須早於任何 render
 init();
 </script>
 </body>
