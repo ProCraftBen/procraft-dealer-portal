@@ -17,7 +17,7 @@
       --status-stock-review:#0891B2;  /* CB-43 T14-1 */
       --status-order-completed:#0F766E;  /* CB-55 Q-4:終局態。不可重用 --status-complete,
                                             那個已被 Order Processing 借用(#16A34A)。 */
-    }
+      --status-cancelled:#B91C1C;  /* CB-57 Q-2:終態,灰紅 */
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
     .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
@@ -115,6 +115,7 @@
     .status-badge.payment-processing { background: rgba(100,116,139,0.12); color: var(--status-payment); }
     .status-badge.order-processing   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.order-completed    { background: rgba(15,118,110,0.12);  color: var(--status-order-completed); }  /* CB-55 */
+    .status-badge.cancelled          { background: rgba(185,28,28,0.10);   color: var(--status-cancelled); }  /* CB-57 */
     .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
     .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
 
@@ -445,7 +446,7 @@ let pendingDeleteName = null;   // job_name shown in modal
 const statusClass = {
   Draft: 'draft', 'Stock Review': 'stock-review', Pending: 'pending', 'Payment Processing': 'payment-processing',
   'Order Processing': 'order-processing', 'Order Completed': 'order-completed',   // CB-55
-  Closed: 'closed', Returned: 'returned'
+  Closed: 'closed', Returned: 'returned', 'Cancelled': 'cancelled'   // CB-57
 };
 
 // CB-56: quote status 顯示名改由 components/status-label.js 提供(單一真相)。
