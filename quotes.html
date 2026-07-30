@@ -18,6 +18,7 @@
       --status-order-completed:#0F766E;  /* CB-55 Q-4:終局態。不可重用 --status-complete,
                                             那個已被 Order Processing 借用(#16A34A)。 */
       --status-cancelled:#B91C1C;  /* CB-57 Q-2:終態,灰紅 */
+    }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
     .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
@@ -353,6 +354,7 @@
         <option value="Order Processing">Order Processing</option>
         <option value="Order Completed">Order Completed</option>
         <option value="Closed">Closed</option>
+        <option value="Cancelled">Cancelled</option>
       </select>
     </div>
     <div class="filter-group">
