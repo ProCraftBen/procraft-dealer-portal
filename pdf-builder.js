@@ -800,7 +800,7 @@ return total;
               const parentNum = itemNum;
               const isFirstSub = subIdx === 0;
               const subQty = parseInt(sub.qty, 10) || 0;
-              const tagCell = isFirstSub ? (item.tag || '') : '';
+              const tagCell = item.tag || '';
               const customSuffix = (isCustom && isFirstSub) ? CUSTOM_SUFFIX : '';
               const subLabelLine = isSplit ? `\nSub ${subIdx + 1} of ${subs.length}` : '';
 
@@ -843,7 +843,7 @@ return total;
               const skuCellText = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
                 + (extraLines ? `\n${extraLines}` : '');
 
-              const assembledCell = isFirstSub ? (assembleStatus === 'RTA' ? 'No' : 'Yes') : '';
+              const assembledCell = (assembleStatus === 'RTA' ? 'No' : 'Yes');
 
               if (isPacking) {
                 body.push([String(parentNum), tagCell, subQty, skuCellText, skuDesc, assembledCell]);
