@@ -2454,7 +2454,7 @@ function buildItemRowsHtml(markupPct) {
               : '';
 
             // CB-9: Tag 只在主行(第一個 sub)顯示,子項留空
-            const tagCellHtml = isFirstSub ? escapeHtml(getTagForItem(item)) : '';
+            const tagCellHtml = escapeHtml(getTagForItem(item));
 
             const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
             const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
@@ -2468,7 +2468,7 @@ function buildItemRowsHtml(markupPct) {
             const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
             const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
 
-            const assembledHtml = isFirstSub ? (item.type === 'RTA' ? 'No' : 'Yes') : '';
+            const assembledHtml = (item.type === 'RTA' ? 'No' : 'Yes');
             const trClass = isFirstSub ? '' : 'sub-continuation';
 
             const modFeeCellHtml = modFeeTotal > 0
