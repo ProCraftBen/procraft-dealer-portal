@@ -100,6 +100,7 @@
   var isApplying = false;       // Bridge 靠這個分辨「這次寫入是本檔自己做的」
   var warnedKeys = {};          // 同一個缺失 key 只警告一次,避免洗版
   var memLang    = null;        // localStorage 不可用時的記憶體退路
+  var loaded     = false;       // 字典是否已載入完畢(見 pcT 的 warn 條件)
 
   function has(obj, key) {
     return !!obj && Object.prototype.hasOwnProperty.call(obj, key);
@@ -208,7 +209,12 @@
   function pcT(key, params, fallback) {
     var s = lookup(key);
     if (s === null) {
-      if (!warnedKeys[key]) {
+      // 只在「字典確實載入成功、卻仍查不到」時才警告。兩種情況刻意不警告:
+      //   · 字典還沒載完(元件初始化時就呼叫 pcT 是正常的)
+      //   · 字典載入失敗(loadDict 已經 console.error 過,再逐 key 洗版沒有意義)
+      // 這條很重要:login 頁的 Bridge 靠 console.warn 當作「反查表漏更新」的
+      // 唯一訊號,假警告會把那個訊號淹掉。
+      if (loaded && dicts[BASE_LANG] && !warnedKeys[key]) {
         warnedKeys[key] = true;
         console.warn('[CB-62] i18n key not found in "' + current + '" or "' + BASE_LANG + '": ' + key);
       }
@@ -360,6 +366,7 @@
   // 🔴 永不 reject:載入失敗已在 loadDict 內部吞掉並轉為 fail-open。
   //    PC_I18N_READY 只代表「載入流程已結束」,不代表「載入成功」。
   window.PC_I18N_READY = Promise.all(jobs)
+    .then(function () { loaded = true; })
     .then(whenDomReady)
     .then(function () {
       pcApplyI18n(document);
