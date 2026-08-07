@@ -90,9 +90,9 @@
     .status-badge-order-completed    { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(15,118,110,0.12); color: var(--status-order-completed); }  /* CB-55 */
     .status-badge-cancelled          { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(185,28,28,0.10); color: var(--status-cancelled); }  /* CB-57 */
 
-    /* CB-55: 列內完成按鈕(僅 super_admin,僅 Order Processing 列) */
-    .btn-complete-order { margin-left: 6px; height: 24px; padding: 0 10px; background: var(--status-order-completed); color: #fff; border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; vertical-align: middle; }
-    .btn-complete-order:hover { background: #115E59; }
+    /* CB-55 / CB-59: 列內 Fulfilled 按鈕(admin + super_admin,僅 Order Processing 列) */
+    .btn-fulfill-order { margin-left: 6px; height: 24px; padding: 0 10px; background: var(--status-order-completed); color: #fff; border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; vertical-align: middle; }
+    .btn-fulfill-order:hover { background: #115E59; }
     /* Action cell — wraps View + Delete */
     .action-cell-wrap { display: inline-flex; align-items: center; gap: 6px; }
     .btn-view-quote {
@@ -396,11 +396,12 @@
             <th>Date</th>
             <th style="text-align:right">Total</th>
             <th>Status</th>
+            <th>Fulfillment Date</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="quotesBody">
-          <tr><td colspan="7"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="8"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -573,6 +574,18 @@ const _previousStatus = {};
 // ── Helpers ────────────────────────────────────────────────────────
 function formatDate(str) {
   return new Date(str).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+// CB-59 B-2:fulfillment_date 是 DB 的 date 型別,PostgREST 回傳 "YYYY-MM-DD"。
+//   絕不可套用上面的 formatDate() —— new Date('2026-08-06') 會被當 UTC 午夜
+//   解析,美東時區顯示成前一天(選 8/6 顯示 Aug 5)。
+//   改以 local 分量三參數建構 Date,不經 UTC。
+function formatDateOnly(str) {
+  if (!str) return '-';
+  const p = String(str).split('-');
+  if (p.length !== 3) return '-';
+  const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
 }
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function showToast(msg) {
@@ -810,7 +823,7 @@ function renderTable() {
   const tbody = document.getElementById('quotesBody');
 
   if (!allQuotes.length) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
     return;
   }
 
@@ -830,9 +843,11 @@ function renderTable() {
     const isStockReview       = q.status === 'Stock Review';   // CB-43 T14-1
     const isOrderCompleted    = q.status === 'Order Completed';   // CB-55
     const isCancelled         = q.status === 'Cancelled';   // CB-57
-    // CB-55:Complete 僅限 super_admin。沿用 init() 已存的 currentUserRole,
-    //   不另設旗標(對齊 F9 的 role === 'super_admin' 判斷方式)。
-    const isSuperAdmin        = (currentUserRole === 'super_admin');
+    // CB-55 / CB-59:Fulfilled 開放給 admin + super_admin。沿用 init() 已存的
+    //   currentUserRole,不另設旗標。CB-59 階段 0 已實測 admin 的 JWT 可通過
+    //   admin_update_all_quotes 且不被 F2 trigger 擋,故此處放寬即可,
+    //   不需修改任何 policy / trigger。
+    const canFulfill          = (currentUserRole === 'admin' || currentUserRole === 'super_admin');
 
     // 把當前 status 暫存起來，方便 Modal Cancel 時還原
     _previousStatus[q.id] = q.status;
@@ -961,16 +976,18 @@ function renderTable() {
           statusCellHtml = '<td><span class="status-badge-payment-processing">Payment Processing</span></td>';
   } else if (isOrderProcessing) {
           // CB-43: 付款狀態唯讀，不可手動改（只能由 payment action 驅動）
-          // CB-55: super_admin 額外看到 Complete 按鈕(結案 + 寄感謝信)。
+          // CB-55 / CB-59: admin + super_admin 額外看到 Fulfilled 按鈕
+          //   (選出貨日 → 結案 + 寄感謝信)。
           //   ⚠️ B-5:整列有展開 onclick,帶按鈕的版本必須 stopPropagation,
-          //      否則按 Complete 會同時展開/收合該列。
-          //   非 super_admin 維持原本的純 <td>,不加 stopPropagation ——
+          //      否則按 Fulfilled 會同時展開/收合該列。
+          //      (modal 本身掛 document.body,不受此列冒泡影響 —— CB-59 B-3)
+          //   無權限者維持原本的純 <td>,不加 stopPropagation ——
           //   避免改變既有「點狀態欄可展開列」的行為。
-          statusCellHtml = isSuperAdmin
+          statusCellHtml = canFulfill
             ? '<td onclick="event.stopPropagation()" style="white-space:nowrap">' +
                 '<span class="status-badge-order-processing">Order Processing</span>' +
-                '<button id="complete-' + q.id + '" class="btn-complete-order" ' +
-                  'onclick="completeOrder(\'' + q.id + '\')">Complete</button>' +
+                '<button id="fulfill-' + q.id + '" class="btn-fulfill-order" ' +
+                  'onclick="fulfillOrder(\'' + q.id + '\')">Fulfilled</button>' +
               '</td>'
             : '<td><span class="status-badge-order-processing">Order Processing</span></td>';
         } else if (isOrderCompleted) {
@@ -1079,10 +1096,11 @@ function renderTable() {
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
         statusCellHtml +
+        '<td class="td-date">' + formatDateOnly(q.fulfillment_date) + '</td>' +
         actionCellHtml +
       '</tr>' +
       '<tr class="detail-row" id="detail-' + idx + '">' +
-        '<td colspan="7" class="detail-cell">' +
+        '<td colspan="8" class="detail-cell">' +
           '<div class="detail-inner">' +
             reasonBanner +
             '<div class="detail-grid">' +
@@ -1195,15 +1213,15 @@ showToast('Status updated to ' + pcQuoteStatusLabel(newStatus));
 // onDone 用 loadQuotes() 而非整頁 reload:重新撈資料並重繪 stats/table,
 // 同時保留使用者當前的 filter 與搜尋條件。
 // ════════════════════════════════════════════════════════════════════
-async function completeOrder(quoteId) {
+async function fulfillOrder(quoteId) {
   const q = allQuotes.find(function (x) { return x.id === quoteId; });
   if (!q) return;
   await window.ProCraftOrderComplete.run({
-    supabase:     _supabase,
-    quote:        q,
-    isSuperAdmin: (currentUserRole === 'super_admin'),
-    buttonEl:     document.getElementById('complete-' + quoteId),
-    onDone:       function () { loadQuotes(); }
+    supabase: _supabase,
+    quote:    q,
+    isAdmin:  (currentUserRole === 'admin' || currentUserRole === 'super_admin'),
+    buttonEl: document.getElementById('fulfill-' + quoteId),
+    onDone:   function () { loadQuotes(); }
   });
 }
 
