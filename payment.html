@@ -172,13 +172,13 @@
 <div class="modal-overlay" id="payConfirmModal" role="dialog" aria-modal="true" aria-labelledby="payConfirmTitle">
   <div class="modal-box">
     <div class="modal-icon-wrap"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
-    <div class="modal-title" id="payConfirmTitle">Confirm Payment</div>
+    <div class="modal-title" id="payConfirmTitle">Confirm Payment Method</div>
     <div class="modal-amount" id="payConfirmAmount">&mdash;</div>
-    <div class="modal-note">After you confirm, please stay on this page &mdash; the secure QuickBooks payment window can take a few seconds to open.</div>
-    <div class="modal-note last">If the window doesn&rsquo;t appear, don&rsquo;t close this page. A payment link button will appear here shortly, and you can open the window from there.</div>
+    <div class="modal-note">Confirming moves this order into <strong>Payment Processing</strong>. Nothing is charged at this step.</div>
+    <div class="modal-note last">Once confirmed, you won&rsquo;t be able to change the payment method yourself &mdash; please contact us if you need to switch.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnPayConfirmCancel">Cancel</button>
-      <button class="btn btn-primary" id="btnPayConfirmOk"><span class="btn-text">Confirm &amp; Continue</span></button>
+      <button class="btn btn-primary" id="btnPayConfirmOk"><span class="btn-text">Confirm Method</span></button>
     </div>
   </div>
 </div>
@@ -423,9 +423,11 @@ function renderMethodSelect() {
         </label>
       </div>
 
+      <div class="notice warn">Selecting a payment method will move this order into payment processing. To change it afterward, please contact us.</div>
+
       <div class="btn-row">
         <button class="btn btn-primary" id="btnContinue" disabled>
-          <span class="btn-text">Continue to Payment</span>
+          <span class="btn-text">Continue</span>
         </button>
       </div>
     </div>`;
@@ -444,7 +446,7 @@ function renderMethodSelect() {
 
   document.getElementById('btnContinue').addEventListener('click', () => {
     if (!selectedMethod) return;
-    if (selectedMethod === 'check') renderCheck();
+    if (selectedMethod === 'check') renderCheckSimple();
     else renderCardAch(selectedMethod);
   });
 }
@@ -460,7 +462,7 @@ function renderCardAch(method) {
     ${backLinkHtml()}
     <div class="card">
       <div class="card-title">${methodLabel(method)}</div>
-      <div class="card-sub">You'll be redirected to QuickBooks secure checkout to complete this payment.</div>
+      <div class="card-sub">Confirm this payment method to move your order into payment processing.</div>
       ${quoteStripHtml()}
 
       <div class="amount-rows">
@@ -470,13 +472,13 @@ function renderCardAch(method) {
         <div class="amount-row grand"><span class="lbl">Total to Pay</span><span class="val">${fmt(f.total)}</span></div>
       </div>
 
-      <div class="qb-note">Payments are processed by Intuit Payments Inc. (QuickBooks Payments). The fee shown reflects QuickBooks Payments processing costs.</div>
+      <div class="qb-note">${instructionHtml(method)} The transaction fee shown reflects QuickBooks Payments processing costs.</div>
 
       <div class="notice error hidden" id="payError"></div>
 
       <div class="btn-row">
         <button class="btn btn-primary" id="btnProceed">
-          <span class="spinner"></span><span class="btn-text">Proceed to Payment</span>
+          <span class="spinner"></span><span class="btn-text">Confirm Payment Method</span>
         </button>
         <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
       </div>
@@ -504,10 +506,10 @@ let _pendingProceed = null;   // { method, f } —— 等待 Confirm 的付款�
 function openPayConfirm(method, f) {
   const overlay = document.getElementById('payConfirmModal');
   // 保險:markup 不在(理論上不可能)就直接走原流程,不要卡住 dealer 付款
-  if (!overlay) { proceedCardAch(method, f); return; }
+  if (!overlay) { submitSimplifiedPayment(method, f); return; }
   _pendingProceed = { method: method, f: f };
   document.getElementById('payConfirmAmount').innerHTML =
-    `You&rsquo;re about to pay <strong>${fmt(f.total)}</strong> by <strong>${escapeHtml(methodLabel(method))}</strong>.`;
+    `Payment method: <strong>${escapeHtml(methodLabel(method))}</strong><br/>Amount Due: <strong>${fmt(f.total)}</strong>`;
   overlay.classList.add('show');
   const ok = document.getElementById('btnPayConfirmOk');
   if (ok) ok.focus();
@@ -528,7 +530,7 @@ function wirePayConfirm() {
   document.getElementById('btnPayConfirmOk').addEventListener('click', () => {
     const pend = _pendingProceed;
     closePayConfirm();
-    if (pend) proceedCardAch(pend.method, pend.f);
+    if (pend) submitSimplifiedPayment(pend.method, pend.f);
   });
   // 點背景 / ESC = Cancel(非破壞性動作,安全)
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closePayConfirm(); });
@@ -537,6 +539,176 @@ function wirePayConfirm() {
   });
 }
 
+// =====================================================================
+// CB-61 SIMPLIFIED — 手動付款流程共用件
+// ---------------------------------------------------------------------
+// 簡化版拿掉「自動開 QB invoice / 產 pay link / redirect QB」。dealer 選定
+// 方式後只做三件事:quotes.status → Payment Processing、寫一筆無 invoice 的
+// payment 列、發 E1b。QB invoice 由專人事後在 QuickBooks 手動開立。
+//
+// 🔴 F2 Case 2 鐵律:dealer 推進 Pending 時,quotes 表除 status 外整列凍結。
+//    submitSimplifiedPayment 的 UPDATE 只帶 status 一欄 —— 多帶任何欄位
+//    (含 updated_at)都會觸發 trg_enforce_dealer_quote_transition exception。
+//    付款資料寫在 payments 表,不受此限。
+//
+// 可逆:恢復自動流程時,把 openPayConfirm / wirePayConfirm 的呼叫導回
+//    proceedCardAch()、renderMethodSelect 的 check 分支導回 renderCheck(),
+//    兩支舊函式與 renderWaiting / submitCheck 都原封保留在下方。
+// =====================================================================
+
+// 付款指示文案 —— 單一來源。送出後畫面、Card/ACH 中間頁、reload 後的
+// Processing 畫面三處共用,避免各處講法不一致。
+function instructionHtml(method) {
+  return (method === 'check')
+    ? `Please send your check image to <a href="mailto:accounting@procraftdc.com">accounting@procraftdc.com</a>.`
+    : `Our sales team will send you a QuickBooks payment link shortly. Questions? Contact <a href="mailto:sales@procraftdc.com">sales@procraftdc.com</a>.`;
+}
+
+// 畫面:Check(簡化版)—— 無上傳 UI。結構刻意對齊 renderCardAch,
+// 共用 #btnProceed / #payError,讓 submitSimplifiedPayment 三方式通用。
+function renderCheckSimple() {
+  const base = parseFloat(quote.grand_total || 0);
+  const f = computeFee('check', base);
+
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="card-title">${methodLabel('check')}</div>
+      <div class="card-sub">Confirm this payment method to move your order into payment processing.</div>
+      ${quoteStripHtml()}
+
+      <div class="pay-to">
+        <div class="lbl">Make Check Payable To</div>
+        <div class="val">ProCraft Cabinetry DC LLC</div>
+      </div>
+      <div class="check-help">Please write the check for <strong>${fmt(f.total)}</strong> payable to <strong>ProCraft Cabinetry DC LLC</strong>.</div>
+
+      <div class="amount-rows">
+        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel('check')}</span></div>
+        <div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(f.base)}</span></div>
+        <div class="amount-row"><span class="lbl">Transaction Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">Total to Pay</span><span class="val">${fmt(f.total)}</span></div>
+      </div>
+
+      <div class="qb-note">${instructionHtml('check')}</div>
+
+      <div class="notice error hidden" id="payError"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btnProceed">
+          <span class="spinner"></span><span class="btn-text">Confirm Payment Method</span>
+        </button>
+        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
+      </div>
+    </div>`;
+
+  document.getElementById('btnChangeMethod').addEventListener('click', changeMethod);
+  // D-1:Check 也走 CB-56 確認 modal —— 簡化版拿掉上傳這道天然摩擦後,
+  //      「點下即鎖」的後果與 Card/ACH 相同,防誤觸不能只給兩方式。
+  document.getElementById('btnProceed').addEventListener('click', () => openPayConfirm('check', f));
+}
+
+// 送出:三方式共用。寫序 quotes(只改 status)→ payments → E1b → instruction。
+async function submitSimplifiedPayment(method, f) {
+  const btn   = document.getElementById('btnProceed');
+  const errEl = document.getElementById('payError');
+  if (errEl) errEl.classList.add('hidden');
+  if (btn) { btn.classList.add('loading'); btn.disabled = true; }
+
+  try {
+    // ① UPDATE quotes —— 🔴 只寫 status 一欄(F2 Case 2 整列凍結)。
+    //    .eq('status','Pending') 為前態守衛 + 併發保護(兩分頁同送,第二個 count=0 擋下)。
+    //    count:'exact' 讓 RLS/trigger 靜默擋下(0 列)時 throw,不假成功;
+    //    此時尚未建立 payment 列,不留孤兒。
+    const { error: updErr, count: updCount } = await _supabase
+      .from('quotes')
+      .update({ status: 'Payment Processing' }, { count: 'exact' })
+      .eq('id', quoteId)
+      .eq('status', 'Pending');
+    if (updErr) throw updErr;
+    if (updCount === 0) {
+      throw new Error("Couldn't update the order status. Please refresh and try again, or contact us.");
+    }
+
+    // ② INSERT payments —— 金額四欄 + method + status 照寫。
+    //    quickbooks_invoice_id / quickbooks_payment_link 刻意不寫(留 NULL):
+    //    confirm / cancel / Receipt / Export 都不讀這兩欄,天然相容。
+    //    fee 一律走 computeFee(讀 settings),三方式不 hardcode。
+    const { data: payRow, error: insErr } = await _supabase
+      .from('payments')
+      .insert({
+        quote_id:       quoteId,
+        payment_method: method,
+        base_amount:    f.base,
+        fee_percentage: f.pct,
+        fee_amount:     f.fee,
+        total_paid:     f.total,
+        status:         'processing',
+      })
+      .select('id')
+      .single();
+    if (insErr) throw insErr;
+    const paymentId = payRow.id;
+
+    // ③ E1b —— 觸發源由 WF1 搬到此處。失敗只 log 不阻斷(對齊既有慣例)。
+    try {
+      const { data: { session } } = await _supabase.auth.getSession();
+      await fetch(`${window.SB_URL}/functions/v1/send-payment-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ type: 'payment_submitted', quote_id: quoteId, payment_id: paymentId }),
+      });
+    } catch (emailErr) {
+      console.error('[payment] send-payment-email failed (non-blocking):', emailErr);
+    }
+
+    // ④ 指示畫面
+    renderInstruction(method, f);
+
+  } catch (err) {
+    console.error('[payment] submitSimplifiedPayment failed:', err);
+    if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
+    if (errEl) {
+      errEl.textContent = 'Submission failed: ' + (err.message || 'An unexpected error occurred. Please try again.');
+      errEl.classList.remove('hidden');
+    }
+  }
+}
+
+// 畫面:送出成功後的指示。金額用 "Amount Due" —— 此刻錢尚未付,
+// 與 E1b / E1a 的 Amount Due 語義一致。
+function renderInstruction(method, f) {
+  const heading = (method === 'check') ? 'Check Selected' : 'Payment Method Confirmed';
+  root().innerHTML = `
+    ${backLinkHtml()}
+    <div class="card">
+      <div class="state-block">
+        <div class="state-icon ok"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+        <div class="state-heading">${heading}</div>
+        <div class="state-text">Your order is now in payment processing.</div>
+      </div>
+
+      <div class="notice info">${instructionHtml(method)}</div>
+
+      <div class="amount-rows">
+        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(method)}</span></div>
+        <div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(f.base)}</span></div>
+        <div class="amount-row"><span class="lbl">Transaction Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">Amount Due</span><span class="val">${fmt(f.total)}</span></div>
+      </div>
+
+      <div class="btn-row" style="justify-content:center;">
+        <a class="btn btn-primary" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">Back to Order</a>
+      </div>
+    </div>`;
+}
+
+/* CB-61 SIMPLIFIED: auto-invoice disabled — proceedCardAch() 已無呼叫端。
+   保留完整原碼供日後恢復(WF1 webhook → QB invoice → pay link → redirect)。
+   恢復方式:把 openPayConfirm / wirePayConfirm 兩處呼叫改回 proceedCardAch。 */
 async function proceedCardAch(method, f) {
   const btn = document.getElementById('btnProceed');
   const errEl = document.getElementById('payError');
@@ -594,6 +766,11 @@ const CHECK_ALLOWED_EXT  = ['jpg', 'jpeg', 'png', 'pdf'];
 const CHECK_MAX_BYTES     = 5 * 1024 * 1024; // 5MB
 let _checkFile = null;
 
+/* CB-61 SIMPLIFIED: portal check-image upload removed — renderCheck() 與
+   submitCheck() / resetCheckFile() / CHECK_* 常數已無呼叫端,Check 改走
+   renderCheckSimple() + submitSimplifiedPayment(),支票圖改寄 accounting@。
+   全段保留供日後恢復;storage bucket 'payment-checks' 與 payments
+   .check_image_url 欄位皆未動,舊單圖片在 admin 端照常顯示。 */
 function renderCheck() {
   _checkFile = null;
 
@@ -834,7 +1011,7 @@ const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
         ${amountRowsHtml}
       </div>
 
-      ${isCardAch ? `<div class="notice info">If you completed payment in QuickBooks, it may take a moment to confirm. Use “Refresh Status” to check again.</div>` : `<div class="notice info">We've received your check image and will confirm once verified.</div>`}
+      <div class="notice info">${instructionHtml(p.payment_method)}</div>
 
       <div class="btn-row" style="${btnRowStyle}">
         ${contBtn}
@@ -850,6 +1027,8 @@ const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
 // =====================================================================
 // 畫面:等待付款確認(Card/ACH Proceed 成功後)
 // =====================================================================
+/* CB-61 SIMPLIFIED: auto-invoice disabled — renderWaiting() 已無呼叫端
+   (唯一呼叫者為 proceedCardAch)。保留供日後恢復。 */
 function renderWaiting(payLink) {
   const payBtn = payLink
     ? `<a class="btn btn-primary" href="${escapeHtml(payLink)}" target="_blank" rel="noopener"><span class="btn-text">Pay Now</span></a>`
@@ -903,6 +1082,8 @@ function renderCompleted() {
     </div>`;
 }
 
+/* CB-61 SIMPLIFIED: renderCheckSuccess() 已無呼叫端 —— 舊文案講「已收到
+   支票圖」,簡化版無上傳故不再成立,改由 renderInstruction('check') 取代。 */
 function renderCheckSuccess() {
   root().innerHTML = `
     ${backLinkHtml()}
