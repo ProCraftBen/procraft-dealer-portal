@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title data-i18n="login.meta.title">ProCraft Dealer Portal — Login</title>
+  <title>ProCraft Dealer Portal — Login</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
     /* ── DESIGN PREVIEW ONLY ──────────────────────────────────────────
@@ -263,23 +263,6 @@
       .brand-line { font-size: 22px; }
       .form { padding: 34px 26px; }
     }
-    /* ── CB-62 | Spanish layout overrides ───────────────────────────────
-       語言專屬微調一律走 html[lang="..."],【不動共用規則】。
-       英文渲染路徑完全不經過這些選擇器 → 英文版面 byte-identical。
-       未來加簡中只需再補一個 html[lang="zh"] 區塊,共用樣式仍不動。
-
-       ⚠️ 每個斷點都要各自寫一份:html[lang="es"] .x 的權重(0,2,1)高於
-          media query 內的 .x(0,1,0),只寫頂層那份會蓋掉 RWD 規則。 */
-    html[lang="es"] .brand-line { max-width: 16ch; font-size: 34px; }
-    html[lang="es"] .btn-apply  { letter-spacing: 0.12em; }
-
-    @media (max-width: 780px) {
-      html[lang="es"] .brand-line { font-size: 22px; max-width: 24ch; }
-    }
-    @media (max-width: 480px) {
-      html[lang="es"] .brand-line { font-size: 20px; }
-      html[lang="es"] .forgot     { font-size: 12px; }
-    }
   </style>
 </head>
 <body>
@@ -290,49 +273,45 @@
         <img src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
       </div>
       <div class="brand-eyebrow">ProCraft Cabinetry · DC</div>
-      <div class="brand-line"><span data-i18n="login.brand.tagline_1">Built to last, </span><em data-i18n="login.brand.tagline_2">designed to elevate.</em></div>
+      <div class="brand-line">Built to last, <em>designed to elevate.</em></div>
       <div class="brand-spacer"></div>
       <div class="brand-list">
-        <span data-i18n="login.brand.pillar_configure">Configure</span>
-        <span data-i18n="login.brand.pillar_quote">Quote</span>
-        <span data-i18n="login.brand.pillar_get_paid">Get&nbsp;Paid</span>
+        <span>Configure</span>
+        <span>Quote</span>
+        <span>Get&nbsp;Paid</span>
       </div>
     </div>
 
     <!-- RIGHT: form -->
     <div class="form">
-      <div id="pcd-lang-switch"></div>
-
       <div class="form-head">
-        <div class="card-title" data-i18n="login.title">Sign In</div>
-        <div class="card-subtitle" data-i18n="login.subtitle">Enter your credentials to access your account.</div>
+        <div class="card-title">Sign In</div>
+        <div class="card-subtitle">Enter your credentials to access your account.</div>
       </div>
 
       <div class="error-msg" id="errorMsg"></div>
       <div class="info-msg" id="infoMsg"></div>
 
       <div class="field">
-        <label data-i18n="login.field.email_label">Email Address</label>
-        <input type="email" id="email" placeholder="you@company.com" data-i18n-placeholder="login.field.email_placeholder" autocomplete="email"/>
+        <label>Email Address</label>
+        <input type="email" id="email" placeholder="you@company.com" autocomplete="email"/>
       </div>
       <div class="field">
-        <label data-i18n="login.field.password_label">Password</label>
+        <label>Password</label>
         <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
       </div>
-      <a href="#" class="forgot" id="forgotLink" data-i18n="login.forgot_link" onclick="forgotPassword(event)">Forgot password? / First time here?</a>
-      <button class="btn-login" id="loginBtn" data-i18n="login.btn.sign_in">Sign In</button>
+      <a href="#" class="forgot" id="forgotLink" onclick="forgotPassword(event)">Forgot password? / First time here?</a>
+      <button class="btn-login" id="loginBtn">Sign In</button>
 
-      <div class="divider-or"><span data-i18n="login.divider_or">or</span></div>
-      <a href="https://dc.procraftcabinetry.com/become-a-dealer/" target="_blank" class="btn-apply" data-i18n="login.btn.apply_dealer">Apply to Become a Dealer</a>
+      <div class="divider-or"><span>or</span></div>
+      <a href="https://dc.procraftcabinetry.com/become-a-dealer/" target="_blank" class="btn-apply">Apply to Become a Dealer</a>
 
-      <div class="card-footer" data-i18n="login.footer.copyright">© 2026 ProCraft Cabinetry DC · All rights reserved</div>
+      <div class="card-footer">© 2026 ProCraft Cabinetry DC · All rights reserved</div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="components/i18n.js?v=cb62"></script>
-  <script src="components/lang-switch.js?v=cb62"></script>
   <script>
     const { createClient } = supabase;
     const _supabase = createClient(
@@ -737,6 +716,5 @@
       }
     }
   </script>
-  <script src="components/login-i18n-bridge.js?v=cb62"></script>
 </body>
 </html>
