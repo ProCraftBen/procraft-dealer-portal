@@ -65,9 +65,9 @@
     /* CB-43 T14-2: 放行按鈕。吃 T14-1 鎖定的 --status-stock-review,不新增色值。 */
     .btn-action.stock-release { background: var(--status-stock-review); color: #fff; }
     .btn-action.stock-release:hover { background: #0E7490; }
-    /* CB-55: 完成按鈕。吃 Q-4 拍板的 --status-order-completed,與 badge 同色。 */
-    .btn-action.order-complete { background: var(--status-order-completed); color: #fff; }
-    .btn-action.order-complete:hover { background: #115E59; }
+    /* CB-55 / CB-59: Fulfilled 按鈕。吃 Q-4 拍板的 --status-order-completed,與 badge 同色。 */
+    .btn-action.order-fulfill { background: var(--status-order-completed); color: #fff; }
+    .btn-action.order-fulfill:hover { background: #115E59; }
 
     /* ── Returned Reason Banner ── */
     .return-banner {
@@ -649,10 +649,11 @@ const ADMIN_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned'];
 // 建立按鈕與「失敗還原按鈕」共用同一份,避免兩處文案漂移。
 const RELEASE_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Confirm Stock &amp; Send Payment Link';
 
-// ── CB-55: 完成按鈕的 inner HTML ──
+// ── CB-55 / CB-59: Fulfilled 按鈕的 inner HTML ──
 // 只用於建立按鈕。失敗還原由 order-complete.js 以捕捉到的 innerHTML 處理,
 // 故不需要像 RELEASE_BTN_INNER 那樣兩處共用。
-const COMPLETE_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Mark Order Complete';
+// CB-59:文字改為完整句式 "Mark as Fulfilled"(admin-quotes 列內為短版 "Fulfilled")。
+const FULFILL_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Mark as Fulfilled';
 // ─────────────────────────────────────────────────────────────────────────
 // F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
 // 7-/11-letter labels from wrapping in narrow table columns.
@@ -796,7 +797,8 @@ const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false, _me = null;
-let _isSuperAdmin = false;   // CB-55:Complete 僅限 super_admin,與 _isAdmin 分開判斷
+// CB-59:Fulfilled 放寬給 admin + super_admin,直接沿用 _isAdmin,
+//   原本的 _isSuperAdmin 旗標已無使用者,一併移除不留死變數。
 let _returnHistory = [];
 let _groupedItems = null; // F4.1 v2: items reconstructed into per-SKU sub_groups
 let _allDoorStyles = [];  // CB-5 需求1: door_styles 快取(整單 lead time)
@@ -805,6 +807,18 @@ let _allSkusFrameless = [];  // CB-9: tag 查表用(skus_frameless)
 
 function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
 function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
+// CB-59 B-2:fulfillment_date 是 DB 的 date 型別,PostgREST 回傳 "YYYY-MM-DD"。
+//   絕不可套用上面的 formatDate() —— new Date('2026-08-06') 會被當 UTC 午夜
+//   解析,美東時區顯示成前一天(選 8/6 顯示 August 5)。
+//   改以 local 分量三參數建構 Date,不經 UTC。
+function formatDateOnly(str) {
+  if (!str) return '-';
+  const p = String(str).split('-');
+  if (p.length !== 3) return '-';
+  const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+}
 function formatDateTime(str) {
   return new Date(str).toLocaleString('en-US', {
     month:'short', day:'numeric', year:'numeric',
@@ -1408,7 +1422,6 @@ async function init() {
   const { data: me } = await _supabase.from('dealers').select('company_name, role').eq('id', session.user.id).single();
   const isAdmin = ['admin','super_admin'].includes(me?.role);
   _isAdmin = isAdmin;
-  _isSuperAdmin = (me?.role === 'super_admin');   // CB-55(對齊 F9 的判斷方式)
   _me = { company_name: me?.company_name, role: me?.role };   // CB-50: 當下登入者（download stamp 用）
   if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
 
@@ -1584,13 +1597,15 @@ function renderQuote(quote, dealer, addr) {
     ? `<button id="releaseStockBtn" class="btn-action stock-release" onclick="releaseStock()">${RELEASE_BTN_INNER}</button>`
     : '';
 
-  // ── CB-55: 完成按鈕(僅 super_admin + status='Order Processing')──
-  // dealer 與一般 admin 絕對看不到 —— 結案是 super_admin 專屬的不可逆動作(Q-2)。
+  // ── CB-55 / CB-59: Fulfilled 按鈕(admin + super_admin + status='Order Processing')──
+  // CB-59 將 CB-55 原本的 super_admin only 放寬為 admin + super_admin;
+  // dealer 仍絕對看不到。階段 0 已實測 admin 的 JWT 可通過
+  // admin_update_all_quotes 且不被 F2 trigger 擋,故此處放寬即可。
   // 這裡的條件只決定「要不要渲染」;真正的授權與狀態守衛在 order-complete.js
   // 與 DB 的 .eq('status',...) 兩層,前端渲染條件不是安全邊界。
-  const canCompleteOrder = _isSuperAdmin && quote.status === 'Order Processing';
-  const completeOrderButtonHtml = canCompleteOrder
-    ? `<button id="completeOrderBtn" class="btn-action order-complete" onclick="completeOrder()">${COMPLETE_BTN_INNER}</button>`
+  const canFulfillOrder = _isAdmin && quote.status === 'Order Processing';
+  const fulfillOrderButtonHtml = canFulfillOrder
+    ? `<button id="fulfillOrderBtn" class="btn-action order-fulfill" onclick="fulfillOrder()">${FULFILL_BTN_INNER}</button>`
     : '';
 
 // ── Ship To 區塊(5 檔鏡像同一份 resolver)──
@@ -1954,7 +1969,7 @@ function renderQuote(quote, dealer, addr) {
         ${adminEditButtonHtml}
         ${internalDraftEditButtonHtml}
         ${releaseStockButtonHtml}
-        ${completeOrderButtonHtml}
+        ${fulfillOrderButtonHtml}
         ${downloadButtonsHtml}
         ${receiptButtonHtml}
       </div>
@@ -1970,6 +1985,7 @@ function renderQuote(quote, dealer, addr) {
           <div><div class="info-label">Contact</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
           <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
           <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${statusText}</span></div></div>
+          <div><div class="info-label">Fulfillment Date</div><div class="info-value">${formatDateOnly(quote.fulfillment_date)}</div></div>
         </div>
       </div>
     </div>
@@ -2196,20 +2212,21 @@ async function releaseStock() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// CB-55: 完成訂單 — Order Processing → Order Completed + 感謝信
+// CB-55 / CB-59: Fulfilled — Order Processing → Order Completed
+//                 + fulfillment_date + 感謝信
 //
 // 實作全部在 components/order-complete.js,與 admin-quotes.html 共用同一份。
-// 此處只把本頁的 context 交給模組:寫序、status 守衛、確認彈窗、寄信失敗
+// 此處只把本頁的 context 交給模組:日期 modal、寫序、status 守衛、寄信失敗
 // 處理皆由模組統一負責,兩頁行為必定一致(這是 Q-17=B 的整個重點)。
 // ─────────────────────────────────────────────────────────────────────────
-async function completeOrder() {
+async function fulfillOrder() {
   if (!_quote) return;
   await window.ProCraftOrderComplete.run({
-    supabase:     _supabase,
-    quote:        _quote,
-    isSuperAdmin: _isSuperAdmin,
-    buttonEl:     document.getElementById('completeOrderBtn'),
-    onDone:       function () { window.location.reload(); }
+    supabase: _supabase,
+    quote:    _quote,
+    isAdmin:  _isAdmin,
+    buttonEl: document.getElementById('fulfillOrderBtn'),
+    onDone:   function () { window.location.reload(); }
   });
 }
 
