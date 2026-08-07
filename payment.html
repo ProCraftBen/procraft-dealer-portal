@@ -1012,16 +1012,21 @@ const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
       </div>
 
       <div class="notice info">${instructionHtml(p.payment_method)}</div>
+      <div class="qb-note">Need to change your payment method? Please contact us &mdash; this order is already in payment processing.</div>
 
       <div class="btn-row" style="${btnRowStyle}">
         ${contBtn}
         <button class="${refreshCls}" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
-        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
       </div>
     </div>`;
 
+  // CB-61 SIMPLIFIED: Change Method 已從此畫面移除。簡化版「點下即鎖定」,
+  //   要換方式必須由 super_admin cancel 退回 Waiting for Payment(既有機制)。
+  //   留著只會讓 dealer 回選方式頁、再送出時被前態守衛 count=0 擋下而報錯 ——
+  //   先給希望再報錯,且與選方式頁的鎖定提示自相矛盾。
+  //   中間頁(renderCardAch / renderCheckSimple)的 Change Method 保留:
+  //   那時尚未送出、狀態仍為 Pending,換方式合法。
   document.getElementById('btnRefresh').addEventListener('click', refreshStatus);
-  document.getElementById('btnChangeMethod').addEventListener('click', changeMethod);
 }
 
 // =====================================================================
