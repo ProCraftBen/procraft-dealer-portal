@@ -347,25 +347,76 @@ a decision on which file owns the display string.
 
 ## 11. Working notes
 
-### GitHub web UI — branch selection
+### GitHub web UI — branch and path
 
-Creating a file via **Add file → Create new file** resets the target branch to the
-repo default (`main`), **even if you had switched to `staging` beforehand**. The
-branch shown in the header is not what gets committed.
+Two separate traps, both hit during CB-62 Stage 2.
+
+**Branch.** Creating a file via **Add file → Create new file** resets the target
+branch to the repo default (`main`), **even if you had switched to `staging`
+beforehand**. The branch shown in the header is not what gets committed.
 
 - Use the direct URL: `…/new/staging` for a new file, `…/edit/staging/<path>` for an edit.
 - **Then confirm the radio button at the bottom of the page** reads
   *Commit directly to the `staging` branch*. That control is the only reliable one.
 
-This happened during CB-62 Stage 2 (both language files landed on `main`). Harmless
-that time — the files were inert and unreferenced — but the same slip on an HTML
-file would push untested code to production.
+**Path.** The filename field remembers the directory of the file you created last
+and shows it as a grey breadcrumb to the left of the input. Typing a bare
+`i18n.js` after having just created something under `i18n/` produces
+`i18n/i18n.js`, not `components/i18n.js`.
+
+- Always type the **full path** including the directory: `components/i18n.js`.
+- Check the grey breadcrumb before committing. Backspace clears it back to the repo root.
+
+Both slips landed on inert, unreferenced files and were harmless. The same slip on
+an HTML file would push untested code to production.
+
+### 🔴 GitHub Pages — deployment is two-stage and serialised
+
+**The main repo's Action turning green does not mean the site is live.**
+
+Deployment runs in two stages:
+
+1. `Deploy staging to staging-repo` in **`procraft-dealer-portal`** — copies files
+   into the deployment repo. This is the green tick you see first.
+2. `pages build and deployment` in the **deployment repo** — actually publishes.
+
+Only the second one puts bytes in front of a browser. Before testing anything,
+check the *deployment repo's* Actions tab, not the main repo's.
+
+**Pages runs one deployment at a time.** A push that arrives while another
+deployment is still open is rejected with:
+
+```
+HttpError: Deployment request failed for <sha> due to in progress deployment.
+Please cancel <sha> first or wait for it to complete.
+```
+
+Worse, the failed deployment can stay flagged **Active** in the Deployments tab,
+holding the lock indefinitely. During CB-62 Stage 2 this blocked publishing for over
+30 minutes, and **Cancel workflow returned "Failed to cancel workflow"** — the
+Actions layer could not clear it.
+
+**What works:** Settings → Pages → set the source branch to **None** → Save → wait
+30 seconds → set it back to **`gh-pages`** / **`/ (root)`** → Save. This releases the
+lock and triggers a clean rebuild. Do this on the **deployment repo only** — the main
+repo's Pages settings serve production.
+
+Do *not* try to fix a stuck deployment by pushing again. Another push just queues
+behind the same lock and makes the backlog longer.
+
+**Prevention:** batch related edits into fewer commits, and space pushes out. Seven
+pushes in 35 minutes is what triggered it. This matters most for Stage B, which will
+touch 20+ pages.
 
 ### Promoting to `main`
 
 Copy files **individually**. Never `git merge` between `staging` and `main`:
 `config.js` differs between branches (staging carries a placeholder n8n webhook URL)
 and a merge will clobber it.
+
+Promote inert files (language files, components) **before** the HTML that references
+them. Until an HTML file loads them, the support files change nothing — which means
+the whole promote can be staged safely and rolled back by reverting one HTML file.
 
 ### Delivery checklist for i18n changes
 
