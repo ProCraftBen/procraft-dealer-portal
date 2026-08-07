@@ -10,6 +10,7 @@
   "login.brand.pillar_get_paid": "Cobrar",
 
   "login.title": "Iniciar sesión",
+  "login.subtitle": "Ingrese sus credenciales para acceder a su cuenta.",
 
   "login.field.email_label": "Correo electrónico",
   "login.field.email_placeholder": "usted@empresa.com",
