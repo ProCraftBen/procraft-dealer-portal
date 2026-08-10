@@ -193,5 +193,15 @@
   "profile.field.stock_mult": "Multiplicador de inventario",
   "profile.field.non_stock_mult": "Multiplicador sin inventario",
   "profile.field.frameless_mult": "Multiplicador sin marco",
+  "profile.err.contact_name": "Ingrese un nombre de contacto.",
+  "profile.err.phone": "Ingrese un número de teléfono.",
+  "profile.err.address": "Complete la dirección de su tienda.",
+  "profile.err.heading_len": "El título debe tener 30 caracteres o menos.",
+  "profile.err.description_len": "La descripción debe tener 200 caracteres o menos.",
+  "profile.err.no_photo": "Suba al menos una foto de la tienda.",
+  "profile.err.upload_failed": "No se pudo subir la foto.",
+  "profile.err.max_photos": "Máximo 5 fotos permitidas.",
+  "profile.err.not_image": "{name} no es un archivo JPG o PNG.",
+  "profile.err.too_large": "{name} supera el límite de 5MB.",
   "profile.btn.save": "Guardar perfil"
 }
