@@ -101,6 +101,8 @@
   "quotes.modal.msg": "Are you sure you want to delete this draft?",
   "quotes.modal.warning": "This action cannot be undone.",
   "quotes.modal.confirm": "Delete Draft",
+  "quotes.delete.err_blocked": "Could not delete this draft. It may no longer be a draft, or the page is out of date.",
+  "quotes.delete.toast": "Draft \"{name}\" deleted.",
 
   "password.title": "Change Password",
   "password.subtitle": "Enter your current password and choose a new one.",
