@@ -333,15 +333,68 @@ Lowercase, dot-separated, underscores within a segment. Enforced by review, not 
 code. Approved at CB-62 Stage 0 (Q-5) as the basis for all Stage B pages —
 **do not renegotiate the structure per page.**
 
-### 🔴 Reserved: `status.*`
+### 🔴 `status.*` — owned by `status-label.js`, not by `i18n.js`
 
-`components/status-label.js` is the single source of truth for `quotes.status`
-display names, and it is deliberately decoupled from the DB values (which drive F2
-triggers, n8n filters and RLS, and must never change).
+Resolved at CB-62 Stage B / B1 (Q-8). Read this before touching anything status-related.
 
-`status.*` keys are **reserved but unused**. Do not add them ad hoc. Reconciling
-`status-label.js` with the i18n layer is the **first item of Stage B**, and it needs
-a decision on which file owns the display string.
+`components/status-label.js` maps `quotes.status` **DB values** to display names. The
+DB values drive F2 triggers, n8n filters and RLS and must never change; only the
+display name is translated.
+
+**The switch is whether `i18n.js` is loaded on the page.**
+
+| Page | Loads `i18n.js`? | `status-label.js` behaviour |
+| --- | --- | --- |
+| `admin.html`, `admin-quotes.html` | no | identical to pre-i18n — English, always |
+| dealer pages | yes | looks up `status.*`, falls back to English |
+
+Admin pages need no flag, no role check, no blocklist. They simply don't load
+`i18n.js`, so `window.pcT` is undefined and the lookup is skipped. This is why
+`status-label.js` does **not** retire: it is simultaneously the single source of truth
+for admin and the English fallback layer for dealers.
+
+**Lookup chain:** `status.<label|short>.<slug>` → the `LABEL` / `SHORT` map inside
+`status-label.js` → the raw DB value (for labels) or *skip* (for short forms).
+
+**Keys.** Nine labels, two short forms:
+
+```
+status.label.draft  stock_review  pending  returned  payment_processing
+             order_processing  order_completed  closed  cancelled
+status.short.pending  returned
+```
+
+DB value → slug goes through an explicit map in `status-label.js`. Do not derive
+slugs by transforming the string — a future status value would silently produce the
+wrong key.
+
+**🔴 `status.short.*` holds exactly two keys, and that is deliberate.** Short forms
+are for narrow stat cards. If a key is missing there, `status-label.js` **skips the
+node** rather than falling back to the full label — writing "Payment Processing" into
+a card sized for "Waiting" breaks the layout. Never add a `status.short.*` key just
+because a label exists.
+
+**🔴 Two English strings are duplicated on purpose.** `status.label.pending` /
+`status.label.returned` in `en.json` repeat the `LABEL` map inside
+`status-label.js`. The map is what admin pages use, and admin must never depend on
+the i18n layer. Same coupling pattern as the login Bridge (§7): **change one, change
+the other.** The other seven statuses exist only in `en.json`; on admin pages they
+fall through to the raw DB value, which is exactly what they render today.
+
+### 🔴 Who owns which node — one owner per node
+
+| Content | Owner | On language change |
+| --- | --- | --- |
+| `data-pc-status-label` / `-short` | `status-label.js` | re-hydrates itself |
+| `data-i18n` and friends | `i18n.js` | re-hydrates itself |
+| **Anything rendered by page JS** | **the page** | **the page must re-render** |
+
+The third row is the only per-page work in Stage B. Pattern: keep the fetched data in
+a module-scope variable, extract rendering into a function, and call it again from a
+`pc:i18n-changed` listener. `dashboard.html` is the reference implementation.
+
+**Never put `data-i18n` and `data-pc-status-*` on the same element.** Two hydrators
+would overwrite each other and the winner would depend on load order.
 
 ---
 
@@ -427,3 +480,38 @@ the whole promote can be staged safely and rolled back by reverting one HTML fil
 - [ ] `?v=` bumped on every `<script src="components/i18n.js…">`
 - [ ] §7 table updated if any `login.html` English string changed
 - [ ] Private-window load confirms the new language file is served
+
+---
+
+## 12. Spanish terminology (glossary)
+
+Fixed at CB-62 Stage B / B1 (Q-15). Reuse these across every page. Consistency
+matters more than any individual word choice — a dealer who sees *cotización* on one
+screen and *presupuesto* on the next assumes they are different things.
+
+| English | Spanish | Note |
+| --- | --- | --- |
+| Quote / Estimate | **Cotización** | Deliberately one word for both |
+| Draft | Borrador | |
+| Order | Pedido | |
+| Dealer | Distribuidor | |
+| Payment | Pago | |
+| Invoice | Factura | |
+| Receipt | Recibo | |
+| Discount | Descuento | |
+| Stock | Inventario | |
+| Shipping | Envío | |
+| Job Name | Nombre del proyecto | The project a quote belongs to |
+| **PO #** | *not translated* | Appears on PDFs, which stay English |
+| **SKU** | *not translated* | Same reason |
+
+**On Quote vs Estimate.** The English UI uses both for the same object — the button
+reads "New Estimate" but everything downstream says "quote". Spanish collapses them
+into *cotización* rather than reproducing the inconsistency. If the English wording is
+ever unified, no Spanish key needs to change.
+
+**Register.** Formal *usted* throughout, matching the B2B dealer context. Never *tú*.
+
+**Not translated anywhere:** brand names (`ProCraft Cabinetry · DC`, `ProCraft DC`),
+DB-sourced data (product names, SKUs, descriptions), and `quotes.status` DB values —
+only their display names are translated (§10).
