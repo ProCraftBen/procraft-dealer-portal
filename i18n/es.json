@@ -34,5 +34,30 @@
   "login.err.unexpected": "Ocurrió un error. Inténtelo de nuevo.",
   "login.err.email_required": "Primero ingrese su correo electrónico.",
 
-  "login.info.reset_sent": "Si este correo está registrado, se ha enviado un enlace de restablecimiento. Revise su bandeja de entrada."
+  "login.info.reset_sent": "Si este correo está registrado, se ha enviado un enlace de restablecimiento. Revise su bandeja de entrada.",
+
+  "status.label.draft": "Borrador",
+  "status.label.stock_review": "Revisión de inventario",
+  "status.label.pending": "Esperando pago",
+  "status.label.returned": "En revisión",
+  "status.label.payment_processing": "Procesando pago",
+  "status.label.order_processing": "Procesando pedido",
+  "status.label.order_completed": "Pedido completado",
+  "status.label.closed": "Cerrado",
+  "status.label.cancelled": "Cancelado",
+
+  "status.short.pending": "Esperando",
+  "status.short.returned": "Revisión",
+
+  "dashboard.welcome": "Bienvenido de nuevo",
+  "dashboard.loading": "Cargando...",
+  "dashboard.stat.total_quotes": "Cotizaciones totales",
+  "dashboard.stat.in_progress": "En proceso",
+  "dashboard.action.new_estimate": "Nueva cotización",
+  "dashboard.action.change_password": "Cambiar contraseña",
+  "dashboard.action.edit_profile": "Editar perfil",
+  "dashboard.recent.title": "Cotizaciones recientes",
+  "dashboard.recent.view_all": "Ver todas \u2192",
+  "dashboard.recent.empty": "Aún no hay cotizaciones. ¡Cree la primera!",
+  "dashboard.quote.draft_line": "\u270E Borrador (continuar editando)"
 }
