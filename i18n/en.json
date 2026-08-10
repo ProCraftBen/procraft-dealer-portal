@@ -34,5 +34,30 @@
   "login.err.unexpected": "Something went wrong. Please try again.",
   "login.err.email_required": "Please enter your email address first.",
 
-  "login.info.reset_sent": "If this email is registered, a reset link has been sent. Please check your inbox."
+  "login.info.reset_sent": "If this email is registered, a reset link has been sent. Please check your inbox.",
+
+  "status.label.draft": "Draft",
+  "status.label.stock_review": "Stock Review",
+  "status.label.pending": "Waiting for Payment",
+  "status.label.returned": "Revising",
+  "status.label.payment_processing": "Payment Processing",
+  "status.label.order_processing": "Order Processing",
+  "status.label.order_completed": "Order Completed",
+  "status.label.closed": "Closed",
+  "status.label.cancelled": "Cancelled",
+
+  "status.short.pending": "Waiting",
+  "status.short.returned": "Revising",
+
+  "dashboard.welcome": "Welcome back",
+  "dashboard.loading": "Loading...",
+  "dashboard.stat.total_quotes": "Total Quotes",
+  "dashboard.stat.in_progress": "In Progress",
+  "dashboard.action.new_estimate": "New Estimate",
+  "dashboard.action.change_password": "Change Password",
+  "dashboard.action.edit_profile": "Edit Profile",
+  "dashboard.recent.title": "Recent Quotes",
+  "dashboard.recent.view_all": "View All \u2192",
+  "dashboard.recent.empty": "No quotes yet. Create your first quote!",
+  "dashboard.quote.draft_line": "\u270E Draft (continue editing)"
 }
