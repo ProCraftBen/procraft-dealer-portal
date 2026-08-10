@@ -193,5 +193,15 @@
   "profile.field.stock_mult": "Stock Multiplier",
   "profile.field.non_stock_mult": "Non-Stock Multiplier",
   "profile.field.frameless_mult": "Frameless Multiplier",
+  "profile.err.contact_name": "Please enter a contact name.",
+  "profile.err.phone": "Please enter a phone number.",
+  "profile.err.address": "Please fill in your store address.",
+  "profile.err.heading_len": "Heading must be 30 characters or less.",
+  "profile.err.description_len": "Description must be 200 characters or less.",
+  "profile.err.no_photo": "Please upload at least one store photo.",
+  "profile.err.upload_failed": "Failed to upload photo.",
+  "profile.err.max_photos": "Maximum 5 photos allowed.",
+  "profile.err.not_image": "{name} is not a JPG or PNG.",
+  "profile.err.too_large": "{name} exceeds 5MB limit.",
   "profile.btn.save": "Save Profile"
 }
