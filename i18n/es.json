@@ -101,6 +101,8 @@
   "quotes.modal.msg": "¿Está seguro de que desea eliminar este borrador?",
   "quotes.modal.warning": "Esta acción no se puede deshacer.",
   "quotes.modal.confirm": "Eliminar borrador",
+  "quotes.delete.err_blocked": "No se pudo eliminar este borrador. Es posible que ya no sea un borrador o que la página esté desactualizada.",
+  "quotes.delete.toast": "Borrador \"{name}\" eliminado.",
 
   "password.title": "Cambiar contraseña",
   "password.subtitle": "Ingrese su contraseña actual y elija una nueva.",
