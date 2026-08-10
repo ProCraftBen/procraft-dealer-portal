@@ -100,34 +100,37 @@
 
 <div class="page">
   <div class="page-header">
-    <div class="greeting">Welcome back</div>
-    <h1 id="companyName">Loading...</h1>
+    <div id="pcd-lang-switch"></div>
+    <div class="greeting" data-i18n="dashboard.welcome">Welcome back</div>
+    <!-- ⚠️ #companyName 由 JS 寫入公司名稱。data-i18n 只作為載入中的佔位,
+         寫入公司名時會【移除該屬性】,否則切換語言會把公司名蓋成「載入中」。 -->
+    <h1 id="companyName" data-i18n="dashboard.loading">Loading...</h1>
   </div>
 
   <div class="stats-bar">
-    <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total Quotes</div></div>
+    <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label" data-i18n="dashboard.stat.total_quotes">Total Quotes</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label" data-pc-status-short="Pending">Waiting</div></div>
-    <div class="stat-card"><div class="stat-num" id="statInProgress">—</div><div class="stat-label">In Progress</div></div>
+    <div class="stat-card"><div class="stat-num" id="statInProgress">—</div><div class="stat-label" data-i18n="dashboard.stat.in_progress">In Progress</div></div>
   </div>
 
   <div class="action-row">
     <a href="new-quote.html" class="btn-new-quote">
       <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      New Estimate
+      <span data-i18n="dashboard.action.new_estimate">New Estimate</span>
     </a>
     <a href="change-password.html" class="btn-new-quote" style="background:transparent;color:var(--green-dark);border:1px solid var(--border);">
       <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-      Change Password
+      <span data-i18n="dashboard.action.change_password">Change Password</span>
     </a>
     <a href="dealer-profile.html" style="display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--green-dark);border:1px solid var(--border);border-radius:3px;padding:12px 20px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;text-decoration:none;min-height:44px;">
-      Edit Profile
+      <span data-i18n="dashboard.action.edit_profile">Edit Profile</span>
     </a>
   </div>
 
   <div class="panel">
     <div class="panel-header">
-      <span class="panel-title">Recent Quotes</span>
-      <a href="quotes.html" class="panel-action">View All →</a>
+      <span class="panel-title" data-i18n="dashboard.recent.title">Recent Quotes</span>
+      <a href="quotes.html" class="panel-action" data-i18n="dashboard.recent.view_all">View All →</a>
     </div>
     <div class="quote-list" id="quoteList">
       <div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div>
@@ -140,7 +143,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/status-label.js?v=1.0"></script>
+<script src="components/status-label.js?v=1.1"></script>
+<script src="components/i18n.js?v=cb62b"></script>
+<script src="components/lang-switch.js?v=cb62b"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
 <script>
@@ -197,7 +202,11 @@
 
     const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', userId).single();
     if (dealer) {
-      document.getElementById('companyName').textContent = dealer.company_name;
+      const nameEl = document.getElementById('companyName');
+      // 🔴 先移除 data-i18n 再寫入:此後 i18n.js 不會再碰這個節點,
+      //    切換語言時公司名不會被「載入中」蓋掉(CB-62 B1)。
+      nameEl.removeAttribute('data-i18n');
+      nameEl.textContent = dealer.company_name;
     }
 
     const { data: quotes } = await _supabase
@@ -220,9 +229,37 @@
     document.getElementById('statPending').textContent    = pending;
     document.getElementById('statInProgress').textContent = inProgress;
 
+    pcQuotes = all;
+    renderQuotes();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 🔴 CB-62 B1|語言切換重繪(Stage B 各頁的參考實作)
+  // -------------------------------------------------------------------
+  // 責任三分線:
+  //   靜態 data-i18n 節點        → i18n.js 自己重繪
+  //   靜態 data-pc-status-* 節點 → status-label.js 自己重繪
+  //   【JS 動態產生的內容】       → 由本頁負責,就是下面這段
+  //
+  // 作法:資料存模組層變數、渲染抽成函式、監聽 pc:i18n-changed 再呼叫一次。
+  // 不重新查 DB —— 換語言不該產生額外查詢。
+  // ═══════════════════════════════════════════════════════════════════
+  let pcQuotes = [];
+
+  // pcT 在 i18n.js 未載入或字典未就緒時回 null,故一律帶英文保底,
+  // 絕不讓畫面出現 "null"。
+  // ⚠️ 命名用 pc 前綴(B-1 教訓):頂層宣告會進 global scope,
+  //    短名稱如 t / tt 極易與其他 script 碰撞。
+  function pcTxt(key, fallback) {
+    return (typeof window.pcT === 'function' && window.pcT(key)) || fallback;
+  }
+
+  function renderQuotes() {
+    const all = pcQuotes;
     const quoteList = document.getElementById('quoteList');
+    if (!quoteList) return;
     if (!all.length) {
-      quoteList.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>No quotes yet. Create your first quote!</div>`;
+      quoteList.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>${escapeHtml(pcTxt('dashboard.recent.empty', 'No quotes yet. Create your first quote!'))}</div>`;
     } else {
       quoteList.innerHTML = all.map(q => {
         const isDraft = q.status === 'Draft';
@@ -235,7 +272,7 @@
 
         // Line 1: PO# for submitted quotes; Draft label for drafts (no PO# yet)
         const line1Class = isDraft ? 'quote-po-line draft-label' : 'quote-po-line';
-        const line1Text  = isDraft ? '✎ Draft (continue editing)' : (q.po_number || '—');
+        const line1Text  = isDraft ? pcTxt('dashboard.quote.draft_line', '\u270E Draft (continue editing)') : (q.po_number || '—');
 
         const safeJob   = escapeHtml(q.job_name || '—');
         const safeLine1 = escapeHtml(line1Text);
@@ -256,6 +293,9 @@
       }).join('');
     }
   }
+
+  // 語言變更 → 重繪動態清單(靜態節點由各自的水合器處理)
+  document.addEventListener('pc:i18n-changed', renderQuotes);
 
   init();
 </script>
