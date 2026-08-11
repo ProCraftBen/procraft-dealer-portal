@@ -287,7 +287,7 @@
   "nq1.distance.30_60": "30-60 mins — $250",
   "nq1.distance.previous": "Previous delivery fee — ${fee}",
   "nq1.shipping_note.title": "Shipping — Contact Sales Team",
-  "nq1.shipping_note.body": "Freight shipping is quoted individually. Our Sales team will confirm the shipping fee for your order; it is not added to your quote total here.",
+  "nq1.shipping_note.body": "Freight shipping is quoted individually. Our Sales team will confirm the shipping fee for your order; it is not added to your total in the portal.",
   "nq1.card.shipping_address": "Shipping / Delivery Address",
   "nq1.pickup.label": "Pick Up Location",
   "nq1.pickup.hours": "Hours: Mon-Fri 8:00 AM - 4:30 PM",
