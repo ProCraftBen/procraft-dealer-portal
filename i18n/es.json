@@ -287,7 +287,7 @@
   "nq1.distance.30_60": "30-60 min — $250",
   "nq1.distance.previous": "Tarifa de entrega anterior — ${fee}",
   "nq1.shipping_note.title": "Envío — Comuníquese con el equipo de ventas",
-  "nq1.shipping_note.body": "El flete se cotiza individualmente. Nuestro equipo de ventas confirmará el costo de envío de su pedido; aquí no se suma al total de la cotización.",
+  "nq1.shipping_note.body": "El flete se cotiza individualmente. Nuestro equipo de ventas confirmará el costo de envío de su pedido; aquí no se suma a su total en el portal.",
   "nq1.card.shipping_address": "Dirección de envío / entrega",
   "nq1.pickup.label": "Lugar de recogida",
   "nq1.pickup.hours": "Horario: Lun-Vie 8:00 AM - 4:30 PM",
