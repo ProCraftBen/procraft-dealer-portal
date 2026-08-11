@@ -1,11 +1,17 @@
 /* ──────────────────────────────────────────────────────────────────────
- * ProCraft Dealer Portal — Unified Footer Component (v1.2)
+ * ProCraft Dealer Portal — Unified Footer Component (v1.3)
  *
  * Self-contained sticky footer that sits at the bottom of every page.
  * Mirrors navigator.js design:
  *   - Dark green background (echoes navbar)
  *   - Gold accent color
  *   - Same typography stack
+ *
+ * v1.3 CHANGES (CB-62 B3):
+ *   - i18n support. Text is looked up from the language files when
+ *     components/i18n.js is present; otherwise the English below is used
+ *     verbatim, so admin pages are byte-for-byte unchanged.
+ *   - Re-renders on pc:i18n-changed.
  *
  * v1.2 CHANGES:
  *   - Fix RWD bug: body > .page now has min-width:0 + width:100%
@@ -38,11 +44,26 @@
 
   // ── Content ──────────────────────────────────────────────────────
   // Edit this object whenever you want to change the footer text.
+  //
+  // 🔴 CB-62 B3 — coupled with i18n/en.json:
+  //   copyright   <-> footer.copyright   (uses a {year} placeholder there)
+  //   contactText <-> footer.contact
+  //   Change one, change the other. The strings below are what admin pages
+  //   render (they never load i18n.js) and what every page falls back to if
+  //   a language file fails to load.
+  //   contactEmail is never translated.
   const FOOTER_CONTENT = {
     copyright:   '\u00A9 ' + new Date().getFullYear() + ' ProCraft Cabinetry DC LLC. All rights reserved.',
     contactText: 'Questions? Contact us at',
     contactEmail: 'sales@procraftdc.com',
   };
+
+  // ── i18n helper ──────────────────────────────────────────────────
+  // pcT is absent on admin pages and returns null for a missing key, so the
+  // English above is always the fallback. Never writes "null" to the DOM.
+  function t(key, fallback, params) {
+    return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
+  }
 
   // ── Inline Styles ────────────────────────────────────────────────
   // The body flex layout is what makes the footer sticky to bottom.
@@ -123,6 +144,14 @@
 
     injectStyles();
     render(container);
+
+    // CB-62 B3: re-render on language change. Cheap and self-contained —
+    // the footer holds no user input, so a full re-render is safe here
+    // (unlike the feedback widget, which must only re-hydrate).
+    document.addEventListener('pc:i18n-changed', function () {
+      const el = document.getElementById('pcd-footer');
+      if (el) render(el);
+    });
   }
 
   // ── Render ───────────────────────────────────────────────────────
@@ -140,11 +169,16 @@
   }
 
   function render(container) {
+    // {year} is supplied by i18n.js as a built-in parameter; the English
+    // fallback already has the current year baked in.
+    const copyright   = t('footer.copyright', FOOTER_CONTENT.copyright);
+    const contactText = t('footer.contact',   FOOTER_CONTENT.contactText);
+
     container.innerHTML =
       '<footer class="pcd-footer">' +
-        '<span class="pcd-footer-line">' + escapeHtml(FOOTER_CONTENT.copyright) + '</span>' +
+        '<span class="pcd-footer-line">' + escapeHtml(copyright) + '</span>' +
         '<span class="pcd-footer-line">' +
-          escapeHtml(FOOTER_CONTENT.contactText) + ' ' +
+          escapeHtml(contactText) + ' ' +
           '<a class="pcd-footer-email" href="mailto:' + encodeURI(FOOTER_CONTENT.contactEmail) + '">' +
             escapeHtml(FOOTER_CONTENT.contactEmail) +
           '</a>' +
