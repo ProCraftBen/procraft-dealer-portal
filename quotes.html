@@ -303,9 +303,6 @@
       pointer-events: none;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    /* CB-62 B2:切換鈕與 New Quote 按鈕並排。B3 併入導覽列後移除。 */
-    .pcd-head-right { display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
-    .pcd-head-right .pcd-lang { margin-bottom:0; }
   </style>
 </head>
 <body>
@@ -320,13 +317,10 @@
       <!-- ⚠️ #pageSub 由 JS 覆寫。data-i18n 僅為載入中佔位,寫入時會移除該屬性。 -->
       <div class="page-sub" id="pageSub" data-i18n="quotes.loading">Loading...</div>
     </div>
-    <div class="pcd-head-right">
-      <div id="pcd-lang-switch"></div>
-      <a href="new-quote.html" class="btn-new-quote">
-        <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-        <span data-i18n="quotes.btn.new_quote">New Quote</span>
-      </a>
-    </div>
+    <a href="new-quote.html" class="btn-new-quote">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      <span data-i18n="quotes.btn.new_quote">New Quote</span>
+    </a>
   </div>
 
   <!-- Stats — 6 cards -->
