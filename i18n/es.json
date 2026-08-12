@@ -316,7 +316,7 @@
   "nq1.billing.edit_hint_1": "Para actualizar los datos de facturación, edítelos en ",
   "nq1.billing.edit_hint_link": "su perfil",
   "nq1.billing.edit_hint_2": ".",
-  "nq1.billing.incomplete_1": "Su dirección de facturación parece incompleta. Vaya a ",
+  "nq1.billing.incomplete_1": "⚠ Su dirección de facturación parece incompleta. Vaya a ",
   "nq1.billing.incomplete_2": " para agregar la dirección línea 1 y el código postal antes de continuar.",
   "nq1.modal.edit_address": "Editar dirección",
   "nq1.btn.next": "Siguiente: seleccionar productos →",
@@ -329,7 +329,7 @@
   "nq1.alert.delete_address": "Error al eliminar la dirección.",
   "nq1.confirm.delete_address": "¿Eliminar esta dirección?",
   "nq1.review.title": "Revisar la orden de compra revisada",
-  "nq1.review.msg": "Está revisando su orden de compra revisada. Haga clic en Siguiente para revisar los detalles y volver a enviarla.",
+  "nq1.review.msg": "Está revisando su orden de compra revisada. Haga clic en Siguiente para revisar los detalles y volver a enviarla en el último paso. Comuníquese con su representante de ventas si tiene preguntas.",
   "nq1.review.reason_label": "Nota de revisión",
 
   "nq2.panel.door_styles": "Estilos de puerta",
