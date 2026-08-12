@@ -355,6 +355,7 @@
   "nq2.custom.title": "Artículos personalizados",
   "nq2.custom.hint": "Artículos ingresados a mano que no están en el catálogo (solo administradores)",
   "nq2.custom.add_title": "Agregar un artículo personalizado que no está en el catálogo",
+  "nq2.custom.empty": "Aún no hay artículos personalizados. Haga clic en \"+ Agregar artículo personalizado\" arriba para agregar uno.",
   "nq2.modal.add_custom": "Agregar artículo personalizado",
   "nq2.modal.edit_custom": "Editar artículo personalizado",
   "nq2.modal.close": "Cerrar",
