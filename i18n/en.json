@@ -355,6 +355,7 @@
   "nq2.custom.title": "Custom Items",
   "nq2.custom.hint": "Hand-entered items not in catalog (admin only)",
   "nq2.custom.add_title": "Add a custom item not in catalog",
+  "nq2.custom.empty": "No custom items yet. Click \"+ Add Custom Item\" above to add one.",
   "nq2.modal.add_custom": "Add Custom Item",
   "nq2.modal.edit_custom": "Edit Custom Item",
   "nq2.modal.close": "Close",
