@@ -420,6 +420,7 @@
   "mf.err.enter_description": "Ingrese una descripción.",
   "mf.err.select_yes_no": "Seleccione Sí o No para {label}",
   "mf.err.invalid_skin": "Selección de panel no válida: \"{value}\".",
+  "mf.err.invalid_selection": "Selección no válida: \"{value}\".",
   "mf.err.note_too_long": "La nota supera el máximo de {max} caracteres.",
   "mf.label.super": "SuperModification",
   "mf.label.taxable": "Gravable",
