@@ -1371,7 +1371,21 @@
 <script src="components/quote-flow-header.js"></script>
 <script>
 const { createClient } = supabase;
-const _supabase = createClient(
+// ═══════════════════════════════════════════════════════════════════
+  // CB-62 B4-1a|i18n 區域輔助
+  // pcT 未載入或字典未就緒時回 null → 一律帶英文保底,畫面不得出現 "null"。
+  // 命名用 pc 前綴避免 global 碰撞(B-1 教訓)。
+  // 本頁不放語言切換鈕(Q-32 C),語言在進入流程前已選定。
+  // ═══════════════════════════════════════════════════════════════════
+  function pcTxt(key, fallback, params) {
+    return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
+  }
+  function pcPlural(baseKey, n, enOne, enOther) {
+    const key = (n === 1) ? baseKey + '.one' : baseKey + '.other';
+    return pcTxt(key, (n === 1 ? enOne : enOther).replace('{n}', n), { n: n });
+  }
+
+  const _supabase = createClient(
   window.SB_URL,
   window.SB_KEY
 );
@@ -1553,7 +1567,7 @@ async function init() {
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
   if (!d) {
-    alert('Could not load dealer data. Please go back and try again.');
+    alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.'));
     return;
   }
   dealer = d;
@@ -1785,7 +1799,7 @@ function updatePreviewLeadAndNote(style) {
     ? leadTimeForDoor(style.construction_type, style.is_stock)
     : null;
   if (lt) {
-    ltEl.innerHTML = '<span class="lt-label">Lead Time:</span> ' + lt;
+    ltEl.innerHTML = '<span class="lt-label">' + escapeHtml(pcTxt('nq2.lead_time', 'Lead Time:')) + '</span> ' + lt;
     ltEl.style.display = 'block';
   } else {
     ltEl.style.display = 'none';   // stock / coming soon → 整條不出現
@@ -1896,7 +1910,7 @@ function renderStyleList() {
   if (q) filtered = filtered.filter(s => s.style_name.toLowerCase().includes(q) || s.style_code.toLowerCase().includes(q));
 
   if (!filtered.length) {
-    grid.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--muted);">No styles found.</div>';
+    grid.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--muted);">' + escapeHtml(pcTxt('nq2.styles.none', 'No styles found.')) + '</div>';
     return;
   }
 
@@ -1965,7 +1979,9 @@ function previewStyle(code) {
 
   const btn = document.getElementById('btnSelectStyle');
   const isActive = activeStyle && activeStyle.style_code === code;
-  btn.textContent = isActive ? '✓ Selected' : 'Select This Style';
+  btn.textContent = isActive
+      ? pcTxt('nq2.btn.selected', '\u2713 Selected')
+      : pcTxt('nq2.btn.select_style', 'Select This Style');
   btn.className = 'btn-select-style' + (isActive ? ' confirmed' : '');
 }
 
@@ -2078,7 +2094,7 @@ function renderSkuTable() {
   });
 
   const wrap = document.getElementById('skuTableWrap');
-  if (!skus.length) { wrap.innerHTML = '<div class="sku-placeholder">No items found.</div>'; return; }
+  if (!skus.length) { wrap.innerHTML = '<div class="sku-placeholder">' + escapeHtml(pcTxt('nq2.sku.none', 'No items found.')) + '</div>'; return; }
 
   // Stock/Non-Stock tag is only meaningful for Framed; hide for Frameless
   const stockTag = isFrameless
@@ -2150,13 +2166,13 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
   if (isReviewLocked()) return;  // CB-4: read-only review — no adding
   const el  = document.getElementById('qty-'+skuCode);
   const qty = parseInt(el?.value||0);
-  if (qty<=0) { showToast('Please enter a quantity first'); return; }
+  if (qty<=0) { showToast(pcTxt('nq2.toast.qty_first', 'Please enter a quantity first')); return; }
   const sku = getActiveSkus().find(s => s.sku_code === skuCode);
-  if (!sku) { showToast('SKU not found'); return; }
+  if (!sku) { showToast(pcTxt('nq2.toast.sku_not_found', 'SKU not found')); return; }
   const grp2      = (activeStyle.grp || 'GROUP A').toUpperCase();
   const msrpValue = getMsrpForGroup(sku, grp2);
   if (msrpValue === null) {
-    showToast('This SKU is not available for the selected style group');
+    showToast(pcTxt('nq2.toast.sku_unavailable', 'This SKU is not available for the selected style group'));
     return;
   }
 const key = `${activeStyle.style_code}-${skuCode}-${type}`;
@@ -2201,7 +2217,9 @@ const key = `${activeStyle.style_code}-${skuCode}-${type}`;
   if (el) el.value=1;
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
-  showToast(`${sku.sku_code} (${type}) × ${qty} added`);
+  showToast(pcTxt('nq2.toast.added', '{sku} ({type}) \u00D7 {qty} added',
+      { sku: sku.sku_code, type: type, qty: qty })
+      .replace('{sku}', sku.sku_code).replace('{type}', type).replace('{qty}', qty));
 }
 
 function removeFromCart(key) {
@@ -2350,12 +2368,12 @@ function openCustomModal(editKey) {
     // EDIT mode — prefill from existing cart item
     const item = cartItems.find(function (i) { return i.key === editKey; });
     if (!item || !item.is_custom) {
-      showToast('Item not found or not editable');
+      showToast(pcTxt('nq2.toast.item_not_editable', 'Item not found or not editable'));
       return;
     }
 
-    document.getElementById('customModalTitle').textContent = 'Edit Custom Item';
-    document.getElementById('customSaveBtn').textContent    = 'Save Changes';
+    document.getElementById('customModalTitle').textContent = pcTxt('nq2.modal.edit_custom', 'Edit Custom Item');
+    document.getElementById('customSaveBtn').textContent    = pcTxt('nq2.btn.save_changes', 'Save Changes');
 
     // Infer type from sku_type
     let inferredType;
@@ -2386,7 +2404,7 @@ function openCustomModal(editKey) {
     }
   } else {
     // ADD mode — fresh form
-    document.getElementById('customModalTitle').textContent = 'Add Custom Item';
+    document.getElementById('customModalTitle').textContent = pcTxt('nq2.modal.add_custom', 'Add Custom Item');
     document.getElementById('customSaveBtn').textContent    = 'Add to Cart';
   }
 
@@ -2461,7 +2479,7 @@ function saveCustomItem() {
     });
 
   if (!customModalState.type) {
-    showToast('Please select an item type', true);
+    showToast(pcTxt('nq2.toast.select_item_type', 'Please select an item type'), true);
     return;
   }
   if (!skuCode) {
@@ -2615,7 +2633,9 @@ function saveCustomItem() {
   renderCart();
   renderCustomItemsList();
   closeCustomModal();
-  showToast(isEditing ? (skuCode + ' updated') : (skuCode + ' added to cart'));
+  showToast(isEditing
+      ? pcTxt('nq2.toast.custom_updated', '{sku} updated',        { sku: skuCode }).replace('{sku}', skuCode)
+      : pcTxt('nq2.toast.custom_added',   '{sku} added to cart',  { sku: skuCode }).replace('{sku}', skuCode));
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -2627,8 +2647,8 @@ function renderCustomItemsList() {
   const customs = cartItems.filter(function (i) { return i.is_custom; });
 
   if (!customs.length) {
-    listEl.innerHTML = '<div class="custom-items-empty">' +
-      'No custom items yet. Click "+ Add Custom Item" above to add one.' +
+  listEl.innerHTML = '<div class="custom-items-empty">' +
+      escapeHtml(pcTxt('nq2.custom.empty', 'No custom items yet. Click "+ Add Custom Item" above to add one.')) +
       '</div>';
     return;
   }
@@ -2816,11 +2836,12 @@ function renderCart() {
   const totalLines   = cartItems.length;
 
   document.getElementById('cartFabBadge').textContent = totalQty;
-  document.getElementById('bottomCount').textContent = `${totalQty} item${totalQty!==1?'s':''}`;
+  document.getElementById('bottomCount').textContent =
+      pcPlural('nq2.count', totalQty, '{n} item', '{n} items');
   document.getElementById('btnNext').disabled = totalLines===0;
 
   if (!totalLines) {
-    document.getElementById('cartBody').innerHTML='<div class="cart-empty">No items yet.<br>Select a style to begin.</div>';
+    document.getElementById('cartBody').innerHTML='<div class="cart-empty">' + pcTxt('nq2.cart.empty_short', 'No items yet.<br>Select a style to begin.') + '</div>';
     document.getElementById('cartFooter').style.display='none';
     return;
   }
@@ -2908,7 +2929,7 @@ function renderCart() {
     footerEl.insertBefore(asmRow, footerEl.firstChild);
   }
   if (assembleTotal > 0) {
-    asmRow.innerHTML = `<span>Assemble Fee (est.)</span><span>+$${assembleTotal.toFixed(2)}</span>`;
+    asmRow.innerHTML = `<span>${escapeHtml(pcTxt('nq2.cart.assemble_fee', 'Assemble Fee (est.)'))}</span><span>+$${assembleTotal.toFixed(2)}</span>`;
     asmRow.style.display='flex';
   } else {
     asmRow.style.display='none';
@@ -2942,6 +2963,18 @@ function goNext() {
     : 'new-quote-modifications.html';
   window.location.href = nextUrl;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+  // 🔴 CB-62 B4-1a|語言切換重繪
+  // 靜態 data-i18n 節點由 i18n.js 自行重繪;這裡只處理 JS 動態產生的內容。
+  // ⚠️ 防護條件用「是否載入過」而非「現在有無資料」(B2/B3 教訓)。
+  // ═══════════════════════════════════════════════════════════════════
+  document.addEventListener('pc:i18n-changed', function () {
+    if (typeof renderStyleGrid       === 'function') renderStyleGrid();
+    if (typeof renderSkuTable        === 'function') renderSkuTable();
+    if (typeof renderCart            === 'function') renderCart();
+    if (typeof renderCustomItemsList === 'function') renderCustomItemsList();
+  });
 
 init();
 </script>
