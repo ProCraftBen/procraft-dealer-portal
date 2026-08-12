@@ -415,6 +415,7 @@
   "nq2.toast.custom_added": "{sku} added to cart",
   "nq2.alert.dealer_load": "Could not load dealer data. Please go back and try again.",
 
+  "mf.opt.placeholder": "-- Please select --",
   "mf.err.select_option": "Please select an option.",
   "mf.err.enter_value": "Please enter a value.",
   "mf.err.enter_description": "Please enter a description.",
