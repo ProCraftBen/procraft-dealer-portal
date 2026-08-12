@@ -322,6 +322,31 @@
     });
   }
 
+  /**
+   * CB-62 Q-43:強制當前 session 使用指定語言,【不寫入 localStorage】。
+   * 用於 dealer/admin 共用頁:admin 一律英文,但不得污染 dealer 的語言偏好
+   * (共用電腦情境)。與 pcSetLang 的唯一差異就是不呼叫 writeStore()。
+   * @return {Promise<boolean>} 語言是否為有效值。永不 reject。
+   */
+  function pcForceLang(lang) {
+    if (SUPPORTED.indexOf(lang) === -1) {
+      console.warn('[CB-62] i18n: unsupported language ignored: ' + lang);
+      return Promise.resolve(false);
+    }
+    if (lang === current) {
+      // 已是目標語言。仍補設 lang 屬性,確保 html[lang] 的版面覆蓋一致。
+      document.documentElement.setAttribute('lang', lang);
+      return Promise.resolve(true);
+    }
+    return loadDict(lang).then(function () {
+      current = lang;
+      document.documentElement.setAttribute('lang', lang);
+      pcApplyI18n(document);
+      emitChanged();
+      return true;
+    });
+  }
+
   function pcGetLang() { return current; }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -331,6 +356,7 @@
   window.pcT          = pcT;
   window.t            = pcT;      // 便利別名。⚠️ 見檔頭警告,Stage B 請用 pcT。
   window.pcSetLang    = pcSetLang;
+  window.pcForceLang  = pcForceLang;
   window.pcGetLang    = pcGetLang;
   window.pcApplyI18n  = pcApplyI18n;
 
