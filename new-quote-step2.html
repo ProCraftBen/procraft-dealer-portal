@@ -1118,7 +1118,7 @@
           <div class="preview-name" id="previewName"></div>
           <div class="preview-meta" id="previewMeta"></div>
           <div class="preview-nonstock-note" id="previewNonStockNote" style="display:none;"></div>
-          <div id="selectedBadge" style="display:none;margin-top:8px;background:rgba(62,90,66,0.08);border:1px solid var(--green-dark);border-radius:3px;padding:6px 14px;font-size:11px;font-weight:500;color:var(--green-dark);letter-spacing:0.1em;">✓ SELECTED</div>
+          <div id="selectedBadge" data-i18n="nq2.badge.selected" style="display:none;margin-top:8px;background:rgba(62,90,66,0.08);border:1px solid var(--green-dark);border-radius:3px;padding:6px 14px;font-size:11px;font-weight:500;color:var(--green-dark);letter-spacing:0.1em;">✓ SELECTED</div>
         </div>
       </div>
     </div>
@@ -1148,7 +1148,7 @@
 
     <!-- CB-29 A1: 靜態提醒 banner(always 顯示;篩選列下方、表格上方) -->
     <div style="margin:8px 0;padding:10px 14px;background:rgba(201,168,76,0.10);border:1px solid rgba(201,168,76,0.45);border-radius:4px;font-size:12px;color:#8B6914;letter-spacing:0.02em;">
-      ⚠️ Items marked need sales check availability
+      <span data-i18n="nq2.banner.sales_check">⚠️ Items marked need sales check availability</span>
     </div>
 
     <div class="sku-table-wrap" id="skuTableWrap">
@@ -1840,8 +1840,12 @@ function formatAssembleStatus(v) {
 }
 
 // ── CB-5 需求2: non-stock advisory note text ──
-const NONSTOCK_NOTE_TEXT =
-  'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.';
+// CB-62:改為函式,語言切換後取得的才是當前語言(常數會凍結在載入時的語言)。
+function NONSTOCK_NOTE_TEXT_FN() {
+  return pcTxt('nq2.note.nonstock',
+    'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.');
+}
+const NONSTOCK_NOTE_TEXT = NONSTOCK_NOTE_TEXT_FN();
 
 // ── CB-5 需求4: preferred SKU type group order (covers ProCraft + Milania) ──
 // Base → Tall → Wall → Vanity → ... → Accessories last; unknowns alphabetical at end.
