@@ -417,12 +417,8 @@
   "mf.opt.placeholder": "-- Please select --",
   "mf.err.select_option": "Please select an option.",
   "mf.err.enter_value": "Please enter a value.",
-  "mf.err.enter_description": "Please enter a description.",
   "mf.err.select_yes_no": "Please select Yes or No for {label}",
   "mf.err.invalid_skin": "Invalid skin selection: \"{value}\".",
   "mf.err.invalid_selection": "Invalid selection: \"{value}\".",
-  "mf.err.note_too_long": "Note exceeds maximum {max} characters.",
-  "mf.label.super": "SuperModification",
-  "mf.label.taxable": "Taxable",
-  "mf.warn.cost_threshold": "⚠ Cost exceeds typical ${amount} threshold. Please confirm before saving."
+  "mf.err.note_too_long": "Note exceeds maximum {max} characters."
 }
