@@ -415,6 +415,7 @@
   "nq2.toast.custom_added": "{sku} agregado al carrito",
   "nq2.alert.dealer_load": "No se pudieron cargar los datos del distribuidor. Vuelva atrás e inténtelo de nuevo.",
 
+  "mf.opt.placeholder": "-- Seleccione --",
   "mf.err.select_option": "Seleccione una opción.",
   "mf.err.enter_value": "Ingrese un valor.",
   "mf.err.enter_description": "Ingrese una descripción.",
