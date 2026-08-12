@@ -2970,7 +2970,7 @@ function goNext() {
   // ⚠️ 防護條件用「是否載入過」而非「現在有無資料」(B2/B3 教訓)。
   // ═══════════════════════════════════════════════════════════════════
   document.addEventListener('pc:i18n-changed', function () {
-    if (typeof renderStyleGrid       === 'function') renderStyleGrid();
+    if (typeof renderStyleList       === 'function') renderStyleList();
     if (typeof renderSkuTable        === 'function') renderSkuTable();
     if (typeof renderCart            === 'function') renderCart();
     if (typeof renderCustomItemsList === 'function') renderCustomItemsList();
