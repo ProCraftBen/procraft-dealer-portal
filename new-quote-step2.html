@@ -1372,6 +1372,13 @@
 <script src="components/quote-flow-header.js?v=1.5"></script>
 <script>
 const { createClient } = supabase;
+
+  // CB-62 B4-1a:step2 原本沒有 escapeHtml,下方幾處插值需要它。
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 // ═══════════════════════════════════════════════════════════════════
   // CB-62 B4-1a|i18n 區域輔助
   // pcT 未載入或字典未就緒時回 null → 一律帶英文保底,畫面不得出現 "null"。
