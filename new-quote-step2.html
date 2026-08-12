@@ -1378,6 +1378,14 @@ const { createClient } = supabase;
   // 命名用 pc 前綴避免 global 碰撞(B-1 教訓)。
   // 本頁不放語言切換鈕(Q-32 C),語言在進入流程前已選定。
   // ═══════════════════════════════════════════════════════════════════
+  // step2 原本沒有 escapeHtml —— CB-62 的幾處插值需要它。
+  // 與 new-quote.html / quotes.html 的實作一致。
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   function pcTxt(key, fallback, params) {
     return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
   }
