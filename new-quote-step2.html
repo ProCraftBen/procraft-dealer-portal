@@ -2930,7 +2930,13 @@ function renderCart() {
     footerEl.insertBefore(asmRow, footerEl.firstChild);
   }
   if (assembleTotal > 0) {
-    asmRow.innerHTML = `<span>${escapeHtml(pcTxt('nq2.cart.assemble_fee', 'Assemble Fee (est.)'))}</span><span>+$${assembleTotal.toFixed(2)}</span>`;
+    asmRow.textContent = '';
+    const _asmL = document.createElement('span');
+    _asmL.textContent = pcTxt('nq2.cart.assemble_fee', 'Assemble Fee (est.)');
+    const _asmR = document.createElement('span');
+    _asmR.textContent = '+$' + assembleTotal.toFixed(2);
+    asmRow.appendChild(_asmL);
+    asmRow.appendChild(_asmR);
     asmRow.style.display='flex';
   } else {
     asmRow.style.display='none';
