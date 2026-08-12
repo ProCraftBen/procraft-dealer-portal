@@ -417,12 +417,8 @@
   "mf.opt.placeholder": "-- Seleccione --",
   "mf.err.select_option": "Seleccione una opción.",
   "mf.err.enter_value": "Ingrese un valor.",
-  "mf.err.enter_description": "Ingrese una descripción.",
   "mf.err.select_yes_no": "Seleccione Sí o No para {label}",
   "mf.err.invalid_skin": "Selección de panel no válida: \"{value}\".",
   "mf.err.invalid_selection": "Selección no válida: \"{value}\".",
-  "mf.err.note_too_long": "La nota supera el máximo de {max} caracteres.",
-  "mf.label.super": "SuperModification",
-  "mf.label.taxable": "Gravable",
-  "mf.warn.cost_threshold": "⚠ El costo supera el umbral habitual de ${amount}. Confirme antes de guardar."
+  "mf.err.note_too_long": "La nota supera el máximo de {max} caracteres."
 }
