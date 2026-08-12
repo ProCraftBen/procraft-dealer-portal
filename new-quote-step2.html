@@ -1826,7 +1826,7 @@ function updatePreviewLeadAndNote(style) {
     ltEl.style.display = 'none';   // stock / coming soon → 整條不出現
   }
   if (style && !style.is_coming_soon && style.is_stock === false) {
-    noteEl.textContent = NONSTOCK_NOTE_TEXT;
+    noteEl.textContent = NONSTOCK_NOTE_TEXT_FN();
     noteEl.style.display = 'block';
   } else {
     noteEl.style.display = 'none';
@@ -1845,7 +1845,8 @@ function NONSTOCK_NOTE_TEXT_FN() {
   return pcTxt('nq2.note.nonstock',
     'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.');
 }
-const NONSTOCK_NOTE_TEXT = NONSTOCK_NOTE_TEXT_FN();
+// ⚠️ 不要在此處求值 —— 語言檔是非同步載入的,此刻 pcT 還沒有字典。
+//    一律在使用時呼叫 NONSTOCK_NOTE_TEXT_FN()。
 
 // ── CB-5 需求4: preferred SKU type group order (covers ProCraft + Milania) ──
 // Base → Tall → Wall → Vanity → ... → Accessories last; unknowns alphabetical at end.
