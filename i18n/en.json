@@ -420,5 +420,6 @@
   "mf.err.select_yes_no": "Please select Yes or No for {label}",
   "mf.err.invalid_skin": "Invalid skin selection: \"{value}\".",
   "mf.err.invalid_selection": "Invalid selection: \"{value}\".",
-  "mf.err.note_too_long": "Note exceeds maximum {max} characters."
+  "mf.err.note_too_long": "Note exceeds maximum {max} characters.",
+  "mf.err.invalid_value": "Invalid value"
 }
