@@ -192,9 +192,12 @@
       let dropdownHTML = '';
       if (state.enabled) {
         // 第一個永遠是 placeholder「-- Please select --」
+        const placeholderText = escapeHTML(
+          pcTxt('mf.opt.placeholder', '-- Please select --')
+        );
         const placeholderOption = `
           <option value="" ${state.selected === null ? 'selected' : ''} disabled>
-            -- Please select --
+            ${placeholderText}
           </option>
         `;
 
@@ -327,9 +330,13 @@
         : [];
 
       if (state.selected === null) {
-        errors.push('Please select an option.');
+        errors.push(pcTxt('mf.err.select_option', 'Please select an option.'));
       } else if (!options.includes(state.selected)) {
-        errors.push(`Invalid selection: "${state.selected}".`);
+        errors.push(pcTxt(
+          'mf.err.invalid_selection',
+          'Invalid selection: "{value}".',
+          { value: state.selected }
+        ));
       }
 
       return {
@@ -384,6 +391,20 @@
       reset: reset,          // F-BINDING-GROUP
       destroy: destroy
     };
+  }
+
+/**
+   * CB-62:i18n 取字。i18n.js 未載入(admin 頁)時回傳英文 fallback。
+   * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+   */
+  function pcTxt(key, fallback, params) {
+    if (typeof window.pcT === 'function') {
+      const s = window.pcT(key, params || null, fallback);
+      if (s) return s;
+    }
+    return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+      return (params && params[name] != null) ? String(params[name]) : whole;
+    });
   }
 
   /**
