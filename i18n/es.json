@@ -413,5 +413,15 @@
   "nq2.toast.select_item_type": "Seleccione un tipo de artículo",
   "nq2.toast.custom_updated": "{sku} actualizado",
   "nq2.toast.custom_added": "{sku} agregado al carrito",
-  "nq2.alert.dealer_load": "No se pudieron cargar los datos del distribuidor. Vuelva atrás e inténtelo de nuevo."
+  "nq2.alert.dealer_load": "No se pudieron cargar los datos del distribuidor. Vuelva atrás e inténtelo de nuevo.",
+
+  "mf.err.select_option": "Seleccione una opción.",
+  "mf.err.enter_value": "Ingrese un valor.",
+  "mf.err.enter_description": "Ingrese una descripción.",
+  "mf.err.select_yes_no": "Seleccione Sí o No para {label}",
+  "mf.err.invalid_skin": "Selección de panel no válida: \"{value}\".",
+  "mf.err.note_too_long": "La nota supera el máximo de {max} caracteres.",
+  "mf.label.super": "SuperModification",
+  "mf.label.taxable": "Gravable",
+  "mf.warn.cost_threshold": "⚠ El costo supera el umbral habitual de ${amount}. Confirme antes de guardar."
 }
