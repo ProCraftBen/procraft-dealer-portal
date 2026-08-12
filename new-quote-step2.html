@@ -1392,7 +1392,12 @@ const { createClient } = supabase;
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  
   function pcTxt(key, fallback, params) {
     return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
   }
