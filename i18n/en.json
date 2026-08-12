@@ -316,7 +316,7 @@
   "nq1.billing.edit_hint_1": "To update billing information, please edit it in ",
   "nq1.billing.edit_hint_link": "your Profile",
   "nq1.billing.edit_hint_2": ".",
-  "nq1.billing.incomplete_1": "Your billing address looks incomplete. Please go to ",
+  "nq1.billing.incomplete_1": "⚠ Your billing address appears incomplete. Please go to ",
   "nq1.billing.incomplete_2": " to add Address Line 1 and ZIP Code before proceeding.",
   "nq1.modal.edit_address": "Edit Address",
   "nq1.btn.next": "Next: Select Products →",
@@ -329,7 +329,7 @@
   "nq1.alert.delete_address": "Error deleting address.",
   "nq1.confirm.delete_address": "Delete this address?",
   "nq1.review.title": "Review Revised Purchase Order",
-  "nq1.review.msg": "You are reviewing your revised Purchase Order. Click Next to review item details, then resubmit.",
+  "nq1.review.msg": "You are reviewing your revised Purchase Order. Click Next to review item details, then resubmit on the final step. Contact your sales rep if you have questions.",
   "nq1.review.reason_label": "Revision Note",
 
   "nq2.panel.door_styles": "Door Styles",
