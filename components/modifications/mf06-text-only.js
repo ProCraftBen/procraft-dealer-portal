@@ -145,7 +145,11 @@
       const errors = [];
 
       if (state.current_value.length > state.max_length) {
-        errors.push(`Note exceeds maximum ${state.max_length} characters.`);
+        errors.push(pcTxt(
+          'mf.err.note_too_long',
+          'Note exceeds maximum {max} characters.',
+          { max: state.max_length }
+        ));
       }
 
       return {
