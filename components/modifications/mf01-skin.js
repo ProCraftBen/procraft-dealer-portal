@@ -227,7 +227,11 @@
       const errors = [];
 
       if (!OPTION_CODES.includes(state.current_value)) {
-        errors.push(`Invalid skin selection: "${state.current_value}".`);
+        errors.push(pcTxt(
+          'mf.err.invalid_skin',
+          'Invalid skin selection: "{value}".',
+          { value: state.current_value }
+        ));
       }
 
       return {
@@ -281,6 +285,20 @@
       calculateCost: calculateCost,
       destroy: destroy
     };
+  }
+
+/**
+   * CB-62:i18n 取字。i18n.js 未載入(admin 頁)時回傳英文 fallback。
+   * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+   */
+  function pcTxt(key, fallback, params) {
+    if (typeof window.pcT === 'function') {
+      const s = window.pcT(key, params || null, fallback);
+      if (s) return s;
+    }
+    return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+      return (params && params[name] != null) ? String(params[name]) : whole;
+    });
   }
 
   /**
