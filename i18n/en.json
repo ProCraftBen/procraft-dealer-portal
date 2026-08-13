@@ -476,6 +476,8 @@
   "nqm.progress.no_mods": "No mods",
   "nqm.label.no_mod_available": "No modifications available",
   "nqm.label.qty_short": "Qty",
+  "nqm.label.sku_qty": "SKU Qty:",
+  "nqm.tag.accessory_other": "Accessory / Other",
   "nqm.aria.remove_item": "Remove from quote",
   "nqm.aria.quantity": "Quantity",
   "nqm.asm.to_rta_title": "Switch to Unassembled (knock-down shipment, clears modifications)",
