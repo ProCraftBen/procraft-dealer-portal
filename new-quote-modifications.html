@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ProCraft Dealer Portal — Configure Modifications</title>
+  <title data-i18n="nqm.page.title">ProCraft Dealer Portal — Configure Modifications</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1395,12 +1395,12 @@
   <div id="noAssembledBannerMount"></div>
 
   <div class="page-heading">
-    <h1>Customize Your Order</h1>
-    <div class="subtitle">Configure modifications for assembled cabinets</div>
+    <h1 data-i18n="nqm.hdr.title">Customize Your Order</h1>
+    <div class="subtitle" data-i18n="nqm.hdr.sub">Configure modifications for assembled cabinets</div>
   </div>
 
   <div id="doorStyleList">
-    <div class="empty-state">Loading...</div>
+    <div class="empty-state" data-i18n="nqm.loading">Loading...</div>
   </div>
 </div>
 
@@ -1412,8 +1412,8 @@
 <div class="mf-modal-overlay" id="mfModalOverlay">
   <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
     <div class="mf-modal-header">
-      <span class="mf-modal-title" id="mfModalTitle">Configure Modifications</span>
-      <button class="mf-modal-close" type="button" onclick="closeMfModal()" aria-label="Close">×</button>
+      <span class="mf-modal-title" id="mfModalTitle" data-i18n="nqm.modal.title">Configure Modifications</span>
+      <button class="mf-modal-close" type="button" onclick="closeMfModal()" aria-label="Close" data-i18n-aria-label="nqm.aria.close">×</button>
     </div>
 
     <div class="mf-modal-body" id="mfModalBody">
@@ -1428,14 +1428,14 @@
 
       <div class="mf-split-panel" id="mfSplitPanel">
         <div class="mf-split-header">
-          <span class="mf-split-title">Split this SKU</span>
+          <span class="mf-split-title" data-i18n="nqm.split.title">Split this SKU</span>
           <span class="mf-split-summary" id="mfSplitSummary">—</span>
         </div>
         <div class="mf-split-rows" id="mfSplitRows"></div>
-        <button class="mf-split-add" id="mfSplitAddBtn" type="button" onclick="addSubGroup()">+ Add sub-group</button>
+        <button class="mf-split-add" id="mfSplitAddBtn" type="button" onclick="addSubGroup()" data-i18n="nqm.split.add">+ Add sub-group</button>
         <div class="mf-split-hint">
-          Tip: Sub-groups with no modifications selected will be saved as <em>skipped</em>.
-          Split when different units of this SKU need different modifications (e.g. some with a left skin, some with a right skin).
+          <span data-i18n="nqm.split.tip_before">Tip: Sub-groups with no modifications selected will be saved as</span> <em data-i18n="nqm.split.tip_skipped">skipped</em>.
+          <span data-i18n="nqm.split.tip_after">Split when different units of this SKU need different modifications (e.g. some with a left skin, some with a right skin).</span>
         </div>
       </div>
 
@@ -1457,17 +1457,17 @@
     </div>
 
     <div class="mf-running-total" id="mfRunningTotal">
-      <span class="mf-running-total-label" id="mfRunningTotalLabel">Modifications subtotal</span>
+      <span class="mf-running-total-label" id="mfRunningTotalLabel" data-i18n="nqm.group.subtotal">Modifications subtotal</span>
       <span class="mf-running-total-value zero" id="mfRunningTotalValue">$0.00</span>
     </div>
 
     <div class="mf-modal-footer">
       <div class="mf-modal-footer-left">
-        <button class="mf-btn mf-btn-skip" type="button" onclick="handleMfSkip()">Skip This SKU</button>
+        <button class="mf-btn mf-btn-skip" type="button" onclick="handleMfSkip()" data-i18n="nqm.btn.skip">Skip This SKU</button>
       </div>
       <div class="mf-modal-footer-right">
-        <button class="mf-btn mf-btn-cancel" type="button" onclick="closeMfModal()">Cancel</button>
-        <button class="mf-btn mf-btn-save" type="button" id="mfBtnSave" onclick="handleMfSave()">Save</button>
+        <button class="mf-btn mf-btn-cancel" type="button" onclick="closeMfModal()" data-i18n="common.btn.cancel">Cancel</button>
+        <button class="mf-btn mf-btn-save" type="button" id="mfBtnSave" onclick="handleMfSave()" data-i18n="nqm.btn.save">Save</button>
       </div>
     </div>
   </div>
@@ -1476,27 +1476,27 @@
 <div class="toast" id="toast"></div>
 
 <div class="mods-total-bar" id="modsTotalBar">
-  <span class="mods-total-bar-label">Modifications Total:</span>
+  <span class="mods-total-bar-label" data-i18n="nqm.total.label">Modifications Total:</span>
   <span class="mods-total-bar-value zero" id="modsTotalBarValue">$0.00</span>
 </div>
 
 <div class="swap-modal-overlay" id="swapModalOverlay">
   <div class="swap-modal-container" role="dialog" aria-modal="true" aria-labelledby="swapModalTitle">
     <div class="swap-modal-header">
-      <span class="swap-modal-title" id="swapModalTitle">Swap Door Style</span>
-      <button class="swap-modal-close" type="button" onclick="closeSwapModal()" aria-label="Close">×</button>
+      <span class="swap-modal-title" id="swapModalTitle" data-i18n="nqm.swap.title">Swap Door Style</span>
+      <button class="swap-modal-close" type="button" onclick="closeSwapModal()" aria-label="Close" data-i18n-aria-label="nqm.aria.close">×</button>
     </div>
     <div class="swap-modal-body">
       <div class="swap-current-card" id="swapCurrentCard">
         <div class="swap-current-thumb" id="swapCurrentThumb"></div>
         <div class="swap-current-info">
-          <div class="swap-current-label">Current Style</div>
+          <div class="swap-current-label" data-i18n="nqm.swap.current">Current Style</div>
           <div class="swap-current-name" id="swapCurrentName">—</div>
           <div class="swap-current-meta" id="swapCurrentMeta">—</div>
         </div>
       </div>
 
-    <div class="swap-section-label" id="swapPickLabel">Pick a replacement style (same construction type)</div>
+    <div class="swap-section-label" id="swapPickLabel" data-i18n="nqm.swap.pick">Pick a replacement style (same construction type)</div>
       <div class="swap-style-grid" id="swapStyleGrid"></div>
     </div>
 <div class="swap-modal-footer">
@@ -1510,47 +1510,47 @@
 <div class="swap-modal-overlay swap-confirm-overlay" id="swapConfirmOverlay">
   <div class="swap-confirm-box" role="dialog" aria-modal="true" aria-labelledby="swapConfirmTitle">
     <div class="swap-confirm-head">
-      <span class="swap-confirm-title" id="swapConfirmTitle">Confirm Door Style Change</span>
+      <span class="swap-confirm-title" id="swapConfirmTitle" data-i18n="nqm.change.title">Confirm Door Style Change</span>
     </div>
 <div class="swap-confirm-body">
       <div class="swap-confirm-fromto" id="swapConfirmFromTo">—</div>
       <div class="swap-confirm-rows">
         <div class="swap-confirm-row">
-          <span>Unit Price</span>
+          <span data-i18n="nqm.change.unit_price">Unit Price</span>
           <span><span id="swapConfirmOldUnit">$0.00</span> → <span id="swapConfirmNewUnit">$0.00</span></span>
         </div>
         <div class="swap-confirm-row">
-          <span>Modifications</span>
+          <span data-i18n="flow.step.modifications">Modifications</span>
           <span><span id="swapConfirmOldMod">$0.00</span> → <span id="swapConfirmNewMod">$0.00</span></span>
         </div>
         <div class="swap-confirm-row">
-          <span>Assembly Fee</span>
+          <span data-i18n="nqm.change.assembly_fee">Assembly Fee</span>
           <span><span id="swapConfirmOldFee">$0.00</span> → <span id="swapConfirmNewFee">$0.00</span></span>
         </div>
         <div class="swap-confirm-row diff-row">
-          <span>Group Total</span>
+          <span data-i18n="nqm.change.group_total">Group Total</span>
           <span><span id="swapConfirmOldTotal">$0.00</span> → <span id="swapConfirmNewTotal">$0.00</span></span>
         </div>
         <div class="swap-confirm-row">
-          <span>Change</span>
+          <span data-i18n="nqm.change.delta">Change</span>
           <span><span class="swap-confirm-diff" id="swapConfirmDiff">$0.00</span><span class="swap-confirm-note" id="swapConfirmNote"></span></span>
         </div>
       </div>
     </div>
     <div class="swap-confirm-foot">
-      <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapConfirmPopup()">Cancel</button>
-      <button class="mf-btn mf-btn-save" type="button" onclick="commitSwap()">Confirm Change</button>
+      <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapConfirmPopup()" data-i18n="common.btn.cancel">Cancel</button>
+      <button class="mf-btn mf-btn-save" type="button" onclick="commitSwap()" data-i18n="nqm.change.confirm_btn">Confirm Change</button>
     </div>
   </div>
 </div>
 
 <div class="bottom-bar">
   <div class="bottom-left" id="bottomStatus">
-    <strong id="bottomStatusText">Loading...</strong>
+    <strong id="bottomStatusText" data-i18n="nqm.loading">Loading...</strong>
   </div>
   <div class="bottom-right">
-    <a href="new-quote-step2.html" class="btn-back" id="btnBack">← Back to Products</a>
-    <button class="btn-next" id="btnNext" onclick="goReview()" disabled>Review →</button>
+    <a href="new-quote-step2.html" class="btn-back" id="btnBack" data-i18n="nqm.btn.back">← Back to Products</a>
+    <button class="btn-next" id="btnNext" onclick="goReview()" disabled data-i18n="nqm.btn.review">Review →</button>
   </div>
 </div>
 
