@@ -2555,7 +2555,8 @@ function onDeleteSkuClick(key) {
   if (isReviewLocked()) return;  // CB-4: read-only review
   const item = cartItems.find(function (i) { return i.key === key; });
   if (!item) return;
-  const confirmed = confirm('Remove "' + item.sku_code + '" from your quote?');
+  const confirmed = confirm(pcTxt('nqm.confirm.remove',
+    'Remove "{sku}" from your quote?', { sku: item.sku_code }));
   if (!confirmed) return;
 
   cartItems = cartItems.filter(function (i) { return i.key !== key; });
@@ -2604,11 +2605,13 @@ function onMainPageAssemblyToggle(key, newType) {
 
     const newFee = getAssembleFeeForItem(dealer, item);
     const feeNote = newFee > 0
-      ? '\n\nAn assembly fee of $' + newFee.toFixed(2) + ' per unit will apply.'
-      : '\n\nNo assembly fee applies for this SKU type.';
+      ? pcTxt('nqm.confirm.fee_yes', 'An assembly fee of ${fee} per unit will apply.',
+              { fee: newFee.toFixed(2) })
+      : pcTxt('nqm.confirm.fee_no', 'No assembly fee applies for this SKU type.');
     const ok = confirm(
-      'Switch "' + item.sku_code + '" to Assembled?' + feeNote +
-      '\n\nYou will be able to configure modifications after switching.'
+      pcTxt('nqm.confirm.to_asm', 'Switch "{sku}" to Assembled?', { sku: item.sku_code }) +
+      '\n\n' + feeNote + '\n\n' +
+      pcTxt('nqm.confirm.to_asm_tail', 'You will be able to configure modifications after switching.')
     );
     if (!ok) return;
 
@@ -2655,9 +2658,13 @@ function onMainPageAssemblyToggle(key, newType) {
     });
   }
 
-  const warning = hasMods
-    ? 'Switch "' + item.sku_code + '" to Unassembled?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
-    : 'Switch "' + item.sku_code + '" to Unassembled?\n\nThe assembly fee will be removed and no modifications will be allowed.';
+const warning =
+    pcTxt('nqm.confirm.to_rta', 'Switch "{sku}" to Unassembled?', { sku: item.sku_code }) +
+    '\n\n' + (hasMods
+      ? pcTxt('nqm.confirm.to_rta_body_mods',
+          'This will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.')
+      : pcTxt('nqm.confirm.to_rta_body_plain',
+          'The assembly fee will be removed and no modifications will be allowed.'));
   const ok = confirm(warning);
   if (!ok) return;
 
@@ -4662,7 +4669,7 @@ async function init() {
   }
 
   const { data: d } = await _supabase.from('dealers').select('*').eq('id', dealerIdToLoad).single();
-  if (!d) { alert('Could not load dealer data. Please go back and try again.'); return; }
+  if (!d) { alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.')); return; }
   dealer = d;
 
 const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
@@ -4706,7 +4713,7 @@ const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
   if (!cartItems.length) {
-    alert('No items in your quote. Returning to product selection.');
+    alert(pcTxt('nqm.alert.empty_cart', 'No items in your quote. Returning to product selection.'));
     window.location.href = draftId ? 'new-quote-step2.html?draft=' + draftId : 'new-quote-step2.html';
     return;
   }
