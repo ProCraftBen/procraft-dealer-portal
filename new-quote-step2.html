@@ -1399,8 +1399,14 @@ const { createClient } = supabase;
   }
   
   function pcTxt(key, fallback, params) {
-    return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
-  }
+      if (typeof window.pcT === 'function') {
+        const s = window.pcT(key, params || null, fallback);
+        if (s) return s;
+      }
+      return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+        return (params && params[name] != null) ? String(params[name]) : whole;
+      });
+    }
   function pcPlural(baseKey, n, enOne, enOther) {
     const key = (n === 1) ? baseKey + '.one' : baseKey + '.other';
     return pcTxt(key, (n === 1 ? enOne : enOther).replace('{n}', n), { n: n });
