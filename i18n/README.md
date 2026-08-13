@@ -17,6 +17,8 @@
 | `<title>`, `aria-label`, `placeholder` | PDFs (`pdf-builder.js`) |
 | | Brand names: `ProCraft Cabinetry · DC`, `ProCraft DC` |
 | | `quotes.status` DB values (see §7) |
+| | Strings used as storage or matching **keys** (see §2 rule 6) |
+| | Strings that also flow into a PDF, email or DB column (see §2 rule 7) |
 
 Language preference lives in **`localStorage` only**. It is never written to the DB.
 
@@ -43,6 +45,31 @@ Planned: `zh` (Simplified Chinese) — see §5.
    be translated. Use a parameter: `pcT('quote.msg.updated', { status: x })`.
 
 5. **Bumping a language file requires bumping two `?v=` values.** See §4.
+
+6. **Never translate a string that is also used as a key.** Display text is safe to
+   translate; the same text used for lookup, matching or storage is not. Translating
+   it does not throw — the lookup silently misses and data disappears.
+   *Precedent (CB-62 B4-1b3):* `new-quote-modifications.html` re-attaches saved
+   modifications to rules with `mf_code + '|' + display_label`. The hardcoded
+   defaults `'Increase Depth'` / `'Reduce Depth'` feed that key. Translating them
+   would have made every existing quote's depth modification unmatchable —
+   **silently**, with no error anywhere.
+   The same applies to substring markers: `display_label_contains` compares against
+   `'Prep For Glass'`, `'Glass'`, `'Required with Glass'`, `'Skin'`, `'Roll Out'`.
+
+7. **Before translating a string, grep the repo for a second copy of it.** The same
+   English literal is often hardcoded in two files with different fates — one purely
+   for display, the other written to the DB or printed in a PDF. Checking only the
+   display copy gives the wrong answer.
+   *Precedent (CB-62 B4-1b3):* `~5 Weeks` / `~3 Business Days` / `~2 Weeks` appear in
+   `leadTimeForDoor()` in `new-quote-modifications.html` (display only) **and** in
+   `calculateLeadTime()` in `new-quote-step3.html`, whose result is written to
+   `quotes.estimated_lead_time` and printed by `pdf-builder.js` and the quote email.
+   Not translated, on the strength of the second copy.
+
+   This is the mirror image of §10's duplicated-strings list: that list is about
+   copies that must change **together**; this rule is about copies whose
+   translatability **differs**.
 
 ---
 
@@ -94,6 +121,34 @@ invisible and nothing looks broken** — the worst kind of bug.
 
 Keep the two values identical. Suggested scheme: the ticket that made the change
 (`cb62`, then `cb63`, `cb63a`, …).
+
+### The two values are independent knobs — bumping one alone is legal but partial
+
+The rule above is about **guaranteeing** every browser sees a language-file change.
+It is not a prohibition on touching `PC_I18N_VER` by itself.
+
+`PC_I18N_VER` is a constant inside `i18n.js`; editing it costs one line and touches
+no HTML page — in particular it does **not** touch the frozen `login.html`. So it may
+be bumped at any time, independently of the promote-time bump policy below.
+
+What you get and what you do not:
+
+| Browser state | Effect of bumping `PC_I18N_VER` alone |
+| --- | --- |
+| Fresh / cold cache for `i18n.js` | Sees the new constant, refetches the dictionaries — **fixed** |
+| Holding a cached `i18n.js` | Never sees the new constant, keeps the old dictionary URL — **unchanged** |
+
+Nobody is made worse off, so bumping it early is safe. But it is **best-effort, not
+a guarantee** — full coverage still requires the page-level `?v=` bump.
+
+**Why this matters for testing, not just for users:** a stale dictionary makes missing
+keys fall back to English. A test whose expected result *is* English — "confirm the
+option labels stay English" — then passes for the wrong reason. Always test in a
+private window (see §11) and confirm in the Network panel that the dictionary URL
+carries the version you expect.
+
+*Precedent (CB-62, Q-49):* `PC_I18N_VER` sat at `'cb62'` while pages loaded
+`i18n.js?v=cb62b`, across three language-file edits. Nothing looked broken.
 
 ### 🔴 When to bump: once, immediately before promoting
 
@@ -490,6 +545,64 @@ Two consequences worth stating plainly:
 - **`page` and `href` are internal identifiers.** Only `label` is display text.
   Translating a menu item must never touch routing.
 
+### 🔴 Shared dealer/admin pages — loading `i18n.js` is NOT enough
+
+The rule above assumes a page belongs to either the dealer side or the admin side.
+Several pages do not: **admin and dealer open the same URL**, and the page decides
+what to render from the resolved role.
+
+Known shared pages:
+
+| Page | Evidence |
+| --- | --- |
+| `new-quote.html` | admin-edit / admin-acting banner |
+| `new-quote-step2.html` | `buildAdminEditBanner` |
+| `new-quote-modifications.html` | `isAdminViewer`, `effectiveRole` |
+| `new-quote-step3.html` | `isAdminRole` |
+| `quote-detail.html` | `isAdmin`, admin-only Packing List |
+
+`payment.html` is **not** shared — it redirects admin and super_admin to `admin.html`
+before rendering.
+
+On a shared page `i18n.js` is loaded for everyone, and `localStorage` is per-domain,
+so an admin who ever pressed the language switch on `dashboard.html` or `quotes.html`
+carries Spanish into the quote flow. The load-or-not switch cannot separate them.
+
+**The rule:** every shared page that loads `i18n.js` must force English once the role
+is known, and must not write that choice to `localStorage` (an admin and a dealer may
+share a machine).
+
+```js
+if (effectiveRole === 'admin') {
+  if (typeof window.pcForceLang === 'function') {
+    window.pcForceLang('en');
+  } else {
+    console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+    document.documentElement.setAttribute('lang', 'en');
+  }
+}
+```
+
+`pcForceLang(lang)` is `pcSetLang` minus `writeStore()` — session-only, never persisted.
+
+Three things about this snippet are deliberate:
+
+- **The `typeof` guard is not the failure this doc warns about elsewhere.** It guards
+  against version skew (new HTML + a cached `i18n.js` without the function), not a
+  typo. It reports loudly via `console.error` and still fixes `html[lang]` so the
+  language-specific CSS in §8 does not stay on the Spanish branch. The text itself
+  stays Spanish in that case — the only alternative, `pcSetLang('en')`, would write
+  `localStorage` and clobber the dealer's preference. That trade was chosen knowingly.
+- **Accepted behaviour: a brief flash.** Role resolution needs an auth session plus
+  one or two Supabase round trips; `i18n.js` needs a local JSON fetch and DOM-ready.
+  i18n wins essentially every time, so an admin who had Spanish selected sees the
+  static page chrome in Spanish for roughly **0.5–2 seconds** before it flips to
+  English. Only static chrome flashes — every dynamic render happens after the role
+  is known, and **no amount, price or record is ever involved**. This was reviewed and
+  accepted (CB-62, Q-46); the alternatives all required changing the `i18n.js` boot
+  sequence, which would reach the frozen `login.html`. Do not re-investigate it as a bug.
+- **It runs after `effectiveRole` is assigned**, not after the role query returns.
+
 ### 🔴 Duplicated English strings — the running list
 
 Some English text is written twice on purpose: once in a component (which admin
@@ -503,6 +616,7 @@ use). **Change one, change the other.** No test catches this; only this list doe
 | `feedback-widget.js` | `SENTIMENTS[].label`, `CATEGORIES[].label` | `feedback.sentiment.*`, `feedback.category.*` |
 | `navigator.js` | `DEALER_NAV[].label` and every `t(key, 'English')` fallback | `nav.*` |
 | `login.html` (frozen) | 11 auth-script literals | see §7 |
+| `new-quote-modifications.html` | `mf.err.*` fallbacks in `components/modifications/mf0*.js` | `mf.err.*` |
 
 The pattern is always the same: the second argument to `t()` **is** the English
 string. If you edit one, grep the other file for it.
