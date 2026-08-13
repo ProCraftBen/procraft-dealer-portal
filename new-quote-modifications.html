@@ -1443,8 +1443,8 @@
 
       <div class="mf-group" data-group-no="1">
         <div class="mf-group-header">
-          <span class="mf-group-label" id="mfGroupLabel">Modifications</span>
-          <span class="mf-group-qty" id="mfGroupQty">Qty: 0</span>
+          <span class="mf-group-label" id="mfGroupLabel" data-i18n="flow.step.modifications">Modifications</span>
+          <span class="mf-group-qty" id="mfGroupQty" data-i18n="nqm.group.qty">Qty: 0</span>
         </div>
         <div class="mf-group-body">
           <div id="mfElementsContainer">
@@ -1501,7 +1501,7 @@
     </div>
 <div class="swap-modal-footer">
       <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapModal()">Cancel</button>
-      <button class="mf-btn mf-btn-save" type="button" id="swapConfirmBtn" onclick="confirmSwap()" disabled>Confirm Swap</button>
+      <button class="mf-btn mf-btn-save" type="button" id="swapConfirmBtn" onclick="confirmSwap()" disabled data-i18n="nqm.swap.confirm_btn">Confirm Swap</button>
     </div>
   </div>
 </div>
@@ -1872,8 +1872,8 @@ function buildReviewBanner() {
         <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
       </div>
       <div class="rrb-body">
-        <div class="rrb-title">Reviewing Revised Purchase Order</div>
-        <div class="rrb-msg">You are reviewing your revised Purchase Order. Modifications are shown for review only and cannot be changed here — click Review to continue and resubmit on the final step.</div>
+        <div class="rrb-title" data-i18n="nqm.banner.review_title">Reviewing Revised Purchase Order</div>
+        <div class="rrb-msg" data-i18n="nqm.banner.review_msg">You are reviewing your revised Purchase Order. Modifications are shown for review only and cannot be changed here — click Review to continue and resubmit on the final step.</div>
       </div>
     </div>`;
 }
@@ -1902,8 +1902,8 @@ function buildNoAssembledBanner() {
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
       </div>
       <div class="nab-body">
-        <div class="nab-title">No Modifications Needed</div>
-        <div class="nab-msg">This quote has no assembled items. No modifications are needed — click Review to continue.</div>
+        <div class="nab-title" data-i18n="nqm.banner.no_asm_title">No Modifications Needed</div>
+        <div class="nab-msg" data-i18n="nqm.banner.no_asm_msg">This quote has no assembled items. No modifications are needed — click Review to continue.</div>
       </div>
     </div>`;
 }
@@ -2143,7 +2143,7 @@ function buildSortControlHtml() {
     return '<option value="' + o[0] + '"' + sel + '>' + o[1] + '</option>';
   }).join('');
   return '<div class="ds-sort-wrap">' +
-           '<span class="ds-sort-label">Sort</span>' +
+           '<span class="ds-sort-label">' + esc(pcTxt('nqm.sort.label', 'Sort')) + '</span>' +
            '<select class="ds-sort-select" onchange="onSortChange(this.value)">' + optionsHtml + '</select>' +
          '</div>';
 }
@@ -2337,7 +2337,7 @@ function buildDoorStyleCard(group, gIdx) {
         <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 4l8.5 14.5h-17L12 6zm-1 5v5h2v-5h-2zm0 7v2h2v-2h-2z"/></svg>
       </div>
       <div class="ds-discontinued-banner-msg">
-        This door style is currently unavailable. Please remove or replace these items. If you have any questions, please contact us.
+        ${esc(pcTxt('nqm.banner.discontinued', 'This door style is currently unavailable. Please remove or replace these items. If you have any questions, please contact us.'))}
       </div>
     </div>` : '';
 
@@ -2347,7 +2347,7 @@ function buildDoorStyleCard(group, gIdx) {
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
       </div>
       <div class="ds-nonstock-banner-msg">
-        This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.
+        ${esc(pcTxt('nqm.banner.nonstock', 'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.'))}
       </div>
     </div>` : '';
 
@@ -2372,7 +2372,7 @@ function buildDoorStyleCard(group, gIdx) {
   const swapBtnHtml = group.is_custom_style ? '' : `
     <button class="ds-swap-btn" type="button"
       onclick="openSwapModal('${esc(group.style_code)}')"
-      title="Replace this door style with another (same construction type)">
+      title="${esc(pcTxt('nqm.swap.btn_title', 'Replace this door style with another (same construction type)'))}">
       ${SWAP_ARROWS_SVG}
       Swap Style
     </button>`;
@@ -3003,7 +3003,7 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
   elementDiv.innerHTML =
     '<div class="mf04-combined">' +
       '<select class="mf04-dir-select">' +
-        '<option value="none">Don\'t adjust</option>' +
+        '<option value="none">' + esc(pcTxt('nqm.mf04.no_adjust', "Don't adjust")) + '</option>' +
         '<option value="increase">' + esc(pcTxt('nqm.mf04.increase', 'Increase depth')) + '</option>' +
                 '<option value="reduce">' + esc(pcTxt('nqm.mf04.reduce', 'Reduce depth')) + '</option>' +
       '</select>' +
@@ -3123,7 +3123,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
     wrap.innerHTML = `
       <div class="mf-no-rules">
         <div class="mf-no-rules-title">${esc(pcTxt('nqm.no_rules.title', 'No modifications available'))}</div>
-        <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
+        <div>${esc(pcTxt('nqm.no_rules.msg', 'This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.'))}</div>
       </div>`;
     subRef.instances = [];
     subRef.liveValues = {};
@@ -3563,7 +3563,10 @@ function onSubQtyChange(subIdx, newVal) {
   if (subIdx === activeSubGroupIdx) {
     updateRunningTotal();
     const groupQtyEl = document.getElementById('mfGroupQty');
-    if (groupQtyEl) groupQtyEl.textContent = 'Qty: ' + q;
+    if (groupQtyEl) {
+      groupQtyEl.removeAttribute('data-i18n');
+      groupQtyEl.textContent = pcTxt('nqm.group.qty', 'Qty: {n}', { n: q });
+    }
   }
 }
 
@@ -3641,7 +3644,10 @@ function renderActiveSubTab() {
               { n: (activeSub.sub_index || (activeSubGroupIdx + 1)) })
       : 'Modifications';
   }
-  if (groupQty) groupQty.textContent = 'Qty: ' + (activeSub.qty || 0);
+  if (groupQty) {
+    groupQty.removeAttribute('data-i18n');
+    groupQty.textContent = pcTxt('nqm.group.qty', 'Qty: {n}', { n: (activeSub.qty || 0) });
+  }
 
   if (!Array.isArray(activeMfModalRules)) { clearMfContainerToLoading(); return; }
 
@@ -4324,8 +4330,13 @@ async function openSwapModal(currentStyleCode) {
     (currentStyle.grp ? ' · ' + currentStyle.grp : '');
 
   const ctype = (currentStyle.construction_type || '').toLowerCase();
-  const ctypeLabel = ctype === 'framed' ? 'Framed' : ctype === 'frameless' ? 'Frameless' : 'same construction type';
-  document.getElementById('swapPickLabel').textContent = 'Pick a replacement style (' + ctypeLabel + ' only)';
+  const ctypeLabel = ctype === 'framed' ? 'Framed'
+                   : ctype === 'frameless' ? 'Frameless'
+                   : pcTxt('nqm.swap.ctype_same', 'same construction type');
+  const pickEl = document.getElementById('swapPickLabel');
+  pickEl.removeAttribute('data-i18n');
+  pickEl.textContent = pcTxt('nqm.swap.pick_dynamic',
+    'Pick a replacement style ({ctype} only)', { ctype: ctypeLabel });
 
   renderSwapStyleGrid(currentStyle);
 
@@ -4360,7 +4371,8 @@ function renderSwapStyleGrid(currentStyle) {
   const gridEl = document.getElementById('swapStyleGrid');
   if (!candidates.length) {
     gridEl.innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;font-size:12px;color:var(--muted);">' +
-      'No other styles available for ' + esc(ctype) + ' construction.</div>';
+    esc(pcTxt('nqm.swap.no_styles', 'No other styles available for {ctype} construction.',
+            { ctype: ctype })) + '</div>';
     return;
   }
 
@@ -4375,7 +4387,8 @@ function renderSwapStyleGrid(currentStyle) {
         '<div class="swap-style-img-wrap">' + img + '</div>' +
         '<div class="swap-style-info">' +
           '<div class="swap-style-name">' + esc(s.style_name) +
-            (isCurrent ? ' <span style="color:var(--muted);font-weight:400;font-size:9px;">(current)</span>' : '') + '</div>' +
+              (isCurrent ? ' <span style="color:var(--muted);font-weight:400;font-size:9px;">'
+              + esc(pcTxt('nqm.swap.current_tag', '(current)')) + '</span>' : '') + '</div>' +
           '<div class="swap-style-code">' + esc(s.style_code) + (s.grp ? ' · ' + esc(s.grp) : '') + '</div>' +
         '</div>' +
       '</div>';
