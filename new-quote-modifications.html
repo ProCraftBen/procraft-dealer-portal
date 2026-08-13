@@ -4220,7 +4220,8 @@ function handleMfSkip() {
   refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(skuCode + ' skipped');  showToast(pcTxt('nqm.toast.skipped', '{sku} skipped', { sku: skuCode }));}
+  showToast(pcTxt('nqm.toast.skipped', '{sku} skipped', { sku: skuCode }));
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // F-MODS-TOTAL
