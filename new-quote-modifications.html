@@ -1449,7 +1449,7 @@
         <div class="mf-group-body">
           <div id="mfElementsContainer">
             <div class="mf-loading">
-              <span class="mf-loading-spinner"></span>Loading modifications...
+              <span class="mf-loading-spinner"></span><span data-i18n="nqm.loading_mods">Loading modifications...</span>
             </div>
           </div>
         </div>
@@ -2097,7 +2097,9 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
 }
 // CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
 function formatAssembleStatus(v) {
-  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+  return v === 'RTA'
+    ? pcTxt('nqm.type.unassembled', 'Unassembled')
+    : pcTxt('nqm.type.assembled', 'Assembled');
 }
 
 // CB-5 需求4: SKU 列排序(卡片內,不改變門花色分組結構)
@@ -2131,10 +2133,10 @@ function sortSkuItems(items, mode) {
 }
 function buildSortControlHtml() {
   const opts = [
-    ['type', 'Type'],
-    ['az', 'SKU (A–Z)'],
-    ['price_asc', 'Price (Low–High)'],
-    ['price_desc', 'Price (High–Low)'],
+    ['type',       pcTxt('nqm.sort.type', 'Type')],
+    ['az',         pcTxt('nqm.sort.az', 'SKU (A–Z)')],
+    ['price_asc',  pcTxt('nqm.sort.price_asc', 'Price (Low–High)')],
+    ['price_desc', pcTxt('nqm.sort.price_desc', 'Price (High–Low)')],
   ];
   const optionsHtml = opts.map(function (o) {
     const sel = (o[0] === currentSortMode) ? ' selected' : '';
@@ -2201,7 +2203,7 @@ function buildDoorStyleGroups(items, doorStyles) {
   if (customExtras.length) {
     groups.push({
       style_code:        '__CUSTOM_EXTRAS__',
-      style_name:        'Custom Items',
+      style_name:        pcTxt('nqm.group.custom_items', 'Custom Items'),
       construction_type: 'custom',
       image_url:         null,
       color:             null,
@@ -2280,7 +2282,8 @@ function renderProgressCard(progress) {
 function renderDoorStyleList() {
   const container = document.getElementById('doorStyleList');
   if (!doorStyleGroups.length) {
-    container.innerHTML = '<div class="empty-state">No items in your quote.</div>';
+    container.innerHTML = '<div class="empty-state">'
+      + esc(pcTxt('nqm.empty.no_items', 'No items in your quote.')) + '</div>';
     return;
   }
   container.innerHTML = doorStyleGroups.map(function (g, gIdx) {
@@ -2316,11 +2319,11 @@ function buildDoorStyleCard(group, gIdx) {
     ? leadTimeForDoor(group.construction_type, group.is_stock)
     : null;
   const leadTimeHtml = leadTime
-    ? `<span class="ds-lead-time">Lead time: ${esc(leadTime)}</span>`
+    ? `<span class="ds-lead-time">${esc(pcTxt('nqm.lead.prefix', 'Lead time:'))} ${esc(leadTime)}</span>`
     : '';
 
   const discTag = group.is_discontinued
-    ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
+    ? `<span class="ds-discontinued-tag">${esc(pcTxt('nqm.tag.unavailable', '⚠ Currently Unavailable'))}</span>`
     : '';
   const customStyleTag = group.is_custom_style
     ? `<span class="sku-custom-badge">CUSTOM STYLE</span>`
@@ -2408,16 +2411,16 @@ function buildCustomExtrasCard(group) {
         <div class="ds-info">
           <div class="ds-name">${esc(group.style_name)} <span class="sku-custom-badge">CUSTOM</span></div>
           <div class="ds-meta">
-            <span class="ds-construction-tag unknown">Accessory / Other</span>
+            <span class="ds-construction-tag unknown">${esc(pcTxt('nqm.tag.accessory_other', 'Accessory / Other'))}</span>
           </div>
         </div>
         <div class="ds-progress">
           <div class="ds-progress-count no-assembled">—</div>
-          <div class="ds-progress-label">No mods</div>
+          <div class="ds-progress-label">${esc(pcTxt('nqm.progress.no_mods', 'No mods'))}</div>
         </div>
       </div>
       <div class="ds-group">
-        <div class="ds-group-label">Custom items (no modifications)</div>
+        <div class="ds-group-label">${esc(pcTxt('nqm.group.custom_no_mod', 'Custom items (no modifications)'))}</div>
         ${items.map(function (item) { return buildCustomExtraRow(item); }).join('')}
       </div>
     </div>`;
@@ -2430,16 +2433,17 @@ function buildCustomExtraRow(item) {
       <span class="sku-custom-badge">CUSTOM</span>
       <span class="sku-desc">${esc(item.sku_desc)}</span>
       <span class="sku-qty">Qty ${item.quantity}</span>
-      <span class="sku-no-mod-label">No modifications available</span>
       <button class="sku-delete-btn" type="button"
         onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
-        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
+        aria-label="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}"
+        title="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}">${TRASH_SVG}</button>
     </div>`;
 }
 
 function onCustomNoModClick(evt, key) {
   if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) return;
-  showToast('No modifications available for custom Accessory / Other items');
+  showToast(pcTxt('nqm.toast.custom_no_mod',
+    'No modifications available for custom Accessory / Other items'));
 }
 
 function buildGroupProgressDisplay(group) {
@@ -2464,8 +2468,8 @@ function buildAsmSwitchBtnHtml(item) {
   const targetType = (item.type === 'Assembled') ? 'RTA' : 'Assembled';
   const labelText  = formatAssembleStatus(targetType);
   const title = targetType === 'RTA'
-    ? 'Switch to Unassembled (knock-down shipment, clears modifications)'
-    : 'Switch to Assembled (adds assembly fee, enables modifications)';
+    ? pcTxt('nqm.asm.to_rta_title', 'Switch to Unassembled (knock-down shipment, clears modifications)')
+    : pcTxt('nqm.asm.to_asm_title', 'Switch to Assembled (adds assembly fee, enables modifications)');
   return `
     <button class="sku-asm-switch-btn" type="button"
       onclick="event.stopPropagation(); onMainPageAssemblyToggle('${esc(item.key)}', '${targetType}')"
@@ -2477,12 +2481,14 @@ function buildAsmSwitchBtnHtml(item) {
 function buildAssembledRow(item, gIdx) {
   const status = getItemOverallStatus(item);
   let statusClass, statusLabel;
-  if (status === 'configured')      { statusClass = 'configured';  statusLabel = '● Configured'; }
-  else if (status === 'skipped')    { statusClass = 'skipped';     statusLabel = '+ Add Modification'; }
-  else                              { statusClass = 'unprocessed'; statusLabel = '○ Unprocessed'; }
+  if (status === 'configured')      { statusClass = 'configured';  statusLabel = pcTxt('nqm.status.configured', '● Configured'); }
+  else if (status === 'skipped')    { statusClass = 'skipped';     statusLabel = pcTxt('nqm.status.add_mod', '+ Add Modification'); }
+  else                              { statusClass = 'unprocessed'; statusLabel = pcTxt('nqm.status.unprocessed', '○ Unprocessed'); }
 
   const subCount = Array.isArray(item.sub_groups) ? item.sub_groups.length : 1;
-  const splitBadge = subCount > 1 ? `<span class="sku-split-badge">Split × ${subCount}</span>` : '';
+  const splitBadge = subCount > 1
+    ? `<span class="sku-split-badge">${esc(pcTxt('nqm.badge.split', 'Split × {n}', { n: subCount }))}</span>`
+    : '';
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
   const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
 
@@ -2491,14 +2497,15 @@ function buildAssembledRow(item, gIdx) {
       <span class="sku-code">${esc(item.sku_code)}</span>
       ${customBadge}
       <span class="sku-desc">${esc(item.sku_desc)}</span>
-      <span class="sku-qty">Qty ${item.quantity}</span>
+      <span class="sku-qty">${esc(pcTxt('nqm.label.qty_short', 'Qty'))} ${item.quantity}</span>
       ${splitBadge}
       <span class="sku-status ${statusClass}">${statusLabel}</span>
       <span class="sku-arrow">›</span>
       ${asmSwitchBtn}
       <button class="sku-delete-btn" type="button"
         onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
-        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
+        aria-label="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}"
+        title="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}">${TRASH_SVG}</button>
     </div>`;
 }
 
@@ -2509,14 +2516,16 @@ function buildRtaRow(item) {
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
   const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
 
+const qtyLabel = esc(pcTxt('nqm.label.qty_short', 'Qty'));
+  const qtyAria  = esc(pcTxt('nqm.aria.quantity', 'Quantity'));
   const qtyHtml = isReviewLocked()
-    ? `<span class="sku-qty">Qty ${item.quantity}</span>`
+    ? `<span class="sku-qty">${qtyLabel} ${item.quantity}</span>`
     : `<span class="sku-qty-edit" onclick="event.stopPropagation()">
-         <span class="sku-qty-edit-label">Qty</span>
+         <span class="sku-qty-edit-label">${qtyLabel}</span>
          <input type="number" min="1" step="1" class="sku-qty-input"
            value="${item.quantity}"
            onchange="onRtaQtyChange('${esc(item.key)}', this.value)"
-           aria-label="Quantity"/>
+           aria-label="${qtyAria}"/>
        </span>`;
 
   return `
@@ -2528,7 +2537,8 @@ function buildRtaRow(item) {
       ${asmSwitchBtn}
       <button class="sku-delete-btn" type="button"
         onclick="onDeleteSkuClick('${esc(item.key)}')"
-        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
+        aria-label="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}"
+        title="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}">${TRASH_SVG}</button>
     </div>`;
 }
 
@@ -3414,7 +3424,7 @@ function clearMfContainerToLoading() {
   if (wrap) {
     wrap.innerHTML = `
       <div class="mf-loading">
-        <span class="mf-loading-spinner"></span>Loading modifications...
+        <span class="mf-loading-spinner"></span>${esc(pcTxt('nqm.loading_mods', 'Loading modifications...'))}
       </div>`;
   }
 }
