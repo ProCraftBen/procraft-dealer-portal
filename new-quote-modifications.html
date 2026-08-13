@@ -2432,7 +2432,8 @@ function buildCustomExtraRow(item) {
       <span class="sku-code">${esc(item.sku_code)}</span>
       <span class="sku-custom-badge">CUSTOM</span>
       <span class="sku-desc">${esc(item.sku_desc)}</span>
-      <span class="sku-qty">Qty ${item.quantity}</span>
+      <span class="sku-qty">${esc(pcTxt('nqm.label.qty_short', 'Qty'))} ${item.quantity}</span>
+      <span class="sku-no-mod-label">${esc(pcTxt('nqm.label.no_mod_available', 'No modifications available'))}</span>
       <button class="sku-delete-btn" type="button"
         onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
         aria-label="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}"
@@ -2516,7 +2517,7 @@ function buildRtaRow(item) {
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
   const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
 
-const qtyLabel = esc(pcTxt('nqm.label.qty_short', 'Qty'));
+  const qtyLabel = esc(pcTxt('nqm.label.qty_short', 'Qty'));
   const qtyAria  = esc(pcTxt('nqm.aria.quantity', 'Quantity'));
   const qtyHtml = isReviewLocked()
     ? `<span class="sku-qty">${qtyLabel} ${item.quantity}</span>`
