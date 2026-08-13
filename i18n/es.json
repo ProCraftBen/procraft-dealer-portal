@@ -476,6 +476,8 @@
   "nqm.progress.no_mods": "Sin modificaciones",
   "nqm.label.no_mod_available": "No hay modificaciones disponibles",
   "nqm.label.qty_short": "Cant.",
+  "nqm.label.sku_qty": "Cantidad de SKU:",
+  "nqm.tag.accessory_other": "Accesorios / Otros",
   "nqm.aria.remove_item": "Eliminar de la cotización",
   "nqm.aria.quantity": "Cantidad",
   "nqm.asm.to_rta_title": "Cambiar a Sin ensamblar (envío desmontado, borra las modificaciones)",
