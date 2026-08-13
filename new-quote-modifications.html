@@ -2567,7 +2567,7 @@ function onDeleteSkuClick(key) {
   renderModsTotalBar();
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   console.log('[E5] Removed SKU', key, 'from cart. Remaining items:', cartItems.length);
-  showToast(item.sku_code + ' removed');
+  showToast(pcTxt('nqm.toast.removed', '{sku} removed', { sku: item.sku_code }));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2590,14 +2590,15 @@ function onMainPageAssemblyToggle(key, newType) {
 
   // Guard: custom items shouldn't reach here (button hidden), but double-check.
   if (item.is_custom) {
-    showToast('Custom items cannot be switched between Unassembled and Assembled', true);
+    showToast(pcTxt('nqm.toast.custom_no_switch',
+      'Custom items cannot be switched between Unassembled and Assembled'), true);
     return;
   }
 
   if (newType === 'Assembled') {
     // RTA → Assembled
     if (!itemSupportsAssembled(dealer, item)) {
-      showToast('This SKU is not available in Assembled', true);
+      showToast(pcTxt('nqm.toast.no_asm_variant', 'This SKU is not available in Assembled'), true);
       return;
     }
 
@@ -2618,7 +2619,8 @@ function onMainPageAssemblyToggle(key, newType) {
       return other !== item && other.key === newKey && other.style_code === item.style_code;
     });
     if (conflict) {
-      showToast('An Assembled row already exists for this SKU. Please remove one first.', true);
+      showToast(pcTxt('nqm.toast.asm_row_exists',
+        'An Assembled row already exists for this SKU. Please remove one first.'), true);
       console.warn('[F-RTA-SWITCH] Key collision aborted switch: ' + newKey);
       return;
     }
@@ -2639,7 +2641,8 @@ function onMainPageAssemblyToggle(key, newType) {
                 ' · fee=$' + newFee.toFixed(2));
 
     refreshAfterCartChange();
-    showToast(item.sku_code + ' → Assembled (modifications optional)');
+    showToast(pcTxt('nqm.toast.to_asm_ok', '{sku} → Assembled (modifications optional)',
+      { sku: item.sku_code }));
     return;
   }
 
@@ -2664,7 +2667,8 @@ function onMainPageAssemblyToggle(key, newType) {
     return other !== item && other.key === newKey && other.style_code === item.style_code;
   });
   if (conflict) {
-    showToast('An Unassembled row already exists for this SKU. Please remove one first.', true);
+    showToast(pcTxt('nqm.toast.rta_row_exists',
+      'An Unassembled row already exists for this SKU. Please remove one first.'), true);
     console.warn('[F-RTA-SWITCH] Key collision aborted switch: ' + newKey);
     return;
   }
@@ -2693,7 +2697,9 @@ function onMainPageAssemblyToggle(key, newType) {
               (prevSubCount > 1 ? ' · sub_groups collapsed: ' + prevSubCount + ' → 1' : ''));
 
   refreshAfterCartChange();
-  showToast(item.sku_code + ' → ' + formatAssembleStatus(item.type) + (hasMods ? ' (modifications cleared)' : ''));
+  showToast(pcTxt('nqm.toast.switched', '{sku} → {type}',
+      { sku: item.sku_code, type: formatAssembleStatus(item.type) })
+    + (hasMods ? ' ' + pcTxt('nqm.toast.mods_cleared_suffix', '(modifications cleared)') : ''));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2762,7 +2768,7 @@ function renderBottomBar(progress) {
 }
 
 function goReview() {
-  if (cartItems.length === 0) { showToast('Cart is empty — add items first', true); return; }
+  if (cartItems.length === 0) { showToast(pcTxt('nqm.toast.cart_empty', 'Cart is empty — add items first'), true); return; }
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   const nextUrl = draftId
     ? 'new-quote-step3.html?draft=' + draftId + buildModeParam()
@@ -3555,7 +3561,7 @@ function onSubQtyChange(subIdx, newVal) {
 }
 
 function onDeleteSubGroup(subIdx) {
-  if (activeSubGroups.length <= 1) { showToast('Cannot delete the only sub-group', true); return; }
+  if (activeSubGroups.length <= 1) { showToast(pcTxt('nqm.toast.only_subgroup', 'Cannot delete the only sub-group'), true); return; }
   const sub = activeSubGroups[subIdx];
   if (!sub) return;
 
@@ -3678,7 +3684,7 @@ async function fetchModRulesForActiveItem() {
 
     if (error) {
       console.error('[E4.3] RPC error:', error);
-      showToast('Failed to load modifications', true);
+      showToast(pcTxt('nqm.toast.load_mods_failed', 'Failed to load modifications'), true);
       activeMfModalRules = [];
       return false;
     }
@@ -3813,7 +3819,7 @@ async function fetchModRulesForActiveItem() {
     return true;
   } catch (e) {
     console.error('[E4.3] Unexpected error calling RPC:', e);
-    showToast('Failed to load modifications', true);
+    showToast(pcTxt('nqm.toast.load_mods_failed', 'Failed to load modifications'), true);
     activeMfModalRules = [];
     return false;
   }
@@ -4098,8 +4104,10 @@ function handleMfSave() {
 
   if (firstFailure) {
     console.log('[D17] Save blocked — validation failed:', firstFailure);
-    const subLabel = activeSubGroups.length > 1 ? ('Sub ' + (firstFailure.subIdx + 1) + ' — ') : '';
-    const errText = firstFailure.errors[0] || 'Invalid value';
+    const subLabel = activeSubGroups.length > 1
+      ? (pcTxt('nqm.toast.sub_prefix', 'Sub {n} —', { n: firstFailure.subIdx + 1 }) + ' ')
+      : '';
+    const errText = firstFailure.errors[0] || pcTxt('mf.err.invalid_value', 'Invalid value');
     showToast(subLabel + (firstFailure.label || firstFailure.mfCode) + ': ' + errText, true);
     if (!firstFailure.isActiveTab) {
       freezeActiveSub();
@@ -4116,11 +4124,13 @@ function handleMfSave() {
 
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
-    showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ')', true);
+      showToast(pcTxt('nqm.toast.qty_mismatch',
+      'Sub-group quantities ({sum}) must equal SKU qty ({qty})',
+      { sum: sum, qty: activeSkuQty }), true);
     return;
   }
-  if (activeSkuQty < 1) { showToast('SKU qty must be at least 1', true); return; }
-  if (activeSubGroups.length === 0) { showToast('At least one sub-group required', true); return; }
+  if (activeSkuQty < 1) { showToast(pcTxt('nqm.toast.qty_min', 'SKU qty must be at least 1'), true); return; }
+  if (activeSubGroups.length === 0) { showToast(pcTxt('nqm.toast.need_subgroup', 'At least one sub-group required'), true); return; }
 
   freezeActiveSub();
 
@@ -4179,7 +4189,8 @@ function handleMfSave() {
   refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(skuCode + ' configured — $' + totalLineCost.toFixed(2));
+  showToast(pcTxt('nqm.toast.configured', '{sku} configured — ${amount}',
+    { sku: skuCode, amount: totalLineCost.toFixed(2) }));
 }
 
 function handleMfSkip() {
@@ -4190,7 +4201,9 @@ function handleMfSkip() {
 
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
-    showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ') before skipping', true);
+    showToast(pcTxt('nqm.toast.qty_mismatch_skip',
+      'Sub-group quantities ({sum}) must equal SKU qty ({qty}) before skipping',
+      { sum: sum, qty: activeSkuQty }), true);
     return;
   }
 
@@ -4207,8 +4220,7 @@ function handleMfSkip() {
   refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(skuCode + ' skipped');
-}
+  showToast(skuCode + ' skipped');  showToast(pcTxt('nqm.toast.skipped', '{sku} skipped', { sku: skuCode }));}
 
 // ═══════════════════════════════════════════════════════════════════
 // F-MODS-TOTAL
@@ -4282,10 +4294,10 @@ async function ensureSwapSkuCache() {
 async function openSwapModal(currentStyleCode) {
   if (isReviewLocked()) return;  // CB-4: read-only review
   const currentStyle = allDoorStyles.find(function (s) { return s.style_code === currentStyleCode; });
-  if (!currentStyle) { showToast('Current style not found', true); return; }
+  if (!currentStyle) { showToast(pcTxt('nqm.toast.style_not_found_cur', 'Current style not found'), true); return; }
 
   try { await ensureSwapSkuCache(); }
-  catch (e) { console.warn('[F-SWAP] Failed to load SKU cache:', e); showToast('Failed to load product data', true); return; }
+  catch (e) { console.warn('[F-SWAP] Failed to load SKU cache:', e); showToast(pcTxt('nqm.toast.load_products_failed', 'Failed to load product data'), true); return; }
 
   swapState.currentStyleCode = currentStyleCode;
   swapState.selectedNewStyleCode = null;
@@ -4460,11 +4472,11 @@ function closeSwapModal() {
 function confirmSwap() {
   if (isReviewLocked()) return;  // CB-4: read-only review
   if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
-    showToast('Please select a replacement style', true);
+    showToast(pcTxt('nqm.toast.pick_style', 'Please select a replacement style'), true);
     return;
   }
   const impact = computeSwapImpact(swapState.selectedNewStyleCode);
-  if (!impact) { showToast('Unable to compute price change', true); return; }
+  if (!impact) { showToast(pcTxt('nqm.toast.price_calc_failed', 'Unable to compute price change'), true); return; }
   openSwapConfirmPopup(impact);
 }
 
@@ -4504,17 +4516,18 @@ function closeSwapConfirmPopup() {
 function commitSwap() {
   if (isReviewLocked()) return;  // CB-4: read-only review
   if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
-    showToast('Please select a replacement style', true);
+    showToast(pcTxt('nqm.toast.pick_style', 'Please select a replacement style'), true);
     return;
   }
   const newStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.selectedNewStyleCode; });
   const oldStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.currentStyleCode; });
-  if (!newStyle || !oldStyle) { showToast('Style not found', true); return; }
+  if (!newStyle || !oldStyle) { showToast(pcTxt('nqm.toast.style_not_found', 'Style not found'), true); return; }
 
   const oldCtype = (oldStyle.construction_type || '').toLowerCase();
   const newCtype = (newStyle.construction_type || '').toLowerCase();
   if (oldCtype !== newCtype) {
-    showToast('Cannot swap across construction types (Framed ↔ Frameless not supported)', true);
+    showToast(pcTxt('nqm.toast.ctype_mismatch',
+      'Cannot swap across construction types (Framed ↔ Frameless not supported)'), true);
     return;
   }
 
@@ -4576,7 +4589,11 @@ function commitSwap() {
 
   closeSwapConfirmPopup();
   closeSwapModal();
-  showToast('Swapped to ' + newStyle.style_name + (unpriced > 0 ? ' (' + unpriced + ' unpriced — please review)' : ''));
+  showToast(pcTxt('nqm.toast.swapped', 'Swapped to {style}', { style: newStyle.style_name })
+    + (unpriced > 0
+        ? ' ' + pcPlural('nqm.toast.unpriced', unpriced,
+            '({n} unpriced — please review)', '({n} unpriced — please review)')
+        : ''));
 }
 
 // ═══════════════════════════════════════════════════════════════════
