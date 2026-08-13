@@ -2745,14 +2745,14 @@ function renderBottomBar(progress) {
   const isReady = (progress.total === 0) || (pendingAssembled === 0);
 
   if (cartItems.length === 0) {
-    statusTextEl.textContent = 'Cart is empty';
+    statusTextEl.textContent = pcTxt('nqm.bottom.empty', 'Cart is empty');
   } else if (progress.total === 0) {
-    statusTextEl.textContent = 'No assembled items — ready to review';
+    statusTextEl.textContent = pcTxt('nqm.bottom.no_asm', 'No assembled items — ready to review');
   } else if (pendingAssembled === 0) {
-    statusTextEl.textContent = 'All set — ready to review';
+    statusTextEl.textContent = pcTxt('nqm.bottom.ready', 'All set — ready to review');
   } else {
-    statusTextEl.textContent = pendingAssembled + ' assembled SKU' +
-      (pendingAssembled !== 1 ? 's' : '') + ' need attention';
+    statusTextEl.textContent = pcPlural('nqm.bottom.pending', pendingAssembled,
+          '{n} assembled SKU needs attention', '{n} assembled SKUs need attention');
   }
 
   if (isReady && cartItems.length > 0) statusEl.classList.add('complete');
@@ -2876,11 +2876,12 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
   const labelText = document.createElement('span');
   labelText.className = 'mf-row-label-text';
   labelText.innerHTML = esc(rule.display_label || mfCode) +
-    '<span class="mf-row-admin-badge" title="Added by admin">' + ADMIN_LOCK_SVG + 'Added by admin</span>';
+    '<span class="mf-row-admin-badge" title="' + esc(pcTxt('nqm.ro.added_by_admin', 'Added by admin')) + '">'
+    + ADMIN_LOCK_SVG + esc(pcTxt('nqm.ro.added_by_admin', 'Added by admin')) + '</span>';
   labelDiv.appendChild(labelText);
   const costSpan = document.createElement('span');
   costSpan.className = 'mf-row-label-cost';
-  costSpan.textContent = savedCost > 0 ? '+$' + savedCost.toFixed(2) : 'Included';
+  costSpan.textContent = savedCost > 0 ? '+$' + savedCost.toFixed(2) : pcTxt('nqm.ro.included', 'Included');
   labelDiv.appendChild(costSpan);
   row.appendChild(labelDiv);
 
@@ -2981,7 +2982,7 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
 
   const labelDiv = document.createElement('div');
   labelDiv.className = 'mf-row-label';
-  labelDiv.innerHTML = '<span class="mf-row-label-text">Depth Adjustment</span>';
+  labelDiv.innerHTML = '<span class="mf-row-label-text">' + esc(pcTxt('nqm.mf04.title', 'Depth Adjustment')) + '</span>';
   row.appendChild(labelDiv);
 
   const elementDiv = document.createElement('div');
@@ -2990,8 +2991,8 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
     '<div class="mf04-combined">' +
       '<select class="mf04-dir-select">' +
         '<option value="none">Don\'t adjust</option>' +
-        '<option value="increase">Increase depth</option>' +
-        '<option value="reduce">Reduce depth</option>' +
+        '<option value="increase">' + esc(pcTxt('nqm.mf04.increase', 'Increase depth')) + '</option>' +
+                '<option value="reduce">' + esc(pcTxt('nqm.mf04.reduce', 'Reduce depth')) + '</option>' +
       '</select>' +
       '<div class="mf04-input-area"></div>' +
     '</div>';
@@ -3035,7 +3036,7 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
           ' min="' + cfg.min + '" max="' + cfg.max + '" step="' + cfg.step + '" placeholder="—" />' +
         '<span class="mf04-unit">' + esc(cfg.unit) + '</span>' +
       '</div>' +
-      '<div class="mf04-range">Allowed: ' + cfg.min + ' – ' + cfg.max + '</div>' +
+      '<div class="mf04-range">' + esc(pcTxt('nqm.mf04.allowed', 'Allowed:')) + ' ' + cfg.min + ' – ' + cfg.max + '</div>' +
       costHtml;
     const numEl = areaEl.querySelector('.mf04-number');
     if (numEl) {
@@ -3063,8 +3064,8 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
     if (selectedDir !== dir) return { valid: true, errors: [] };
     const cfg = cfgFor(dir);
     if (currentValue === null || isNaN(currentValue)) return { valid: false, errors: ['Please enter a value.'] };
-    if (currentValue < cfg.min) return { valid: false, errors: ['Value must be at least ' + cfg.min + '.'] };
-    if (currentValue > cfg.max) return { valid: false, errors: ['Value must not exceed ' + cfg.max + '.'] };
+    if (currentValue < cfg.min) return { valid: false, errors: [pcTxt('nqm.mf04.err_min', 'Value must be at least {min}.', { min: cfg.min })] };
+    if (currentValue > cfg.max) return { valid: false, errors: [pcTxt('nqm.mf04.err_max', 'Value must not exceed {max}.', { max: cfg.max })] };
     return { valid: true, errors: [] };
   }
   function calcCostFor(dir) { return (selectedDir === dir) ? costFor(dir) : 0; }
@@ -3108,7 +3109,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
   if (!rules || !rules.length) {
     wrap.innerHTML = `
       <div class="mf-no-rules">
-        <div class="mf-no-rules-title">No modifications available</div>
+        <div class="mf-no-rules-title">${esc(pcTxt('nqm.no_rules.title', 'No modifications available'))}</div>
         <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
       </div>`;
     subRef.instances = [];
@@ -3185,7 +3186,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
     let costHtml;
     if (isAdminOnly) costHtml = '<span class="mf-row-label-cost admin-only">Admin Only</span>';
     else if (hasUnitMultiplier) costHtml = '';
-    else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">Base cost: +$' + baseCost.toFixed(2) + '</span>';
+    else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">' + esc(pcTxt('nqm.ro.base_cost', 'Base cost:')) + ' +$' + baseCost.toFixed(2) + '</span>';
     else costHtml = '<span class="mf-row-label-cost">Included</span>';
 
     const labelDiv = document.createElement('div');
@@ -3211,7 +3212,8 @@ function renderMfElements(rules, savedByIdx, subRef) {
       instance = window.MF[mfCode].create(elementDiv, params, savedValueForCreate);
     } catch (err) {
       console.error('[E4.4] Failed to create instance for', mfCode, err);
-      elementDiv.innerHTML = '<div style="font-size:11px;color:var(--error);padding:8px 0;">Failed to render this modification. Please contact support.</div>';
+      elementDiv.innerHTML = '<div style="font-size:11px;color:var(--error);padding:8px 0;">'
+        + esc(pcTxt('nqm.err.render_failed', 'Failed to render this modification. Please contact support.')) + '</div>';
       skippedCount++;
       return;
     }
@@ -3482,9 +3484,9 @@ function renderSplitPanel() {
 
   rowsEl.innerHTML = activeSubGroups.map(function (sub, i) {
     const statusClass = sub.modification_status || 'unprocessed';
-    const statusLabel = statusClass === 'configured' ? '● Configured'
-                      : statusClass === 'skipped'    ? '⊘ Skipped'
-                      : '○ Unprocessed';
+    const statusLabel = statusClass === 'configured' ? pcTxt('nqm.status.configured', '● Configured')
+                      : statusClass === 'skipped'    ? pcTxt('nqm.status.skipped', '⊘ Skipped')
+                      : pcTxt('nqm.status.unprocessed', '○ Unprocessed');
     const deleteDisabled = activeSubGroups.length <= 1 ? 'disabled' : '';
     return `
       <div class="mf-split-row" data-sub-idx="${i}">
@@ -3497,7 +3499,8 @@ function renderSplitPanel() {
         <span class="mf-split-row-status ${statusClass}">${statusLabel}</span>
         <button class="mf-split-row-delete" type="button" ${deleteDisabled}
           onclick="onDeleteSubGroup(${i})"
-          aria-label="Delete this sub-group" title="Delete this sub-group">${TRASH_SVG}</button>
+          aria-label="${esc(pcTxt('nqm.split.delete_title', 'Delete this sub-group'))}"
+          title="${esc(pcTxt('nqm.split.delete_title', 'Delete this sub-group'))}">${TRASH_SVG}</button>
       </div>`;
   }).join('');
 
@@ -3516,13 +3519,17 @@ function updateSplitSummary() {
   if (sum === skuQty) {
     summaryEl.classList.remove('invalid');
     summaryEl.classList.add('valid');
-    summaryEl.textContent = '✓ Total ' + sum + ' = SKU qty ' + skuQty;
+    summaryEl.textContent = pcTxt('nqm.split.total_ok', '✓ Total {sum} = SKU qty {qty}', { sum: sum, qty: skuQty });
   } else {
     summaryEl.classList.remove('valid');
     summaryEl.classList.add('invalid');
     const diff = skuQty - sum;
-    if (diff > 0) summaryEl.textContent = 'Need ' + diff + ' more (sum ' + sum + ' / ' + skuQty + ')';
-    else summaryEl.textContent = 'Over by ' + Math.abs(diff) + ' (sum ' + sum + ' / ' + skuQty + ')';
+    if (diff > 0) summaryEl.textContent = pcTxt(
+      'nqm.split.need_more' + (diff === 1 ? '.one' : '.other'),
+      'Need {n} more (sum {sum} / {qty})', { n: diff, sum: sum, qty: skuQty });
+    else summaryEl.textContent = pcTxt(
+      'nqm.split.over_by' + (Math.abs(diff) === 1 ? '.one' : '.other'),
+      'Over by {n} (sum {sum} / {qty})', { n: Math.abs(diff), sum: sum, qty: skuQty });
   }
 
   if (skuQtyEl) skuQtyEl.classList.toggle('invalid', sum !== skuQty);
@@ -3617,7 +3624,8 @@ function renderActiveSubTab() {
   const groupQty   = document.getElementById('mfGroupQty');
   if (groupLabel) {
     groupLabel.textContent = activeSubGroups.length > 1
-      ? ('Modifications — Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)))
+      ? pcTxt('nqm.group.label_sub', 'Modifications — Sub {n}',
+              { n: (activeSub.sub_index || (activeSubGroupIdx + 1)) })
       : 'Modifications';
   }
   if (groupQty) groupQty.textContent = 'Qty: ' + (activeSub.qty || 0);
@@ -3924,9 +3932,9 @@ async function openMfModal(key) {
   document.getElementById('mfHeadMeta').innerHTML = `
     <span>${esc(item.style_name || item.style_code)}</span>
     <span class="mf-pill ${ctypeClass}">${esc(ctypeLabel)}</span>
-    <span class="mf-pill assembled">Assembled</span>
+    <span class="mf-pill assembled">${esc(pcTxt('nqm.type.assembled', 'Assembled'))}</span>
     <span class="mf-sku-head-qty">
-      <span class="mf-sku-head-qty-label">SKU Qty:</span>
+      <span class="mf-sku-head-qty-label">${esc(pcTxt('nqm.label.sku_qty', 'SKU Qty:'))}</span>
       <input type="number" min="1" step="1" class="mf-sku-head-qty-input"
         id="mfSkuQtyInput" value="${item.quantity}"
         onchange="onSkuQtyChange(this.value)"
@@ -3940,8 +3948,9 @@ async function openMfModal(key) {
   clearMfContainerToLoading();
   setRunningTotalDOM(
     activeSubGroups.length > 1
-      ? 'Sub 1 (qty ' + (activeSubGroups[0].qty || 0) + ') modifications'
-      : 'Modifications subtotal',
+    ? pcTxt('nqm.sub.header', 'Sub {n} (qty {q}) modifications',
+                  { n: 1, q: (activeSubGroups[0].qty || 0) })
+          : pcTxt('nqm.group.subtotal', 'Modifications subtotal'),
     0
   );
 
