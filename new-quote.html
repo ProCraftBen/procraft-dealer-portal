@@ -669,9 +669,14 @@
   //    全程記住,本頁只負責以當前語言渲染。
   // ═══════════════════════════════════════════════════════════════════
   function pcTxt(key, fallback, params) {
-    return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
+    if (typeof window.pcT === 'function') {
+      const s = window.pcT(key, params || null, fallback);
+      if (s) return s;
+    }
+    return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+      return (params && params[name] != null) ? String(params[name]) : whole;
+    });
   }
-
   let dealer = null;                // The dealer that OWNS the quote (may differ from logged-in user when admin edits)
   let currentUser = null;           // The logged-in dealers row (could be admin)
   let isAdminViewer = false;        // True when logged-in user is admin/super_admin
