@@ -942,6 +942,7 @@ color: var(--green-dark);
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/i18n.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="pdf-builder.js"></script>
@@ -1365,6 +1366,29 @@ function formatModValue(v) {
     try { return JSON.stringify(v); } catch (e) { return ''; }
   }
   return String(v);
+}
+
+/**
+ * CB-62:i18n 取字。i18n.js 未載入或字典未就緒時回傳英文 fallback。
+ * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+ */
+function pcTxt(key, fallback, params) {
+  if (typeof window.pcT === 'function') {
+    const s = window.pcT(key, params || null, fallback);
+    if (s) return s;
+  }
+  return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+    return (params && params[name] != null) ? String(params[name]) : whole;
+  });
+}
+
+/**
+ * CB-62 Q-17:複數。呼叫端依數量挑 .one / .other。
+ */
+function pcPlural(baseKey, n, enOne, enOther) {
+  const key = baseKey + (n === 1 ? '.one' : '.other');
+  const fb  = (n === 1 ? enOne : enOther).replace('{n}', function () { return String(n); });
+  return pcTxt(key, fb, { n: n });
 }
 
 function escapeHtml(s) {
@@ -1929,6 +1953,20 @@ async function init() {
   if (!meRow?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
 
   const isAdminRole = meRow?.role === 'admin' || meRow?.role === 'super_admin';
+
+  // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
+  // 本頁 admin 與 dealer 走同一個 URL,「以 i18n.js 載入與否為開關」在此不成立。
+  // pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好(共用電腦情境)。
+  // typeof 防護針對版本錯配(新 HTML + 快取舊 i18n.js),故以 console.error 明確報錯,
+  // 並退而至少修正 html[lang] 的版面覆蓋。
+  if (isAdminRole) {
+    if (typeof window.pcForceLang === 'function') {
+      window.pcForceLang('en');
+    } else {
+      console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+      document.documentElement.setAttribute('lang', 'en');
+    }
+  }
   _meStamp = { company_name: meRow?.company_name, role: meRow?.role };   // CB-50
 
 let dealerIdToLoad = session.user.id;
