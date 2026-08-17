@@ -635,7 +635,7 @@ color: var(--green-dark);
             oninput="updateMarkupPreview()" onchange="updateMarkupPreview()"/>
           <span style="font-size:13px;color:var(--muted);">%</span>
           <button onclick="downloadPDF()" style="height:36px;padding:0 16px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;">
-            Download PDF
+            <span data-i18n="nq3.btn.download_pdf">Download PDF</span>
           </button>
         </div>
       </div>
@@ -721,7 +721,7 @@ color: var(--green-dark);
         <span class="total-value" id="totalGrand">$0.00</span>
       </div>
       <div class="pending-grand-note" id="pendingGrandNote" style="display:none;">
-        * Shipping fee pending — final total will be confirmed by Sales
+        <span data-i18n="nq3.sum.pending_note">* Shipping fee pending — final total will be confirmed by Sales</span>
       </div>
     </div>
   </div>
@@ -735,14 +735,14 @@ color: var(--green-dark);
 
   <div class="submit-card">
     <div class="submit-note" id="submitNote">
-      Please review your purchase order carefully before submitting.<br>
-      You can also save as a quote to continue later.
+      <span data-i18n="nq3.submit.note_1">Please review your purchase order carefully before submitting.</span><br>
+      <span data-i18n="nq3.submit.note_2">You can also save as a quote to continue later.</span>
     </div>
     <div id="termsAgreeRow" style="display:none;align-items:flex-start;justify-content:center;gap:8px;margin-bottom:18px;font-size:13px;color:var(--text);line-height:1.5;">
         <input type="checkbox" id="agreeTerms" onchange="onAgreeTermsChange()"
           style="margin-top:3px;width:16px;height:16px;cursor:pointer;accent-color:var(--green-dark);flex-shrink:0;"/>
         <label for="agreeTerms" style="cursor:pointer;max-width:520px;text-align:left;">
-          I have read and agree to follow ProCraft DC's portal policy and
+          <span data-i18n="nq3.terms.agree_before">I have read and agree to follow ProCraft DC's portal policy and</span>
           <a href="https://dc.procraftcabinetry.com/term-of-use/" target="_blank" rel="noopener"
             style="color:var(--gold);text-decoration:underline;"  data-i18n="nq3.terms">Terms of Use</a>.
         </label>
@@ -776,7 +776,7 @@ color: var(--green-dark);
             </div>
             <!-- CB-33: admin shipping 未填時的提示(擋 submit) -->
             <div id="adminShippingHint" style="display:none;margin-top:12px;font-size:12px;color:#E07B39;">
-              Enter a shipping fee above to submit, or use Save Draft.
+              <span data-i18n="nq3.ship.admin_hint">Enter a shipping fee above to submit, or use Save Draft.</span>
             </div>
           </div>
         
@@ -806,12 +806,12 @@ color: var(--green-dark);
   <div class="success-title" id="successTitle" data-i18n="nq3.success.submitted">Purchase Order Submitted!</div>
   <div class="success-quote-num" id="successQuoteNum"></div>
   <div class="success-msg" id="successMsg">
-    Thank you! Your purchase order has been received.<br>
-    We're confirming stock availability for your items and will email you a payment link once it's ready.<br>
-    A confirmation has been sent to your email.
+    <span data-i18n="nq3.success.msg_1">Thank you! Your purchase order has been received.</span><br>
+    <span data-i18n="nq3.success.msg_2">We're confirming stock availability for your items and will email you a payment link once it's ready.</span><br>
+    <span data-i18n="nq3.success.msg_3">A confirmation has been sent to your email.</span>
   </div>
   <button class="btn-dashboard" onclick="window.location.href='dashboard.html'">
-    Back to Dashboard
+    <span data-i18n="nq3.btn.back_dashboard">Back to Dashboard</span>
   </button>
 </div>
 
@@ -822,11 +822,11 @@ color: var(--green-dark);
   <div class="success-title" id="draftTitle" data-i18n="nq3.success.saved">Quote Saved!</div>
   <div class="success-quote-num" id="draftQuoteNum"></div>
   <div class="success-msg" id="draftMsg">
-    Your quote has been saved as a draft.<br>
-    You can find it in My Quotes and continue editing anytime.
+    <span data-i18n="nq3.draft.msg_1">Your quote has been saved as a draft.</span><br>
+    <span data-i18n="nq3.draft.msg_2">You can find it in My Quotes and continue editing anytime.</span>
   </div>
 <button class="btn-dashboard" onclick="window.location.href='quotes.html'">
-    View My Quotes
+    <span data-i18n="nq3.btn.view_quotes">View My Quotes</span>
   </button>
 </div>
 
@@ -835,12 +835,12 @@ color: var(--green-dark);
   <div class="cb4-modal-box">
     <div class="cb4-modal-title" data-i18n="nq3.modal.revision_title">Request Revision</div>
     <div class="cb4-modal-msg">
-      Your changes will be saved and this Purchase Order will be sent back to the dealer
-      for review. Add a note explaining what changed or what the dealer should check.
+      <span data-i18n="nq3.modal.revision_msg">Your changes will be saved and this Purchase Order will be sent back to the dealer for review. Add a note explaining what changed or what the dealer should check.</span>
     </div>
     <label class="cb4-modal-label" for="revisionNote" data-i18n="nq3.modal.revision_label">Revision Note</label>
     <textarea class="cb4-modal-textarea" id="revisionNote"
-      placeholder="e.g. Updated door style on 3 line items and adjusted quantities — please review and resubmit."></textarea>
+      placeholder="e.g. Updated door style on 3 line items and adjusted quantities — please review and resubmit."
+    data-i18n-placeholder="nq3.modal.revision_ph"></textarea>
     <div class="cb4-modal-error" id="revisionModalError"></div>
     <div class="cb4-modal-actions">
       <button class="cb4-modal-btn cancel" id="revisionCancelBtn" onclick="closeRevisionModal()" data-i18n="nq3.btn.cancel">Cancel</button>
@@ -857,8 +857,7 @@ color: var(--green-dark);
   <div class="cb4-modal-box">
     <div class="cb4-modal-title" data-i18n="nq3.modal.resubmit_title">Resubmit Purchase Order</div>
     <div class="cb4-modal-msg">
-      Please confirm you have reviewed the revised Purchase Order. Resubmitting sends it
-      back to the ProCraft team for processing and generates an updated PDF.
+      <span data-i18n="nq3.modal.resubmit_msg">Please confirm you have reviewed the revised Purchase Order. Resubmitting sends it back to the ProCraft team for processing and generates an updated PDF.</span>
     </div>
     <!-- CB-5 / CB-29: Resubmit 特殊品逐項提醒 -->
     <div class="cb5-nonstock-note" id="resubmitSpecialItems" style="display:none;"></div>
@@ -893,7 +892,7 @@ color: var(--green-dark);
   <div class="cb4-modal-box">
     <div class="cb4-modal-title" data-i18n="nq3.modal.submit_title">Submit Purchase Order?</div>
     <div class="cb4-modal-msg">
-      Once submitted, this PO# will be locked and cannot be edited.
+      <span data-i18n="nq3.modal.submit_msg">Once submitted, this PO# will be locked and cannot be edited.</span>
     </div>
     <div class="cb5-nonstock-note" id="submitSpecialItems" style="display:none;"></div>
     <div class="cb4-modal-actions">
@@ -1137,8 +1136,10 @@ function getSpecialItemLists() {
     }
     if (isNS && !seenNS[it.sku_code]) {
       seenNS[it.sku_code] = true;
-      const lt = (ct === 'frameless') ? '~5 weeks' : '~2-3 weeks';
-      nonStock.push(it.sku_code + ' (' + lt + ' lead time)');
+      const lt = (ct === 'frameless')
+        ? pcTxt('nq3.lead.5w_lower', '~5 weeks')
+        : pcTxt('nq3.lead.23w_lower', '~2-3 weeks');
+      nonStock.push(it.sku_code + ' (' + lt + ' ' + pcTxt('nq3.lead.suffix', 'lead time') + ')');
     }
     if (it.needs_confirmation && !seenNC[it.sku_code]) {
       seenNC[it.sku_code] = true;
@@ -1197,7 +1198,8 @@ function renderLeadTimeLine() {
   if (!lt) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'block';
   el.innerHTML =
-    '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">Estimated Lead Time</span>' +
+    '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">' +
+      escapeHtml(pcTxt('nq3.lead.label', 'Estimated Lead Time')) + '</span>' +
     '<span style="font-size:13px;font-weight:600;color:var(--green-mid);">' + escapeHtml(lt) + '</span>';
 }
 
@@ -1235,7 +1237,7 @@ function buildReturnedBannerStep3(roleMsg) {
         <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       </div>
       <div class="rrb-body">
-        <div class="rrb-title">Revising — Revision Requested</div>
+        <div class="rrb-title">${escapeHtml(pcTxt('nq3.banner.revising_title', 'Revising — Revision Requested'))}</div>
 <div class="rrb-msg">${roleMsg}</div>
       </div>
     </div>`;
@@ -1249,8 +1251,8 @@ function buildReviewBanner() {
         <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
       </div>
       <div class="rrb-body">
-        <div class="rrb-title">Reviewing Revised Purchase Order</div>
-        <div class="rrb-msg">You are reviewing your revised Purchase Order. Details are shown for review only and cannot be changed here — confirm and resubmit below.</div>
+        <div class="rrb-title">${escapeHtml(pcTxt('nq3.banner.review_title', 'Reviewing Revised Purchase Order'))}</div>
+        <div class="rrb-msg">${escapeHtml(pcTxt('nq3.banner.review_msg', 'You are reviewing your revised Purchase Order. Details are shown for review only and cannot be changed here — confirm and resubmit below.'))}</div>
       </div>
     </div>`;
 }
@@ -1592,7 +1594,7 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
     if (status === 'skipped' || status === 'configured') {
       return '';
     }
-    return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
+    return `<div class="mods-list"><span class="mod-status-unprocessed">${escapeHtml(pcTxt('nq3.mods.pending', '⚠ Modifications pending'))}</span></div>`;
   }
 
   const lines = visibleMods.map(function (m) {
@@ -1614,9 +1616,9 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
         subTotal:   itemContext.totalSubs,
         mfCode:     m.mf_code || '',
         label:      label,
-        content:    formatModValue(m.value) || '(no detail)',
+        content:    formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)'),
       });
-      return `<div class="mod-line">${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
+      return `<div class="mod-line">${escapeHtml(label)}: <span class="mod-note-ref">${escapeHtml(pcTxt('nq3.mods.see_note', '[See note №{n} below]', { n: noteNum }))}</span></div>`;
     }
 
     const value = formatModValue(m.value);
@@ -1735,7 +1737,7 @@ function resolveShippingForDb(opts) {
 async function obtainDraftNumber() {
   const { data, error } = await _supabase.rpc('generate_draft_number');
   if (error) throw error;
-  if (!data) throw new Error('Failed to generate Draft ID.');
+  if (!data) throw new Error(pcTxt('nq3.err.draft_id', 'Failed to generate Draft ID.'));
   return data;
 }
 
@@ -1754,14 +1756,15 @@ function cb53ShowLoadError(message) {
       '<div style="max-width:460px;width:100%;background:#fff;border:1px solid #DDD8CC;' +
       'border-radius:4px;padding:36px 32px;text-align:center;">' +
         '<div style="font-family:Georgia,serif;font-size:20px;color:#3e5a42;margin-bottom:14px;">' +
-          'Unable to Open This Estimate' +
+          escapeHtml(pcTxt('nq3.err.load_title', 'Unable to Open This Estimate')) +
         '</div>' +
         '<div style="font-size:14px;line-height:1.65;color:#2C3A32;margin-bottom:26px;">' +
           message +
         '</div>' +
         '<a href="dashboard.html" style="display:inline-block;background:#3e5a42;color:#fff;' +
         'text-decoration:none;padding:12px 30px;border-radius:3px;font-size:12px;font-weight:bold;' +
-        'letter-spacing:0.15em;text-transform:uppercase;">Back to Dashboard</a>' +
+        'letter-spacing:0.15em;text-transform:uppercase;">' +
+        escapeHtml(pcTxt('nq3.err.back_dashboard', 'Back to Dashboard')) + '</a>' +
       '</div>' +
     '</div>';
 }
@@ -1989,10 +1992,9 @@ let dealerIdToLoad = session.user.id;
     //   dealer 從轉寄信件點進來時會踩到。
     if (qErr || !q) {
       console.warn('[CB-53 Guard1] Quote not accessible:', draftId, qErr);
-      cb53ShowLoadError(
-        'We couldn\'t find this estimate, or it isn\'t associated with your account. ' +
-        'If you reached this page from an email, please make sure you\'re signed in with the correct account.'
-      );
+      cb53ShowLoadError(pcTxt('nq3.err.not_found',
+        "We couldn't find this estimate, or it isn't associated with your account. " +
+        "If you reached this page from an email, please make sure you're signed in with the correct account."));
       return;
     }
 
@@ -2046,7 +2048,7 @@ let dealerIdToLoad = session.user.id;
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
   if (!d) {
-    alert('Could not load dealer data. Please go back and try again.');
+    alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.'));
     return;
   }
   dealer = d;
@@ -2076,7 +2078,8 @@ let dealerIdToLoad = session.user.id;
       await cb53Hydrate(cb53QuoteRow);
     } catch (hydrateErr) {
       console.error('[CB-53] hydration failed:', hydrateErr);
-      cb53ShowLoadError('We couldn\'t load this estimate right now. Please try again in a moment.');
+      cb53ShowLoadError(pcTxt('nq3.err.load_failed',
+        "We couldn't load this estimate right now. Please try again in a moment."));
       return;
     }
   }
@@ -2136,6 +2139,7 @@ if (draftId) {
     elBtnDraft.style.display  = 'none';
     elBtnRev.style.display    = 'inline-flex';
     document.getElementById('btnAdminSubmit').style.display = 'inline-flex';  // CB-32
+    elSubmitNote.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
     elSubmitNote.innerHTML =
       'Review the changes, then either send this Purchase Order back to the dealer for revision, or submit it on the dealer\'s behalf.';
 
@@ -2144,10 +2148,13 @@ if (draftId) {
     elDraftBan.style.display = 'none';
     elBtnDraft.style.display = 'none';   // no Save in review
     elBtnRev.style.display   = 'none';
-    document.getElementById('btnSubmitText').textContent = 'Resubmit Purchase Order';
+    const btnSubTxt = document.getElementById('btnSubmitText');
+    btnSubTxt.removeAttribute('data-i18n');
+    btnSubTxt.textContent = pcTxt('nq3.btn.resubmit_text', 'Resubmit Purchase Order');
     elBtnSubmit.onclick = openResubmitModal;   // CB-4: confirm before resubmit
+    elSubmitNote.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
     elSubmitNote.innerHTML =
-      'Please review your revised Purchase Order carefully, then resubmit when ready.';
+      escapeHtml(pcTxt('nq3.note.review', 'Please review your revised Purchase Order carefully, then resubmit when ready.'));
     // read-only: hide the three Edit links (Markup % stays usable)
     ['editStep1Link','editStep1LinkShip','editStep2Link'].forEach(function (id) {
       const el = document.getElementById(id);
@@ -2158,10 +2165,14 @@ if (draftId) {
         elBtnSubmit.style.display = 'none';
         document.getElementById('btnAdminSubmit').style.display = 'inline-flex';  // CB-32
         // CB-36: 三按鈕 — Save Internal Draft / Save & Notify Dealer / Submit (Admin)
-        document.querySelector('#btnDraft span.draft-btn-text').textContent = 'Save Internal Draft';
+        const dBtnTxt = document.querySelector('#btnDraft span.draft-btn-text');
+        dBtnTxt.removeAttribute('data-i18n');   // Q-33: admin 專用文字不翻
+        dBtnTxt.textContent = 'Save Internal Draft';
         document.getElementById('btnNotify').style.display = 'inline-flex';
         elDraftBan.style.display  = 'flex';
-        document.getElementById('draftBannerText').innerHTML =
+        const dBanTxt = document.getElementById('draftBannerText');
+        dBanTxt.removeAttribute('data-i18n');   // Q-33: admin banner 不翻
+        dBanTxt.innerHTML =
           '<strong>Admin mode</strong> — Save an internal draft, notify the dealer to review, or submit the Purchase Order on the dealer\'s behalf.';
   
     } else if (draftId) {
@@ -2499,7 +2510,7 @@ function buildItemRowsHtml(markupPct) {
 
             // CB-11 任務B: DOOR & FRAME 固定顯示「Hinge not included」
             const hingeNoteHtml = ((item.skuType || '').toUpperCase() === 'DOOR & FRAME')
-              ? `<div class="hinge-note">Hinge not included</div>`
+              ? `<div class="hinge-note">${escapeHtml(pcTxt('nq3.hinge_note', 'Hinge not included'))}</div>`
               : '';
 
             // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
@@ -2632,15 +2643,15 @@ function applyTotals(opts) {
   if (logisticType === 'pickup') {
     shippingForTotal = 0;
     shippingLabel    = 'FREE';
-    shippingNote     = '✓ Pick Up @ ProCraft DC';
+    shippingNote     = pcTxt('nq3.ship.pickup', '✓ Pick Up @ ProCraft DC');
   } else if (logisticType === 'delivery') {
     shippingForTotal = previewShippingForDb || 0;
     shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
     if (_isResumingReturned && _existingLogisticType === 'delivery' && _existingShippingCost != null
         && _existingShippingCost === shippingForTotal && _existingShippingCost !== deliveryFee) {
-      shippingNote   = '✓ Sales-confirmed delivery fee';
+      shippingNote   = pcTxt('nq3.ship.delivery_confirmed', '✓ Sales-confirmed delivery fee');
     } else {
-      shippingNote   = 'Delivery fee based on distance';
+      shippingNote   = pcTxt('nq3.ship.delivery_distance', 'Delivery fee based on distance');
     }
     } else if (logisticType === 'shipping') {
         // CB-33: admin mode 可直接指定 shipping fee(null=pending / 0=FREE / >0=金額)
@@ -2650,29 +2661,29 @@ function applyTotals(opts) {
             isPendingShipping = true;
             shippingForTotal  = 0;
             shippingLabel     = 'Contact Sales Team';
-            shippingNote      = '⚠ Enter shipping fee to submit (or Save Draft)';
+            shippingNote      = pcTxt('nq3.ship.enter_fee', '⚠ Enter shipping fee to submit (or Save Draft)');
           } else if (_adminShip === 0) {
             shippingForTotal = 0;
             shippingLabel    = 'FREE';
-            shippingNote     = '✓ Free shipping (set by admin)';
+            shippingNote     = pcTxt('nq3.ship.free_admin', '✓ Free shipping (set by admin)');
           } else {
             shippingForTotal = _adminShip;
             shippingLabel    = `$${_adminShip.toFixed(2)}`;
-            shippingNote     = '✓ Shipping fee set by admin';
+            shippingNote     = pcTxt('nq3.ship.fee_admin', '✓ Shipping fee set by admin');
           }
         } else if (previewShippingForDb === null) {
           isPendingShipping = true;
           shippingForTotal  = 0;
           shippingLabel     = 'Contact Sales Team';
-          shippingNote      = '⚠ Shipping fee quoted separately by our Sales Team';
+          shippingNote      = pcTxt('nq3.ship.quoted_separately', '⚠ Shipping fee quoted separately by our Sales Team');
         } else if (previewShippingForDb === 0 && billingBase > 12000) {
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
-      shippingNote     = '✓ Free shipping on orders over $12,000';
+      shippingNote     = pcTxt('nq3.ship.free_over_12k', '✓ Free shipping on orders over $12,000');
     } else if (previewShippingForDb === 0) {
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
-      shippingNote     = '✓ Sales-confirmed free shipping';
+      shippingNote     = pcTxt('nq3.ship.free_confirmed', '✓ Sales-confirmed free shipping');
     } else {
       shippingForTotal = previewShippingForDb;
       shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
@@ -2683,10 +2694,10 @@ function applyTotals(opts) {
         _existingShippingCost === shippingForTotal
       );
       if (isPreservedAdminValue) {
-        shippingNote = '✓ Sales-confirmed shipping fee';
-      } else if (billingBase <= 6000)       shippingNote = '15% shipping rate';
-      else if (billingBase <= 9000)         shippingNote = '12% shipping rate';
-      else if (billingBase <= 12000)        shippingNote = '10% shipping rate';
+        shippingNote = pcTxt('nq3.ship.fee_confirmed', '✓ Sales-confirmed shipping fee');
+      } else if (billingBase <= 6000)       shippingNote = pcTxt('nq3.ship.rate_15', '15% shipping rate');
+      else if (billingBase <= 9000)         shippingNote = pcTxt('nq3.ship.rate_12', '12% shipping rate');
+      else if (billingBase <= 12000)        shippingNote = pcTxt('nq3.ship.rate_10', '10% shipping rate');
     }
   }
 
@@ -2923,7 +2934,7 @@ async function resolveDealerId(session) {
       .from('quotes').select('dealer_id').eq('id', draftId).single();
     if (fetchErr) throw fetchErr;
     if (!existingQuote || !existingQuote.dealer_id) {
-      throw new Error('Draft not found or missing dealer_id.');
+      throw new Error(pcTxt('nq3.err.draft_missing', 'Draft not found or missing dealer_id.'));
     }
     return existingQuote.dealer_id;
   }
@@ -3174,10 +3185,16 @@ async function saveDraft() {
     sessionStorage.removeItem('quoteStep2');
 
     if (_isResumingReturned) {
-      document.getElementById('draftTitle').textContent = 'Changes Saved';
-      document.getElementById('draftMsg').innerHTML =
-        'Your changes have been saved. The quote is still in <strong>Returned</strong> status.<br>' +
-        'You can continue editing later or resubmit when ready.';
+      const dTitle = document.getElementById('draftTitle');
+      const dMsg   = document.getElementById('draftMsg');
+      dTitle.removeAttribute('data-i18n');
+      dMsg.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
+      dTitle.textContent = pcTxt('nq3.saved.changes_title', 'Changes Saved');
+      dMsg.innerHTML =
+        escapeHtml(pcTxt('nq3.saved.msg_before', 'Your changes have been saved. The quote is still in')) +
+        ' <strong>Returned</strong> ' +
+        escapeHtml(pcTxt('nq3.saved.msg_after', 'status.')) + '<br>' +
+        escapeHtml(pcTxt('nq3.saved.msg_2', 'You can continue editing later or resubmit when ready.'));
     }
     document.getElementById('draftQuoteNum').textContent = step1Data.jobName || '';
     document.getElementById('draftOverlay').classList.add('show');
@@ -3227,7 +3244,7 @@ async function saveDraft() {
   } catch (err) {
     console.error(err);
     btn.classList.remove('loading'); btn.disabled = false;
-    errMsg.textContent = err.message || 'Something went wrong. Please try again.';
+    errMsg.textContent = err.message || pcTxt('nq3.err.generic', 'Something went wrong. Please try again.');
     errMsg.classList.add('show');
     window.scrollTo(0, 0);
   }
@@ -3257,7 +3274,7 @@ async function submitQuote() {
   if ((viewMode === 'admin-draft' || viewMode === 'admin-edit')
       && step1Data && step1Data.logisticType === 'shipping'
       && getAdminShippingOverride() === null) {
-    alert('Please enter a shipping fee before submitting, or use Save Draft.');
+    alert(pcTxt('nq3.alert.shipping_required', 'Please enter a shipping fee before submitting, or use Save Draft.'));
     return;
   }
   const _isAdminSubmit = (viewMode === 'admin-draft' || viewMode === 'admin-edit');  // CB-32
@@ -3266,6 +3283,9 @@ async function submitQuote() {
   const overlay = document.getElementById('progressOverlay');
   const stepEl  = document.getElementById('progressStep');
   const titleEl = document.getElementById('progressTitle');
+  // CB-62 §4.8:JS 覆寫的節點寫入前移除 data-i18n,否則語言切換會蓋回靜態文案
+  if (stepEl)  stepEl.removeAttribute('data-i18n');
+  if (titleEl) titleEl.removeAttribute('data-i18n');
   const setStep = (txt) => { if (stepEl) stepEl.textContent = txt; };
 
   btn.classList.add('loading');
@@ -3273,8 +3293,8 @@ async function submitQuote() {
   errMsg.classList.remove('show');
 
   if (_isResumingReturned) {
-    titleEl.textContent = 'Resubmitting Your Purchase Order';
-    setStep('Updating your quote...');
+    titleEl.textContent = pcTxt('nq3.overlay.resubmitting', 'Resubmitting Your Purchase Order');
+    setStep(pcTxt('nq3.overlay.step_updating', 'Updating your quote...'));
   } else {
     titleEl.textContent = 'Submitting Your Purchase Order';
     setStep('Saving your quote...');
@@ -3366,7 +3386,7 @@ async function submitQuote() {
       poNumber = _existingPoNumber || q?.po_number;
       quoteNum = q?.quote_number;
       _currentRevisionNumber = q?.revision_number || _currentRevisionNumber || 1;
-      if (!poNumber) throw new Error('Original PO number missing — cannot resubmit.');
+      if (!poNumber) throw new Error(pcTxt('nq3.err.po_missing_resubmit', 'Original PO number missing — cannot resubmit.'));
       nextRevisionNumber = (_currentRevisionNumber || 1) + 1;
 
       // CB-43 T14-3: 'Pending' → 'Stock Review'。重送可能改了品項,要重新確認庫存。
@@ -3383,7 +3403,8 @@ async function submitQuote() {
       }, { count: 'exact' }).eq('id', draftId);
       if (updateError) throw updateError;
       if (updateCount === 0) {
-        throw new Error("Couldn't submit this order — its status may have changed. Please refresh the page and try again.");
+        throw new Error(pcTxt('nq3.err.status_changed_resubmit',
+          "Couldn't submit this order — its status may have changed. Please refresh the page and try again."));
       }
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
@@ -3402,7 +3423,7 @@ async function submitQuote() {
         quoteNum = q?.quote_number;
         _currentRevisionNumber = q?.revision_number || _currentRevisionNumber || 1;
         nextRevisionNumber = _currentRevisionNumber;   // 不 bump
-        if (!poNumber) throw new Error('PO number missing — cannot submit.');
+        if (!poNumber) throw new Error(pcTxt('nq3.err.po_missing_submit', 'PO number missing — cannot submit.'));
   
         // Q8-A: 加 count:'exact'(理由同分支1)。admin 走 admin_update_all_quotes,
         //       理論上不會被擋,但 0 rows 也可能代表單被刪除或 id 不符 —— 一律 throw。
@@ -3414,7 +3435,8 @@ async function submitQuote() {
         }, { count: 'exact' }).eq('id', draftId);
         if (updateError) throw updateError;
         if (updateCount === 0) {
-          throw new Error("Couldn't submit this order — it may have been removed or its status changed. Please refresh the page and try again.");
+          throw new Error(pcTxt('nq3.err.status_changed_submit',
+            "Couldn't submit this order — it may have been removed or its status changed. Please refresh the page and try again."));
         }
         await _supabase.from('quote_items').delete().eq('quote_id', draftId);
         quoteId = draftId;
@@ -3479,7 +3501,7 @@ async function submitQuote() {
     step1Data.poNumber = poNumber;
     _existingPoNumber  = poNumber;  // CB-3: keep module state in sync
 
-    setStep('Generating PDF documents...');
+    setStep(pcTxt('nq3.overlay.step_pdf', 'Generating PDF documents...'));
     const quoteDataForPdf = buildQuoteDataForPdf({
       shippingCostOverride: shippingCostWrite,
       markupPercent:        0,
@@ -3522,7 +3544,9 @@ async function submitQuote() {
       };
     }
 
-  setStep(_isResumingReturned ? 'Sending resubmission email...' : 'Sending confirmation email...');
+  setStep(_isResumingReturned
+    ? pcTxt('nq3.overlay.step_email_resub', 'Sending resubmission email...')
+    : pcTxt('nq3.overlay.step_email', 'Sending confirmation email...'));
     const { data: { session: currentSession } } = await _supabase.auth.getSession();
     await fetch(
       `${window.SB_URL}/functions/v1/send-quote-email`,
@@ -3595,12 +3619,16 @@ async function submitQuote() {
     overlay.classList.remove('show');
 
     if (_isResumingReturned) {
-      document.getElementById('successTitle').textContent = 'Purchase Order Resubmitted!';
+      const sTitle = document.getElementById('successTitle');
+      const sMsg   = document.getElementById('successMsg');
+      sTitle.removeAttribute('data-i18n');
+      sMsg.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
+      sTitle.textContent = pcTxt('nq3.success.resubmitted', 'Purchase Order Resubmitted!');
       // CB-43 T14-3: 重送一樣進 Stock Review(重送可能改了品項,要重新確認庫存)
       document.getElementById('successMsg').innerHTML =
-        'Thank you! Your revised purchase order has been resubmitted.<br>' +
-        "We're re-confirming stock availability and will email you a payment link once it's ready.<br>" +
-        'A confirmation has been sent to your email.';
+        escapeHtml(pcTxt('nq3.success.resub_msg_1', 'Thank you! Your revised purchase order has been resubmitted.')) + '<br>' +
+        escapeHtml(pcTxt('nq3.success.resub_msg_2', "We're re-confirming stock availability and will email you a payment link once it's ready.")) + '<br>' +
+        escapeHtml(pcTxt('nq3.success.resub_msg_3', 'A confirmation has been sent to your email.'));
     }
     document.getElementById('successQuoteNum').textContent = poNumber;
     // CB-43 T14-3(Q3-B): admin 代 submit 的專屬文案。
@@ -3611,9 +3639,12 @@ async function submitQuote() {
     //   「we'll email you a payment link」對他是錯的 —— 他要的下一步是放行。
     //   successTitle 不覆寫:'Purchase Order Resubmitted!' 陳述客觀事實,對 admin 仍成立。
     if (_isAdminSubmit) {
-      document.getElementById('successMsg').innerHTML =
-        "Purchase order submitted on the dealer's behalf. It's now in Stock Review — " +
-        'confirm stock on the order page to release it for payment.';
+      const aMsg = document.getElementById('successMsg');
+      aMsg.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
+      aMsg.innerHTML =
+        escapeHtml(pcTxt('nq3.success.admin_msg',
+          "Purchase order submitted on the dealer's behalf. It's now in Stock Review — " +
+          'confirm stock on the order page to release it for payment.'));
     }
     document.getElementById('successOverlay').classList.add('show');
 
@@ -3622,7 +3653,7 @@ async function submitQuote() {
     overlay.classList.remove('show');
     btn.classList.remove('loading');
     btn.disabled = false;
-    errMsg.textContent = err.message || 'Something went wrong. Please try again.';
+    errMsg.textContent = err.message || pcTxt('nq3.err.generic', 'Something went wrong. Please try again.');
 errMsg.classList.add('show');
     window.scrollTo(0,0);
   }
@@ -3656,7 +3687,7 @@ function sendRevision() {
   const note = (document.getElementById('revisionNote').value || '').trim();
   const err  = document.getElementById('revisionModalError');
   if (!note) {
-    err.textContent = 'Please enter a revision note for the dealer.';
+    err.textContent = pcTxt('nq3.err.revision_note_required', 'Please enter a revision note for the dealer.');
     err.classList.add('show');
     return;
   }
@@ -3723,7 +3754,7 @@ async function requestRevision(note) {
         .from('quotes').select('quote_number').eq('id', draftId).single();
       quoteNum = q?.quote_number;
     }
-    if (!poNumber) throw new Error('PO number missing — cannot request revision.');
+    if (!poNumber) throw new Error(pcTxt('nq3.err.po_missing_revision', 'PO number missing — cannot request revision.'));
 
     // ── write DB: snapshot edits, send back to dealer (status=Returned) ──
     const updatePayload = {
@@ -3867,10 +3898,14 @@ async function requestRevision(note) {
     sessionStorage.removeItem('quoteStep2');
 
     document.getElementById('revisionModal').classList.remove('show');
-    document.getElementById('successTitle').textContent = 'Revision Sent to Dealer';
-    document.getElementById('successMsg').innerHTML =
-      'The dealer has been notified to review the revised Purchase Order and resubmit.<br>' +
-      'A copy with the updated documents has been emailed to them.';
+    const rTitle = document.getElementById('successTitle');
+    const rMsg   = document.getElementById('successMsg');
+    rTitle.removeAttribute('data-i18n');
+    rMsg.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
+    rTitle.textContent = pcTxt('nq3.revision.sent_title', 'Revision Sent to Dealer');
+    rMsg.innerHTML =
+      escapeHtml(pcTxt('nq3.revision.sent_msg_1', 'The dealer has been notified to review the revised Purchase Order and resubmit.')) + '<br>' +
+      escapeHtml(pcTxt('nq3.revision.sent_msg_2', 'A copy with the updated documents has been emailed to them.'));
     document.getElementById('successQuoteNum').textContent = poNumber;
     document.getElementById('successOverlay').classList.add('show');
 
@@ -3879,7 +3914,7 @@ async function requestRevision(note) {
     sendBtn.classList.remove('loading');
     sendBtn.disabled = false;
     cancelBtn.disabled = false;
-    errEl.textContent = err.message || 'Something went wrong. Please try again.';
+    errEl.textContent = err.message || pcTxt('nq3.err.generic', 'Something went wrong. Please try again.');
     errEl.classList.add('show');
   }
 }
