@@ -258,7 +258,7 @@
       const maxValue = (typeof params.max_value === 'number') ? params.max_value : DEFAULT_MAX;
 
       if (state.value === null || isNaN(state.value)) {
-        errors.push('Please enter a value.');
+        errors.push(pcTxt('mf.err.enter_value', 'Please enter a value.'));
       } else {
         if (state.value < minValue) {
           errors.push(`Value must be at least ${minValue}.`);
@@ -303,6 +303,20 @@
       calculateCost: calculateCost,
       destroy: destroy
     };
+  }
+
+/**
+   * CB-62:i18n 取字。i18n.js 未載入(admin 頁)時回傳英文 fallback。
+   * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+   */
+  function pcTxt(key, fallback, params) {
+    if (typeof window.pcT === 'function') {
+      const s = window.pcT(key, params || null, fallback);
+      if (s) return s;
+    }
+    return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+      return (params && params[name] != null) ? String(params[name]) : whole;
+    });
   }
 
   /**
