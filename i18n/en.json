@@ -67,6 +67,8 @@
   "common.badge.recommended": "Recommended",
   "common.filter.all_statuses": "All Statuses",
 
+  "qd.err.no_id": "No quote ID provided.",
+  "qd.err.not_found": "Quote not found.",
   "quotes.title": "My Quotes",
   "quotes.loading": "Loading...",
   "quotes.btn.new_quote": "New Quote",
