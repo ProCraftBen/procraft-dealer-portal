@@ -140,17 +140,35 @@
   const SUPABASE_URL  = window.SB_URL;
   const SUPABASE_ANON = window.SB_KEY;
   const LOGO_URL      = 'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png';
-  const BRAND_TITLE   = 'ProCraft Cabinetry DC';
+  const BRAND_TITLE   = 'ProCraft Cabinetry DC';   // 品牌名,永不翻譯
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CB-62 B3|i18n 區域輔助
+  // -------------------------------------------------------------------
+  // admin 頁不載入 components/i18n.js → pcT 不存在 → 一律回英文 fallback,
+  // 行為與改版前逐字相同。查無 key 時 pcT 回 null,故永遠不會寫入 "null"。
+  // ═══════════════════════════════════════════════════════════════════
+  function t(key, fallback, params) {
+    return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
+  }
+  // ⚠️ ctLabel() 內部有個區域變數也叫 t,會遮蔽上面這個函式。別名讓那些
+  //    函式仍能取得翻譯,而不必改動既有的區域變數命名。
+  const navT = t;
+  function navLabel(item) {
+    return item.key ? t(item.key, item.label) : item.label;
+  }
 
   // Navigation item maps — key = data-page value
   // CB-2: dealer-facing labels renamed. data-page / href / page keys are
   // internal identifiers and stay untouched so existing page wiring works.
+  // 🔴 CB-62 B3:只有 label 是顯示文字;page / href 是內部識別碼,永不翻譯。
+  //    ADMIN_NAV 刻意【不加 key】—— admin 頁不載入 i18n.js,永遠英文。
   const DEALER_NAV = [
-    { page: 'dashboard',       label: 'Dashboard',       href: 'dashboard.html' },
-    { page: 'quotes',          label: 'My Orders',       href: 'quotes.html' },
-    { page: 'new-quote',       label: 'New Estimate',    href: 'new-quote.html' },
-    { page: 'dealer-profile',  label: 'Edit Profile',    href: 'dealer-profile.html' },
-    { page: 'change-password', label: 'Change Password', href: 'change-password.html' },
+    { page: 'dashboard',       label: 'Dashboard',       href: 'dashboard.html',       key: 'nav.dashboard' },
+    { page: 'quotes',          label: 'My Orders',       href: 'quotes.html',          key: 'nav.my_orders' },
+    { page: 'new-quote',       label: 'New Estimate',    href: 'new-quote.html',       key: 'nav.new_estimate' },
+    { page: 'dealer-profile',  label: 'Edit Profile',    href: 'dealer-profile.html',  key: 'nav.edit_profile' },
+    { page: 'change-password', label: 'Change Password', href: 'change-password.html', key: 'nav.change_password' },
   ];
 
   const ADMIN_NAV = [
@@ -169,6 +187,11 @@
   // with existing page styles. Falls back to hex colors (not CSS vars)
   // because pages may or may not define the same variable names.
   const STYLES = `
+    /* CB-62 B3: language switch slots inside the navbar / mobile menu. */
+    .pcd-nav-lang { display: inline-flex; align-items: center; margin: 0 4px 0 8px; }
+    .pcd-nav-lang:empty { display: none; }
+    .pcd-nav-lang-mobile { display: flex; justify-content: flex-start; padding: 6px 0 2px; margin: 0; }
+
     .pcd-navbar { background: #3e5a42; padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; font-family: 'DM Sans', sans-serif; }
     .pcd-nav-brand { display: flex; align-items: center; gap: 10px; cursor: pointer; text-decoration: none; }
     .pcd-nav-brand:hover { opacity: 0.9; }
@@ -516,12 +539,69 @@
     render(container, isAdmin, dataPage, isSuperAdmin);
     attachEventListeners();
 
+    // 🔴 CB-62 B3:導覽列是非同步渲染的,此刻 DOMContentLoaded 早已過去,
+    //    所以由這裡主動掛切換鈕(lang-switch.js v2 的 pcMountLangSwitch)。
+    //    admin 頁沒有 i18n.js → 該函式回 null,不渲染任何東西。
+    mountLangSwitches();
+
+    // 語言變更 → 重繪導覽列。重繪會清掉切換鈕與折扣藥丸,兩者都在
+    // rerenderNav() 內重新掛回。
+    document.addEventListener('pc:i18n-changed', function () {
+      rerenderNav(container, isAdmin, dataPage, isSuperAdmin, isDealer, session);
+      // 折扣 modal 是快取的 DOM。丟棄後下次開啟會以新語言重建;它沒有
+      // 使用者輸入,重建無風險。若正開著則先關閉,避免半英半西。
+      if (_dmoEl) {
+        if (!_dmoEl.hidden) closeDiscountModal();
+        if (_dmoEl.parentNode) _dmoEl.parentNode.removeChild(_dmoEl);
+        _dmoEl = null;
+      }
+    });
+
     // CB-51 (Q-02 A): nav is already on screen. The rules lookup runs in
     // the background and injects the pill when it lands — nav rendering is
     // never delayed by it. Admins never reach this call, so they never
     // issue a request that is guaranteed to come back empty.
     if (isDealer) {
       loadDiscountPill(session.user.id);
+    }
+  }
+
+  // ── CB-62 B3: language switch mounting ───────────────────────────
+
+  // 桌機導覽列與手機選單各一個實例;lang-switch.js v2 支援多實例並在
+  // pc:i18n-changed 時自行同步兩者的視覺狀態。
+  function mountLangSwitches() {
+    if (typeof window.pcMountLangSwitch !== 'function') return;
+    const desk = document.getElementById('pcd-nav-lang-desktop');
+    const mob  = document.getElementById('pcd-nav-lang-mobile');
+    if (desk) window.pcMountLangSwitch(desk, { inline: true });
+    if (mob)  window.pcMountLangSwitch(mob,  { inline: true });
+  }
+
+  // 語言變更後重繪。整段 nav 由 innerHTML 重建,因此切換鈕與折扣藥丸
+  // 都必須重新掛回 —— 兩者都是 render() 之後才注入的。
+  //
+  // ⚠️ 手機選單若正開著,重繪會把它關掉。這裡先記下開闔狀態再還原,
+  //    避免使用者在手機選單裡切語言後選單突然消失。
+  function rerenderNav(container, isAdmin, dataPage, isSuperAdmin, isDealer, session) {
+    if (!container) return;
+    const menuWasOpen = !!(document.getElementById('pcd-mobile-menu') || {}).classList
+      && document.getElementById('pcd-mobile-menu').classList.contains('show');
+
+    render(container, isAdmin, dataPage, isSuperAdmin);
+    attachEventListeners();
+    mountLangSwitches();
+
+    if (menuWasOpen) {
+      const ham  = document.getElementById('pcd-hamburger');
+      const menu = document.getElementById('pcd-mobile-menu');
+      if (ham)  ham.classList.add('open');
+      if (menu) menu.classList.add('show');
+    }
+
+    // 折扣藥丸不重新查 DB —— 規則已在記憶體裡,直接重新注入。
+    if (isDealer && _discountRules && _discountRules.length) {
+      injectPill();
     }
   }
 
@@ -563,14 +643,14 @@
     const desktopLinks = navItems.map(function (item) {
       const activeClass = item.page === activePage ? ' active' : '';
       return '<a href="' + item.href + '" class="pcd-nav-link' + activeClass + '">' +
-                escapeHtml(item.label) +
+                escapeHtml(navLabel(item)) +
               '</a>';
     }).join('');
 
     // Mobile menu links
     const mobileLinks = navItems.map(function (item) {
       const activeClass = item.page === activePage ? ' class="active"' : '';
-      return '<a href="' + item.href + '"' + activeClass + '>' + escapeHtml(item.label) + '</a>';
+      return '<a href="' + item.href + '"' + activeClass + '>' + escapeHtml(navLabel(item)) + '</a>';
     }).join('');
 
     // CB-51: zero-width mount anchors. The pill is inserted with
@@ -587,7 +667,11 @@
         '<div class="pcd-nav-right">' +
           '<span id="pcd-nav-right-mount" hidden></span>' +
           desktopLinks +
-          '<button class="pcd-nav-logout" id="pcd-logout-btn">Sign Out</button>' +
+          // CB-62 B3:語言切換鈕掛載點。實際內容由 mountLangSwitches() 於
+          // render 之後填入 —— 導覽列是非同步渲染的,lang-switch.js 的
+          // DOMContentLoaded 自動掛載那條路徑趕不上。
+          '<span class="pcd-nav-lang" id="pcd-nav-lang-desktop"></span>' +
+          '<button class="pcd-nav-logout" id="pcd-logout-btn">' + escapeHtml(t('nav.sign_out', 'Sign Out')) + '</button>' +
         '</div>' +
         '<button class="pcd-hamburger" id="pcd-hamburger">' +
           '<span></span><span></span><span></span>' +
@@ -597,7 +681,8 @@
         '<span id="pcd-mobile-mount" hidden></span>' +
         mobileLinks +
         '<div class="pcd-menu-divider"></div>' +
-        '<button id="pcd-logout-btn-mobile">Sign Out</button>' +
+        '<span class="pcd-nav-lang pcd-nav-lang-mobile" id="pcd-nav-lang-mobile"></span>' +
+        '<button id="pcd-logout-btn-mobile">' + escapeHtml(t('nav.sign_out', 'Sign Out')) + '</button>' +
       '</div>';
   }
 
@@ -727,7 +812,9 @@
   // admin-dealers.html normalizeCt(): anything not 'frameless' is 'framed'.
   function ctLabel(v) {
     const t = String(v == null ? '' : v).trim().toLowerCase();
-    return (t === 'frameless') ? 'Frameless' : 'Framed';
+    return (t === 'frameless')
+      ? navT('nav.discount.frameless', 'Frameless')
+      : navT('nav.discount.framed',    'Framed');
   }
 
   // admin-dealers.html: NULL or empty array means "no restriction" = All.
@@ -742,20 +829,26 @@
   function discountText(rule) {
     const raw = parseFloat(rule.discount_value);
     const val = isFinite(raw) ? raw : 0;
-    return (rule.discount_type === 'amount')
-      ? ('$' + val.toFixed(2) + ' off')
-      : (val + '% off');
+    // 金額與百分比先組好再帶入 —— 西語的「off」位置與英文不同,
+    // 拆成兩個 key 反而更難維護。
+    const amount = (rule.discount_type === 'amount')
+      ? ('$' + val.toFixed(2))
+      : (val + '%');
+    return navT('nav.discount.off', '{value} off', { value: amount }).replace('{value}', amount);
   }
 
   // ── Modal ────────────────────────────────────────────────────────
 
   function buildDiscountModal() {
     if (_dmoEl) return _dmoEl;
+    // 註:語言變更時 _dmoEl 會被丟棄(見 init 的 pc:i18n-changed 處理),
+    //     下次開啟才以新語言重建 —— modal 沒有使用者輸入,重建無風險。
 
     const rules = _discountRules || [];
     const rows = rules.map(function (rule, i) {
       const bodyId = 'pcd-dmo-d' + i;
-      const name   = escapeHtml(rule.name || ('Rule ' + (i + 1)));
+      // rule.name 來自 DB,永不翻譯;只有沒有名稱時的預設標籤才查表。
+      const name   = escapeHtml(rule.name || t('nav.discount.rule_n', 'Rule {n}', { n: i + 1 }).replace('{n}', i + 1));
       return '' +
         '<div class="pcd-dmo-rule">' +
           '<button type="button" class="pcd-dmo-rule-head"' +
@@ -764,11 +857,11 @@
             '<span class="pcd-dmo-chev" aria-hidden="true">&#9662;</span>' +
           '</button>' +
           '<div class="pcd-dmo-rule-body" id="' + bodyId + '" hidden>' +
-            row('Construction Type', escapeHtml(ctLabel(rule.construction_type))) +
-            row('Door Styles', dimText(rule.door_styles, 'All styles')) +
-            row('SKU Codes',   dimText(rule.sku_codes,   'All SKUs')) +
-            row('Types',       dimText(rule.types,       'All types')) +
-            row('Discount', escapeHtml(discountText(rule)), true) +
+            row(t('nav.discount.row.construction', 'Construction Type'), escapeHtml(ctLabel(rule.construction_type))) +
+            row(t('nav.discount.row.door_styles', 'Door Styles'), dimText(rule.door_styles, t('nav.discount.all_styles', 'All styles'))) +
+            row(t('nav.discount.row.sku_codes',   'SKU Codes'),   dimText(rule.sku_codes,   t('nav.discount.all_skus',   'All SKUs'))) +
+            row(t('nav.discount.row.types',       'Types'),       dimText(rule.types,       t('nav.discount.all_types',  'All types'))) +
+            row(t('nav.discount.row.discount', 'Discount'), escapeHtml(discountText(rule)), true) +
           '</div>' +
         '</div>';
     }).join('');
@@ -785,12 +878,15 @@
         '<div class="pcd-dmo-head">' +
           // CB-51.1: _dmoTitle is null in full mode -> 'My Discounts'.
           '<h2 class="pcd-dmo-title" id="pcd-dmo-title">' +
-            escapeHtml(_dmoTitle || 'My Discounts') + '</h2>' +
-          '<button type="button" class="pcd-dmo-close" id="pcd-dmo-close" aria-label="Close">&times;</button>' +
+            escapeHtml(_dmoTitle || t('nav.discount.title', 'My Discounts')) + '</h2>' +
+          '<button type="button" class="pcd-dmo-close" id="pcd-dmo-close" aria-label="' +
+            escapeHtml(t('nav.discount.close', 'Close')) + '">&times;</button>' +
         '</div>' +
         '<div class="pcd-dmo-body">' + rows + '</div>' +
         // CB-51 Q-07: remove this one <div> to drop the footnote.
-        '<div class="pcd-dmo-note">Rules apply to catalog items only — custom items are never discounted.</div>' +
+        '<div class="pcd-dmo-note">' +
+          escapeHtml(t('nav.discount.note', 'Rules apply to catalog items only \u2014 custom items are never discounted.')) +
+        '</div>' +
       '</div>';
 
     // Overlay click closes; clicks inside the panel do not.
