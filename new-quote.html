@@ -449,7 +449,7 @@
 
 <!-- Page -->
 <div class="page">
-  <div class="page-title">New Estimate</div>
+  <div class="page-title" data-i18n="nq1.title">New Estimate</div>
 
   <!-- CB-4: Mode banner mount (review / admin-edit) -->
   <div id="modeBannerMount"></div>
@@ -461,9 +461,10 @@
 
   <!-- Order Info -->
   <div class="card">
-    <div class="card-title">Order Information</div>
+    <div class="card-title" data-i18n="nq1.card.order_info">Order Information</div>
     <div class="field-row">
       <div class="field">
+        <!-- ⚠️ #poNumberLabel 由 JS 在 PO Number / Draft ID 之間切換,故不掛 data-i18n(避免雙水合) -->
         <label id="poNumberLabel">Draft ID</label>
         <!-- CB-3 (2026-05-29): PO# now generated at first Save as Quote (random
              alphanumeric P{uid}XXXXXX, e.g. PUWV8F3K2P). On resume of a saved
@@ -472,42 +473,42 @@
         <input type="text" id="poNumber" disabled style="background:var(--cream);color:var(--muted);cursor:not-allowed;font-style:italic;" placeholder="Generated when you save as quote"/>
       </div>
       <div class="field">
-        <label>Job Name <span class="req">*</span></label>
-        <input type="text" id="jobName" placeholder="e.g. Smith Kitchen Remodel"/>
+        <label><span data-i18n="nq1.field.job_name">Job Name</span> <span class="req">*</span></label>
+        <input type="text" id="jobName" placeholder="e.g. Smith Kitchen Remodel" data-i18n-placeholder="nq1.ph.job_name"/>
       </div>
     </div>
     <div class="field">
-      <label>Notes (Optional)</label>
-      <textarea id="notes" placeholder="Any special instructions or comments..."></textarea>
+      <label data-i18n="nq1.field.notes">Notes (Optional)</label>
+      <textarea id="notes" placeholder="Any special instructions or comments..." data-i18n-placeholder="nq1.ph.notes"></textarea>
     </div>
     <div class="field">
-      <label>Logistic <span class="req">*</span></label>
+      <label><span data-i18n="nq1.field.logistic">Logistic</span> <span class="req">*</span></label>
       <select id="logisticType" onchange="handleLogisticChange()" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
-        <option value="pickup">Pick Up @ ProCraft DC — Free</option>
-        <option value="delivery">Delivery (up to 3 hours from ProCraft DC)</option>
-        <option value="shipping">Shipping (3+ hours / Warehouse)</option>
+        <option value="pickup" data-i18n="nq1.logistic.pickup">Pick Up @ ProCraft DC — Free</option>
+        <option value="delivery" data-i18n="nq1.logistic.delivery">Delivery (up to 3 hours from ProCraft DC)</option>
+        <option value="shipping" data-i18n="nq1.logistic.shipping">Shipping (3+ hours / Warehouse)</option>
       </select>
     </div>
     <div class="field" id="deliveryDistanceField" style="display:none;">
-      <label>Delivery Distance</label>
+      <label data-i18n="nq1.field.delivery_distance">Delivery Distance</label>
       <select id="deliveryDistance" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
-        <option value="150">0-30 mins — $150</option>
-        <option value="250">30-60 mins — $250</option>
+        <option value="150" data-i18n="nq1.distance.0_30">0-30 mins — $150</option>
+        <option value="250" data-i18n="nq1.distance.30_60">30-60 mins — $250</option>
         <option value="350">1 hr - 2 hr — $350</option>
         <option value="500">2 hr - 3 hr — $500</option>
       </select>
     </div>
     <div id="shippingTierNote" style="display:none;font-size:12px;color:var(--muted);margin-top:8px;">
           <div style="padding:12px 14px;border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:3px;background:rgba(201,168,76,0.06);line-height:1.55;">
-            <strong style="color:var(--green-dark);">Shipping — Contact Sales Team</strong><br>
-            Freight shipping is quoted individually. Our Sales team will confirm the shipping fee for your order; it is not added to your total in the portal.
+            <strong style="color:var(--green-dark);" data-i18n="nq1.shipping_note.title">Shipping — Contact Sales Team</strong><br>
+            <span data-i18n="nq1.shipping_note.body">Freight shipping is quoted individually. Our Sales team will confirm the shipping fee for your order; it is not added to your total in the portal.</span>
             </div>
       </div>
   </div>
   
   <!-- Shipping Address -->
   <div class="card">
-  <div class="card-title">Shipping / Delivery Address</div>
+  <div class="card-title" data-i18n="nq1.card.shipping_address">Shipping / Delivery Address</div>
 
     <!-- Pick Up Location — 唯讀,僅 logistic = pickup 時顯示 -->
     <div id="pickupLocationDisplay" style="display:none;">
@@ -524,10 +525,10 @@
 
     <div class="address-toggle" id="addressToggle">
       <button class="toggle-btn active" id="btnSameBilling" onclick="setShippingMode('same')">
-        Same as Billing
+        <span data-i18n="nq1.btn.same_billing">Same as Billing</span>
       </button>
       <button class="toggle-btn" id="btnDiffShipping" onclick="setShippingMode('different')">
-        Different Address
+        <span data-i18n="nq1.btn.different_address">Different Address</span>
       </button>
     </div>
 
@@ -537,47 +538,47 @@
         <!-- populated by JS -->
       </div>
       <button class="btn-add-address" id="btnAddNewAddress" onclick="toggleNewAddressForm()">
-        + Add New Address
+        <span data-i18n="nq1.btn.add_address">+ Add New Address</span>
       </button>
 
       <!-- New address form -->
       <div class="new-address-form" id="newAddressForm">
-        <div class="form-title">New Shipping Address</div>
+        <div class="form-title" data-i18n="nq1.form.new_address">New Shipping Address</div>
         <div class="field">
-          <label>Recipient Name <span class="req">*</span></label>
-          <input type="text" id="newRecipient" placeholder="Full name"/>
+          <label><span data-i18n="nq1.field.recipient">Recipient Name</span> <span class="req">*</span></label>
+          <input type="text" id="newRecipient" placeholder="Full name" data-i18n-placeholder="nq1.ph.recipient"/>
         </div>
         <div class="field">
-          <label>Address Line 1 <span class="req">*</span></label>
-          <input type="text" id="newAddress" placeholder="Start typing street address…" autocomplete="off"/>
+          <label><span data-i18n="nq1.field.address1">Address Line 1</span> <span class="req">*</span></label>
+          <input type="text" id="newAddress" placeholder="Start typing street address…" data-i18n-placeholder="nq1.ph.address1" autocomplete="off"/>
         </div>
         <div class="field">
-          <label>Address Line 2</label>
-          <input type="text" id="newAddressLine2" placeholder="Suite, unit, floor (optional)"/>
+          <label data-i18n="nq1.field.address2">Address Line 2</label>
+          <input type="text" id="newAddressLine2" placeholder="Suite, unit, floor (optional)" data-i18n-placeholder="nq1.ph.address2"/>
         </div>
         <div class="field-row">
           <div class="field">
-            <label>City <span class="req">*</span></label>
+            <label><span data-i18n="nq1.field.city">City</span> <span class="req">*</span></label>
             <input type="text" id="newCity" placeholder="City"/>
           </div>
           <div class="field">
-            <label>State <span class="req">*</span></label>
+            <label><span data-i18n="nq1.field.state">State</span> <span class="req">*</span></label>
             <input type="text" id="newState" placeholder="e.g. MD" maxlength="2"/>
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label>ZIP Code <span class="req">*</span></label>
+            <label><span data-i18n="nq1.field.zip">ZIP Code</span> <span class="req">*</span></label>
             <input type="text" id="newZip" placeholder="00000"/>
           </div>
           <div class="field">
-            <label>Phone</label>
+            <label data-i18n="nq1.field.phone">Phone</label>
             <input type="tel" id="newPhone" placeholder="2025550100" maxlength="10"
               oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
           </div>
         </div>
         <div style="margin-top:14px;display:flex;justify-content:flex-end;">
-          <button onclick="saveNewAddress()" style="background:var(--green-dark);color:#fff;border:none;border-radius:3px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:0.1em;cursor:pointer;">Save Address</button>
+          <button onclick="saveNewAddress()" style="background:var(--green-dark);color:#fff;border:none;border-radius:3px;padding:10px 20px;font-family:'DM Sans',sans-serif;font-size:12px;letter-spacing:0.1em;cursor:pointer;"data-i18n="nq1.btn.save_address">Save Address</button>
         </div>
       </div>
     </div>
@@ -585,14 +586,14 @@
 
   <!-- Billing Address — read-only (edit in Profile) -->
   <div class="card">
-    <div class="card-title">Billing Address</div>
-    <div class="billing-display" id="billingDisplay">Loading...</div>
+    <div class="card-title" data-i18n="nq1.card.billing">Billing Address</div>
+    <!-- ⚠️ #billingDisplay 由 JS 覆寫;data-i18n 僅為載入中佔位,寫入時移除該屬性 -->
+    <div class="billing-display" id="billingDisplay" data-i18n="nq1.billing.loading">Loading...</div>
     <div class="billing-hint" id="billingHint">
-      To update billing information, please edit it in <a href="profile.html">your Profile</a>.
+      <span data-i18n="nq1.billing.edit_hint_1">To update billing information, please edit it in </span><a href="profile.html" data-i18n="nq1.billing.edit_hint_link">your Profile</a><span data-i18n="nq1.billing.edit_hint_2">.</span>
     </div>
     <div class="billing-warning" id="billingWarning" style="display:none;">
-      ⚠ Your billing address appears incomplete. Please go to
-      <a href="profile.html">your Profile</a> to add Address Line 1 and ZIP Code before proceeding.
+      <span data-i18n="nq1.billing.incomplete_1">⚠ Your billing address appears incomplete. Please go to </span><a href="profile.html" data-i18n="nq1.billing.edit_hint_link">your Profile</a><span data-i18n="nq1.billing.incomplete_2"> to add Address Line 1 and ZIP Code before proceeding.</span>
     </div>
   </div>
 </div>
@@ -600,19 +601,19 @@
 <!-- Edit Address Modal -->
 <div class="modal-overlay" id="editAddrModal">
   <div class="modal-box">
-    <div class="modal-title">Edit Address</div>
+    <div class="modal-title" data-i18n="nq1.modal.edit_address">Edit Address</div>
     <input type="hidden" id="editAddrId"/>
     <div class="field">
       <label>Recipient Name</label>
-      <input type="text" id="editRecipient" placeholder="Full name"/>
+      <input type="text" id="editRecipient" placeholder="Full name" data-i18n-placeholder="nq1.ph.recipient"/>
     </div>
     <div class="field">
       <label>Address Line 1</label>
       <input type="text" id="editAddressLine1" placeholder="Street address" autocomplete="off"/>
     </div>
     <div class="field">
-      <label>Address Line 2</label>
-      <input type="text" id="editAddressLine2" placeholder="Suite, unit, floor (optional)"/>
+      <label data-i18n="nq1.field.address2">Address Line 2</label>
+      <input type="text" id="editAddressLine2" placeholder="Suite, unit, floor (optional)" data-i18n-placeholder="nq1.ph.address2"/>
     </div>
     <div class="field-row">
       <div class="field">
@@ -630,27 +631,28 @@
         <input type="text" id="editZip" placeholder="00000"/>
       </div>
       <div class="field">
-        <label>Phone</label>
+        <label data-i18n="nq1.field.phone">Phone</label>
         <input type="tel" id="editPhone" placeholder="2025550100" maxlength="10"
           oninput="this.value = this.value.replace(/\D/g,'').slice(0,10)"/>
       </div>
     </div>
     <div class="modal-actions">
       <button class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button>
-      <button class="btn-modal-save" onclick="saveEditAddress()">Save Address</button>
+      <button class="btn-modal-save" onclick="saveEditAddress()"data-i18n="nq1.btn.save_address">Save Address</button>
     </div>
   </div>
 </div>
 
 <!-- Bottom Bar -->
 <div class="bottom-bar">
-  <button class="btn-next" id="btnNext" onclick="goNext()">Next: Select Products →</button>
+  <button class="btn-next" id="btnNext" onclick="goNext()"><span data-i18n="nq1.btn.next">Next: Select Products →</span></button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7PvXRsQ5r5KAIyLYQ1uZvgdaqGQ_pkA0&libraries=places"></script>
-<script src="components/quote-flow-header.js"></script>
+<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/quote-flow-header.js?v=1.5"></script>
 <script>
   const { createClient } = supabase;
   const _supabase = createClient(
@@ -658,6 +660,23 @@
     window.SB_KEY
   );
 
+  // ═══════════════════════════════════════════════════════════════════
+  // CB-62 B4-1a|i18n 區域輔助
+  // pcT 未載入或字典未就緒時回 null → 一律帶英文保底,畫面不得出現 "null"。
+  // 命名用 pc 前綴避免 global 碰撞(B-1 教訓)。
+  // 🔴 admin 專屬 banner(admin-edit / admin-acting)刻意不翻譯(Q-33)。
+  // 🔴 本頁不放語言切換鈕(Q-32 C):語言在進入流程前已選定,localStorage
+  //    全程記住,本頁只負責以當前語言渲染。
+  // ═══════════════════════════════════════════════════════════════════
+  function pcTxt(key, fallback, params) {
+    if (typeof window.pcT === 'function') {
+      const s = window.pcT(key, params || null, fallback);
+      if (s) return s;
+    }
+    return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+      return (params && params[name] != null) ? String(params[name]) : whole;
+    });
+  }
   let dealer = null;                // The dealer that OWNS the quote (may differ from logged-in user when admin edits)
   let currentUser = null;           // The logged-in dealers row (could be admin)
   let isAdminViewer = false;        // True when logged-in user is admin/super_admin
@@ -707,7 +726,7 @@
         </div>
         <div class="mb-body">
           <div class="mb-title">Review Revised Purchase Order</div>
-          <div class="mb-msg">You are reviewing your revised Purchase Order. Click Next to review item details, then resubmit on the final step. Contact your sales rep if you have questions.</div>
+          <div class="mb-msg">${escapeHtml(pcTxt('nq1.review.msg', 'You are reviewing your revised Purchase Order. Click Next to review item details, then resubmit on the final step. Contact your sales rep if you have questions.'))}</div>
           ${reason ? `
             <div class="mb-reason">
               <div class="mb-reason-label">Revision Note</div>
@@ -944,6 +963,20 @@
     currentUser = me;
     isAdminViewer = me?.role === 'admin' || me?.role === 'super_admin';
 
+    // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
+    // 本頁 admin 與 dealer 走同一個 URL,「以 i18n.js 載入與否為開關」在此不成立。
+    // pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好(共用電腦情境)。
+    // typeof 防護針對版本錯配(新 HTML + 快取舊 i18n.js),故以 console.error 明確報錯,
+    // 並退而至少修正 html[lang] 的版面覆蓋。
+    if (isAdminViewer) {
+      if (typeof window.pcForceLang === 'function') {
+        window.pcForceLang('en');
+      } else {
+        console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+        document.documentElement.setAttribute('lang', 'en');
+      }
+    }
+
     // Default: dealer = logged-in user (overridden below for admin/draft scenarios)
     dealer = me;
 
@@ -1090,7 +1123,9 @@
   function setPoNumberLabel(value) {
     const lbl = document.getElementById('poNumberLabel');
     if (!lbl) return;
-    lbl.textContent = (value && /^P/i.test(value)) ? 'PO Number' : 'Draft ID';
+    lbl.textContent = (value && /^P/i.test(value))
+      ? pcTxt('nq1.field.po_number', 'PO Number')
+      : pcTxt('nq1.field.draft_id',  'Draft ID');
   }
 
   async function loadDraftData() {
@@ -1171,7 +1206,7 @@
   function renderAddresses() {
     const grid = document.getElementById('addressGrid');
     if (!savedAddresses.length) {
-      grid.innerHTML = '<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">No saved addresses yet.</p>';
+      grid.innerHTML = `<p style="font-size:13px;color:var(--muted);margin-bottom:12px;">${escapeHtml(pcTxt('nq1.addr.empty', 'No saved addresses yet.'))}</p>`;
       return;
     }
     // CB-4: in review mode, address cards are non-interactive (no Edit/Delete buttons)
@@ -1180,7 +1215,7 @@
       <div class="address-card-wrap">
         <div class="address-card ${selectedAddressId === a.id ? 'selected' : ''}${isReadOnly ? ' readonly' : ''}"
              ${isReadOnly ? '' : `onclick="selectAddress('${a.id}')"`}>
-          ${a.is_default ? '<div class="addr-default-badge">★ Default</div>' : ''}
+          ${a.is_default ? `<div class="addr-default-badge">${escapeHtml(pcTxt('nq1.addr.default_badge', '\u2605 Default'))}</div>` : ''}
           <div class="addr-name">${a.recipient_name || dealer.contact_name}</div>
           <div class="addr-detail">
             ${a.address_line}<br>
@@ -1191,9 +1226,9 @@
         </div>
         ${isReadOnly ? '' : `
         <div class="address-card-actions">
-          <button class="addr-action-btn" onclick="openEditAddress('${a.id}')">Edit</button>
-          <button class="addr-action-btn delete" onclick="deleteAddress('${a.id}')">Delete</button>
-          ${!a.is_default ? `<button class="addr-action-btn default-btn" onclick="setDefaultAddress('${a.id}')">Set Default</button>` : ''}
+          <button class="addr-action-btn" onclick="openEditAddress('${a.id}')">${escapeHtml(pcTxt('nq1.addr.edit', 'Edit'))}</button>
+          <button class="addr-action-btn delete" onclick="deleteAddress('${a.id}')">${escapeHtml(pcTxt('nq1.addr.delete', 'Delete'))}</button>
+          ${!a.is_default ? `<button class="addr-action-btn default-btn" onclick="setDefaultAddress('${a.id}')">${escapeHtml(pcTxt('nq1.addr.set_default', 'Set Default'))}</button>` : ''}
         </div>`}
       </div>
     `).join('');
@@ -1312,7 +1347,7 @@
       phone:          document.getElementById('editPhone').value.trim(),
     };
     const { error } = await _supabase.from('addresses').update(payload).eq('id', id);
-    if (error) { alert('Error saving address.'); return; }
+    if (error) { alert(pcTxt('nq1.alert.save_address', 'Error saving address.')); return; }
     const idx = savedAddresses.findIndex(x => x.id === id);
     if (idx >= 0) savedAddresses[idx] = { ...savedAddresses[idx], ...payload };
     closeEditModal();
@@ -1322,9 +1357,9 @@
   // ── Delete address ──
   async function deleteAddress(id) {
     if (viewMode === 'review') return;  // CB-4: safety net
-    if (!confirm('Delete this address?')) return;
+    if (!confirm(pcTxt('nq1.confirm.delete_address', 'Delete this address?'))) return;
     const { error } = await _supabase.from('addresses').update({ is_deleted: true }).eq('id', id);
-    if (error) { alert('Error deleting address.'); return; }
+    if (error) { alert(pcTxt('nq1.alert.delete_address', 'Error deleting address.')); return; }
     savedAddresses = savedAddresses.filter(x => x.id !== id);
     if (selectedAddressId === id) selectedAddressId = null;
     renderAddresses();
@@ -1353,7 +1388,8 @@ function setDeliveryDistanceValue(fee) {
   if (!exists) {
     const opt = document.createElement('option');
     opt.value = val;
-    opt.textContent = 'Previous delivery fee — $' + (parseFloat(fee) || 0).toFixed(0);
+    const _fee = (parseFloat(fee) || 0).toFixed(0);
+    opt.textContent = pcTxt('nq1.distance.previous', 'Previous delivery fee — ${fee}', { fee: _fee }).replace('{fee}', _fee);
     sel.appendChild(opt);
   }
   sel.value = val;
@@ -1395,7 +1431,7 @@ function handleLogisticChange() {
     const notes    = document.getElementById('notes').value.trim();
 
     if (!jobName) {
-      errMsg.textContent = 'Please fill in Job Name.';
+      errMsg.textContent = pcTxt('nq1.err.job_name', 'Please fill in Job Name.');
       errMsg.classList.add('show');
       window.scrollTo(0, 0);
       return;
@@ -1408,14 +1444,14 @@ function handleLogisticChange() {
     if (shippingMode === 'different') {
       const newAddrForm = document.getElementById('newAddressForm');
       if (newAddrForm.classList.contains('show')) {
-        errMsg.textContent = 'Please save the new address before continuing.';
+        errMsg.textContent = pcTxt('nq1.err.save_address_first', 'Please save the new address before continuing.');
         errMsg.classList.add('show');
         window.scrollTo(0, 0);
         return;
       }
       shippingAddressId = selectedAddressId;
       if (!shippingAddressId) {
-        errMsg.textContent = 'Please select or add a shipping address.';
+        errMsg.textContent = pcTxt('nq1.err.select_address', 'Please select or add a shipping address.');
         errMsg.classList.add('show');
         window.scrollTo(0, 0);
         return;
@@ -1469,7 +1505,7 @@ function handleLogisticChange() {
     const zip       = document.getElementById('newZip').value.trim();
 
     if (!recipient || !address || !city || !state || !zip) {
-      errMsg.textContent = 'Please fill in all required fields for the new address.';
+      errMsg.textContent = pcTxt('nq1.err.address_fields', 'Please fill in all required fields for the new address.');
       errMsg.classList.add('show');
       window.scrollTo(0, 0);
       return;
@@ -1492,7 +1528,7 @@ function handleLogisticChange() {
       .single();
 
     if (error) {
-      errMsg.textContent = 'Error saving address. Please try again.';
+      errMsg.textContent = pcTxt('nq1.err.save_address', 'Error saving address. Please try again.');
       errMsg.classList.add('show');
       return;
     }
@@ -1504,8 +1540,20 @@ function handleLogisticChange() {
     renderAddresses();
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // 🔴 CB-62 B4-1a|語言切換重繪
+  // 靜態 data-i18n 節點由 i18n.js 自行重繪;這裡只處理 JS 動態產生的內容:
+  // 地址卡清單、PO/Draft 標籤、前次運費選項。
+  // ⚠️ 防護條件用「是否載入過」而非「現在有無資料」(B2/B3 教訓)。
+  // ═══════════════════════════════════════════════════════════════════
+  document.addEventListener('pc:i18n-changed', function () {
+    if (Array.isArray(savedAddresses)) renderAddresses();
+    const poEl = document.getElementById('poNumber');
+    if (poEl) setPoNumberLabel(poEl.value || poEl.textContent || '');
+  });
+
   init();
 </script>
-<script src="components/feedback-widget.js?v=1.0"></script>
+<script src="components/feedback-widget.js?v=cb62c"></script>
 </body>
 </html>
