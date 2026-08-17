@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ProCraft Dealer Portal — Configure Modifications</title>
+  <title data-i18n="nqm.page.title">ProCraft Dealer Portal — Configure Modifications</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1395,12 +1395,12 @@
   <div id="noAssembledBannerMount"></div>
 
   <div class="page-heading">
-    <h1>Customize Your Order</h1>
-    <div class="subtitle">Configure modifications for assembled cabinets</div>
+    <h1 data-i18n="nqm.hdr.title">Customize Your Order</h1>
+    <div class="subtitle" data-i18n="nqm.hdr.sub">Configure modifications for assembled cabinets</div>
   </div>
 
   <div id="doorStyleList">
-    <div class="empty-state">Loading...</div>
+    <div class="empty-state" data-i18n="nqm.loading">Loading...</div>
   </div>
 </div>
 
@@ -1412,8 +1412,8 @@
 <div class="mf-modal-overlay" id="mfModalOverlay">
   <div class="mf-modal-container" role="dialog" aria-modal="true" aria-labelledby="mfModalTitle">
     <div class="mf-modal-header">
-      <span class="mf-modal-title" id="mfModalTitle">Configure Modifications</span>
-      <button class="mf-modal-close" type="button" onclick="closeMfModal()" aria-label="Close">×</button>
+      <span class="mf-modal-title" id="mfModalTitle" data-i18n="nqm.modal.title">Configure Modifications</span>
+      <button class="mf-modal-close" type="button" onclick="closeMfModal()" aria-label="Close" data-i18n-aria-label="nqm.aria.close">×</button>
     </div>
 
     <div class="mf-modal-body" id="mfModalBody">
@@ -1428,14 +1428,14 @@
 
       <div class="mf-split-panel" id="mfSplitPanel">
         <div class="mf-split-header">
-          <span class="mf-split-title">Split this SKU</span>
+          <span class="mf-split-title" data-i18n="nqm.split.title">Split this SKU</span>
           <span class="mf-split-summary" id="mfSplitSummary">—</span>
         </div>
         <div class="mf-split-rows" id="mfSplitRows"></div>
-        <button class="mf-split-add" id="mfSplitAddBtn" type="button" onclick="addSubGroup()">+ Add sub-group</button>
+        <button class="mf-split-add" id="mfSplitAddBtn" type="button" onclick="addSubGroup()" data-i18n="nqm.split.add">+ Add sub-group</button>
         <div class="mf-split-hint">
-          Tip: Sub-groups with no modifications selected will be saved as <em>skipped</em>.
-          Split when different units of this SKU need different modifications (e.g. some with a left skin, some with a right skin).
+          <span data-i18n="nqm.split.tip_before">Tip: Sub-groups with no modifications selected will be saved as</span> <em data-i18n="nqm.split.tip_skipped">skipped</em>.
+          <span data-i18n="nqm.split.tip_after">Split when different units of this SKU need different modifications (e.g. some with a left skin, some with a right skin).</span>
         </div>
       </div>
 
@@ -1443,13 +1443,13 @@
 
       <div class="mf-group" data-group-no="1">
         <div class="mf-group-header">
-          <span class="mf-group-label" id="mfGroupLabel">Modifications</span>
-          <span class="mf-group-qty" id="mfGroupQty">Qty: 0</span>
+          <span class="mf-group-label" id="mfGroupLabel" data-i18n="flow.step.modifications">Modifications</span>
+          <span class="mf-group-qty" id="mfGroupQty" data-i18n="nqm.group.qty">Qty: 0</span>
         </div>
         <div class="mf-group-body">
           <div id="mfElementsContainer">
             <div class="mf-loading">
-              <span class="mf-loading-spinner"></span>Loading modifications...
+              <span class="mf-loading-spinner"></span><span data-i18n="nqm.loading_mods">Loading modifications...</span>
             </div>
           </div>
         </div>
@@ -1457,17 +1457,17 @@
     </div>
 
     <div class="mf-running-total" id="mfRunningTotal">
-      <span class="mf-running-total-label" id="mfRunningTotalLabel">Modifications subtotal</span>
+      <span class="mf-running-total-label" id="mfRunningTotalLabel" data-i18n="nqm.group.subtotal">Modifications subtotal</span>
       <span class="mf-running-total-value zero" id="mfRunningTotalValue">$0.00</span>
     </div>
 
     <div class="mf-modal-footer">
       <div class="mf-modal-footer-left">
-        <button class="mf-btn mf-btn-skip" type="button" onclick="handleMfSkip()">Skip This SKU</button>
+        <button class="mf-btn mf-btn-skip" type="button" onclick="handleMfSkip()" data-i18n="nqm.btn.skip">Skip This SKU</button>
       </div>
       <div class="mf-modal-footer-right">
-        <button class="mf-btn mf-btn-cancel" type="button" onclick="closeMfModal()">Cancel</button>
-        <button class="mf-btn mf-btn-save" type="button" id="mfBtnSave" onclick="handleMfSave()">Save</button>
+        <button class="mf-btn mf-btn-cancel" type="button" onclick="closeMfModal()" data-i18n="common.btn.cancel">Cancel</button>
+        <button class="mf-btn mf-btn-save" type="button" id="mfBtnSave" onclick="handleMfSave()" data-i18n="nqm.btn.save">Save</button>
       </div>
     </div>
   </div>
@@ -1476,32 +1476,32 @@
 <div class="toast" id="toast"></div>
 
 <div class="mods-total-bar" id="modsTotalBar">
-  <span class="mods-total-bar-label">Modifications Total:</span>
+  <span class="mods-total-bar-label" data-i18n="nqm.total.label">Modifications Total:</span>
   <span class="mods-total-bar-value zero" id="modsTotalBarValue">$0.00</span>
 </div>
 
 <div class="swap-modal-overlay" id="swapModalOverlay">
   <div class="swap-modal-container" role="dialog" aria-modal="true" aria-labelledby="swapModalTitle">
     <div class="swap-modal-header">
-      <span class="swap-modal-title" id="swapModalTitle">Swap Door Style</span>
-      <button class="swap-modal-close" type="button" onclick="closeSwapModal()" aria-label="Close">×</button>
+      <span class="swap-modal-title" id="swapModalTitle" data-i18n="nqm.swap.title">Swap Door Style</span>
+      <button class="swap-modal-close" type="button" onclick="closeSwapModal()" aria-label="Close" data-i18n-aria-label="nqm.aria.close">×</button>
     </div>
     <div class="swap-modal-body">
       <div class="swap-current-card" id="swapCurrentCard">
         <div class="swap-current-thumb" id="swapCurrentThumb"></div>
         <div class="swap-current-info">
-          <div class="swap-current-label">Current Style</div>
+          <div class="swap-current-label" data-i18n="nqm.swap.current">Current Style</div>
           <div class="swap-current-name" id="swapCurrentName">—</div>
           <div class="swap-current-meta" id="swapCurrentMeta">—</div>
         </div>
       </div>
 
-    <div class="swap-section-label" id="swapPickLabel">Pick a replacement style (same construction type)</div>
+    <div class="swap-section-label" id="swapPickLabel" data-i18n="nqm.swap.pick">Pick a replacement style (same construction type)</div>
       <div class="swap-style-grid" id="swapStyleGrid"></div>
     </div>
 <div class="swap-modal-footer">
       <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapModal()">Cancel</button>
-      <button class="mf-btn mf-btn-save" type="button" id="swapConfirmBtn" onclick="confirmSwap()" disabled>Confirm Swap</button>
+      <button class="mf-btn mf-btn-save" type="button" id="swapConfirmBtn" onclick="confirmSwap()" disabled data-i18n="nqm.swap.confirm_btn">Confirm Swap</button>
     </div>
   </div>
 </div>
@@ -1510,61 +1510,62 @@
 <div class="swap-modal-overlay swap-confirm-overlay" id="swapConfirmOverlay">
   <div class="swap-confirm-box" role="dialog" aria-modal="true" aria-labelledby="swapConfirmTitle">
     <div class="swap-confirm-head">
-      <span class="swap-confirm-title" id="swapConfirmTitle">Confirm Door Style Change</span>
+      <span class="swap-confirm-title" id="swapConfirmTitle" data-i18n="nqm.change.title">Confirm Door Style Change</span>
     </div>
 <div class="swap-confirm-body">
       <div class="swap-confirm-fromto" id="swapConfirmFromTo">—</div>
       <div class="swap-confirm-rows">
         <div class="swap-confirm-row">
-          <span>Unit Price</span>
+          <span data-i18n="nqm.change.unit_price">Unit Price</span>
           <span><span id="swapConfirmOldUnit">$0.00</span> → <span id="swapConfirmNewUnit">$0.00</span></span>
         </div>
         <div class="swap-confirm-row">
-          <span>Modifications</span>
+          <span data-i18n="flow.step.modifications">Modifications</span>
           <span><span id="swapConfirmOldMod">$0.00</span> → <span id="swapConfirmNewMod">$0.00</span></span>
         </div>
         <div class="swap-confirm-row">
-          <span>Assembly Fee</span>
+          <span data-i18n="nqm.change.assembly_fee">Assembly Fee</span>
           <span><span id="swapConfirmOldFee">$0.00</span> → <span id="swapConfirmNewFee">$0.00</span></span>
         </div>
         <div class="swap-confirm-row diff-row">
-          <span>Group Total</span>
+          <span data-i18n="nqm.change.group_total">Group Total</span>
           <span><span id="swapConfirmOldTotal">$0.00</span> → <span id="swapConfirmNewTotal">$0.00</span></span>
         </div>
         <div class="swap-confirm-row">
-          <span>Change</span>
+          <span data-i18n="nqm.change.delta">Change</span>
           <span><span class="swap-confirm-diff" id="swapConfirmDiff">$0.00</span><span class="swap-confirm-note" id="swapConfirmNote"></span></span>
         </div>
       </div>
     </div>
     <div class="swap-confirm-foot">
-      <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapConfirmPopup()">Cancel</button>
-      <button class="mf-btn mf-btn-save" type="button" onclick="commitSwap()">Confirm Change</button>
+      <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapConfirmPopup()" data-i18n="common.btn.cancel">Cancel</button>
+      <button class="mf-btn mf-btn-save" type="button" onclick="commitSwap()" data-i18n="nqm.change.confirm_btn">Confirm Change</button>
     </div>
   </div>
 </div>
 
 <div class="bottom-bar">
   <div class="bottom-left" id="bottomStatus">
-    <strong id="bottomStatusText">Loading...</strong>
+    <strong id="bottomStatusText" data-i18n="nqm.loading">Loading...</strong>
   </div>
   <div class="bottom-right">
-    <a href="new-quote-step2.html" class="btn-back" id="btnBack">← Back to Products</a>
-    <button class="btn-next" id="btnNext" onclick="goReview()" disabled>Review →</button>
+    <a href="new-quote-step2.html" class="btn-back" id="btnBack" data-i18n="nqm.btn.back">← Back to Products</a>
+    <button class="btn-next" id="btnNext" onclick="goReview()" disabled data-i18n="nqm.btn.review">Review →</button>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/quote-flow-header.js"></script>
+<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/quote-flow-header.js?v=1.5"></script>
 
-<script src="components/modifications/mf01-skin.js"></script>
-<script src="components/modifications/mf02-toggle-dropdown.js"></script>
-<script src="components/modifications/mf03-pure-toggle.js"></script>
-<script src="components/modifications/mf04-toggle-number.js"></script>
-<script src="components/modifications/mf05-pure-dropdown.js"></script>
-<script src="components/modifications/mf06-text-only.js"></script>
-<script src="components/modifications/mf07-super.js"></script>
+<script src="components/modifications/mf01-skin.js?v=cb62c"></script>
+<script src="components/modifications/mf02-toggle-dropdown.js?v=cb62c"></script>
+<script src="components/modifications/mf03-pure-toggle.js?v=cb62c"></script>
+<script src="components/modifications/mf04-toggle-number.js?v=cb62c"></script>
+<script src="components/modifications/mf05-pure-dropdown.js?v=cb62c"></script>
+<script src="components/modifications/mf06-text-only.js?v=cb62c"></script>
+<script src="components/modifications/mf07-super.js?v=cb62c"></script>
 <script>
 const { createClient } = supabase;
 const _supabase = createClient(
@@ -1832,6 +1833,30 @@ function showToast(msg, isError) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+/**
+ * CB-62:i18n 取字。i18n.js 未載入或字典未就緒時回傳英文 fallback。
+ * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+ */
+function pcTxt(key, fallback, params) {
+  if (typeof window.pcT === 'function') {
+    const s = window.pcT(key, params || null, fallback);
+    if (s) return s;
+  }
+  return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+    return (params && params[name] != null) ? String(params[name]) : whole;
+  });
+}
+
+/**
+ * CB-62 Q-17:複數。呼叫端依數量挑 .one / .other。
+ * fallback 需自行代入 {n} 後再交給 pcTxt(pcT 的 fallback 也會做代入,重複無害)。
+ */
+function pcPlural(baseKey, n, enOne, enOther) {
+  const key = baseKey + (n === 1 ? '.one' : '.other');
+  const fb  = (n === 1 ? enOne : enOther).replace('{n}', function () { return String(n); });
+  return pcTxt(key, fb, { n: n });
+}
+
 function esc(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, function (c) {
@@ -1847,8 +1872,8 @@ function buildReviewBanner() {
         <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
       </div>
       <div class="rrb-body">
-        <div class="rrb-title">Reviewing Revised Purchase Order</div>
-        <div class="rrb-msg">You are reviewing your revised Purchase Order. Modifications are shown for review only and cannot be changed here — click Review to continue and resubmit on the final step.</div>
+        <div class="rrb-title" data-i18n="nqm.banner.review_title">Reviewing Revised Purchase Order</div>
+        <div class="rrb-msg" data-i18n="nqm.banner.review_msg">You are reviewing your revised Purchase Order. Modifications are shown for review only and cannot be changed here — click Review to continue and resubmit on the final step.</div>
       </div>
     </div>`;
 }
@@ -1877,8 +1902,8 @@ function buildNoAssembledBanner() {
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
       </div>
       <div class="nab-body">
-        <div class="nab-title">No Modifications Needed</div>
-        <div class="nab-msg">This quote has no assembled items. No modifications are needed — click Review to continue.</div>
+        <div class="nab-title" data-i18n="nqm.banner.no_asm_title">No Modifications Needed</div>
+        <div class="nab-msg" data-i18n="nqm.banner.no_asm_msg">This quote has no assembled items. No modifications are needed — click Review to continue.</div>
       </div>
     </div>`;
 }
@@ -2072,7 +2097,9 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
 }
 // CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
 function formatAssembleStatus(v) {
-  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+  return v === 'RTA'
+    ? pcTxt('nqm.type.unassembled', 'Unassembled')
+    : pcTxt('nqm.type.assembled', 'Assembled');
 }
 
 // CB-5 需求4: SKU 列排序(卡片內,不改變門花色分組結構)
@@ -2106,17 +2133,17 @@ function sortSkuItems(items, mode) {
 }
 function buildSortControlHtml() {
   const opts = [
-    ['type', 'Type'],
-    ['az', 'SKU (A–Z)'],
-    ['price_asc', 'Price (Low–High)'],
-    ['price_desc', 'Price (High–Low)'],
+    ['type',       pcTxt('nqm.sort.type', 'Type')],
+    ['az',         pcTxt('nqm.sort.az', 'SKU (A–Z)')],
+    ['price_asc',  pcTxt('nqm.sort.price_asc', 'Price (Low–High)')],
+    ['price_desc', pcTxt('nqm.sort.price_desc', 'Price (High–Low)')],
   ];
   const optionsHtml = opts.map(function (o) {
     const sel = (o[0] === currentSortMode) ? ' selected' : '';
     return '<option value="' + o[0] + '"' + sel + '>' + o[1] + '</option>';
   }).join('');
   return '<div class="ds-sort-wrap">' +
-           '<span class="ds-sort-label">Sort</span>' +
+           '<span class="ds-sort-label">' + esc(pcTxt('nqm.sort.label', 'Sort')) + '</span>' +
            '<select class="ds-sort-select" onchange="onSortChange(this.value)">' + optionsHtml + '</select>' +
          '</div>';
 }
@@ -2176,7 +2203,7 @@ function buildDoorStyleGroups(items, doorStyles) {
   if (customExtras.length) {
     groups.push({
       style_code:        '__CUSTOM_EXTRAS__',
-      style_name:        'Custom Items',
+      style_name:        pcTxt('nqm.group.custom_items', 'Custom Items'),
       construction_type: 'custom',
       image_url:         null,
       color:             null,
@@ -2255,7 +2282,8 @@ function renderProgressCard(progress) {
 function renderDoorStyleList() {
   const container = document.getElementById('doorStyleList');
   if (!doorStyleGroups.length) {
-    container.innerHTML = '<div class="empty-state">No items in your quote.</div>';
+    container.innerHTML = '<div class="empty-state">'
+      + esc(pcTxt('nqm.empty.no_items', 'No items in your quote.')) + '</div>';
     return;
   }
   container.innerHTML = doorStyleGroups.map(function (g, gIdx) {
@@ -2291,11 +2319,11 @@ function buildDoorStyleCard(group, gIdx) {
     ? leadTimeForDoor(group.construction_type, group.is_stock)
     : null;
   const leadTimeHtml = leadTime
-    ? `<span class="ds-lead-time">Lead time: ${esc(leadTime)}</span>`
+    ? `<span class="ds-lead-time">${esc(pcTxt('nqm.lead.prefix', 'Lead time:'))} ${esc(leadTime)}</span>`
     : '';
 
   const discTag = group.is_discontinued
-    ? `<span class="ds-discontinued-tag">⚠ Currently Unavailable</span>`
+    ? `<span class="ds-discontinued-tag">${esc(pcTxt('nqm.tag.unavailable', '⚠ Currently Unavailable'))}</span>`
     : '';
   const customStyleTag = group.is_custom_style
     ? `<span class="sku-custom-badge">CUSTOM STYLE</span>`
@@ -2309,7 +2337,7 @@ function buildDoorStyleCard(group, gIdx) {
         <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 4l8.5 14.5h-17L12 6zm-1 5v5h2v-5h-2zm0 7v2h2v-2h-2z"/></svg>
       </div>
       <div class="ds-discontinued-banner-msg">
-        This door style is currently unavailable. Please remove or replace these items. If you have any questions, please contact us.
+        ${esc(pcTxt('nqm.banner.discontinued', 'This door style is currently unavailable. Please remove or replace these items. If you have any questions, please contact us.'))}
       </div>
     </div>` : '';
 
@@ -2319,7 +2347,7 @@ function buildDoorStyleCard(group, gIdx) {
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
       </div>
       <div class="ds-nonstock-banner-msg">
-        This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.
+        ${esc(pcTxt('nqm.banner.nonstock', 'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.'))}
       </div>
     </div>` : '';
 
@@ -2344,7 +2372,7 @@ function buildDoorStyleCard(group, gIdx) {
   const swapBtnHtml = group.is_custom_style ? '' : `
     <button class="ds-swap-btn" type="button"
       onclick="openSwapModal('${esc(group.style_code)}')"
-      title="Replace this door style with another (same construction type)">
+      title="${esc(pcTxt('nqm.swap.btn_title', 'Replace this door style with another (same construction type)'))}">
       ${SWAP_ARROWS_SVG}
       Swap Style
     </button>`;
@@ -2383,16 +2411,16 @@ function buildCustomExtrasCard(group) {
         <div class="ds-info">
           <div class="ds-name">${esc(group.style_name)} <span class="sku-custom-badge">CUSTOM</span></div>
           <div class="ds-meta">
-            <span class="ds-construction-tag unknown">Accessory / Other</span>
+            <span class="ds-construction-tag unknown">${esc(pcTxt('nqm.tag.accessory_other', 'Accessory / Other'))}</span>
           </div>
         </div>
         <div class="ds-progress">
           <div class="ds-progress-count no-assembled">—</div>
-          <div class="ds-progress-label">No mods</div>
+          <div class="ds-progress-label">${esc(pcTxt('nqm.progress.no_mods', 'No mods'))}</div>
         </div>
       </div>
       <div class="ds-group">
-        <div class="ds-group-label">Custom items (no modifications)</div>
+        <div class="ds-group-label">${esc(pcTxt('nqm.group.custom_no_mod', 'Custom items (no modifications)'))}</div>
         ${items.map(function (item) { return buildCustomExtraRow(item); }).join('')}
       </div>
     </div>`;
@@ -2404,17 +2432,19 @@ function buildCustomExtraRow(item) {
       <span class="sku-code">${esc(item.sku_code)}</span>
       <span class="sku-custom-badge">CUSTOM</span>
       <span class="sku-desc">${esc(item.sku_desc)}</span>
-      <span class="sku-qty">Qty ${item.quantity}</span>
-      <span class="sku-no-mod-label">No modifications available</span>
+      <span class="sku-qty">${esc(pcTxt('nqm.label.qty_short', 'Qty'))} ${item.quantity}</span>
+      <span class="sku-no-mod-label">${esc(pcTxt('nqm.label.no_mod_available', 'No modifications available'))}</span>
       <button class="sku-delete-btn" type="button"
         onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
-        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
+        aria-label="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}"
+        title="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}">${TRASH_SVG}</button>
     </div>`;
 }
 
 function onCustomNoModClick(evt, key) {
   if (evt && evt.target && evt.target.closest && evt.target.closest('.sku-delete-btn')) return;
-  showToast('No modifications available for custom Accessory / Other items');
+  showToast(pcTxt('nqm.toast.custom_no_mod',
+    'No modifications available for custom Accessory / Other items'));
 }
 
 function buildGroupProgressDisplay(group) {
@@ -2439,8 +2469,8 @@ function buildAsmSwitchBtnHtml(item) {
   const targetType = (item.type === 'Assembled') ? 'RTA' : 'Assembled';
   const labelText  = formatAssembleStatus(targetType);
   const title = targetType === 'RTA'
-    ? 'Switch to Unassembled (knock-down shipment, clears modifications)'
-    : 'Switch to Assembled (adds assembly fee, enables modifications)';
+    ? pcTxt('nqm.asm.to_rta_title', 'Switch to Unassembled (knock-down shipment, clears modifications)')
+    : pcTxt('nqm.asm.to_asm_title', 'Switch to Assembled (adds assembly fee, enables modifications)');
   return `
     <button class="sku-asm-switch-btn" type="button"
       onclick="event.stopPropagation(); onMainPageAssemblyToggle('${esc(item.key)}', '${targetType}')"
@@ -2452,12 +2482,14 @@ function buildAsmSwitchBtnHtml(item) {
 function buildAssembledRow(item, gIdx) {
   const status = getItemOverallStatus(item);
   let statusClass, statusLabel;
-  if (status === 'configured')      { statusClass = 'configured';  statusLabel = '● Configured'; }
-  else if (status === 'skipped')    { statusClass = 'skipped';     statusLabel = '+ Add Modification'; }
-  else                              { statusClass = 'unprocessed'; statusLabel = '○ Unprocessed'; }
+  if (status === 'configured')      { statusClass = 'configured';  statusLabel = pcTxt('nqm.status.configured', '● Configured'); }
+  else if (status === 'skipped')    { statusClass = 'skipped';     statusLabel = pcTxt('nqm.status.add_mod', '+ Add Modification'); }
+  else                              { statusClass = 'unprocessed'; statusLabel = pcTxt('nqm.status.unprocessed', '○ Unprocessed'); }
 
   const subCount = Array.isArray(item.sub_groups) ? item.sub_groups.length : 1;
-  const splitBadge = subCount > 1 ? `<span class="sku-split-badge">Split × ${subCount}</span>` : '';
+  const splitBadge = subCount > 1
+    ? `<span class="sku-split-badge">${esc(pcTxt('nqm.badge.split', 'Split × {n}', { n: subCount }))}</span>`
+    : '';
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
   const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
 
@@ -2466,14 +2498,15 @@ function buildAssembledRow(item, gIdx) {
       <span class="sku-code">${esc(item.sku_code)}</span>
       ${customBadge}
       <span class="sku-desc">${esc(item.sku_desc)}</span>
-      <span class="sku-qty">Qty ${item.quantity}</span>
+      <span class="sku-qty">${esc(pcTxt('nqm.label.qty_short', 'Qty'))} ${item.quantity}</span>
       ${splitBadge}
       <span class="sku-status ${statusClass}">${statusLabel}</span>
       <span class="sku-arrow">›</span>
       ${asmSwitchBtn}
       <button class="sku-delete-btn" type="button"
         onclick="event.stopPropagation(); onDeleteSkuClick('${esc(item.key)}')"
-        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
+        aria-label="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}"
+        title="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}">${TRASH_SVG}</button>
     </div>`;
 }
 
@@ -2484,14 +2517,16 @@ function buildRtaRow(item) {
   const customBadge = item.is_custom ? `<span class="sku-custom-badge">CUSTOM</span>` : '';
   const asmSwitchBtn = buildAsmSwitchBtnHtml(item);
 
+  const qtyLabel = esc(pcTxt('nqm.label.qty_short', 'Qty'));
+  const qtyAria  = esc(pcTxt('nqm.aria.quantity', 'Quantity'));
   const qtyHtml = isReviewLocked()
-    ? `<span class="sku-qty">Qty ${item.quantity}</span>`
+    ? `<span class="sku-qty">${qtyLabel} ${item.quantity}</span>`
     : `<span class="sku-qty-edit" onclick="event.stopPropagation()">
-         <span class="sku-qty-edit-label">Qty</span>
+         <span class="sku-qty-edit-label">${qtyLabel}</span>
          <input type="number" min="1" step="1" class="sku-qty-input"
            value="${item.quantity}"
            onchange="onRtaQtyChange('${esc(item.key)}', this.value)"
-           aria-label="Quantity"/>
+           aria-label="${qtyAria}"/>
        </span>`;
 
   return `
@@ -2503,7 +2538,8 @@ function buildRtaRow(item) {
       ${asmSwitchBtn}
       <button class="sku-delete-btn" type="button"
         onclick="onDeleteSkuClick('${esc(item.key)}')"
-        aria-label="Remove from quote" title="Remove from quote">${TRASH_SVG}</button>
+        aria-label="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}"
+        title="${esc(pcTxt('nqm.aria.remove_item', 'Remove from quote'))}">${TRASH_SVG}</button>
     </div>`;
 }
 
@@ -2519,7 +2555,8 @@ function onDeleteSkuClick(key) {
   if (isReviewLocked()) return;  // CB-4: read-only review
   const item = cartItems.find(function (i) { return i.key === key; });
   if (!item) return;
-  const confirmed = confirm('Remove "' + item.sku_code + '" from your quote?');
+  const confirmed = confirm(pcTxt('nqm.confirm.remove',
+    'Remove "{sku}" from your quote?', { sku: item.sku_code }));
   if (!confirmed) return;
 
   cartItems = cartItems.filter(function (i) { return i.key !== key; });
@@ -2531,7 +2568,7 @@ function onDeleteSkuClick(key) {
   renderModsTotalBar();
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   console.log('[E5] Removed SKU', key, 'from cart. Remaining items:', cartItems.length);
-  showToast(item.sku_code + ' removed');
+  showToast(pcTxt('nqm.toast.removed', '{sku} removed', { sku: item.sku_code }));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2554,24 +2591,27 @@ function onMainPageAssemblyToggle(key, newType) {
 
   // Guard: custom items shouldn't reach here (button hidden), but double-check.
   if (item.is_custom) {
-    showToast('Custom items cannot be switched between Unassembled and Assembled', true);
+    showToast(pcTxt('nqm.toast.custom_no_switch',
+      'Custom items cannot be switched between Unassembled and Assembled'), true);
     return;
   }
 
   if (newType === 'Assembled') {
     // RTA → Assembled
     if (!itemSupportsAssembled(dealer, item)) {
-      showToast('This SKU is not available in Assembled', true);
+      showToast(pcTxt('nqm.toast.no_asm_variant', 'This SKU is not available in Assembled'), true);
       return;
     }
 
     const newFee = getAssembleFeeForItem(dealer, item);
     const feeNote = newFee > 0
-      ? '\n\nAn assembly fee of $' + newFee.toFixed(2) + ' per unit will apply.'
-      : '\n\nNo assembly fee applies for this SKU type.';
+      ? pcTxt('nqm.confirm.fee_yes', 'An assembly fee of ${fee} per unit will apply.',
+              { fee: newFee.toFixed(2) })
+      : pcTxt('nqm.confirm.fee_no', 'No assembly fee applies for this SKU type.');
     const ok = confirm(
-      'Switch "' + item.sku_code + '" to Assembled?' + feeNote +
-      '\n\nYou will be able to configure modifications after switching.'
+      pcTxt('nqm.confirm.to_asm', 'Switch "{sku}" to Assembled?', { sku: item.sku_code }) +
+      '\n\n' + feeNote + '\n\n' +
+      pcTxt('nqm.confirm.to_asm_tail', 'You will be able to configure modifications after switching.')
     );
     if (!ok) return;
 
@@ -2582,7 +2622,8 @@ function onMainPageAssemblyToggle(key, newType) {
       return other !== item && other.key === newKey && other.style_code === item.style_code;
     });
     if (conflict) {
-      showToast('An Assembled row already exists for this SKU. Please remove one first.', true);
+      showToast(pcTxt('nqm.toast.asm_row_exists',
+        'An Assembled row already exists for this SKU. Please remove one first.'), true);
       console.warn('[F-RTA-SWITCH] Key collision aborted switch: ' + newKey);
       return;
     }
@@ -2603,7 +2644,8 @@ function onMainPageAssemblyToggle(key, newType) {
                 ' · fee=$' + newFee.toFixed(2));
 
     refreshAfterCartChange();
-    showToast(item.sku_code + ' → Assembled (modifications optional)');
+    showToast(pcTxt('nqm.toast.to_asm_ok', '{sku} → Assembled (modifications optional)',
+      { sku: item.sku_code }));
     return;
   }
 
@@ -2616,9 +2658,13 @@ function onMainPageAssemblyToggle(key, newType) {
     });
   }
 
-  const warning = hasMods
-    ? 'Switch "' + item.sku_code + '" to Unassembled?\n\nThis will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.'
-    : 'Switch "' + item.sku_code + '" to Unassembled?\n\nThe assembly fee will be removed and no modifications will be allowed.';
+const warning =
+    pcTxt('nqm.confirm.to_rta', 'Switch "{sku}" to Unassembled?', { sku: item.sku_code }) +
+    '\n\n' + (hasMods
+      ? pcTxt('nqm.confirm.to_rta_body_mods',
+          'This will clear all selected modifications and remove the assembly fee. This cannot be undone unless you switch back.')
+      : pcTxt('nqm.confirm.to_rta_body_plain',
+          'The assembly fee will be removed and no modifications will be allowed.'));
   const ok = confirm(warning);
   if (!ok) return;
 
@@ -2628,7 +2674,8 @@ function onMainPageAssemblyToggle(key, newType) {
     return other !== item && other.key === newKey && other.style_code === item.style_code;
   });
   if (conflict) {
-    showToast('An Unassembled row already exists for this SKU. Please remove one first.', true);
+    showToast(pcTxt('nqm.toast.rta_row_exists',
+      'An Unassembled row already exists for this SKU. Please remove one first.'), true);
     console.warn('[F-RTA-SWITCH] Key collision aborted switch: ' + newKey);
     return;
   }
@@ -2657,7 +2704,9 @@ function onMainPageAssemblyToggle(key, newType) {
               (prevSubCount > 1 ? ' · sub_groups collapsed: ' + prevSubCount + ' → 1' : ''));
 
   refreshAfterCartChange();
-  showToast(item.sku_code + ' → ' + formatAssembleStatus(item.type) + (hasMods ? ' (modifications cleared)' : ''));
+  showToast(pcTxt('nqm.toast.switched', '{sku} → {type}',
+      { sku: item.sku_code, type: formatAssembleStatus(item.type) })
+    + (hasMods ? ' ' + pcTxt('nqm.toast.mods_cleared_suffix', '(modifications cleared)') : ''));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -2709,14 +2758,14 @@ function renderBottomBar(progress) {
   const isReady = (progress.total === 0) || (pendingAssembled === 0);
 
   if (cartItems.length === 0) {
-    statusTextEl.textContent = 'Cart is empty';
+    statusTextEl.textContent = pcTxt('nqm.bottom.empty', 'Cart is empty');
   } else if (progress.total === 0) {
-    statusTextEl.textContent = 'No assembled items — ready to review';
+    statusTextEl.textContent = pcTxt('nqm.bottom.no_asm', 'No assembled items — ready to review');
   } else if (pendingAssembled === 0) {
-    statusTextEl.textContent = 'All set — ready to review';
+    statusTextEl.textContent = pcTxt('nqm.bottom.ready', 'All set — ready to review');
   } else {
-    statusTextEl.textContent = pendingAssembled + ' assembled SKU' +
-      (pendingAssembled !== 1 ? 's' : '') + ' need attention';
+    statusTextEl.textContent = pcPlural('nqm.bottom.pending', pendingAssembled,
+          '{n} assembled SKU needs attention', '{n} assembled SKUs need attention');
   }
 
   if (isReady && cartItems.length > 0) statusEl.classList.add('complete');
@@ -2726,7 +2775,7 @@ function renderBottomBar(progress) {
 }
 
 function goReview() {
-  if (cartItems.length === 0) { showToast('Cart is empty — add items first', true); return; }
+  if (cartItems.length === 0) { showToast(pcTxt('nqm.toast.cart_empty', 'Cart is empty — add items first'), true); return; }
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   const nextUrl = draftId
     ? 'new-quote-step3.html?draft=' + draftId + buildModeParam()
@@ -2840,11 +2889,12 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
   const labelText = document.createElement('span');
   labelText.className = 'mf-row-label-text';
   labelText.innerHTML = esc(rule.display_label || mfCode) +
-    '<span class="mf-row-admin-badge" title="Added by admin">' + ADMIN_LOCK_SVG + 'Added by admin</span>';
+    '<span class="mf-row-admin-badge" title="' + esc(pcTxt('nqm.ro.added_by_admin', 'Added by admin')) + '">'
+    + ADMIN_LOCK_SVG + esc(pcTxt('nqm.ro.added_by_admin', 'Added by admin')) + '</span>';
   labelDiv.appendChild(labelText);
   const costSpan = document.createElement('span');
   costSpan.className = 'mf-row-label-cost';
-  costSpan.textContent = savedCost > 0 ? '+$' + savedCost.toFixed(2) : 'Included';
+  costSpan.textContent = savedCost > 0 ? '+$' + savedCost.toFixed(2) : pcTxt('nqm.ro.included', 'Included');
   labelDiv.appendChild(costSpan);
   row.appendChild(labelDiv);
 
@@ -2945,7 +2995,7 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
 
   const labelDiv = document.createElement('div');
   labelDiv.className = 'mf-row-label';
-  labelDiv.innerHTML = '<span class="mf-row-label-text">Depth Adjustment</span>';
+  labelDiv.innerHTML = '<span class="mf-row-label-text">' + esc(pcTxt('nqm.mf04.title', 'Depth Adjustment')) + '</span>';
   row.appendChild(labelDiv);
 
   const elementDiv = document.createElement('div');
@@ -2953,9 +3003,9 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
   elementDiv.innerHTML =
     '<div class="mf04-combined">' +
       '<select class="mf04-dir-select">' +
-        '<option value="none">Don\'t adjust</option>' +
-        '<option value="increase">Increase depth</option>' +
-        '<option value="reduce">Reduce depth</option>' +
+        '<option value="none">' + esc(pcTxt('nqm.mf04.no_adjust', "Don't adjust")) + '</option>' +
+        '<option value="increase">' + esc(pcTxt('nqm.mf04.increase', 'Increase depth')) + '</option>' +
+                '<option value="reduce">' + esc(pcTxt('nqm.mf04.reduce', 'Reduce depth')) + '</option>' +
       '</select>' +
       '<div class="mf04-input-area"></div>' +
     '</div>';
@@ -2999,7 +3049,7 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
           ' min="' + cfg.min + '" max="' + cfg.max + '" step="' + cfg.step + '" placeholder="—" />' +
         '<span class="mf04-unit">' + esc(cfg.unit) + '</span>' +
       '</div>' +
-      '<div class="mf04-range">Allowed: ' + cfg.min + ' – ' + cfg.max + '</div>' +
+      '<div class="mf04-range">' + esc(pcTxt('nqm.mf04.allowed', 'Allowed:')) + ' ' + cfg.min + ' – ' + cfg.max + '</div>' +
       costHtml;
     const numEl = areaEl.querySelector('.mf04-number');
     if (numEl) {
@@ -3027,8 +3077,8 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
     if (selectedDir !== dir) return { valid: true, errors: [] };
     const cfg = cfgFor(dir);
     if (currentValue === null || isNaN(currentValue)) return { valid: false, errors: ['Please enter a value.'] };
-    if (currentValue < cfg.min) return { valid: false, errors: ['Value must be at least ' + cfg.min + '.'] };
-    if (currentValue > cfg.max) return { valid: false, errors: ['Value must not exceed ' + cfg.max + '.'] };
+    if (currentValue < cfg.min) return { valid: false, errors: [pcTxt('nqm.mf04.err_min', 'Value must be at least {min}.', { min: cfg.min })] };
+    if (currentValue > cfg.max) return { valid: false, errors: [pcTxt('nqm.mf04.err_max', 'Value must not exceed {max}.', { max: cfg.max })] };
     return { valid: true, errors: [] };
   }
   function calcCostFor(dir) { return (selectedDir === dir) ? costFor(dir) : 0; }
@@ -3072,8 +3122,8 @@ function renderMfElements(rules, savedByIdx, subRef) {
   if (!rules || !rules.length) {
     wrap.innerHTML = `
       <div class="mf-no-rules">
-        <div class="mf-no-rules-title">No modifications available</div>
-        <div>This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.</div>
+        <div class="mf-no-rules-title">${esc(pcTxt('nqm.no_rules.title', 'No modifications available'))}</div>
+        <div>${esc(pcTxt('nqm.no_rules.msg', 'This SKU has no available modification options. You can Save or Skip to mark this item as reviewed.'))}</div>
       </div>`;
     subRef.instances = [];
     subRef.liveValues = {};
@@ -3149,7 +3199,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
     let costHtml;
     if (isAdminOnly) costHtml = '<span class="mf-row-label-cost admin-only">Admin Only</span>';
     else if (hasUnitMultiplier) costHtml = '';
-    else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">Base cost: +$' + baseCost.toFixed(2) + '</span>';
+    else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">' + esc(pcTxt('nqm.ro.base_cost', 'Base cost:')) + ' +$' + baseCost.toFixed(2) + '</span>';
     else costHtml = '<span class="mf-row-label-cost">Included</span>';
 
     const labelDiv = document.createElement('div');
@@ -3175,7 +3225,8 @@ function renderMfElements(rules, savedByIdx, subRef) {
       instance = window.MF[mfCode].create(elementDiv, params, savedValueForCreate);
     } catch (err) {
       console.error('[E4.4] Failed to create instance for', mfCode, err);
-      elementDiv.innerHTML = '<div style="font-size:11px;color:var(--error);padding:8px 0;">Failed to render this modification. Please contact support.</div>';
+      elementDiv.innerHTML = '<div style="font-size:11px;color:var(--error);padding:8px 0;">'
+        + esc(pcTxt('nqm.err.render_failed', 'Failed to render this modification. Please contact support.')) + '</div>';
       skippedCount++;
       return;
     }
@@ -3389,7 +3440,7 @@ function clearMfContainerToLoading() {
   if (wrap) {
     wrap.innerHTML = `
       <div class="mf-loading">
-        <span class="mf-loading-spinner"></span>Loading modifications...
+        <span class="mf-loading-spinner"></span>${esc(pcTxt('nqm.loading_mods', 'Loading modifications...'))}
       </div>`;
   }
 }
@@ -3446,9 +3497,9 @@ function renderSplitPanel() {
 
   rowsEl.innerHTML = activeSubGroups.map(function (sub, i) {
     const statusClass = sub.modification_status || 'unprocessed';
-    const statusLabel = statusClass === 'configured' ? '● Configured'
-                      : statusClass === 'skipped'    ? '⊘ Skipped'
-                      : '○ Unprocessed';
+    const statusLabel = statusClass === 'configured' ? pcTxt('nqm.status.configured', '● Configured')
+                      : statusClass === 'skipped'    ? pcTxt('nqm.status.skipped', '⊘ Skipped')
+                      : pcTxt('nqm.status.unprocessed', '○ Unprocessed');
     const deleteDisabled = activeSubGroups.length <= 1 ? 'disabled' : '';
     return `
       <div class="mf-split-row" data-sub-idx="${i}">
@@ -3461,7 +3512,8 @@ function renderSplitPanel() {
         <span class="mf-split-row-status ${statusClass}">${statusLabel}</span>
         <button class="mf-split-row-delete" type="button" ${deleteDisabled}
           onclick="onDeleteSubGroup(${i})"
-          aria-label="Delete this sub-group" title="Delete this sub-group">${TRASH_SVG}</button>
+          aria-label="${esc(pcTxt('nqm.split.delete_title', 'Delete this sub-group'))}"
+          title="${esc(pcTxt('nqm.split.delete_title', 'Delete this sub-group'))}">${TRASH_SVG}</button>
       </div>`;
   }).join('');
 
@@ -3480,13 +3532,17 @@ function updateSplitSummary() {
   if (sum === skuQty) {
     summaryEl.classList.remove('invalid');
     summaryEl.classList.add('valid');
-    summaryEl.textContent = '✓ Total ' + sum + ' = SKU qty ' + skuQty;
+    summaryEl.textContent = pcTxt('nqm.split.total_ok', '✓ Total {sum} = SKU qty {qty}', { sum: sum, qty: skuQty });
   } else {
     summaryEl.classList.remove('valid');
     summaryEl.classList.add('invalid');
     const diff = skuQty - sum;
-    if (diff > 0) summaryEl.textContent = 'Need ' + diff + ' more (sum ' + sum + ' / ' + skuQty + ')';
-    else summaryEl.textContent = 'Over by ' + Math.abs(diff) + ' (sum ' + sum + ' / ' + skuQty + ')';
+    if (diff > 0) summaryEl.textContent = pcTxt(
+      'nqm.split.need_more' + (diff === 1 ? '.one' : '.other'),
+      'Need {n} more (sum {sum} / {qty})', { n: diff, sum: sum, qty: skuQty });
+    else summaryEl.textContent = pcTxt(
+      'nqm.split.over_by' + (Math.abs(diff) === 1 ? '.one' : '.other'),
+      'Over by {n} (sum {sum} / {qty})', { n: Math.abs(diff), sum: sum, qty: skuQty });
   }
 
   if (skuQtyEl) skuQtyEl.classList.toggle('invalid', sum !== skuQty);
@@ -3507,12 +3563,15 @@ function onSubQtyChange(subIdx, newVal) {
   if (subIdx === activeSubGroupIdx) {
     updateRunningTotal();
     const groupQtyEl = document.getElementById('mfGroupQty');
-    if (groupQtyEl) groupQtyEl.textContent = 'Qty: ' + q;
+    if (groupQtyEl) {
+      groupQtyEl.removeAttribute('data-i18n');
+      groupQtyEl.textContent = pcTxt('nqm.group.qty', 'Qty: {n}', { n: q });
+    }
   }
 }
 
 function onDeleteSubGroup(subIdx) {
-  if (activeSubGroups.length <= 1) { showToast('Cannot delete the only sub-group', true); return; }
+  if (activeSubGroups.length <= 1) { showToast(pcTxt('nqm.toast.only_subgroup', 'Cannot delete the only sub-group'), true); return; }
   const sub = activeSubGroups[subIdx];
   if (!sub) return;
 
@@ -3581,10 +3640,14 @@ function renderActiveSubTab() {
   const groupQty   = document.getElementById('mfGroupQty');
   if (groupLabel) {
     groupLabel.textContent = activeSubGroups.length > 1
-      ? ('Modifications — Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)))
+      ? pcTxt('nqm.group.label_sub', 'Modifications — Sub {n}',
+              { n: (activeSub.sub_index || (activeSubGroupIdx + 1)) })
       : 'Modifications';
   }
-  if (groupQty) groupQty.textContent = 'Qty: ' + (activeSub.qty || 0);
+  if (groupQty) {
+    groupQty.removeAttribute('data-i18n');
+    groupQty.textContent = pcTxt('nqm.group.qty', 'Qty: {n}', { n: (activeSub.qty || 0) });
+  }
 
   if (!Array.isArray(activeMfModalRules)) { clearMfContainerToLoading(); return; }
 
@@ -3634,7 +3697,7 @@ async function fetchModRulesForActiveItem() {
 
     if (error) {
       console.error('[E4.3] RPC error:', error);
-      showToast('Failed to load modifications', true);
+      showToast(pcTxt('nqm.toast.load_mods_failed', 'Failed to load modifications'), true);
       activeMfModalRules = [];
       return false;
     }
@@ -3769,7 +3832,7 @@ async function fetchModRulesForActiveItem() {
     return true;
   } catch (e) {
     console.error('[E4.3] Unexpected error calling RPC:', e);
-    showToast('Failed to load modifications', true);
+    showToast(pcTxt('nqm.toast.load_mods_failed', 'Failed to load modifications'), true);
     activeMfModalRules = [];
     return false;
   }
@@ -3888,9 +3951,9 @@ async function openMfModal(key) {
   document.getElementById('mfHeadMeta').innerHTML = `
     <span>${esc(item.style_name || item.style_code)}</span>
     <span class="mf-pill ${ctypeClass}">${esc(ctypeLabel)}</span>
-    <span class="mf-pill assembled">Assembled</span>
+    <span class="mf-pill assembled">${esc(pcTxt('nqm.type.assembled', 'Assembled'))}</span>
     <span class="mf-sku-head-qty">
-      <span class="mf-sku-head-qty-label">SKU Qty:</span>
+      <span class="mf-sku-head-qty-label">${esc(pcTxt('nqm.label.sku_qty', 'SKU Qty:'))}</span>
       <input type="number" min="1" step="1" class="mf-sku-head-qty-input"
         id="mfSkuQtyInput" value="${item.quantity}"
         onchange="onSkuQtyChange(this.value)"
@@ -3904,8 +3967,9 @@ async function openMfModal(key) {
   clearMfContainerToLoading();
   setRunningTotalDOM(
     activeSubGroups.length > 1
-      ? 'Sub 1 (qty ' + (activeSubGroups[0].qty || 0) + ') modifications'
-      : 'Modifications subtotal',
+    ? pcTxt('nqm.sub.header', 'Sub {n} (qty {q}) modifications',
+                  { n: 1, q: (activeSubGroups[0].qty || 0) })
+          : pcTxt('nqm.group.subtotal', 'Modifications subtotal'),
     0
   );
 
@@ -4053,8 +4117,10 @@ function handleMfSave() {
 
   if (firstFailure) {
     console.log('[D17] Save blocked — validation failed:', firstFailure);
-    const subLabel = activeSubGroups.length > 1 ? ('Sub ' + (firstFailure.subIdx + 1) + ' — ') : '';
-    const errText = firstFailure.errors[0] || 'Invalid value';
+    const subLabel = activeSubGroups.length > 1
+      ? (pcTxt('nqm.toast.sub_prefix', 'Sub {n} —', { n: firstFailure.subIdx + 1 }) + ' ')
+      : '';
+    const errText = firstFailure.errors[0] || pcTxt('mf.err.invalid_value', 'Invalid value');
     showToast(subLabel + (firstFailure.label || firstFailure.mfCode) + ': ' + errText, true);
     if (!firstFailure.isActiveTab) {
       freezeActiveSub();
@@ -4071,11 +4137,13 @@ function handleMfSave() {
 
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
-    showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ')', true);
+      showToast(pcTxt('nqm.toast.qty_mismatch',
+      'Sub-group quantities ({sum}) must equal SKU qty ({qty})',
+      { sum: sum, qty: activeSkuQty }), true);
     return;
   }
-  if (activeSkuQty < 1) { showToast('SKU qty must be at least 1', true); return; }
-  if (activeSubGroups.length === 0) { showToast('At least one sub-group required', true); return; }
+  if (activeSkuQty < 1) { showToast(pcTxt('nqm.toast.qty_min', 'SKU qty must be at least 1'), true); return; }
+  if (activeSubGroups.length === 0) { showToast(pcTxt('nqm.toast.need_subgroup', 'At least one sub-group required'), true); return; }
 
   freezeActiveSub();
 
@@ -4134,7 +4202,8 @@ function handleMfSave() {
   refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(skuCode + ' configured — $' + totalLineCost.toFixed(2));
+  showToast(pcTxt('nqm.toast.configured', '{sku} configured — ${amount}',
+    { sku: skuCode, amount: totalLineCost.toFixed(2) }));
 }
 
 function handleMfSkip() {
@@ -4145,7 +4214,9 @@ function handleMfSkip() {
 
   const sum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   if (sum !== activeSkuQty) {
-    showToast('Sub-group quantities (' + sum + ') must equal SKU qty (' + activeSkuQty + ') before skipping', true);
+    showToast(pcTxt('nqm.toast.qty_mismatch_skip',
+      'Sub-group quantities ({sum}) must equal SKU qty ({qty}) before skipping',
+      { sum: sum, qty: activeSkuQty }), true);
     return;
   }
 
@@ -4162,7 +4233,7 @@ function handleMfSkip() {
   refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(skuCode + ' skipped');
+  showToast(pcTxt('nqm.toast.skipped', '{sku} skipped', { sku: skuCode }));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -4237,10 +4308,10 @@ async function ensureSwapSkuCache() {
 async function openSwapModal(currentStyleCode) {
   if (isReviewLocked()) return;  // CB-4: read-only review
   const currentStyle = allDoorStyles.find(function (s) { return s.style_code === currentStyleCode; });
-  if (!currentStyle) { showToast('Current style not found', true); return; }
+  if (!currentStyle) { showToast(pcTxt('nqm.toast.style_not_found_cur', 'Current style not found'), true); return; }
 
   try { await ensureSwapSkuCache(); }
-  catch (e) { console.warn('[F-SWAP] Failed to load SKU cache:', e); showToast('Failed to load product data', true); return; }
+  catch (e) { console.warn('[F-SWAP] Failed to load SKU cache:', e); showToast(pcTxt('nqm.toast.load_products_failed', 'Failed to load product data'), true); return; }
 
   swapState.currentStyleCode = currentStyleCode;
   swapState.selectedNewStyleCode = null;
@@ -4259,8 +4330,13 @@ async function openSwapModal(currentStyleCode) {
     (currentStyle.grp ? ' · ' + currentStyle.grp : '');
 
   const ctype = (currentStyle.construction_type || '').toLowerCase();
-  const ctypeLabel = ctype === 'framed' ? 'Framed' : ctype === 'frameless' ? 'Frameless' : 'same construction type';
-  document.getElementById('swapPickLabel').textContent = 'Pick a replacement style (' + ctypeLabel + ' only)';
+  const ctypeLabel = ctype === 'framed' ? 'Framed'
+                   : ctype === 'frameless' ? 'Frameless'
+                   : pcTxt('nqm.swap.ctype_same', 'same construction type');
+  const pickEl = document.getElementById('swapPickLabel');
+  pickEl.removeAttribute('data-i18n');
+  pickEl.textContent = pcTxt('nqm.swap.pick_dynamic',
+    'Pick a replacement style ({ctype} only)', { ctype: ctypeLabel });
 
   renderSwapStyleGrid(currentStyle);
 
@@ -4295,7 +4371,8 @@ function renderSwapStyleGrid(currentStyle) {
   const gridEl = document.getElementById('swapStyleGrid');
   if (!candidates.length) {
     gridEl.innerHTML = '<div style="grid-column:1/-1;padding:20px;text-align:center;font-size:12px;color:var(--muted);">' +
-      'No other styles available for ' + esc(ctype) + ' construction.</div>';
+    esc(pcTxt('nqm.swap.no_styles', 'No other styles available for {ctype} construction.',
+            { ctype: ctype })) + '</div>';
     return;
   }
 
@@ -4310,7 +4387,8 @@ function renderSwapStyleGrid(currentStyle) {
         '<div class="swap-style-img-wrap">' + img + '</div>' +
         '<div class="swap-style-info">' +
           '<div class="swap-style-name">' + esc(s.style_name) +
-            (isCurrent ? ' <span style="color:var(--muted);font-weight:400;font-size:9px;">(current)</span>' : '') + '</div>' +
+              (isCurrent ? ' <span style="color:var(--muted);font-weight:400;font-size:9px;">'
+              + esc(pcTxt('nqm.swap.current_tag', '(current)')) + '</span>' : '') + '</div>' +
           '<div class="swap-style-code">' + esc(s.style_code) + (s.grp ? ' · ' + esc(s.grp) : '') + '</div>' +
         '</div>' +
       '</div>';
@@ -4415,11 +4493,11 @@ function closeSwapModal() {
 function confirmSwap() {
   if (isReviewLocked()) return;  // CB-4: read-only review
   if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
-    showToast('Please select a replacement style', true);
+    showToast(pcTxt('nqm.toast.pick_style', 'Please select a replacement style'), true);
     return;
   }
   const impact = computeSwapImpact(swapState.selectedNewStyleCode);
-  if (!impact) { showToast('Unable to compute price change', true); return; }
+  if (!impact) { showToast(pcTxt('nqm.toast.price_calc_failed', 'Unable to compute price change'), true); return; }
   openSwapConfirmPopup(impact);
 }
 
@@ -4459,17 +4537,18 @@ function closeSwapConfirmPopup() {
 function commitSwap() {
   if (isReviewLocked()) return;  // CB-4: read-only review
   if (!swapState.currentStyleCode || !swapState.selectedNewStyleCode) {
-    showToast('Please select a replacement style', true);
+    showToast(pcTxt('nqm.toast.pick_style', 'Please select a replacement style'), true);
     return;
   }
   const newStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.selectedNewStyleCode; });
   const oldStyle = allDoorStyles.find(function (s) { return s.style_code === swapState.currentStyleCode; });
-  if (!newStyle || !oldStyle) { showToast('Style not found', true); return; }
+  if (!newStyle || !oldStyle) { showToast(pcTxt('nqm.toast.style_not_found', 'Style not found'), true); return; }
 
   const oldCtype = (oldStyle.construction_type || '').toLowerCase();
   const newCtype = (newStyle.construction_type || '').toLowerCase();
   if (oldCtype !== newCtype) {
-    showToast('Cannot swap across construction types (Framed ↔ Frameless not supported)', true);
+    showToast(pcTxt('nqm.toast.ctype_mismatch',
+      'Cannot swap across construction types (Framed ↔ Frameless not supported)'), true);
     return;
   }
 
@@ -4531,7 +4610,11 @@ function commitSwap() {
 
   closeSwapConfirmPopup();
   closeSwapModal();
-  showToast('Swapped to ' + newStyle.style_name + (unpriced > 0 ? ' (' + unpriced + ' unpriced — please review)' : ''));
+  showToast(pcTxt('nqm.toast.swapped', 'Swapped to {style}', { style: newStyle.style_name })
+    + (unpriced > 0
+        ? ' ' + pcPlural('nqm.toast.unpriced', unpriced,
+            '({n} unpriced — please review)', '({n} unpriced — please review)')
+        : ''));
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -4599,7 +4682,7 @@ async function init() {
   }
 
   const { data: d } = await _supabase.from('dealers').select('*').eq('id', dealerIdToLoad).single();
-  if (!d) { alert('Could not load dealer data. Please go back and try again.'); return; }
+  if (!d) { alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.')); return; }
   dealer = d;
 
 const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
@@ -4643,7 +4726,7 @@ const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
 
   if (!cartItems.length) {
-    alert('No items in your quote. Returning to product selection.');
+    alert(pcTxt('nqm.alert.empty_cart', 'No items in your quote. Returning to product selection.'));
     window.location.href = draftId ? 'new-quote-step2.html?draft=' + draftId : 'new-quote-step2.html';
     return;
   }
@@ -4699,6 +4782,20 @@ const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
 
   effectiveRole = isAdminContext ? 'admin' : 'dealer';
 
+  // ── CB-62 Q-43 / §4.10:dealer/admin 共用頁,admin 一律英文 ──
+  // 本頁 admin 與 dealer 走同一個 URL,§4.5 的「以 i18n.js 載入與否為開關」
+  // 在這裡不成立。pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好。
+  // typeof 防護是為了版本錯配(新 HTML + 快取舊 i18n.js),非 §4.4 所指的拼字失誤,
+  // 故以 console.error 明確報錯,並退而至少修正 html[lang] 的版面覆蓋。
+  if (effectiveRole === 'admin') {
+    if (typeof window.pcForceLang === 'function') {
+      window.pcForceLang('en');
+    } else {
+      console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+      document.documentElement.setAttribute('lang', 'en');
+    }
+  }
+
   console.log('[D09] effectiveRole =', effectiveRole,
               '(dbRole=' + dbRole + ', reason: ' + (adminContextReason || 'no admin trigger') + ')');
 
@@ -4728,6 +4825,6 @@ const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
 
 init();
 </script>
-<script src="components/feedback-widget.js?v=1.0"></script>
+<script src="components/feedback-widget.js?v=cb62c"></script>
 </body>
 </html>
