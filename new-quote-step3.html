@@ -1055,7 +1055,11 @@ function shortStatus(s) {
 
 // CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
 function formatAssembleStatus(v) {
-  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+  // CB-62 Q-59:顯示轉換,儲存端一律讀 item.type('Assembled' / 'RTA')。
+  //   PDF 有自己的 ASSEMBLED / UNASSEMBLED 字面,不共用。沿用 step2 的 key。
+  return v === 'RTA'
+    ? pcTxt('nq2.asm.unassembled', 'Unassembled')
+    : pcTxt('nq2.asm.assembled', 'Assembled');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
