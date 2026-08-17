@@ -591,6 +591,8 @@
   "nq3.overlay.step_email": "Enviando correo de confirmación...",
   "nq3.overlay.step_email_resub": "Enviando correo de reenvío...",
   "nq3.overlay.dont_close": "NO cierre esta ventana",
+  "nq3.overlay.please_wait": "Espere hasta que su",
+  "nq3.overlay.usually_takes": "Esto suele tardar",
   "nq3.overlay.po_appears": "Número de orden de compra",
   "nq3.overlay.appears_on": "aparece en la pantalla de confirmación.",
   "nq3.overlay.seconds": "5–10 segundos",
