@@ -582,6 +582,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/i18n.js"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
@@ -797,6 +798,31 @@ const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false, _me = null;
+
+// CB-62 Q-57:語言切換重繪用。§4.3 —— 條件問「載入過了嗎」,不是「現在有資料嗎」。
+let _loadState = 'loading';          // 'loading' | 'ready' | 'error'
+let _errKey = null, _errFallback = '';
+
+/**
+ * CB-62:i18n 取字。i18n.js 未載入或字典未就緒時回傳英文 fallback。
+ * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+ */
+function pcTxt(key, fallback, params) {
+  if (typeof window.pcT === 'function') {
+    const s = window.pcT(key, params || null, fallback);
+    if (s) return s;
+  }
+  return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+    return (params && params[name] != null) ? String(params[name]) : whole;
+  });
+}
+
+/** CB-62 Q-17:複數。呼叫端依數量挑 .one / .other。 */
+function pcPlural(baseKey, n, enOne, enOther) {
+  const key = baseKey + (n === 1 ? '.one' : '.other');
+  const fb  = (n === 1 ? enOne : enOther).replace('{n}', function () { return String(n); });
+  return pcTxt(key, fb, { n: n });
+}
 // CB-59:Fulfilled 放寬給 admin + super_admin,直接沿用 _isAdmin,
 //   原本的 _isSuperAdmin 旗標已無使用者,一併移除不留死變數。
 let _returnHistory = [];
@@ -1413,15 +1439,33 @@ async function init() {
 
   const params  = new URLSearchParams(window.location.search);
   const quoteId = params.get('id');
-  if (!quoteId) { showError('No quote ID provided.'); return; }
+  if (!quoteId) {
+    showError(pcTxt('qd.err.no_id', 'No quote ID provided.'), 'qd.err.no_id', 'No quote ID provided.');
+    return;
+  }
 
   const { data: quote, error: qErr } = await _supabase
     .from('quotes').select('*, quote_items(*)').eq('id', quoteId).single();
-  if (qErr || !quote) { showError('Quote not found.'); return; }
+  if (qErr || !quote) {
+    showError(pcTxt('qd.err.not_found', 'Quote not found.'), 'qd.err.not_found', 'Quote not found.');
+    return;
+  }
 
   const { data: me } = await _supabase.from('dealers').select('company_name, role').eq('id', session.user.id).single();
   const isAdmin = ['admin','super_admin'].includes(me?.role);
   _isAdmin = isAdmin;
+
+  // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
+  // pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好(共用電腦情境)。
+  // typeof 防護針對版本錯配(新 HTML + 快取舊 i18n.js),故以 console.error 明確報錯。
+  if (isAdmin) {
+    if (typeof window.pcForceLang === 'function') {
+      window.pcForceLang('en');
+    } else {
+      console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+      document.documentElement.setAttribute('lang', 'en');
+    }
+  }
   _me = { company_name: me?.company_name, role: me?.role };   // CB-50: 當下登入者（download stamp 用）
   if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
 
@@ -1484,6 +1528,7 @@ async function init() {
 
   // Store for PDF
   _quote = quote; _dealer = dealer; _addr = shippingAddr;
+  _loadState = 'ready';
   renderQuote(quote, dealer, shippingAddr);
 }
 
@@ -2405,9 +2450,24 @@ async function downloadReceipt() {
   doc.save(filename);
 }
 
-function showError(msg) {
+function showError(msg, key, fallback) {
+  _loadState   = 'error';
+  _errKey      = key || null;
+  _errFallback = fallback || msg;
   document.getElementById('pageContent').innerHTML=`<div class="error-wrap"><svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--border);margin:0 auto 16px;display:block;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>${msg}</div>`;
 }
+
+// ── CB-62 Q-57:本頁保留 navigator 的語言切換鈕,故需重繪掛勾 ──
+//   §4.4:直接呼叫 renderQuote / showError,不加 typeof 防護 —— 名字寫錯要立刻報錯。
+//   §4.3:依 _loadState 判斷,不用 `if (_quote)` —— 錯誤畫面出現時 _quote 必為 null,
+//         用資料有無當條件會讓錯誤訊息永遠停在舊語言。
+document.addEventListener('pc:i18n-changed', function () {
+  if (_loadState === 'ready') {
+    renderQuote(_quote, _dealer, _addr);
+  } else if (_loadState === 'error') {
+    showError(pcTxt(_errKey, _errFallback), _errKey, _errFallback);
+  }
+});
 
 init();
 </script>
