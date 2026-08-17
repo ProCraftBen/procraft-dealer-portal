@@ -963,6 +963,20 @@
     currentUser = me;
     isAdminViewer = me?.role === 'admin' || me?.role === 'super_admin';
 
+    // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
+    // 本頁 admin 與 dealer 走同一個 URL,「以 i18n.js 載入與否為開關」在此不成立。
+    // pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好(共用電腦情境)。
+    // typeof 防護針對版本錯配(新 HTML + 快取舊 i18n.js),故以 console.error 明確報錯,
+    // 並退而至少修正 html[lang] 的版面覆蓋。
+    if (isAdminViewer) {
+      if (typeof window.pcForceLang === 'function') {
+        window.pcForceLang('en');
+      } else {
+        console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+        document.documentElement.setAttribute('lang', 'en');
+      }
+    }
+
     // Default: dealer = logged-in user (overridden below for admin/draft scenarios)
     dealer = me;
 
