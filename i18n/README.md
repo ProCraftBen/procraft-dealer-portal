@@ -17,6 +17,8 @@
 | `<title>`, `aria-label`, `placeholder` | PDFs (`pdf-builder.js`) |
 | | Brand names: `ProCraft Cabinetry · DC`, `ProCraft DC` |
 | | `quotes.status` DB values (see §7) |
+| | Strings used as storage or matching **keys** (see §2 rule 6) |
+| | Strings that also flow into a PDF, email or DB column (see §2 rule 7) |
 
 Language preference lives in **`localStorage` only**. It is never written to the DB.
 
@@ -43,6 +45,31 @@ Planned: `zh` (Simplified Chinese) — see §5.
    be translated. Use a parameter: `pcT('quote.msg.updated', { status: x })`.
 
 5. **Bumping a language file requires bumping two `?v=` values.** See §4.
+
+6. **Never translate a string that is also used as a key.** Display text is safe to
+   translate; the same text used for lookup, matching or storage is not. Translating
+   it does not throw — the lookup silently misses and data disappears.
+   *Precedent (CB-62 B4-1b3):* `new-quote-modifications.html` re-attaches saved
+   modifications to rules with `mf_code + '|' + display_label`. The hardcoded
+   defaults `'Increase Depth'` / `'Reduce Depth'` feed that key. Translating them
+   would have made every existing quote's depth modification unmatchable —
+   **silently**, with no error anywhere.
+   The same applies to substring markers: `display_label_contains` compares against
+   `'Prep For Glass'`, `'Glass'`, `'Required with Glass'`, `'Skin'`, `'Roll Out'`.
+
+7. **Before translating a string, grep the repo for a second copy of it.** The same
+   English literal is often hardcoded in two files with different fates — one purely
+   for display, the other written to the DB or printed in a PDF. Checking only the
+   display copy gives the wrong answer.
+   *Precedent (CB-62 B4-1b3):* `~5 Weeks` / `~3 Business Days` / `~2 Weeks` appear in
+   `leadTimeForDoor()` in `new-quote-modifications.html` (display only) **and** in
+   `calculateLeadTime()` in `new-quote-step3.html`, whose result is written to
+   `quotes.estimated_lead_time` and printed by `pdf-builder.js` and the quote email.
+   Not translated, on the strength of the second copy.
+
+   This is the mirror image of §10's duplicated-strings list: that list is about
+   copies that must change **together**; this rule is about copies whose
+   translatability **differs**.
 
 ---
 
@@ -95,8 +122,87 @@ invisible and nothing looks broken** — the worst kind of bug.
 Keep the two values identical. Suggested scheme: the ticket that made the change
 (`cb62`, then `cb63`, `cb63a`, …).
 
+### The two values are independent knobs — bumping one alone is legal but partial
+
+The rule above is about **guaranteeing** every browser sees a language-file change.
+It is not a prohibition on touching `PC_I18N_VER` by itself.
+
+`PC_I18N_VER` is a constant inside `i18n.js`; editing it costs one line and touches
+no HTML page — in particular it does **not** touch the frozen `login.html`. So it may
+be bumped at any time, independently of the promote-time bump policy below.
+
+What you get and what you do not:
+
+| Browser state | Effect of bumping `PC_I18N_VER` alone |
+| --- | --- |
+| Fresh / cold cache for `i18n.js` | Sees the new constant, refetches the dictionaries — **fixed** |
+| Holding a cached `i18n.js` | Never sees the new constant, keeps the old dictionary URL — **unchanged** |
+
+Nobody is made worse off, so bumping it early is safe. But it is **best-effort, not
+a guarantee** — full coverage still requires the page-level `?v=` bump.
+
+**Why this matters for testing, not just for users:** a stale dictionary makes missing
+keys fall back to English. A test whose expected result *is* English — "confirm the
+option labels stay English" — then passes for the wrong reason. Always test in a
+private window (see §11) and confirm in the Network panel that the dictionary URL
+carries the version you expect.
+
+*Precedent (CB-62, Q-49):* `PC_I18N_VER` sat at `'cb62'` while pages loaded
+`i18n.js?v=cb62b`, across three language-file edits. Nothing looked broken.
+
+### 🔴 When to bump: once, immediately before promoting
+
+Bumping per work package would mean editing every i18n-loading page several times
+over — including `login.html`, whose auth script is frozen and re-hashed on every
+touch. So:
+
+> **Do not bump `?v=` while iterating on `staging`. Bump every page once,
+> immediately before promoting to `main`.**
+
+This rests on one hard rule, which is not optional:
+
+> **🔴 All staging testing happens in a private window.** That is what makes a
+> deferred bump safe. A normal window will serve you a stale HTML file and you will
+> chase a bug that does not exist.
+>
+> This is not hypothetical — it happened during CB-62 B3. A page appeared to show
+> two language switches; the file on disk had one. HTML files carry no `?v=` of
+> their own, so the browser had cached the previous version of the page against an
+> already-updated component.
+
+Before promoting, walk a written checklist of **every** page that loads `i18n.js`,
+plus the pages listed under "Shared components are live files" below. Missing one
+page leaves it requesting a stale language file with no visible symptom.
+
 **Verification:** open the page in a private window, DevTools → Network, confirm the
 request for `i18n/es.json?v=<new>` returns 200 and the response body contains the edit.
+
+### 🔴 Shared components are live files — content ships without a bump
+
+`?v=` controls **caching**, not what the server sends. A page requesting
+`components/navigator.js?v=1.0` still receives whatever is in the repo right now.
+
+So editing a shared component takes effect **the moment it is committed**, for every
+page that loads it and for every visitor with a cold cache. The `?v=` bump only
+forces warm caches to catch up sooner.
+
+Two things follow:
+
+- **Do not read "no bump yet" as "not live yet."** A component change is testable in
+  a private window immediately, and it is already reaching real users.
+- **Regression-test the moment you commit it, not at the end of the work package.**
+  `navigator.js` and `footer.js` load on 12 pages, six of them admin;
+  `feedback-widget.js` on 10; `status-label.js` on five. A mistake in any of them is
+  live before you have finished the rest of your files.
+
+Pages loading each shared component, for the pre-promote checklist:
+
+| Component | Pages |
+| --- | --- |
+| `navigator.js`, `footer.js` | dashboard, quotes, quote-detail, dealer-profile, change-password, payment, admin, admin-quotes, admin-payments, admin-dealers, admin-accounts, admin-tags |
+| `feedback-widget.js` | the above minus change-password, payment, admin-tags |
+| `status-label.js` | dashboard, quotes, quote-detail, admin, admin-quotes |
+| `quote-flow-header.js` | new-quote, new-quote-modifications, new-quote-step2, new-quote-step3 |
 
 ---
 
@@ -274,6 +380,34 @@ is wrapped in an IIFE and assigns to `window`, so a collision cannot produce a
 `SyntaxError` — the worst case is one page losing translations. Still, **Stage B
 pages should call `pcT()`**. The `t` alias exists for brevity in one-off snippets.
 
+### Shadow DOM
+
+`pcApplyI18n(root)` takes any node with `querySelectorAll` — including a
+`ShadowRoot`. `components/feedback-widget.js` needs this: its UI lives in a
+**closed** shadow root, so `i18n.js`'s own `document.querySelectorAll` sweep cannot
+see it. The component marks up its own DOM and calls `pcApplyI18n(_shadow)` after
+mounting and again on `pc:i18n-changed`.
+
+**Re-hydrate, never rebuild.** That widget holds a half-typed message and the user's
+chosen sentiment and category. Rebuilding the modal would wipe all three. The same
+caution applies anywhere a component owns user input.
+
+### Mounting the language switch
+
+`components/lang-switch.js` exposes `pcMountLangSwitch(container, { inline: true })`
+for containers that appear **after** `DOMContentLoaded`. `navigator.js` uses it: the
+navbar cannot render until session and role have been fetched, by which point the
+automatic `#pcd-lang-switch` sweep has long since run.
+
+The function returns `null` and renders nothing when `i18n.js` is absent (admin
+pages), when the container is missing, or when the container already has content.
+Multiple instances are supported and stay in sync — the navbar and the mobile menu
+each get one.
+
+Pages that load `navigator.js` should **not** carry their own `#pcd-lang-switch`
+div; the navbar supplies the switch. The standalone div remains supported for pages
+without a navbar.
+
 ### Markup attributes
 
 | Attribute | Target |
@@ -396,6 +530,97 @@ a module-scope variable, extract rendering into a function, and call it again fr
 **Never put `data-i18n` and `data-pc-status-*` on the same element.** Two hydrators
 would overwrite each other and the winner would depend on load order.
 
+### 🔴 Shared components — the switch is still "is i18n.js loaded"
+
+`navigator.js`, `footer.js` and `feedback-widget.js` each carry English strings and
+look up translations only when `window.pcT` exists. Admin pages never load
+`i18n.js`, so they render exactly what they rendered before CB-62 — no flag, no role
+check, no blocklist. Verified for all three by diffing admin output against dealer
+English output.
+
+Two consequences worth stating plainly:
+
+- **`ADMIN_NAV` in `navigator.js` deliberately has no `key` fields.** The admin menu
+  is never translated, not even through a fallback. Only `DEALER_NAV` carries keys.
+- **`page` and `href` are internal identifiers.** Only `label` is display text.
+  Translating a menu item must never touch routing.
+
+### 🔴 Shared dealer/admin pages — loading `i18n.js` is NOT enough
+
+The rule above assumes a page belongs to either the dealer side or the admin side.
+Several pages do not: **admin and dealer open the same URL**, and the page decides
+what to render from the resolved role.
+
+Known shared pages:
+
+| Page | Evidence |
+| --- | --- |
+| `new-quote.html` | admin-edit / admin-acting banner |
+| `new-quote-step2.html` | `buildAdminEditBanner` |
+| `new-quote-modifications.html` | `isAdminViewer`, `effectiveRole` |
+| `new-quote-step3.html` | `isAdminRole` |
+| `quote-detail.html` | `isAdmin`, admin-only Packing List |
+
+`payment.html` is **not** shared — it redirects admin and super_admin to `admin.html`
+before rendering.
+
+On a shared page `i18n.js` is loaded for everyone, and `localStorage` is per-domain,
+so an admin who ever pressed the language switch on `dashboard.html` or `quotes.html`
+carries Spanish into the quote flow. The load-or-not switch cannot separate them.
+
+**The rule:** every shared page that loads `i18n.js` must force English once the role
+is known, and must not write that choice to `localStorage` (an admin and a dealer may
+share a machine).
+
+```js
+if (effectiveRole === 'admin') {
+  if (typeof window.pcForceLang === 'function') {
+    window.pcForceLang('en');
+  } else {
+    console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+    document.documentElement.setAttribute('lang', 'en');
+  }
+}
+```
+
+`pcForceLang(lang)` is `pcSetLang` minus `writeStore()` — session-only, never persisted.
+
+Three things about this snippet are deliberate:
+
+- **The `typeof` guard is not the failure this doc warns about elsewhere.** It guards
+  against version skew (new HTML + a cached `i18n.js` without the function), not a
+  typo. It reports loudly via `console.error` and still fixes `html[lang]` so the
+  language-specific CSS in §8 does not stay on the Spanish branch. The text itself
+  stays Spanish in that case — the only alternative, `pcSetLang('en')`, would write
+  `localStorage` and clobber the dealer's preference. That trade was chosen knowingly.
+- **Accepted behaviour: a brief flash.** Role resolution needs an auth session plus
+  one or two Supabase round trips; `i18n.js` needs a local JSON fetch and DOM-ready.
+  i18n wins essentially every time, so an admin who had Spanish selected sees the
+  static page chrome in Spanish for roughly **0.5–2 seconds** before it flips to
+  English. Only static chrome flashes — every dynamic render happens after the role
+  is known, and **no amount, price or record is ever involved**. This was reviewed and
+  accepted (CB-62, Q-46); the alternatives all required changing the `i18n.js` boot
+  sequence, which would reach the frozen `login.html`. Do not re-investigate it as a bug.
+- **It runs after `effectiveRole` is assigned**, not after the role query returns.
+
+### 🔴 Duplicated English strings — the running list
+
+Some English text is written twice on purpose: once in a component (which admin
+pages and the offline fallback path use) and once in `en.json` (which dealer pages
+use). **Change one, change the other.** No test catches this; only this list does.
+
+| Component | Strings | `en.json` keys |
+| --- | --- | --- |
+| `status-label.js` | `LABEL` map: Pending, Returned | `status.label.pending`, `status.label.returned` |
+| `footer.js` | `FOOTER_CONTENT.copyright`, `.contactText` | `footer.copyright`, `footer.contact` |
+| `feedback-widget.js` | `SENTIMENTS[].label`, `CATEGORIES[].label` | `feedback.sentiment.*`, `feedback.category.*` |
+| `navigator.js` | `DEALER_NAV[].label` and every `t(key, 'English')` fallback | `nav.*` |
+| `login.html` (frozen) | 11 auth-script literals | see §7 |
+| `new-quote-modifications.html` | `mf.err.*` fallbacks in `components/modifications/mf0*.js` | `mf.err.*` |
+
+The pattern is always the same: the second argument to `t()` **is** the English
+string. If you edit one, grep the other file for it.
+
 ---
 
 ## 11. Working notes
@@ -471,13 +696,40 @@ Promote inert files (language files, components) **before** the HTML that refere
 them. Until an HTML file loads them, the support files change nothing — which means
 the whole promote can be staged safely and rolled back by reverting one HTML file.
 
+### 🔴 Two recurring mistakes
+
+**Re-render guards written too tightly.** The pattern is always the same: a
+`pc:i18n-changed` handler adds a condition to avoid unnecessary work, and that
+condition turns out to be false in exactly the case that needed re-rendering.
+
+Real examples from CB-62:
+
+- `if (passwordField.value) checkStrength()` — the strength label stayed in the old
+  language whenever the field was empty, because the function that clears it never ran.
+- `if (!quotes.length) return` — the *empty state* text stayed in the old language,
+  since zero quotes is precisely when that text is on screen.
+
+Guard on **"has this ever loaded?"**, not on **"is there data right now?"**.
+
+**Arrays that feed both display and data.** `dealer-profile.html` builds its
+`business_hours` object keys from the same array it renders day names from
+(`day.toLowerCase()`). Translating that array would have written `lunes` as a
+database key and pushed it to the public Dealer Locator.
+
+Before translating any array, ask what else reads it. If the answer is anything
+other than "the screen", split display from data first. Where the two are already
+separate fields — like `{ value, label }` in the feedback widget — only `label` is
+ever translated.
+
 ### Delivery checklist for i18n changes
 
 - [ ] `en.json` and `es.json` have identical key sets, in identical order
 - [ ] No key has an empty value
 - [ ] `{param}` placeholders match across all languages for a given key
-- [ ] `PC_I18N_VER` bumped
-- [ ] `?v=` bumped on every `<script src="components/i18n.js…">`
+- [ ] Re-render guards checked against the empty case (§11)
+- [ ] Any duplicated English string updated in **both** places (§10)
+- [ ] Tested in a **private window** (§4)
+- [ ] `PC_I18N_VER` and every page's `?v=` — **at promote time only** (§4)
 - [ ] §7 table updated if any `login.html` English string changed
 - [ ] Private-window load confirms the new language file is served
 
