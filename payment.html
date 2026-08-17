@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ProCraft — Payment</title>
+  <title data-i18n="pay.page.title">ProCraft — Payment</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -155,7 +155,7 @@
   <div id="payment-root">
     <div class="page-loading">
       <div class="wait-spinner"></div>
-      Loading payment details…
+      <span data-i18n="pay.loading">Loading payment details…</span>
     </div>
   </div>
 </div>
@@ -172,21 +172,22 @@
 <div class="modal-overlay" id="payConfirmModal" role="dialog" aria-modal="true" aria-labelledby="payConfirmTitle">
   <div class="modal-box">
     <div class="modal-icon-wrap"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
-    <div class="modal-title" id="payConfirmTitle">Confirm Payment Method</div>
+    <div class="modal-title" id="payConfirmTitle" data-i18n="pay.modal.title">Confirm Payment Method</div>
     <div class="modal-amount" id="payConfirmAmount">&mdash;</div>
-    <div class="modal-note">Confirming moves this order into <strong>Payment Processing</strong>. Nothing is charged at this step.</div>
-    <div class="modal-note last">Once confirmed, you won&rsquo;t be able to change the payment method yourself &mdash; please contact us if you need to switch.</div>
+    <div class="modal-note"><span data-i18n="pay.modal.note_before">Confirming moves this order into</span> <strong>Payment Processing</strong><span data-i18n="pay.modal.note_after">. Nothing is charged at this step.</span></div>
+    <div class="modal-note last" data-i18n="pay.modal.note_last">Once confirmed, you won&rsquo;t be able to change the payment method yourself &mdash; please contact us if you need to switch.</div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" id="btnPayConfirmCancel">Cancel</button>
-      <button class="btn btn-primary" id="btnPayConfirmOk"><span class="btn-text">Confirm Method</span></button>
+      <button class="btn btn-ghost" id="btnPayConfirmCancel" data-i18n="common.btn.cancel">Cancel</button>
+      <button class="btn btn-primary" id="btnPayConfirmOk"><span class="btn-text" data-i18n="pay.modal.confirm_btn">Confirm Method</span></button>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/navigator.js"></script>
-<script src="components/footer.js"></script>
+<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/navigator.js?v=cb62c"></script>
+<script src="components/footer.js?v=cb62c"></script>
 <script>
 // =====================================================================
 // payment.html  |  CB-43 T4 — Dealer 付款頁
@@ -216,6 +217,20 @@ let selectedMethod = null;   // 選單暫存:'card' / 'ach' / 'check'
 let feeConfig = { card: 2.99, ach: 1, check: 0 };  // fallback 預設;init 時嘗試以 settings 覆寫(前端寬鬆)
 
 // ── helpers ──
+/**
+ * CB-62:i18n 取字。i18n.js 未載入或字典未就緒時回傳英文 fallback。
+ * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+ */
+function pcTxt(key, fallback, params) {
+  if (typeof window.pcT === 'function') {
+    const s = window.pcT(key, params || null, fallback);
+    if (s) return s;
+  }
+  return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+    return (params && params[name] != null) ? String(params[name]) : whole;
+  });
+}
+
 function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 100) / 100; }
 function fmt(n)     { return '$' + parseFloat(n || 0).toFixed(2); }
 function escapeHtml(s) {
@@ -230,9 +245,9 @@ function computeFee(method, base) {
   return { pct, fee, total, base: round2(base) };
 }
 function methodLabel(m) {
-  return m === 'card' ? 'Credit / Debit Card'
-       : m === 'ach'  ? 'ACH Bank Transfer'
-       : m === 'check' ? 'Check'
+  return m === 'card' ? pcTxt('pay.method.card', 'Credit / Debit Card')
+       : m === 'ach'  ? pcTxt('pay.method.ach', 'ACH Bank Transfer')
+       : m === 'check' ? pcTxt('pay.method.check', 'Check')
        : m || '—';
 }
 function root() { return document.getElementById('payment-root'); }
@@ -246,7 +261,7 @@ function showToast(msg) {
 
 // 各畫面共用的頂部返回連結
 function backLinkHtml() {
-  return `<a class="back-link" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">← Back to Order</a>`;
+  return `<a class="back-link" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">${escapeHtml(pcTxt('pay.back_order', '← Back to Order'))}</a>`;
 }
 
 // quote 摘要條(PO# / Job Name / Order Total)
@@ -255,9 +270,9 @@ function quoteStripHtml() {
   const job = escapeHtml(quote.job_name || '—');
   return `
     <div class="quote-strip">
-      <div class="qs-item"><div class="qs-label">PO Number</div><div class="qs-value po">${po}</div></div>
-      <div class="qs-item"><div class="qs-label">Job Name</div><div class="qs-value">${job}</div></div>
-      <div class="qs-item"><div class="qs-label">Order Total</div><div class="qs-value total">${fmt(quote.grand_total)}</div></div>
+      <div class="qs-item"><div class="qs-label">${escapeHtml(pcTxt('nq3.field.po_number', 'PO Number'))}</div><div class="qs-value po">${po}</div></div>
+      <div class="qs-item"><div class="qs-label">${escapeHtml(pcTxt('nq3.field.job_name', 'Job Name'))}</div><div class="qs-value">${job}</div></div>
+      <div class="qs-item"><div class="qs-label">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</div><div class="qs-value total">${fmt(quote.grand_total)}</div></div>
     </div>`;
 }
 
@@ -299,7 +314,8 @@ async function init() {
 
   // 3. quote_id
   quoteId = new URLSearchParams(window.location.search).get('quote_id');
-  if (!quoteId) { renderError('Invalid payment link', 'This link is missing an order number. Please open payment from your order page.'); return; }
+  if (!quoteId) { renderError(pcTxt('pay.err.invalid_link_title', 'Invalid payment link'),
+      pcTxt('pay.err.invalid_link_text', 'This link is missing an order number. Please open payment from your order page.')); return; }
 
   // 4. 讀 quote + 最新 payment
   await reloadData();
@@ -338,13 +354,15 @@ async function reloadData() {
 // renderGate:重複付款保護(一律只認最新一筆 payment 的 status)
 // =====================================================================
 function renderGate() {
-  if (!quote) { renderError('Order not found', "We couldn't load this order. The link may be incorrect, or you may not have access."); return; }
+  if (!quote) { renderError(pcTxt('pay.err.not_found_title', 'Order not found'),
+      pcTxt('pay.err.not_found_text', "We couldn't load this order. The link may be incorrect, or you may not have access.")); return; }
 
   const s = quote.status;
 
   // 不可付款狀態
   if (s === 'Draft' || s === 'Returned' || s === 'Closed') {
-    renderBlocked('Payment unavailable', "This order can't accept payment in its current status. Please contact us if you have questions.");
+    renderBlocked(pcTxt('pay.err.unavailable_title', 'Payment unavailable'),
+      pcTxt('pay.err.unavailable_text', "This order can't accept payment in its current status. Please contact us if you have questions."));
     return;
   }
 
@@ -374,7 +392,8 @@ function renderGate() {
   }
 
   // 其他未知狀態 → 保守擋下
-  renderBlocked('Payment unavailable', "This order can't accept payment in its current status. Please contact us if you have questions.");
+  renderBlocked(pcTxt('pay.err.unavailable_title', 'Payment unavailable'),
+      pcTxt('pay.err.unavailable_text', "This order can't accept payment in its current status. Please contact us if you have questions."));
 }
 
 // =====================================================================
@@ -390,7 +409,7 @@ function renderMethodSelect() {
   root().innerHTML = `
     ${backLinkHtml()}
     <div class="card">
-      <div class="card-title">Payment</div>
+      <div class="card-title">${escapeHtml(pcTxt('pay.hdr.payment', 'Payment'))}</div>
       <div class="card-sub">Choose how you'd like to pay for this order.</div>
       ${quoteStripHtml()}
 
@@ -401,7 +420,7 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>Credit / Debit Card</span>
             <span class="mo-total">${fmt(card.total)}</span>
           </div>
-          <div class="mo-fee">Transaction Fee (${card.pct}%): ${fmt(card.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(card.total)}</div>
+          <div class="mo-fee">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: card.pct }))}: ${fmt(card.fee)} &nbsp;•&nbsp; ${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}: ${fmt(card.total)}</div>
         </label>
 
         <label class="method-opt" data-method="ach">
@@ -419,15 +438,15 @@ function renderMethodSelect() {
             <span class="mo-name"><span class="mo-radio"></span>Check</span>
             <span class="mo-total">${fmt(check.total)}</span>
           </div>
-          <div class="mo-fee">No Fee &nbsp;•&nbsp; Total to Pay: ${fmt(check.total)}</div>
+          <div class="mo-fee">${escapeHtml(pcTxt('pay.no_fee_total', 'No Fee  •  Total to Pay: {total}', { total: fmt(check.total) }))}</div>
         </label>
       </div>
 
-      <div class="notice warn">Selecting a payment method will move this order into payment processing. To change it afterward, please contact us.</div>
+      <div class="notice warn">${escapeHtml(pcTxt('pay.notice.select_warn', 'Selecting a payment method will move this order into payment processing. To change it afterward, please contact us.'))}</div>
 
       <div class="btn-row">
         <button class="btn btn-primary" id="btnContinue" disabled>
-          <span class="btn-text">Continue</span>
+          <span class="btn-text">${escapeHtml(pcTxt('nq3.btn.continue', 'Continue'))}</span>
         </button>
       </div>
     </div>`;
@@ -462,25 +481,25 @@ function renderCardAch(method) {
     ${backLinkHtml()}
     <div class="card">
       <div class="card-title">${methodLabel(method)}</div>
-      <div class="card-sub">Confirm this payment method to move your order into payment processing.</div>
+      <div class="card-sub">${escapeHtml(pcTxt('pay.card.sub_confirm', 'Confirm this payment method to move your order into payment processing.'))}</div>
       ${quoteStripHtml()}
 
       <div class="amount-rows">
-        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(method)}</span></div>
-        <div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(f.base)}</span></div>
-        <div class="amount-row"><span class="lbl">Transaction Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">Total to Pay</span><span class="val">${fmt(f.total)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}</span><span class="val">${methodLabel(method)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(f.base)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${fmt(f.fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}</span><span class="val">${fmt(f.total)}</span></div>
       </div>
 
-      <div class="qb-note">${instructionHtml(method)} The transaction fee shown reflects QuickBooks Payments processing costs.</div>
+      <div class="qb-note">${instructionHtml(method)} ${escapeHtml(pcTxt('pay.qb_note', 'The transaction fee shown reflects QuickBooks Payments processing costs.'))}</div>
 
       <div class="notice error hidden" id="payError"></div>
 
       <div class="btn-row">
         <button class="btn btn-primary" id="btnProceed">
-          <span class="spinner"></span><span class="btn-text">Confirm Payment Method</span>
+          <span class="spinner"></span><span class="btn-text">${escapeHtml(pcTxt('pay.btn.confirm_method', 'Confirm Payment Method'))}</span>
         </button>
-        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
+        <button class="btn btn-ghost" id="btnChangeMethod">${escapeHtml(pcTxt('pay.btn.change_method', 'Change Method'))}</button>
       </div>
     </div>`;
 
@@ -509,7 +528,7 @@ function openPayConfirm(method, f) {
   if (!overlay) { submitSimplifiedPayment(method, f); return; }
   _pendingProceed = { method: method, f: f };
   document.getElementById('payConfirmAmount').innerHTML =
-    `Payment method: <strong>${escapeHtml(methodLabel(method))}</strong><br/>Amount Due: <strong>${fmt(f.total)}</strong>`;
+    `${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}: <strong>${escapeHtml(methodLabel(method))}</strong><br/>${escapeHtml(pcTxt('pay.amount_due_label', 'Amount Due:'))} <strong>${fmt(f.total)}</strong>`;
   overlay.classList.add('show');
   const ok = document.getElementById('btnPayConfirmOk');
   if (ok) ok.focus();
@@ -560,8 +579,8 @@ function wirePayConfirm() {
 // Processing 畫面三處共用,避免各處講法不一致。
 function instructionHtml(method) {
   return (method === 'check')
-    ? `Please send your check image to <a href="mailto:accounting@procraftdc.com">accounting@procraftdc.com</a>.`
-    : `Our sales team will send you a QuickBooks payment link shortly. Questions? Contact <a href="mailto:sales@procraftdc.com">sales@procraftdc.com</a>.`;
+    ? `${escapeHtml(pcTxt('pay.instr.check', 'Please send your check image to'))} <a href="mailto:accounting@procraftdc.com">accounting@procraftdc.com</a>.`
+    : `${escapeHtml(pcTxt('pay.instr.card_before', 'Our sales team will send you a QuickBooks payment link shortly. Questions? Contact'))} <a href="mailto:sales@procraftdc.com">sales@procraftdc.com</a>.`;
 }
 
 // 畫面:Check(簡化版)—— 無上傳 UI。結構刻意對齊 renderCardAch,
@@ -574,20 +593,20 @@ function renderCheckSimple() {
     ${backLinkHtml()}
     <div class="card">
       <div class="card-title">${methodLabel('check')}</div>
-      <div class="card-sub">Confirm this payment method to move your order into payment processing.</div>
+      <div class="card-sub">${escapeHtml(pcTxt('pay.card.sub_confirm', 'Confirm this payment method to move your order into payment processing.'))}</div>
       ${quoteStripHtml()}
 
       <div class="pay-to">
-        <div class="lbl">Make Check Payable To</div>
+        <div class="lbl">${escapeHtml(pcTxt('pay.check.payable_to', 'Make Check Payable To'))}</div>
         <div class="val">ProCraft Cabinetry DC LLC</div>
       </div>
-      <div class="check-help">Please write the check for <strong>${fmt(f.total)}</strong> payable to <strong>ProCraft Cabinetry DC LLC</strong>.</div>
+      <div class="check-help">${escapeHtml(pcTxt('pay.check.write_before', 'Please write the check for'))} <strong>${fmt(f.total)}</strong> ${escapeHtml(pcTxt('pay.check.write_after', 'payable to'))} <strong>ProCraft Cabinetry DC LLC</strong>.</div>
 
       <div class="amount-rows">
-        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel('check')}</span></div>
-        <div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(f.base)}</span></div>
-        <div class="amount-row"><span class="lbl">Transaction Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">Total to Pay</span><span class="val">${fmt(f.total)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}</span><span class="val">${methodLabel('check')}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(f.base)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${fmt(f.fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}</span><span class="val">${fmt(f.total)}</span></div>
       </div>
 
       <div class="qb-note">${instructionHtml('check')}</div>
@@ -596,9 +615,9 @@ function renderCheckSimple() {
 
       <div class="btn-row">
         <button class="btn btn-primary" id="btnProceed">
-          <span class="spinner"></span><span class="btn-text">Confirm Payment Method</span>
+          <span class="spinner"></span><span class="btn-text">${escapeHtml(pcTxt('pay.btn.confirm_method', 'Confirm Payment Method'))}</span>
         </button>
-        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
+        <button class="btn btn-ghost" id="btnChangeMethod">${escapeHtml(pcTxt('pay.btn.change_method', 'Change Method'))}</button>
       </div>
     </div>`;
 
@@ -627,7 +646,7 @@ async function submitSimplifiedPayment(method, f) {
       .eq('status', 'Pending');
     if (updErr) throw updErr;
     if (updCount === 0) {
-      throw new Error("Couldn't update the order status. Please refresh and try again, or contact us.");
+      throw new Error(pcTxt('pay.err.status_update', "Couldn't update the order status. Please refresh and try again, or contact us."));
     }
 
     // ② INSERT payments —— 金額四欄 + method + status 照寫。
@@ -672,7 +691,8 @@ async function submitSimplifiedPayment(method, f) {
     console.error('[payment] submitSimplifiedPayment failed:', err);
     if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
     if (errEl) {
-      errEl.textContent = 'Submission failed: ' + (err.message || 'An unexpected error occurred. Please try again.');
+      errEl.textContent = pcTxt('pay.err.submission_failed', 'Submission failed:') + ' '
+      + (err.message || pcTxt('pay.err.unexpected', 'An unexpected error occurred. Please try again.'));
       errEl.classList.remove('hidden');
     }
   }
@@ -681,27 +701,29 @@ async function submitSimplifiedPayment(method, f) {
 // 畫面:送出成功後的指示。金額用 "Amount Due" —— 此刻錢尚未付,
 // 與 E1b / E1a 的 Amount Due 語義一致。
 function renderInstruction(method, f) {
-  const heading = (method === 'check') ? 'Check Selected' : 'Payment Method Confirmed';
+  const heading = (method === 'check')
+    ? pcTxt('pay.state.check_selected', 'Check Selected')
+    : pcTxt('pay.state.method_confirmed', 'Payment Method Confirmed');
   root().innerHTML = `
     ${backLinkHtml()}
     <div class="card">
       <div class="state-block">
         <div class="state-icon ok"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
         <div class="state-heading">${heading}</div>
-        <div class="state-text">Your order is now in payment processing.</div>
+        <div class="state-text">${escapeHtml(pcTxt('pay.state.now_processing', 'Your order is now in payment processing.'))}</div>
       </div>
 
       <div class="notice info">${instructionHtml(method)}</div>
 
       <div class="amount-rows">
-        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(method)}</span></div>
-        <div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(f.base)}</span></div>
-        <div class="amount-row"><span class="lbl">Transaction Fee (${f.pct}%)</span><span class="val">${fmt(f.fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">Amount Due</span><span class="val">${fmt(f.total)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}</span><span class="val">${methodLabel(method)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(f.base)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${fmt(f.fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.amount_due', 'Amount Due'))}</span><span class="val">${fmt(f.total)}</span></div>
       </div>
 
       <div class="btn-row" style="justify-content:center;">
-        <a class="btn btn-primary" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">Back to Order</a>
+        <a class="btn btn-primary" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">${escapeHtml(pcTxt('pay.back_order_plain', 'Back to Order'))}</a>
       </div>
     </div>`;
 }
@@ -753,7 +775,7 @@ async function proceedCardAch(method, f) {
     console.error('[payment] card/ach webhook failed:', err);
     btn.classList.remove('loading');
     btn.disabled = false;
-    errEl.textContent = 'Online payment is temporarily unavailable. Please try again later, or pay by check.';
+    errEl.textContent = pcTxt('pay.err.online_unavailable', 'Online payment is temporarily unavailable. Please try again later, or pay by check.');
     errEl.classList.remove('hidden');
   }
 }
@@ -777,39 +799,39 @@ function renderCheck() {
   root().innerHTML = `
     ${backLinkHtml()}
     <div class="card">
-      <div class="card-title">Pay by Check</div>
-      <div class="card-sub">Upload a photo of your check — no need to mail it.</div>
+      <div class="card-title">${escapeHtml(pcTxt('pay.check.title', 'Pay by Check'))}</div>
+      <div class="card-sub">${escapeHtml(pcTxt('pay.check.sub', 'Upload a photo of your check — no need to mail it.'))}</div>
       ${quoteStripHtml()}
 
       <div class="pay-to">
-        <div class="lbl">Make Check Payable To</div>
+        <div class="lbl">${escapeHtml(pcTxt('pay.check.payable_to', 'Make Check Payable To'))}</div>
         <div class="val">ProCraft Cabinetry DC LLC</div>
       </div>
       <div class="check-help">
-        Please write the check for <strong>${fmt(quote.grand_total)}</strong> payable to
-        <strong>ProCraft Cabinetry DC LLC</strong>, then upload a clear photo or scan of the front of the check below.
+        ${escapeHtml(pcTxt('pay.check.write_before', 'Please write the check for'))} <strong>${fmt(quote.grand_total)}</strong> ${escapeHtml(pcTxt('pay.check.write_after', 'payable to'))}
+        <strong>ProCraft Cabinetry DC LLC</strong>${escapeHtml(pcTxt('pay.check.write_after_upload', ', then upload a clear photo or scan of the front of the check below.'))}
       </div>
 
      <div class="sample-check">
-        <div class="sc-label">Sample Check</div>
-        <img src="assets/check-sample.png" alt="Sample check example" class="sample-check-img"/>
+        <div class="sc-label">${escapeHtml(pcTxt('pay.check.sample', 'Sample Check'))}</div>
+        <img src="assets/check-sample.png" alt="${escapeHtml(pcTxt('pay.check.sample_alt', 'Sample check example'))}" class="sample-check-img"/>
       </div>
 
       <input type="file" id="checkFileInput" accept="image/jpeg,image/png,application/pdf" style="display:none;"/>
       <div class="upload-zone" id="uploadZone">
         <svg viewBox="0 0 24 24"><path d="M19 13v6H5v-6H3v6a2 2 0 002 2h14a2 2 0 002-2v-6h-2zM11 4.83L8.41 7.41 7 6l5-5 5 5-1.41 1.41L13 4.83V16h-2V4.83z"/></svg>
-        <div class="uz-main">Tap to upload check image</div>
-        <div class="uz-sub">JPG, PNG or PDF · Max 5MB</div>
+        <div class="uz-main">${escapeHtml(pcTxt('pay.check.upload_main', 'Tap to upload check image'))}</div>
+        <div class="uz-sub">${escapeHtml(pcTxt('pay.check.upload_sub', 'JPG, PNG or PDF · Max 5MB'))}</div>
       </div>
-      <div class="heic-note">Accepted formats: JPG, PNG or PDF · File size under 5MB.</div>
+      <div class="heic-note">${escapeHtml(pcTxt('pay.check.formats', 'Accepted formats: JPG, PNG or PDF · File size under 5MB.'))}</div>
 
       <div class="notice error hidden" id="checkError"></div>
 
       <div class="btn-row">
         <button class="btn btn-primary" id="btnSubmitCheck" disabled>
-          <span class="spinner"></span><span class="btn-text">Submit Check</span>
+          <span class="spinner"></span><span class="btn-text">${escapeHtml(pcTxt('pay.check.submit', 'Submit Check'))}</span>
         </button>
-        <button class="btn btn-ghost" id="btnChangeMethod">Change Method</button>
+        <button class="btn btn-ghost" id="btnChangeMethod">${escapeHtml(pcTxt('pay.btn.change_method', 'Change Method'))}</button>
       </div>
     </div>`;
 
@@ -831,21 +853,21 @@ function renderCheck() {
     // HEIC 特別提示
     if (file.type === 'image/heic' || file.type === 'image/heif' || ext === 'heic' || ext === 'heif') {
       resetCheckFile(zone, submitBtn);
-      errEl.textContent = "This photo format can't be uploaded. Please use JPG, PNG, or PDF instead.";
+      errEl.textContent = pcTxt('pay.check.err_heic', "This photo format can't be uploaded. Please use JPG, PNG, or PDF instead.");
       errEl.classList.remove('hidden');
       input.value = '';
       return;
     }
     if (!mimeOk && !extOk) {
       resetCheckFile(zone, submitBtn);
-      errEl.textContent = 'Unsupported file type. Please upload a JPG, PNG, or PDF.';
+      errEl.textContent = pcTxt('pay.check.err_type', 'Unsupported file type. Please upload a JPG, PNG, or PDF.');
       errEl.classList.remove('hidden');
       input.value = '';
       return;
     }
     if (file.size > CHECK_MAX_BYTES) {
       resetCheckFile(zone, submitBtn);
-      errEl.textContent = 'File is too large. Please upload a file under 5MB.';
+      errEl.textContent = pcTxt('pay.check.err_size', 'File is too large. Please upload a file under 5MB.');
       errEl.classList.remove('hidden');
       input.value = '';
       return;
@@ -857,7 +879,7 @@ function renderCheck() {
     zone.innerHTML = `
       <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
       <div class="uz-filename">${escapeHtml(file.name)}</div>
-      <div class="uz-sub">Tap to choose a different file</div>`;
+      <div class="uz-sub">${escapeHtml(pcTxt('pay.check.change_file', 'Tap to choose a different file'))}</div>`;
     zone.addEventListener('click', () => input.click()); // innerHTML 重寫後重新綁定
     submitBtn.disabled = false;
   });
@@ -907,7 +929,7 @@ async function submitCheck() {
     if (updErr) throw updErr;
     if (updCount === 0) {
       // count=0 代表 quote 已非 Pending(併發/已在處理中)或 RLS 未放行 —— 中止,且尚未建立 payments 列。
-      throw new Error("Couldn't update the order status. Please refresh and try again, or contact us.");
+      throw new Error(pcTxt('pay.err.status_update', "Couldn't update the order status. Please refresh and try again, or contact us."));
     }
 
     // 3. INSERT payments(dealer 只能寫 status='processing'、method 三選一 — 符合 RLS)
@@ -950,7 +972,8 @@ async function submitCheck() {
     console.error('[payment] submit check failed:', err);
     btn.classList.remove('loading');
     btn.disabled = false;
-    errEl.textContent = 'Submission failed: ' + (err.message || 'An unexpected error occurred. Please try again.');
+    errEl.textContent = pcTxt('pay.err.submission_failed', 'Submission failed:') + ' '
+      + (err.message || pcTxt('pay.err.unexpected', 'An unexpected error occurred. Please try again.'));
     errEl.classList.remove('hidden');
   }
 }
@@ -962,7 +985,7 @@ function renderProcessingSummary() {
   const p = latestPayment;
   const isCardAch = (p.payment_method === 'card' || p.payment_method === 'ach');
   const contBtn = (isCardAch && p.quickbooks_payment_link)
-    ? `<a class="btn btn-primary" href="${escapeHtml(p.quickbooks_payment_link)}" target="_blank" rel="noopener"><span class="btn-text">Continue Payment</span></a>`
+    ? `<a class="btn btn-primary" href="${escapeHtml(p.quickbooks_payment_link)}" target="_blank" rel="noopener"><span class="btn-text">${escapeHtml(pcTxt('pay.proc.continue', 'Continue Payment'))}</span></a>`
     : '';
 const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
   const btnRowStyle = contBtn ? 'flex-direction:column; align-items:stretch;' : '';
@@ -993,30 +1016,30 @@ const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
   // grand 行刻意用 "Total" 而非 "Total Paid" —— 此畫面 payment status 正是
   // processing,錢尚未確認收到;若後續失敗退回可再付,"Paid" 即為錯誤陳述。
   const amountRowsHtml = _canBreakdown
-    ? `<div class="amount-row"><span class="lbl">Order Total</span><span class="val">${fmt(_base)}</span></div>
-        <div class="amount-row"><span class="lbl">Transaction Fee (${_pct}%)</span><span class="val">${fmt(_fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">Total</span><span class="val">${fmt(_paid)}</span></div>`
-    : `<div class="amount-row"><span class="lbl">Amount</span><span class="val">${fmt(p.total_paid)}</span></div>`;
+    ? `<div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(_base)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: _pct }))}</span><span class="val">${fmt(_fee)}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</span><span class="val">${fmt(_paid)}</span></div>`
+    : `<div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.amount', 'Amount'))}</span><span class="val">${fmt(p.total_paid)}</span></div>`;
 
   root().innerHTML = `
     ${backLinkHtml()}
     <div class="card">
-      <div class="card-title">Payment In Progress</div>
-      <div class="card-sub">A payment is already being processed for this order.</div>
+      <div class="card-title">${escapeHtml(pcTxt('pay.proc.title', 'Payment In Progress'))}</div>
+      <div class="card-sub">${escapeHtml(pcTxt('pay.proc.text', 'A payment is already being processed for this order.'))}</div>
       ${quoteStripHtml()}
 
       <div class="amount-rows">
-        <div class="amount-row"><span class="lbl">Payment Method</span><span class="val">${methodLabel(p.payment_method)}</span></div>
-        <div class="amount-row"><span class="lbl">Status</span><span class="val"><span class="status-badge processing">Processing</span></span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}</span><span class="val">${methodLabel(p.payment_method)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('qd.field.status', 'Status'))}</span><span class="val"><span class="status-badge processing">${escapeHtml(pcTxt('pay.proc.status_processing', 'Processing'))}</span></span></div>
         ${amountRowsHtml}
       </div>
 
       <div class="notice info">${instructionHtml(p.payment_method)}</div>
-      <div class="qb-note">Need to change your payment method? Please contact us &mdash; this order is already in payment processing.</div>
+      <div class="qb-note">${escapeHtml(pcTxt('pay.proc.contact_note', 'Need to change your payment method? Please contact us — this order is already in payment processing.'))}</div>
 
       <div class="btn-row" style="${btnRowStyle}">
         ${contBtn}
-        <button class="${refreshCls}" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
+        <button class="${refreshCls}" id="btnRefresh"><span class="spinner"></span><span class="btn-text">${escapeHtml(pcTxt('pay.btn.refresh_status', 'Refresh Status'))}</span></button>
       </div>
     </div>`;
 
@@ -1036,10 +1059,10 @@ const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
    (唯一呼叫者為 proceedCardAch)。保留供日後恢復。 */
 function renderWaiting(payLink) {
   const payBtn = payLink
-    ? `<a class="btn btn-primary" href="${escapeHtml(payLink)}" target="_blank" rel="noopener"><span class="btn-text">Pay Now</span></a>`
+    ? `<a class="btn btn-primary" href="${escapeHtml(payLink)}" target="_blank" rel="noopener"><span class="btn-text">${escapeHtml(pcTxt('pay.wait.pay_now', 'Pay Now'))}</span></a>`
     : '';
   const popupHint = payLink
-    ? `<div class="notice info">Didn't see the payment window? Your browser may have blocked the pop-up — tap <strong>Pay Now</strong> below to open it.</div>`
+    ? `<div class="notice info">${escapeHtml(pcTxt('pay.wait.popup_before', "Didn't see the payment window? Your browser may have blocked the pop-up — tap"))} <strong>${escapeHtml(pcTxt('pay.wait.pay_now', 'Pay Now'))}</strong> ${escapeHtml(pcTxt('pay.wait.below_open', 'below to open it.'))}</div>`
     : '';
 
   root().innerHTML = `
@@ -1047,13 +1070,13 @@ function renderWaiting(payLink) {
     <div class="card">
       <div class="state-block">
         <div class="wait-spinner"></div>
-        <div class="state-heading" style="margin-top:18px;">Payment window opened — awaiting confirmation…</div>
-        <div class="state-text">Complete your payment in the QuickBooks payment window, then tap “Refresh Status” to update this page.</div>
+        <div class="state-heading" style="margin-top:18px;">${escapeHtml(pcTxt('pay.wait.opened', 'Payment window opened — awaiting confirmation…'))}</div>
+        <div class="state-text">${escapeHtml(pcTxt('pay.wait.complete_note', 'Complete your payment in the QuickBooks payment window, then tap “Refresh Status” to update this page.'))}</div>
       </div>
       ${popupHint}
       <div class="btn-row" style="flex-direction:column; align-items:stretch;">
         ${payBtn}
-        <button class="btn btn-ghost" id="btnRefresh"><span class="spinner"></span><span class="btn-text">Refresh Status</span></button>
+        <button class="btn btn-ghost" id="btnRefresh"><span class="spinner"></span><span class="btn-text">${escapeHtml(pcTxt('pay.btn.refresh_status', 'Refresh Status'))}</span></button>
       </div>
     </div>`;
 
@@ -1069,10 +1092,12 @@ function renderCompleted() {
   //   刻意讀 quote.status 而非改函式簽章 —— renderGate 有多處呼叫此函式
   //   (含 Payment Processing + payment confirmed 的路徑),改簽章會波及全部。
   const _isDone   = !!(quote && quote.status === 'Order Completed');
-  const _heading  = _isDone ? 'Order Complete' : 'Payment Complete';
+  const _heading  = _isDone
+    ? pcTxt('pay.done.order_complete', 'Order Complete')
+    : pcTxt('pay.done.payment_complete', 'Payment Complete');
   const _stateTxt = _isDone
-    ? 'This order has been completed. Thank you for your business — no further payment is required.'
-    : 'This order has already been paid. No further payment is required.';
+    ? pcTxt('pay.done.text_completed', 'This order has been completed. Thank you for your business — no further payment is required.')
+    : pcTxt('pay.done.text_paid', 'This order has already been paid. No further payment is required.');
   root().innerHTML = `
     ${backLinkHtml()}
     <div class="card">
@@ -1095,11 +1120,11 @@ function renderCheckSuccess() {
     <div class="card">
       <div class="state-block">
         <div class="state-icon ok"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-        <div class="state-heading">Check Submitted</div>
+        <div class="state-heading">${escapeHtml(pcTxt('pay.check.submitted', 'Check Submitted'))}</div>
         <div class="state-text">Check submitted. We'll notify you once received and confirmed.</div>
       </div>
       <div class="btn-row" style="justify-content:center;">
-        <a class="btn btn-primary" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">Back to Order</a>
+        <a class="btn btn-primary" href="quote-detail.html?id=${encodeURIComponent(quoteId)}">${escapeHtml(pcTxt('pay.back_order_plain', 'Back to Order'))}</a>
       </div>
     </div>`;
 }
@@ -1128,7 +1153,7 @@ function renderError(heading, text) {
         <div class="state-text">${escapeHtml(text)}</div>
       </div>
       <div class="btn-row" style="justify-content:center;">
-        <a class="btn btn-ghost" href="quotes.html">Back to My Quotes</a>
+        <a class="btn btn-ghost" href="quotes.html">${escapeHtml(pcTxt('pay.back_my_quotes', 'Back to My Quotes'))}</a>
       </div>
     </div>`;
 }
@@ -1141,7 +1166,7 @@ async function refreshStatus() {
   if (btn) { btn.classList.add('loading'); btn.disabled = true; }
   await reloadData();
   renderGate();
-  showToast('Status updated.');
+  showToast(pcTxt('pay.toast.status_updated', 'Status updated.'));
 }
 
 // [CB-43 T4 / B1] 純自足:只回選單、產生新列;絕不 UPDATE 任何舊 payment 列。
