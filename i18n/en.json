@@ -591,6 +591,8 @@
   "nq3.overlay.step_email": "Sending confirmation email...",
   "nq3.overlay.step_email_resub": "Sending resubmission email...",
   "nq3.overlay.dont_close": "DO NOT close this window",
+  "nq3.overlay.please_wait": "Please wait until your",
+  "nq3.overlay.usually_takes": "This usually takes",
   "nq3.overlay.po_appears": "Purchase Order Number",
   "nq3.overlay.appears_on": "appears on the confirmation screen.",
   "nq3.overlay.seconds": "5–10 seconds",
