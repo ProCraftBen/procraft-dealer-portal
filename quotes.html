@@ -3,456 +3,626 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ProCraft — My Quotes</title>
+  <title data-i18n="qd.page.title">ProCraft — Quote Detail</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="pdf-builder.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --gold:#C9A84C; --gold-light:#E2C97E; --green-dark:#3e5a42; --green-mid:#4a6b4f;
-      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --bg:#F5F2EC; --white:#FFFFFF;
-      --error:#C0392B;
-      --status-draft:#9B59B6;
+      --gold:#C9A84C; --green-dark:#3e5a42; --green-mid:#4a6b4f;
+      --cream:#F5F2EC; --text:#2C3A32; --muted:#7A8C82; --border:#DDD8CC; --white:#FFFFFF;
       --status-pending:#C9A84C; --status-processing:#3B82F6; --status-complete:#16A34A; --status-closed:#6B7280;
-      --status-returned:#E07B39; --status-payment:#64748B;
+      --status-draft:#7A8C82; --status-returned:#E07B39; --status-payment:#64748B;
       --status-stock-review:#0891B2;  /* CB-43 T14-1 */
-      --status-order-completed:#0F766E;  /* CB-55 Q-4:終局態。不可重用 --status-complete,
-                                            那個已被 Order Processing 借用(#16A34A)。 */
+      --status-order-completed:#0F766E;  /* CB-55 Q-4 */
       --status-cancelled:#B91C1C;  /* CB-57 Q-2:終態,灰紅 */
+      --error:#C0392B;
     }
-    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+    .page { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
 
-    .page { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
-    .page-header { margin-bottom: 24px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
-    .page-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
-    .btn-new-quote { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 11px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; }
-    .btn-new-quote:hover { background: var(--green-mid); }
-    .btn-new-quote svg { width: 13px; height: 13px; fill: currentColor; }
-
-    /* Stats bar — 6 cards now (Total / Draft / Revising / Waiting / Payment / Order) */
-    .stats-bar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
-    @media (max-width: 900px) { .stats-bar { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 480px) { .stats-bar { grid-template-columns: repeat(2, 1fr); } }
-    .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
-    .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 500; color: var(--green-dark); line-height: 1; }
-    .stat-num.draft-num    { color: var(--status-draft); }
-    .stat-num.returned-num { color: var(--status-returned); }
-    .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
-
-    /* Returned alert banner — only shows when there are returned quotes */
-    .returned-alert {
-      background: rgba(224,123,57,0.08);
-      border: 1px solid rgba(224,123,57,0.3);
-      border-left: 3px solid var(--status-returned);
-      border-radius: 3px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      display: none;
+    /* Back link */
+    .back-link {
+      display: inline-flex;
       align-items: center;
-      gap: 12px;
-      font-size: 13px;
-      color: var(--text);
+      gap: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      margin-bottom: 18px;
+      transition: color 0.15s;
+      letter-spacing: 0.02em;
     }
-    .returned-alert.show { display: flex; }
-    .returned-alert svg { width: 18px; height: 18px; fill: var(--status-returned); flex-shrink: 0; }
-    .returned-alert strong { color: var(--status-returned); }
+    .back-link:hover { color: var(--green-dark); }
 
-    .filters { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-    .filter-group { display: flex; flex-direction: column; gap: 5px; }
-    .filter-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-    .filter-select, .filter-input { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); outline: none; }
-    .filter-input { width: 160px; }
-    .filter-actions { display: flex; gap: 8px; margin-left: auto; align-self: flex-end; }
-    .btn-filter { height: 36px; padding: 0 16px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
-    .btn-filter:hover { background: var(--green-mid); }
-    .btn-reset { height: 36px; padding: 0 14px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; }
-    .btn-reset:hover { border-color: var(--text); color: var(--text); }
-
-    .table-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-    .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
-    .table-count { font-size: 11px; color: var(--muted); }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
-    thead th.r { text-align: right; }
-
-    /* Regular rows — clickable */
-    tbody tr.row-clickable { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
-    tbody tr.row-clickable:hover { background: #FAFAF8; }
-
-    /* Draft rows — not clickable on whole row */
-    tbody tr.row-draft { border-bottom: 1px solid var(--border); background: rgba(155,89,182,0.03); transition: background 0.15s; }
-    tbody tr.row-draft:hover { background: rgba(155,89,182,0.06); }
-
-    /* Returned rows — clickable, light orange background to draw attention */
-    tbody tr.row-returned { border-bottom: 1px solid var(--border); background: rgba(224,123,57,0.05); cursor: pointer; transition: background 0.15s; }
-    tbody tr.row-returned:hover { background: rgba(224,123,57,0.10); }
-
-    tbody tr:last-child { border-bottom: none; }
-    tbody td { padding: 14px 16px; font-size: 13px; vertical-align: middle; }
-    tbody td.r { text-align: right; }
-    .td-po { font-weight: 500; color: var(--green-dark); white-space: nowrap; }
-    .td-job { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .td-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
-    .td-amount { font-weight: 500; white-space: nowrap; }
-    .td-amount.draft-dash { color: var(--muted); font-style: italic; font-weight: 400; }
-
-    /* Action required tag for Returned rows */
-    .action-required-tag {
-      display: inline-block;
-      font-size: 9px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--status-returned);
-      font-weight: 600;
-      margin-top: 3px;
-    }
-
-    .status-badge { display: inline-block; padding: 3px 10px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
-    .status-badge.draft      { background: rgba(155,89,182,0.10); color: var(--status-draft); }
-    .status-badge.stock-review { background: rgba(8,145,178,0.12); color: var(--status-stock-review); }  /* CB-43 T14-1 */
+    .quote-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
+    .quote-number { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+    .quote-date { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .status-badge { display: inline-block; padding: 5px 14px; border-radius: 3px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
     .status-badge.pending    { background: rgba(201,168,76,0.12);  color: var(--status-pending); }
+    .status-badge.stock-review { background: rgba(8,145,178,0.12); color: var(--status-stock-review); }  /* CB-43 T14-1 */
+    .status-badge.processing { background: rgba(59,130,246,0.1);   color: var(--status-processing); }
+    .status-badge.complete   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
+    .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
+    .status-badge.draft      { background: rgba(122,140,130,0.12); color: var(--status-draft); }
+    .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
     .status-badge.payment-processing { background: rgba(100,116,139,0.12); color: var(--status-payment); }
     .status-badge.order-processing   { background: rgba(22,163,74,0.1);    color: var(--status-complete); }
     .status-badge.order-completed    { background: rgba(15,118,110,0.12);  color: var(--status-order-completed); }  /* CB-55 */
     .status-badge.cancelled          { background: rgba(185,28,28,0.10);   color: var(--status-cancelled); }  /* CB-57 */
-    .status-badge.closed     { background: rgba(107,114,128,0.1);  color: var(--status-closed); }
-    .status-badge.returned   { background: rgba(224,123,57,0.14);  color: var(--status-returned); }
+    .btn-action { display: inline-flex; align-items: center; gap: 7px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 10px 18px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; text-decoration: none; }
+    .btn-action:hover { background: var(--green-mid); }
+    .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
+    .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--green-dark); }
+    .btn-action.secondary:hover { background: var(--green-dark); color: #fff; }
+    .btn-action.review-resubmit { background: var(--status-returned); color: #fff; }
+    .btn-action.review-resubmit:hover { background: #c66a30; }
+    .btn-action.admin-edit { background: var(--gold); color: #fff; }
+    .btn-action.admin-edit:hover { background: #b69240; }
+    /* CB-43 T14-2: 放行按鈕。吃 T14-1 鎖定的 --status-stock-review,不新增色值。 */
+    .btn-action.stock-release { background: var(--status-stock-review); color: #fff; }
+    .btn-action.stock-release:hover { background: #0E7490; }
+    /* CB-55 / CB-59: Fulfilled 按鈕。吃 Q-4 拍板的 --status-order-completed,與 badge 同色。 */
+    .btn-action.order-fulfill { background: var(--status-order-completed); color: #fff; }
+    .btn-action.order-fulfill:hover { background: #115E59; }
 
-    .arrow-cell { color: var(--border); font-size: 14px; text-align: right; }
-    tbody tr.row-clickable:hover .arrow-cell { color: var(--gold); }
-    tbody tr.row-returned .arrow-cell { color: var(--status-returned); }
-    tbody tr.row-returned:hover .arrow-cell { color: #c66a30; }
-
-    /* Edit draft + Delete buttons cell */
-    .draft-actions-cell { text-align: right; white-space: nowrap; }
-    .draft-actions-wrap { display: inline-flex; align-items: center; gap: 6px; }
-    .btn-edit-draft {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 11px; color: var(--status-draft);
-      background: rgba(155,89,182,0.08);
-      border: 1px solid rgba(155,89,182,0.25);
-      border-radius: 3px; padding: 5px 10px;
-      cursor: pointer; transition: all 0.15s;
-      text-decoration: none; white-space: nowrap;
-      font-family: 'DM Sans', sans-serif;
-      letter-spacing: 0.05em;
-    }
-    .btn-edit-draft:hover { background: rgba(155,89,182,0.15); border-color: rgba(155,89,182,0.5); }
-
-    /* CB-43 T6: Pay Now — 列內主 CTA(綠),尺寸比照 .btn-edit-draft */
-    .btn-pay-now {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 11px; color: #fff;
-      background: var(--green-dark);
-      border: 1px solid var(--green-dark);
-      border-radius: 3px; padding: 5px 10px;
-      cursor: pointer; transition: all 0.15s;
-      text-decoration: none; white-space: nowrap;
-      font-family: 'DM Sans', sans-serif;
-      letter-spacing: 0.05em;
-    }
-    .btn-pay-now:hover { background: var(--green-mid); border-color: var(--green-mid); }
-
-    /* Delete draft icon button — trash icon only */
-    .btn-delete-draft {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 30px; height: 30px;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      color: var(--muted);
-      cursor: pointer;
-      transition: all 0.15s;
-      padding: 0;
-    }
-    .btn-delete-draft svg { width: 14px; height: 14px; fill: currentColor; }
-    .btn-delete-draft:hover {
-      background: rgba(192,57,43,0.08);
-      border-color: var(--error);
-      color: var(--error);
-    }
-    .btn-delete-draft:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
-    .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin: 0 auto 12px; display: block; }
-    .empty-state p { font-size: 13px; margin-bottom: 16px; }
-    .loading-row { height: 52px; border-bottom: 1px solid var(--border); background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-    /* ── Delete Confirm Modal ── */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(44,58,50,0.5);
-      z-index: 500;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .modal-overlay.show { display: flex; }
-    .modal-box {
-      background: var(--white);
+    /* ── Returned Reason Banner ── */
+    .return-banner {
+      background: rgba(224,123,57,0.07);
+      border: 1px solid rgba(224,123,57,0.3);
+      border-left: 4px solid var(--status-returned);
       border-radius: 4px;
-      padding: 28px;
-      width: 100%;
-      max-width: 440px;
-      max-height: 90vh;
-      overflow-y: auto;
+      padding: 18px 22px;
+      margin-bottom: 24px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
     }
-    .modal-icon-wrap {
-      width: 48px; height: 48px;
-      background: rgba(192,57,43,0.1);
+    .return-banner .return-icon-wrap {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      background: rgba(224,123,57,0.14);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 16px;
+      margin-top: 2px;
     }
-    .modal-icon-wrap svg { width: 22px; height: 22px; fill: var(--error); }
-    .modal-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 22px;
-      font-weight: 400;
+    .return-banner .return-icon-wrap svg { width: 18px; height: 18px; fill: var(--status-returned); }
+    .return-banner-body { flex: 1; min-width: 0; }
+    .return-banner-title {
+      font-size: 11px; font-weight: 600;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--status-returned);
+      margin-bottom: 6px;
+    }
+    .return-banner-msg {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.65;
+      margin-bottom: 12px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .return-banner-action { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .return-banner-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Return History (Admin only) ── */
+    .return-history {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+    .return-history-header {
+      padding: 14px 20px;
+      background: #FAFAF8;
+      border-bottom: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background 0.15s;
+      user-select: none;
+    }
+    .return-history-header:hover { background: #F5F3EF; }
+    .return-history.open .return-history-header { border-bottom-color: var(--border); }
+    .return-history-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
       color: var(--green-dark);
-      margin-bottom: 8px;
     }
-    .modal-msg {
+    .return-history-title svg { width: 14px; height: 14px; fill: var(--status-returned); }
+    .return-history-count {
+      display: inline-block;
+      background: rgba(224,123,57,0.14);
+      color: var(--status-returned);
+      font-size: 10px; font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      letter-spacing: 0.05em;
+    }
+    .return-history-toggle {
+      font-size: 11px; color: var(--muted);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .return-history-toggle svg {
+      width: 12px; height: 12px; fill: currentColor;
+      transition: transform 0.2s;
+    }
+    .return-history.open .return-history-toggle svg { transform: rotate(180deg); }
+    .return-history-body {
+      display: none;
+      padding: 16px 20px 20px;
+    }
+    .return-history.open .return-history-body { display: block; }
+    .return-event {
+      position: relative;
+      padding: 14px 14px 14px 18px;
+      margin-bottom: 12px;
+      background: #FAFAF8;
+      border-radius: 3px;
+      border-left: 3px solid var(--status-returned);
+    }
+    .return-event:last-child { margin-bottom: 0; }
+    .return-event-head {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 8px;
+      font-size: 11px;
+    }
+    .return-event-version {
+      background: var(--status-returned);
+      color: #fff;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 2px;
+      letter-spacing: 0.05em;
+    }
+    .return-event-by {
+      color: var(--green-dark);
+      font-weight: 500;
+    }
+    .return-event-time {
+      color: var(--muted);
+      margin-left: auto;
+      font-size: 10px;
+    }
+    .return-event-reason {
       font-size: 13px;
       color: var(--text);
       line-height: 1.6;
-      margin-bottom: 6px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
-    .modal-job {
-      font-size: 13px;
+
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
+    .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .card-body { padding: 20px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .info-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+
+    /* ────────────────────────────────────────────────────────────────
+       Items table — aligned with new-quote-step3.html (F4.1 v2)
+       11 columns including Mod Fee, sub-group support, mods inline
+    ──────────────────────────────────────────────────────────────── */
+    .items-table { width: 100%; border-collapse: collapse; }
+    .items-table thead th { padding: 9px 10px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    .items-table thead th.th-right { text-align: right; }
+    .items-table tbody tr { border-bottom: 1px solid var(--border); }
+    .items-table tbody tr:last-child { border-bottom: none; }
+    .items-table td { padding: 10px 10px; font-size: 13px; vertical-align: top; }
+    .td-style { font-weight: 500; color: var(--green-dark); }
+    .td-sku { color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .td-desc { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .td-desc .desc-main { color: var(--text); font-size: 12px; margin-bottom: 4px; }
+    .td-type .type-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; }
+    .td-type .type-badge.rta { background: rgba(62,90,66,0.07); color: var(--green-dark); }
+    .td-type .type-badge.assembled { background: rgba(201,168,76,0.12); color: #8B6914; }
+    .td-right { text-align: right; }
+    .td-total { font-weight: 500; }
+
+    /* F-CUSTOM: [CUSTOM] badge — gold bg + gold text, consistent with step2/2.5/3 */
+    .custom-badge {
+      display: inline-block;
+      background: rgba(201,168,76,0.18);
+      color: #8B6914;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      padding: 1px 5px;
+      border-radius: 2px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .items-table tbody tr.sub-continuation {
+      border-top: 1px dashed rgba(201,168,76,0.25);
+    }
+    .items-table tbody tr.sub-continuation td:first-child {
+      border-left: 2px solid rgba(201,168,76,0.35);
+    }
+    .sub-label {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      color: #8B6914;
+      background: rgba(201,168,76,0.10);
+      padding: 1px 6px;
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+
+    .mods-list {
+      margin-top: 6px;
+      padding: 6px 0 0;
+      border-top: 1px dotted rgba(125,140,130,0.25);
+    }
+    .mods-list .mod-line {
+      font-size: 11px;
       color: var(--green-dark);
-      font-weight: 500;
-      margin-bottom: 14px;
+      line-height: 1.5;
+      padding: 1px 0;
     }
-    .modal-warning {
-      font-size: 12px;
+    .mods-list .mod-line .mod-bullet { color: var(--gold); margin-right: 4px; }
+    .mods-list .mod-material {
+      font-size: 11px;
+      color: var(--green-mid);
+      line-height: 1.4;
+      padding: 0 0 1px 14px;
+    }
+    .mods-list .mod-line .mod-note-ref {
+      color: #E07B39;
+      font-style: italic;
+      font-size: 11px;
+    }
+    .mods-list .mod-status-skipped,
+    .mods-list .mod-status-unprocessed {
+      font-size: 11px;
       color: var(--muted);
       font-style: italic;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
     }
-    .modal-error {
-      background: rgba(192,57,43,0.07);
-      border: 1px solid rgba(192,57,43,0.25);
-      border-radius: 3px;
-      padding: 10px 14px;
-      font-size: 12px;
-      color: var(--error);
-      margin-bottom: 16px;
-      display: none;
+
+    /* CB-11 任務B: DOOR & FRAME 固定註記「Hinge not included」(樣式比照 mod 子項) */
+    .items-table td.td-sku .hinge-note {
+      font-size: 11px;
+      color: var(--green-dark);
+      line-height: 1.5;
+      margin-top: 6px;
+      white-space: normal;
     }
-    .modal-error.show { display: block; }
-    .modal-actions {
+
+    .td-modfee { color: #8B6914; font-weight: 500; }
+    
+    /* CB-7: type divider row（橫跨 9 欄）*/
+    .items-table tbody tr.type-divider td {
+      padding: 8px 12px;
+      background: rgba(62,90,66,0.06);
+      border-top: 1px solid var(--green-mid);
+      border-bottom: 1px solid var(--green-mid);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+            text-align: center;
+          }
+          /* CB-25: 三層分組 divider — Section(Assembled/Unassembled)最重, Style 次之, Type 沿用上方 */
+          .items-table tbody tr.section-divider td {
+            padding: 10px 12px;
+            background: var(--green-mid);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            text-align: center;
+          }
+          .items-table tbody tr.style-divider td {
+            padding: 7px 12px;
+            background: rgba(201,168,76,0.14);
+            border-top: 1px solid rgba(201,168,76,0.45);
+            border-bottom: 1px solid rgba(201,168,76,0.45);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #8B6914;
+            text-align: center;
+          }
+          .items-table tbody tr.mapping-row td { background: rgba(62,90,66,0.03); }
+          .items-table tbody tr.mapping-row td:first-child {
+            border-left: 2px solid rgba(62,90,66,0.25);
+            padding-left: 16px;
+            color: var(--muted);
+            font-size: 11px;
+            white-space: nowrap;
+          }
+          .items-table tbody tr.mapping-row .td-sku { padding-left: 14px; }
+          /* CB-7: mod 子項移入 SKU 欄後需允許換行（td-sku 原為 nowrap）*/
+    .items-table td.td-sku .mods-list,
+    .items-table td.td-sku .mods-list * { white-space: normal; }
+    
+
+    /* ────────────────────────────────────────────────────────────────
+       Notes table for MF06 / MF07 / long values
+       (aligned with new-quote-step3.html)
+    ──────────────────────────────────────────────────────────────── */
+    .notes-table-wrap {
+      margin: 14px 20px 0;
+      padding: 14px 16px;
+      background: rgba(224,123,57,0.04);
+      border: 1px solid rgba(224,123,57,0.2);
+      border-radius: 4px;
+    }
+    .notes-table-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #E07B39;
+      margin-bottom: 10px;
       display: flex;
-      gap: 10px;
-      justify-content: flex-end;
+      align-items: center;
+      gap: 6px;
     }
-    .btn-modal-cancel {
-      padding: 10px 20px;
-      background: transparent;
+    .notes-table-title svg { width: 14px; height: 14px; fill: #E07B39; }
+    .notes-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid rgba(224,123,57,0.25);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .notes-table thead th {
+      padding: 7px 10px;
+      background: rgba(224,123,57,0.08);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #8B6914;
+      text-align: left;
+      border-bottom: 1px solid rgba(224,123,57,0.2);
+    }
+    .notes-table tbody td {
+      padding: 9px 10px;
+      font-size: 12px;
+      color: var(--text);
+      vertical-align: top;
+      border-bottom: 1px solid rgba(224,123,57,0.12);
+      line-height: 1.5;
+    }
+    .notes-table tbody tr:last-child td { border-bottom: none; }
+    .notes-table .note-num {
+      font-weight: 600;
+      color: #E07B39;
+      white-space: nowrap;
+      width: 40px;
+    }
+    .notes-table .note-item {
+      color: var(--green-dark);
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .notes-table .note-mf {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .notes-table .note-content {
+      color: var(--text);
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Totals */
+    .totals { padding: 4px 20px 20px; }
+    .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .total-row:last-child { border-bottom: none; }
+    .total-row.grand { padding-top: 12px; }
+    .total-row.grand .total-label { font-size: 14px; font-weight: 500; color: var(--green-dark); }
+    .total-row.grand .total-val { font-size: 16px; font-weight: 500; color: var(--green-dark); }
+    .total-label { color: var(--muted); }
+    .total-val { font-weight: 500; }
+    .asm-breakdown { padding: 2px 0 6px 16px; }
+    .asm-breakdown-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 2px 0; }
+    .free-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
+    .exempt-tag { font-size: 10px; color: var(--status-complete); margin-left: 6px; }
+    .tax-note-detail {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── C1: Pending Shipping styles ── */
+    .pending-tag {
+      font-size: 10px;
+      color: var(--status-returned);
+      margin-left: 6px;
+      font-style: italic;
+    }
+    .total-val.pending {
+      color: var(--status-returned);
+      font-weight: 600;
+    }
+    .pending-grand-note {
+      font-size: 11px;
+      color: var(--status-returned);
+      font-style: italic;
+      text-align: right;
+      padding-top: 6px;
+    }
+
+    /* ── C1: Admin shipping editor (admin-only inline UI) ── */
+    .admin-edit-link {
+      font-size: 10px;
+      color: var(--gold);
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      margin-left: 8px;
+      text-decoration: none;
+      display: inline-block;
+      padding: 2px 6px;
+      border: 1px solid rgba(201,168,76,0.4);
+      border-radius: 2px;
+      background: rgba(201,168,76,0.06);
+      transition: all 0.15s;
+    }
+    .admin-edit-link:hover {
+      color: var(--green-dark);
+      border-color: var(--green-dark);
+      background: rgba(62,90,66,0.07);
+    }
+    .admin-shipping-editor {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      margin: 4px 0;
+      background: rgba(201,168,76,0.08);
+      border: 1px solid rgba(201,168,76,0.3);
+      border-radius: 3px;
+    }
+    .admin-shipping-editor.show { display: flex; }
+    .admin-shipping-editor .editor-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--green-dark);
+      flex-shrink: 0;
+    }
+    .admin-shipping-editor input {
+      width: 100px;
+      height: 32px;
       border: 1px solid var(--border);
       border-radius: 3px;
+      padding: 0 10px;
       font-family: 'DM Sans', sans-serif;
-      font-size: 12px;
-      cursor: pointer;
-      color: var(--muted);
-      letter-spacing: 0.08em;
+      font-size: 13px;
+      text-align: right;
     }
-    .btn-modal-cancel:hover { color: var(--text); border-color: var(--text); }
-    .btn-modal-delete {
-      display: inline-flex; align-items: center; gap: 7px;
-      padding: 10px 20px;
-      background: var(--error);
+    .admin-shipping-editor input:focus {
+      outline: none;
+      border-color: var(--green-dark);
+    }
+    .editor-currency-prefix {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .editor-btn {
+      height: 32px;
+      padding: 0 14px;
       border: none;
       border-radius: 3px;
       font-family: 'DM Sans', sans-serif;
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 500;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       cursor: pointer;
+      transition: all 0.15s;
+    }
+    .editor-btn.save {
+      background: var(--green-dark);
       color: #fff;
-      transition: background 0.2s;
     }
-    .btn-modal-delete:hover { background: #A33324; }
-    .btn-modal-delete:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-modal-delete .modal-spinner {
-      width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: none;
+    .editor-btn.save:hover { background: var(--green-mid); }
+    .editor-btn.save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .editor-btn.cancel {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
     }
-    .btn-modal-delete.loading .modal-spinner { display: block; }
-    .btn-modal-delete.loading .btn-text { display: none; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .editor-btn.cancel:hover { color: var(--text); border-color: var(--text); }
+    .editor-error {
+      width: 100%;
+      font-size: 11px;
+      color: var(--error);
+      padding-top: 4px;
+    }
+    .editor-hint {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+      flex-basis: 100%;
+      padding-top: 2px;
+    }
 
-    /* Toast */
-    .toast {
-      position: fixed; bottom: 24px; left: 50%;
-      transform: translateX(-50%) translateY(20px);
-      background: var(--green-dark); color: #fff;
-      padding: 12px 22px; border-radius: 4px; font-size: 13px;
-      opacity: 0; transition: opacity 0.3s, transform 0.3s; z-index: 600;
-      pointer-events: none;
-    }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .loading-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
+    .spinner-large { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--green-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-wrap { padding: 80px 20px; text-align: center; color: var(--muted); }
+    @media print { .btn-action, .back-link, .return-banner, .return-history, .admin-edit-link, .admin-shipping-editor { display: none !important; } .page { padding: 0; max-width: 100%; } body { background: #fff; } }
   </style>
 </head>
 <body>
 
-<!-- Unified Navigator (replaces old <nav> and mobile menu) -->
 <div id="pcd-nav" data-page="quotes"></div>
 
-<div class="page">
-  <div class="page-header">
-    <div>
-      <div class="page-title" data-i18n="quotes.title">My Quotes</div>
-      <!-- ⚠️ #pageSub 由 JS 覆寫。data-i18n 僅為載入中佔位,寫入時會移除該屬性。 -->
-      <div class="page-sub" id="pageSub" data-i18n="quotes.loading">Loading...</div>
-    </div>
-    <a href="new-quote.html" class="btn-new-quote">
-      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      <span data-i18n="quotes.btn.new_quote">New Quote</span>
-    </a>
-  </div>
-
-  <!-- Stats — 6 cards -->
-  <div class="stats-bar">
-    <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label" data-i18n="quotes.stat.total">Total</div></div>
-    <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label" data-i18n="quotes.stat.draft">Draft</div></div>
-    <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label" data-pc-status-short="Returned">Revising</div></div>
-    <div class="stat-card"><div class="stat-num" id="statPending">—</div><div class="stat-label" data-pc-status-short="Pending">Waiting</div></div>
-    <div class="stat-card"><div class="stat-num" id="statPaymentProcessing">—</div><div class="stat-label" data-i18n="quotes.stat.payment">Payment</div></div>
-    <div class="stat-card"><div class="stat-num" id="statOrderProcessing">—</div><div class="stat-label" data-i18n="quotes.stat.order">Order</div></div>
-  </div>
-
-  <!-- Returned alert banner -->
-  <div class="returned-alert" id="returnedAlert">
-    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-    <div>
-      <strong id="returnedAlertCount">— quote needs revision.</strong>
-      <span data-i18n="quotes.alert.hint">Please review the revision note and resubmit.</span>
-    </div>
-  </div>
-
-  <div class="filters">
-    <div class="filter-group">
-      <span class="filter-label" data-i18n="quotes.filter.status">Status</span>
-      <select class="filter-select" id="filterStatus">
-        <option value="" data-i18n="common.filter.all_statuses">All Statuses</option>
-        <option value="Draft" data-pc-status-label="Draft">Draft</option>
-        <option value="Returned" data-pc-status-label="Returned">Revising</option>
-        <option value="Stock Review" data-pc-status-label="Stock Review">Stock Review</option>
-        <option value="Pending" data-pc-status-label="Pending">Waiting for Payment</option>
-        <option value="Payment Processing" data-pc-status-label="Payment Processing">Payment Processing</option>
-        <option value="Order Processing" data-pc-status-label="Order Processing">Order Processing</option>
-        <option value="Order Completed" data-pc-status-label="Order Completed">Order Completed</option>
-        <option value="Closed" data-pc-status-label="Closed">Closed</option>
-        <option value="Cancelled" data-pc-status-label="Cancelled">Cancelled</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <span class="filter-label" data-i18n="quotes.filter.from">From</span>
-      <input type="date" class="filter-input" id="filterFrom" style="width:130px;"/>
-    </div>
-    <div class="filter-group">
-      <span class="filter-label" data-i18n="quotes.filter.to">To</span>
-      <input type="date" class="filter-input" id="filterTo" style="width:130px;"/>
-    </div>
-    <div class="filter-group">
-      <span class="filter-label" data-i18n="quotes.filter.search">Search</span>
-      <input type="text" class="filter-input" id="filterSearch" placeholder="PO# or Job Name" data-i18n-placeholder="quotes.filter.search_placeholder"/>
-    </div>
-    <div class="filter-actions">
-      <button class="btn-filter" onclick="applyFilters()" data-i18n="quotes.filter.apply">Filter</button>
-      <button class="btn-reset" onclick="resetFilters()" data-i18n="quotes.filter.reset">Reset</button>
-    </div>
-  </div>
-
-  <div class="table-card">
-    <div class="table-header">
-      <span class="table-title" data-i18n="quotes.table.title">Quotes</span>
-      <span class="table-count" id="tableCount">—</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th data-i18n="quotes.table.col_po_job">PO # / Job Name</th>
-            <th data-i18n="quotes.table.col_date">Date</th>
-            <th class="r" data-i18n="quotes.table.col_total">Total</th>
-            <th data-i18n="quotes.table.col_status">Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="quotesBody">
-          <tr class="loading-row"><td colspan="5"></td></tr>
-          <tr class="loading-row"><td colspan="5"></td></tr>
-          <tr class="loading-row"><td colspan="5"></td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+<div class="page" id="pageContent">
+  <div class="loading-wrap"><div class="spinner-large"></div><span data-i18n="qd.loading">Loading quote...</span></div>
 </div>
 
-<!-- ── Delete Draft Confirm Modal ── -->
-<div class="modal-overlay" id="deleteModal">
-  <div class="modal-box">
-    <div class="modal-icon-wrap">
-      <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-    </div>
-    <div class="modal-title" data-i18n="quotes.modal.title">Delete Draft?</div>
-    <div class="modal-msg" data-i18n="quotes.modal.msg">Are you sure you want to delete this draft?</div>
-    <div class="modal-job" id="deleteJobName">—</div>
-    <div class="modal-warning" data-i18n="quotes.modal.warning">This action cannot be undone.</div>
-    <div class="modal-error" id="deleteError"></div>
-    <div class="modal-actions">
-      <button class="btn-modal-cancel" id="btnDeleteCancel" onclick="closeDeleteModal()" data-i18n="common.btn.cancel">Cancel</button>
-      <button class="btn-modal-delete" id="btnDeleteConfirm" onclick="confirmDelete()">
-        <span class="btn-text" data-i18n="quotes.modal.confirm">Delete Draft</span>
-        <div class="modal-spinner"></div>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast -->
-<div class="toast" id="toast"></div>
-
-<!-- Unified Footer -->
 <div id="pcd-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/i18n.js"></script>
 <script src="components/status-label.js?v=1.1"></script>
-<script src="components/i18n.js?v=cb62b"></script>
-<script src="components/lang-switch.js?v=cb62b"></script>
 <script src="components/navigator.js"></script>
 <script src="components/footer.js"></script>
+<!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
+<script src="components/order-complete.js"></script>
 <script>
+// ── CB-36: Edit Internal Draft → 重新進入 admin-draft 流程(1→2→mod→3)──
+// 比照 admin-quotes 的 createDraftForDealer():對齊 adminDraftDealerId(確保 new-quote
+// 載入正確 dealer 的稅率/資料)、清掉 stale step 暫存,再帶 draft=<id> + adminDraft=1 導向。
+function editInternalDraft() {
+  if (!_quote || !_quote.id) return;
+  sessionStorage.setItem('adminDraftDealerId', _quote.dealer_id);
+  sessionStorage.removeItem('quoteStep1');
+  sessionStorage.removeItem('quoteStep2');
+  window.location.href = 'new-quote.html?draft=' + _quote.id + '&adminDraft=1';
+}
+
+  
 const { createClient } = window.supabase;
 const _supabase = createClient(
   window.SB_URL,
   window.SB_KEY
 );
 
-let allQuotes = [];
-let pcQuotesLoaded = false;   // CB-62 B2:資料是否已載入過一次(語言切換重繪的條件)
-let userId    = null;
-let pendingDeleteId   = null;   // quote id queued for deletion
-let pendingDeleteName = null;   // job_name shown in modal
-
+// F-CUSTOM (Phase 5): Added 'OTHER' between ACCESSORIES and MODIFICATION,
+// aligned with new-quote-step3.html. Custom Other items get sku_type='OTHER'
+// and need a defined sort rank.
+const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
 const statusClass = {
-  Draft: 'draft', 'Stock Review': 'stock-review', Pending: 'pending', 'Payment Processing': 'payment-processing',
-  'Order Processing': 'order-processing', 'Order Completed': 'order-completed',   // CB-55
-  Closed: 'closed', Returned: 'returned', 'Cancelled': 'cancelled'   // CB-57
+  Draft:'draft',
+  'Stock Review':'stock-review',
+  Pending:'pending',
+  Processing:'processing',
+  Complete:'complete',
+  Closed:'closed',
+  Returned:'returned',
+  'Payment Processing':'payment-processing',
+  'Order Processing':'order-processing',
+  'Order Completed':'order-completed',   // CB-55
+  'Cancelled':'cancelled',   // CB-57
 };
 
 // CB-56: quote status 顯示名改由 components/status-label.js 提供(單一真相)。
@@ -460,85 +630,187 @@ const statusClass = {
 //   'Pending' → 'Waiting for Payment'、'Returned' → 'Revising' 皆在該檔。
 //   ⚠️ 上方 statusClass 是 CSS class 對照表,與顯示名無關,維持不動。
 
-function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
-function formatDate(str) {
-  return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+// ── C1: which statuses allow admin to edit shipping_cost ──
+// CB-43 T14-3: 'Pending' → 'Stock Review'。T14 之後 Pending = 已放行、可付款,
+// 此時改運費是真競態:dealer 開著 payment.html(顯示舊 grand_total)→ 點 Proceed
+// → 送出舊值 → QuickBooks Invoice 金額與 quote 對不上。
+// Stock Review 才是「待確認/調整訂單」的正確歸屬。
+const SHIPPING_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned'];
+
+// ── CB-4: which statuses allow admin to enter Edit mode (revision flow) ──
+// Admin can edit dealer-submitted POs in Stock Review, and previously-returned
+// POs in Returned (in case customer requests further changes). Draft has
+// its own admin-draft flow; Pending/Processing/Complete/Closed are locked.
+// CB-43 T14-3: 'Pending' → 'Stock Review'。Stock Review = 最後可修改的階段,
+// 放行 = 金額鎖定,之後只能付款。且 Stock Review 有了 Edit 才進得去 admin-edit
+// 模式 → 才有 Request Revision(退回 dealer 改單)→「部分品項沒貨」才有解。
+const ADMIN_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned'];
+
+// ── CB-43 T14-2: 放行按鈕的 inner HTML ──
+// 建立按鈕與「失敗還原按鈕」共用同一份,避免兩處文案漂移。
+const RELEASE_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Confirm Stock &amp; Send Payment Link';
+
+// ── CB-55 / CB-59: Fulfilled 按鈕的 inner HTML ──
+// 只用於建立按鈕。失敗還原由 order-complete.js 以捕捉到的 innerHTML 處理,
+// 故不需要像 RELEASE_BTN_INNER 那樣兩處共用。
+// CB-59:文字改為完整句式 "Mark as Fulfilled"(admin-quotes 列內為短版 "Fulfilled")。
+const FULFILL_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Mark as Fulfilled';
+// ─────────────────────────────────────────────────────────────────────────
+// F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
+// 7-/11-letter labels from wrapping in narrow table columns.
+// Mirrors pdf-builder.js _shortType / _shortStatus and step3 shortType /
+// shortStatus.
+// ─────────────────────────────────────────────────────────────────────────
+const TYPE_SHORT_MAP = {
+  'BASE':         'BAS',
+  'WALL':         'WAL',
+  'TALL':         'TAL',
+  'ACCESSORIES':  'ACC',
+  'OTHER':        'OTH',
+  'MODIFICATION': 'MOD',
+};
+const STATUS_SHORT_MAP = {
+  'ASSEMBLED': 'ASM',
+  'RTA':       'RTA',
+};
+function shortType(t) {
+  if (!t) return '—';
+  const key = String(t).toUpperCase();
+  return TYPE_SHORT_MAP[key] || key.slice(0, 3);
+}
+function shortStatus(s) {
+  if (!s) return '—';
+  const key = String(s).toUpperCase();
+  return STATUS_SHORT_MAP[key] || key.slice(0, 3);
 }
 
-// HTML-escape helper for any user-provided text we inject into the DOM
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+// CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
+function formatAssembleStatus(v) {
+  // CB-62 Q-59:顯示轉換,儲存端讀 assemble_status('Assembled' / 'RTA')。沿用 step2 的 key。
+  return v === 'RTA'
+    ? pcTxt('nq2.asm.unassembled', 'Unassembled')
+    : pcTxt('nq2.asm.assembled', 'Assembled');
 }
 
-// Event delegation for dynamically-rendered delete buttons.
-// Inline onclick is fragile because job_name may contain quotes/HTML —
-// data attributes + delegated listener avoids all escaping issues.
-document.addEventListener('DOMContentLoaded', function() {
-  const tbody = document.getElementById('quotesBody');
-  if (!tbody) return;
-  tbody.addEventListener('click', function(e) {
-    const btn = e.target.closest('.js-delete-draft');
-    if (!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const quoteId = btn.dataset.quoteId;
-    const jobName = btn.dataset.jobName;
-    if (quoteId) openDeleteModal(quoteId, jobName);
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-9 (2026-06-02): Resolve a line-item's Tag from the SKU catalog.
+//   quote_items 沒有 construction_type,改用 style_code join door_styles(_allDoorStyles)
+//   推得 framed/frameless,再決定查 skus_framed 還是 skus_frameless;用 sku_code 比對拿 tag。
+//   construction_type 推不出(custom / 查不到門花色)→ 預設查 framed,仍查不到 → 回空字串。
+//   與 step3 getTagForItem() 同義(step3 的 item 自帶 construction_type,此處需反查)。
+// ─────────────────────────────────────────────────────────────────────────────
+function getTagForItem(item) {
+  if (!item || !item.sku_code) return '';
+  let ct = '';
+  if (item.style_code && Array.isArray(_allDoorStyles)) {
+    const ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
+    if (ds) ct = (ds.construction_type || '').toLowerCase();
+  }
+  const source = ct === 'frameless' ? _allSkusFrameless : _allSkusFramed;
+  const match  = source.find(function (s) { return s.sku_code === item.sku_code; });
+  return (match && match.tag) ? match.tag : '';
+    }
+  
+    // CB-29: 反查該 item 的 needs_confirmation(quote_items 無此欄,對稱 getTagForItem)
+    function getNeedsConfirmationForItem(item) {
+      if (!item || !item.sku_code) return false;
+      let ct = '';
+      if (item.style_code && Array.isArray(_allDoorStyles)) {
+        const ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
+        if (ds) ct = (ds.construction_type || '').toLowerCase();
+      }
+      const source = ct === 'frameless' ? _allSkusFrameless : _allSkusFramed;
+      const match  = source.find(function (s) { return s.sku_code === item.sku_code; });
+      return !!(match && match.needs_confirmation);
+    }
+  
+  // CB-25: 用 mapping SKU code 反查 skus_framed/frameless,取 type/description/tag。
+  //   quote_items 無 construction_type → 由 caller 先 join door_styles 推 framed/frameless 傳入。
+  //   查不到 → 三欄回空字串。回傳的 type 僅供內部判斷 BOX/ROLL OUT TRAY 前綴,不顯示成欄位。
+  //   與 step3 getMappingSkuInfo() 同義(step3 的 item 自帶 construction_type)。
+  function getMappingSkuInfo(mappingCode, constructionType) {
+    const empty = { type: '', description: '', tag: '' };
+    if (!mappingCode) return empty;
+    const ct     = (constructionType || '').toLowerCase();
+    const source = ct === 'frameless' ? _allSkusFrameless : _allSkusFramed;
+    const match  = source.find(function (s) { return s.sku_code === mappingCode; });
+    if (!match) return empty;
+    return {
+          type:        match.type || '',
+          description: match.description || '',
+          tag:         match.tag || '',
+          needs_confirmation: !!match.needs_confirmation,  // CB-29
+        };
+  }
+
+  // CB-25 (PDF): 把每個 mapping mod 的 type/description/tag 掛進 payload。
+  //   pdf-builder.js 無 DB,需由此處用 getMappingSkuInfo 查好後餵進去。
+  //   非破壞性:複製 sub_groups / modifications,不動 live _groupedItems
+  //   (避免多餘欄位影響其他讀取)。
+  //   constructionType 由 caller per-item 反查 _allDoorStyles 帶入(與 on-screen mapping 同源)。
+  function enrichSubGroupsForPdf(subGroups, constructionType) {
+    return (Array.isArray(subGroups) ? subGroups : []).map(function (sub) {
+      const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+      const enrichedMods = mods.map(function (m) {
+        if (!m || !m.mapping_sku) return m;
+        const info = getMappingSkuInfo(m.mapping_sku, constructionType);
+        return Object.assign({}, m, {
+                  mapping_type:        info.type,
+                  mapping_description: info.description,
+                  mapping_tag:         info.tag,
+                  mapping_needs_confirmation: !!info.needs_confirmation,  // CB-29
+                });
+      });
+      return Object.assign({}, sub, { modifications: enrichedMods });
+    });
+  }
+
+  // CB-11 任務A: 整單 lead time(重寫 CB-5;用 style_code join door_styles)
+// 任何 frameless → ~5 Weeks;有 non-stock → ~2~3 Weeks;全 framed 全 stock → null(整塊不顯示)
+// 查不到門花色(custom / accessory / 停產)的 item 不納入判斷
+function calculateLeadTime(items, doorStyles) {
+  let anyFrameless = false, anyNonStock = false, anyKnown = false;
+  (items || []).forEach(function (it) {
+    if (!it || !it.style_code || !Array.isArray(doorStyles)) return;
+    const s = doorStyles.find(function (d) { return d.style_code === it.style_code; });
+    if (!s) return;
+    const ct = (s.construction_type || '').toLowerCase();
+    if (ct === 'frameless') { anyFrameless = true; anyKnown = true; }
+    else if (ct === 'framed') { anyKnown = true; if (s.is_stock !== true) anyNonStock = true; }
   });
-});
-
-async function init() {
-  const { data: { session } } = await _supabase.auth.getSession();
-  if (!session) { window.location.href = 'login.html'; return; }
-  userId = session.user.id;
-
-  const { data: me } = await _supabase.from('dealers').select('role, is_active, company_name').eq('id', userId).single();
-  if (!me?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
-  if (['admin','super_admin'].includes(me?.role)) { window.location.href = 'admin.html'; return; }
-
-  // 🔴 先移除 data-i18n 再寫入:此後 i18n.js 不再碰此節點,
-  //    切換語言時公司名不會被「載入中」蓋掉(比照 B1 dashboard)。
-  const subEl = document.getElementById('pageSub');
-  subEl.removeAttribute('data-i18n');
-  subEl.textContent = me?.company_name || '';
-  await loadQuotes();
-
-  setInterval(async () => {
-    const { data: check } = await _supabase.from('dealers').select('is_active').eq('id', userId).single();
-    if (!check?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; }
-  }, 60000);
+  if (!anyKnown) return null;
+  if (anyFrameless) return '~5 Weeks';
+  if (anyNonStock) return '~2~3 Weeks';
+  return null;  // CB-11: 全 framed 全 stock → 整塊不顯示
 }
 
-async function loadQuotes() {
-    const { data: quotes, error } = await _supabase
-    .from('quotes')
-    .select('*')
-    .eq('dealer_id', userId)
-    // CB-36: 擋掉 admin 建但未通知的 Internal Draft(admin_notified_at IS NULL 且 status=Draft)。
-    // 顯示條件:已通知(admin_notified_at 有值)OR 非 Draft。
-    // dealer 自建 Draft(Option A 寫 NOW())+ 既有單(migration 補 created_at)都看得到。
-    .or('admin_notified_at.not.is.null,status.neq.Draft')
-    .order('created_at', { ascending: false });
-
-  if (error) { console.error('loadQuotes error:', error); return; }
-  allQuotes = quotes || [];
-  pcQuotesLoaded = true;
-  updateStats();
-  updateReturnedAlert();
-  renderTable(sortQuotes(allQuotes));
+function buildLeadTimeHtml(items, doorStyles) {
+  const lt = calculateLeadTime(items, doorStyles);
+  if (!lt) return '';
+  return '<div style="margin-top:10px;text-align:left;padding:0 20px;">' +
+    '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">' +
+      escapeHtml(pcTxt('nq3.lead.label', 'Estimated Lead Time')) + '</span>' +
+    '<span style="font-size:13px;font-weight:600;color:var(--green-mid);">' + escapeHtml(lt) + '</span></div>';
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// CB-62 B2|i18n 區域輔助
-// -------------------------------------------------------------------
-// pcT 未載入或字典未就緒時回 null → 一律帶英文保底,畫面不得出現 "null"。
-// 命名用 pc 前綴避免 global 碰撞(B-1 教訓)。
-// ═══════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2 — Notes table configuration (aligned with new-quote-step3.html)
+// ─────────────────────────────────────────────────────────────────────────────
+const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
+const NOTES_TABLE_FALLBACK_LENGTH = 40;
+
+// Store for PDF generation
+let _quote = null, _dealer = null, _addr = null, _isAdmin = false, _me = null;
+
+// CB-62 Q-57:語言切換重繪用。§4.3 —— 條件問「載入過了嗎」,不是「現在有資料嗎」。
+let _loadState = 'loading';          // 'loading' | 'ready' | 'error'
+let _errKey = null, _errFallback = '';
+
+/**
+ * CB-62:i18n 取字。i18n.js 未載入或字典未就緒時回傳英文 fallback。
+ * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+ */
 function pcTxt(key, fallback, params) {
   if (typeof window.pcT === 'function') {
     const s = window.pcT(key, params || null, fallback);
@@ -549,287 +821,1665 @@ function pcTxt(key, fallback, params) {
   });
 }
 
-// 🔴 複數(CB-62 B2 / Q-17):.one / .other 雙 key,呼叫端依數量挑一支。
-// 英文靠加 s,西語連動詞都要變位(necesita / necesitan),字串拼接無法翻譯。
+/** CB-62 Q-17:複數。呼叫端依數量挑 .one / .other。 */
 function pcPlural(baseKey, n, enOne, enOther) {
-  const key = (n === 1) ? baseKey + '.one' : baseKey + '.other';
-  return pcTxt(key, (n === 1 ? enOne : enOther).replace('{n}', n), { n: n });
+  const key = baseKey + (n === 1 ? '.one' : '.other');
+  const fb  = (n === 1 ? enOne : enOther).replace('{n}', function () { return String(n); });
+  return pcTxt(key, fb, { n: n });
 }
+// CB-59:Fulfilled 放寬給 admin + super_admin,直接沿用 _isAdmin,
+//   原本的 _isSuperAdmin 旗標已無使用者,一併移除不留死變數。
+let _returnHistory = [];
+let _groupedItems = null; // F4.1 v2: items reconstructed into per-SKU sub_groups
+let _allDoorStyles = [];  // CB-5 需求1: door_styles 快取(整單 lead time)
+let _allSkusFramed    = [];  // CB-9: tag 查表用(skus_framed)
+let _allSkusFrameless = [];  // CB-9: tag 查表用(skus_frameless)
 
-// Sort: Returned 永遠排到最上面（dealer 看到最重要要處理的），其他依 created_at desc
-function sortQuotes(quotes) {
-  return quotes.slice().sort(function(a, b) {
-    const aReturned = a.status === 'Returned' ? 0 : 1;
-    const bReturned = b.status === 'Returned' ? 0 : 1;
-    if (aReturned !== bReturned) return aReturned - bReturned;
-    // 同樣 returned 狀態時用 created_at desc
-    return new Date(b.created_at) - new Date(a.created_at);
+function fmt(n) { return '$' + parseFloat(n || 0).toFixed(2); }
+function formatDate(str) { return new Date(str).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }); }
+// CB-59 B-2:fulfillment_date 是 DB 的 date 型別,PostgREST 回傳 "YYYY-MM-DD"。
+//   絕不可套用上面的 formatDate() —— new Date('2026-08-06') 會被當 UTC 午夜
+//   解析,美東時區顯示成前一天(選 8/6 顯示 August 5)。
+//   改以 local 分量三參數建構 Date,不經 UTC。
+function formatDateOnly(str) {
+  if (!str) return '-';
+  const p = String(str).split('-');
+  if (p.length !== 3) return '-';
+  const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+}
+function formatDateTime(str) {
+  return new Date(str).toLocaleString('en-US', {
+    month:'short', day:'numeric', year:'numeric',
+    hour:'numeric', minute:'2-digit', hour12:true,
   });
 }
 
-function updateStats() {
-  document.getElementById('statTotal').textContent      = allQuotes.length;
-  document.getElementById('statDraft').textContent      = allQuotes.filter(q => q.status === 'Draft').length;
-  document.getElementById('statReturned').textContent   = allQuotes.filter(q => q.status === 'Returned').length;
-  document.getElementById('statPending').textContent    = allQuotes.filter(q => q.status === 'Pending').length;
-  document.getElementById('statPaymentProcessing').textContent = allQuotes.filter(q => q.status === 'Payment Processing').length;
-  document.getElementById('statOrderProcessing').textContent = allQuotes.filter(q => q.status === 'Order Processing').length;
+// HTML escape
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-function updateReturnedAlert() {
-  const returnedCount = allQuotes.filter(q => q.status === 'Returned').length;
-  const alert = document.getElementById('returnedAlert');
-  const text  = document.getElementById('returnedAlertCount');
+// ── C1: Pending shipping detection ──
+function isPendingShipping(quote) {
+  if (!quote) return false;
+  if (quote.logistic_type !== 'shipping') return false;
+  return (quote.shipping_cost === null || quote.shipping_cost === undefined);
+}
 
-  if (returnedCount > 0) {
-    text.textContent = pcPlural('quotes.alert.revision', returnedCount,
-      '{n} quote needs revision.', '{n} quotes need revision.');
-    alert.classList.add('show');
-  } else {
-    alert.classList.remove('show');
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2 — Helpers ported from new-quote-step3.html
+// ─────────────────────────────────────────────────────────────────────────────
+
+function shouldUseNotesTable(mod) {
+  if (!mod) return false;
+  const code = (mod.mf_code || '').toUpperCase();
+  if (MF_USE_NOTES_TABLE.indexOf(code) !== -1) return true;
+  const valStr = formatModValue(mod.value);
+  if (valStr && valStr.length > NOTES_TABLE_FALLBACK_LENGTH) return true;
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F-HIDDEN-MODS (2026-05-18) — Display-layer filter for mods that should be
+// recorded in DB but NOT shown in this view (admin / dealer detail page).
+// Mirrors new-quote-step3.html isHiddenMod() and pdf-builder.js _isHiddenMod().
+// ─────────────────────────────────────────────────────────────────────────────
+function isHiddenMod(mod) {
+  if (!mod) return false;
+  if (mod.mf_code === 'MF01' && mod.value === 'none') return true;
+  return false;
+}
+
+// Format mod value: handles MF01 (string), MF07 ({selected, description, ...}), MF06 (free text), etc.
+function formatModValue(v) {
+  if (v == null) return '';
+  if (typeof v === 'string')  return v;
+  if (typeof v === 'number')  return String(v);
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  if (typeof v === 'object') {
+    // F-QTY-SELECTOR: MF03 toggle-with-qty 的 value { enabled, qty }。
+    if ('enabled' in v && !('value' in v) && !('selected' in v) && !('label' in v)) {
+      if (v.enabled !== true) return '';
+      return (typeof v.qty === 'number') ? ('Qty ' + v.qty) : 'Yes';
+    }
+    const parts = [];
+    if ('selected' in v && v.selected) parts.push(String(v.selected));
+    else if ('label' in v && v.label)  parts.push(String(v.label));
+    else if ('value' in v && v.value != null) parts.push(String(v.value));
+
+    if ('description' in v && v.description) parts.push(String(v.description));
+    else if ('note' in v && v.note)          parts.push(String(v.note));
+
+    if (parts.length) return parts.join(' — ');
+    try { return JSON.stringify(v); } catch (e) { return ''; }
   }
+  return String(v);
 }
 
-function renderTable(quotes) {
-  const tbody = document.getElementById('quotesBody');
-  document.getElementById('tableCount').textContent =
-    pcPlural('quotes.table.count', quotes.length, '{n} quote', '{n} quotes');
+function calcPerSubModCost(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  return mods.reduce(function (s, m) {
+    var c  = parseFloat(m && m.cost);
+    var mt = parseFloat(m && m.material_cost);   // CB-6: 加材料(per-unit)
+    return s + (isNaN(c) ? 0 : c) + (isNaN(mt) ? 0 : mt);
+    return s + (isNaN(c) ? 0 : c);
+  }, 0);
+}
 
-  if (!quotes.length) {
-    tbody.innerHTML = `
-      <tr><td colspan="5">
-        <div class="empty-state">
-          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
-          <p>${escapeHtml(pcTxt('quotes.empty', 'No quotes found.'))}</p>
-          <a href="new-quote.html" class="btn-new-quote" style="display:inline-flex;">${escapeHtml(pcTxt('quotes.empty.new_quote', '+ New Quote'))}</a>
-        </div>
-      </td></tr>`;
+function calcPerSubTaxableModCost(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  return mods.reduce(function (s, m) {
+    if (!m || m.tax_status !== true) return s;
+    var c  = parseFloat(m.cost);
+    var mt = parseFloat(m.material_cost);   // CB-6: 課稅 mod 才把材料計入稅基
+    return s + (isNaN(c) ? 0 : c) + (isNaN(mt) ? 0 : mt);
+    return s + (isNaN(c) ? 0 : c);
+  }, 0);
+}
+
+// Calculate total mod cost across all grouped items
+function calcTotalModsCost(groupedItems) {
+  let total = 0;
+  groupedItems.forEach(function (item) {
+    item.sub_groups.forEach(function (sub) {
+      const perSub = calcPerSubModCost(sub);
+      const qty    = parseInt(sub.qty, 10) || 0;
+      total += perSub * qty;
+    });
+  });
+  return total;
+}
+
+function calcTaxableModsCost(groupedItems) {
+  let total = 0;
+  groupedItems.forEach(function (item) {
+    item.sub_groups.forEach(function (sub) {
+      const perSub = calcPerSubTaxableModCost(sub);
+      const qty    = parseInt(sub.qty, 10) || 0;
+      total += perSub * qty;
+    });
+  });
+  return total;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-27: Modifications 按 type 分組(方案 B 明細用)。
+//   ⚠ 三檔逐字同步:pdf-builder.js / new-quote-step3.html / quote-detail.html
+//   • parentPerSubModCost = Σ(cost + 非mapping material) —— 與 Order List Mod Fee
+//     欄完全一致(mapping material 已搬去獨立 mapping row,不算進來)。
+//   • modFee = parentPerSubModCost × subQty;只計 modFee > 0 的 sub。
+//   • type 取父 row,順序走 CB-22 getTypeOrder;不在清單 → OTHER(放最後)。
+//   回傳 { byType, ordered, modsDisplayTotal }。
+// ─────────────────────────────────────────────────────────────────────────────
+function calcModByType(groupedItems, constructionType) {
+  const order = getTypeOrder(constructionType).map(function (t) { return t.toUpperCase(); });
+  const byType = {};
+  let modsDisplayTotal = 0;
+  (groupedItems || []).forEach(function (item) {
+    const subs = Array.isArray(item.sub_groups) ? item.sub_groups : [];
+    let ptype = (item.sku_type || OTHER_GROUP_LABEL).toUpperCase();
+    if (order.indexOf(ptype) === -1) ptype = OTHER_GROUP_LABEL;   // 不在清單 → OTHER
+    subs.forEach(function (sub) {
+      const subQty = parseInt(sub.qty, 10) || 0;
+      const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+      let parentPerSubModCost = 0;
+      mods.forEach(function (m) {
+        const c  = parseFloat(m && m.cost);
+        const mt = parseFloat(m && m.material_cost);
+        const mq = parseInt(m && m.mapping_qty, 10) || 0;
+        const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+        parentPerSubModCost += (isNaN(c) ? 0 : c);
+        if (!hasMapping) parentPerSubModCost += (isNaN(mt) ? 0 : mt);
+      });
+      const modFee = parentPerSubModCost * subQty;
+      if (modFee > 0) {
+        if (!byType[ptype]) byType[ptype] = { qty: 0, modFee: 0 };
+        byType[ptype].qty    += subQty;
+        byType[ptype].modFee += modFee;
+        modsDisplayTotal     += modFee;
+      }
+    });
+  });
+  const ordered = order.filter(function (t) { return byType[t]; });
+  if (byType[OTHER_GROUP_LABEL]) ordered.push(OTHER_GROUP_LABEL);
+  return { byType: byType, ordered: ordered, modsDisplayTotal: modsDisplayTotal };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2 — Reconstruct sub_groups from flat quote_items rows.
+//
+// In v1.1, each quote_items row is ONE sub-group. Multiple rows with the same
+// sku_code (+ other stable fields) belong to the same logical item.
+//
+// F-CUSTOM (Phase 5): grouping key includes is_custom for safety.
+// ─────────────────────────────────────────────────────────────────────────────
+function reconstructGroupedItems(rawItems) {
+  const itemMap = new Map();
+  const itemOrder = [];
+
+  rawItems.forEach(function (row) {
+    const key = [
+      row.sku_code || '',
+      row.style_code || '',
+      row.style_name || '',
+      String(row.unit_price || 0),
+      row.assemble_status || '',
+      row.is_custom ? '1' : '0',
+      String(row.discount_amount || 0),   // CB-47:折扣不同就不該併成同一列
+    ].join('||');
+
+    if (!itemMap.has(key)) {
+      itemMap.set(key, {
+        sku_code:        row.sku_code,
+        style_code:      row.style_code,
+        style_name:      row.style_name || row.style_code || '—',
+        sku_desc:        row.sku_desc || '',
+        sku_type:        row.sku_type || null,
+        assemble_status: row.assemble_status || 'RTA',
+        unit_price:      parseFloat(row.unit_price || 0),
+        // CB-47 (D13):每 unit 折扣額(快照)。本檔【不重算規則】,只讀這個數字。
+        discount_amount: parseFloat(row.discount_amount || 0),
+        msrp:            row.msrp || null,
+        assemble_fee:    parseFloat(row.assemble_fee || 0),
+        is_custom:       !!row.is_custom,
+        sub_groups:      [],
+      });
+      itemOrder.push(key);
+    }
+
+    const item = itemMap.get(key);
+    item.sub_groups.push({
+      sub_index:           row.sub_index || 1,
+      qty:                 parseInt(row.quantity, 10) || 0,
+      modifications:       Array.isArray(row.modifications) ? row.modifications : [],
+      modification_status: row.modification_status || 'unprocessed',
+    });
+  });
+
+  itemMap.forEach(function (item) {
+    item.sub_groups.sort(function (a, b) { return (a.sub_index || 1) - (b.sub_index || 1); });
+  });
+
+  return itemOrder.map(function (key) { return itemMap.get(key); });
+}
+
+// Group items by style_name, sort within group by sku_type rank.
+function groupAndSortByStyle(groupedItems) {
+  const byStyle = {};
+  groupedItems.forEach(function (item) {
+    const k = item.style_name || item.style_code || '—';
+    if (!byStyle[k]) byStyle[k] = [];
+    byStyle[k].push(item);
+  });
+  Object.keys(byStyle).forEach(function (k) {
+    byStyle[k].sort(function (a, b) {
+      const ra = TYPE_ORDER.indexOf((a.sku_type || '').toUpperCase());
+      const rb = TYPE_ORDER.indexOf((b.sku_type || '').toUpperCase());
+      return (ra === -1 ? 99 : ra) - (rb === -1 ? 99 : rb);
+    });
+  });
+  return byStyle;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-22 (2026-06-11): Order List type-group 排序 — 業務指定固定順序。
+//   廢棄 CB-7 的（BASE 最前 / ACCESSORIES 最後 / 中間字母序）。
+//   改為依 construction 走固定清單；不在清單的 type → OTHER，放最後。
+//   組內排序維持 style_code 字母序 stable sort（CB-7 行為不變）。
+//   空 group 仍只在有 item 時才 push。
+//   ⚠ 三檔逐字同步：new-quote-step3.html / quote-detail.html / pdf-builder.js
+// ─────────────────────────────────────────────────────────────────────────────
+const FRAMED_TYPE_ORDER    = ['BASE','WALL','TALL','DOOR & FRAME','BOX','ROLL OUT TRAY','ACCESSORIES'];
+const FRAMELESS_TYPE_ORDER = ['BASE','VANITY','WALL','TALL','MBOX','ROLL OUT TRAY','PANELS','MOLDINGS'];
+const OTHER_GROUP_LABEL    = 'OTHER';
+
+function getTypeOrder(constructionType) {
+  return (String(constructionType || '').toLowerCase() === 'frameless')
+    ? FRAMELESS_TYPE_ORDER
+    : FRAMED_TYPE_ORDER;   // 預設 framed
+}
+
+// 掃第一個能在 door_styles 對到的 item，取其 construction_type 當整單依據。
+// （frameless / framed 不混單；accessory / custom 對不到 → 跳過；全對不到 → framed）
+function resolveQuoteConstructionType(items, doorStyles) {
+  if (!Array.isArray(items) || !Array.isArray(doorStyles)) return 'framed';
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (!it || !it.style_code) continue;
+    const ds = doorStyles.find(function (d) { return d.style_code === it.style_code; });
+    if (ds && ds.construction_type) return String(ds.construction_type).toLowerCase();
+  }
+  return 'framed';
+}
+
+function groupByTypeOrdered(data, constructionType) {
+  const order    = getTypeOrder(constructionType).map(function (t) { return t.toUpperCase(); });
+  const orderSet = new Set(order);
+
+  const buckets = {};
+  (data || []).forEach(function (item) {
+    let t = (item.sku_type || OTHER_GROUP_LABEL).toUpperCase();
+    if (!orderSet.has(t)) t = OTHER_GROUP_LABEL;   // 不在清單 → 併入 OTHER
+    if (!buckets[t]) buckets[t] = [];
+    buckets[t].push(item);
+  });
+
+  Object.keys(buckets).forEach(function (t) {
+    buckets[t].sort(function (a, b) {
+      const sa = String(a.style_code || '').toUpperCase();
+      const sb = String(b.style_code || '').toUpperCase();
+      if (sa < sb) return -1;
+      if (sa > sb) return 1;
+      return 0;  // 同 style_code → stable sort 保留原順序
+    });
+  });
+
+  const result = [];
+  order.forEach(function (t) {
+    if (buckets[t] && buckets[t].length) result.push({ type: t, items: buckets[t] });
+  });
+  if (buckets[OTHER_GROUP_LABEL] && buckets[OTHER_GROUP_LABEL].length) {
+    result.push({ type: OTHER_GROUP_LABEL, items: buckets[OTHER_GROUP_LABEL] });
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F4.1 v2.1 — Render mods inside Description column (NO fees).
+//
+// F-HIDDEN-MODS (2026-05-18): Filter mods via isHiddenMod() BEFORE empty-check.
+// ─────────────────────────────────────────────────────────────────────────────
+function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
+  const rawMods     = Array.isArray(sub.modifications) ? sub.modifications : [];
+  const visibleMods = rawMods.filter(function (m) { return !isHiddenMod(m); });
+  const status = sub.modification_status || 'unprocessed';
+
+  if (!visibleMods.length) {
+    if (rawMods.length > 0) {
+      return '';
+    }
+    if (status === 'skipped' || status === 'configured') {
+      return '';
+    }
+    return `<div class="mods-list"><span class="mod-status-unprocessed">${escapeHtml(pcTxt('nq3.mods.pending', '⚠ Modifications pending'))}</span></div>`;
+  }
+
+  const lines = visibleMods.map(function (m) {
+    const label = m.display_label || m.mf_code || 'Modification';
+    // CB-12: Matching Interior(required MF03)— value 決定顯示文字
+    const isRequiredMf03 = m.mf_code === 'MF03' && (m.value === 'yes' || m.value === 'no');
+    const effectiveLabel = (isRequiredMf03 && m.value === 'no' && m.no_label)
+      ? m.no_label
+      : label;
+    const useNotes = shouldUseNotesTable(m);
+
+    if (useNotes) {
+      notesIndex.counter += 1;
+      const noteNum = notesIndex.counter;
+      notesCollector.push({
+        num:        noteNum,
+        skuCode:    itemContext.sku_code,
+        subIndex:   sub.sub_index || 1,
+        subTotal:   itemContext.totalSubs,
+        mfCode:     m.mf_code || '',
+        label:      label,
+        content:    formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)'),
+      });
+      return `<div class="mod-line">${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
+    }
+
+    const value = formatModValue(m.value);
+    const valStr = (!isRequiredMf03 && value) ? `: ${escapeHtml(value)}` : '';   // CB-12
+    // CB-25: 材料金額子行(N × MappingSKU: $...)移除 — material 改在獨立 mapping SKU row 顯示。
+    //        此處只保留 mod 說明文字(label[: value]),金額不再出現在父 row 子項。
+    return `<div class="mod-line">${escapeHtml(effectiveLabel)}${valStr}</div>`;   // CB-12
+  });
+
+  return `<div class="mods-list">${lines.join('')}</div>`;
+}
+
+function renderNotesTable(notes) {
+  if (!notes.length) return '';
+  const rows = notes.map(function (n) {
+    const subSuffix = (n.subTotal > 1) ? ` (Sub ${n.subIndex}/${n.subTotal})` : '';
+    return `
+      <tr>
+        <td class="note-num">№${n.num}</td>
+        <td class="note-item">${escapeHtml(n.skuCode)}${escapeHtml(subSuffix)}</td>
+        <td class="note-mf">${escapeHtml(n.label)}${n.mfCode ? ` <span style="color:#bbb;">(${escapeHtml(n.mfCode)})</span>` : ''}</td>
+        <td class="note-content">${escapeHtml(n.content)}</td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="notes-table-wrap">
+      <div class="notes-table-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+        Modification Notes &amp; Custom Details
+      </div>
+      <table class="notes-table">
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Item</th>
+            <th>Modification</th>
+            <th>Detail / Note</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build the full items table HTML + collect notes.
+// Returns { rowsHtml, notes }
+//
+// F-CUSTOM (Phase 5): Custom items get a gold [CUSTOM] badge next to SKU code.
+// F-COL-ABBREVIATIONS (2026-05-21): Type / Asm Status use 3-letter codes.
+// F-LINE-TOTAL-INCLUDES-ASM (2026-05-21): Total = Unit + Mod + Asm.
+// ─────────────────────────────────────────────────────────────────────────────
+function buildItemRowsHtml(groupedItems) {
+  const _constructionType = resolveQuoteConstructionType(groupedItems, _allDoorStyles);  // CB-22
+
+  let itemNum = 0;
+  const rows = [];
+  const notes = [];
+  const notesIndex = { counter: 0 };
+
+  // ── CB-25 改動 A:三層分組 ───────────────────────────────────────────────
+  // Tier1: Assembled → Unassembled(Assembled 在上);quote-detail 以 item.assemble_status==='RTA' 判斷未組裝。
+  // Tier2: 各 section 內依 style_code 字母序。
+  // Tier3: 各 style 內沿用 CB-22 groupByTypeOrdered(type 順序不變)。
+  // 空 section / 空 style / 空 type 一律不顯示。itemNum 全程連續、divider 不佔號。
+  const sections = [
+    { label: 'ASSEMBLED',   items: groupedItems.filter(function (it) { return it.assemble_status !== 'RTA'; }) },
+    { label: 'UNASSEMBLED', items: groupedItems.filter(function (it) { return it.assemble_status === 'RTA'; }) },
+  ];
+
+  sections.forEach(function (section) {
+    if (!section.items.length) return;  // 空 section 不顯示
+
+    // CB-31 改動A:隱藏 Assembled/Unassembled divider（保留程式,日後移除註解即可 unhide）
+    // rows.push(`
+    //   <tr class="section-divider">
+    //     <td colspan="10">===== ${escapeHtml(section.label)} =====</td>
+    //   </tr>`);
+
+    // Tier2: style_code 字母序分組
+    const byStyle = {};
+    section.items.forEach(function (it) {
+      const sk = String(it.style_code || '').toUpperCase();
+      (byStyle[sk] || (byStyle[sk] = [])).push(it);
+    });
+
+    Object.keys(byStyle).sort().forEach(function (styleKey) {
+      const styleItems = byStyle[styleKey];
+      if (!styleItems.length) return;  // 空 style 不顯示
+      // CB-31 改動B:Door Style divider 顯示 style_name 全名,空值 fallback style_code
+      const styleLabel = styleItems[0].style_name || styleItems[0].style_code || '—';
+
+      rows.push(`
+        <tr class="style-divider">
+          <td colspan="10">--- ${escapeHtml(styleLabel)} ---</td>
+        </tr>`);
+
+      // Tier3: CB-22 type 分組(原封沿用)
+      const typeGroups = groupByTypeOrdered(styleItems, _constructionType);
+
+      typeGroups.forEach(function (group) {
+        // CB-7 / CB-9: 橫跨 10 欄的 type divider，不佔 Item 編號
+        rows.push(`
+          <tr class="type-divider">
+            <td colspan="10">========== ${escapeHtml(group.type)} ==========</td>
+          </tr>`);
+
+        group.items.forEach(function (item) {
+          const subs = item.sub_groups;
+          const isSplit = subs.length > 1;
+          const isCustom = !!item.is_custom;
+
+          // 父 row SKU 前綴:BOX / ROLL OUT TRAY 不加(CB-23 #1)。注意此頁欄位為 sku_type(蛇底線)
+          const _noPrefixType = (item.sku_type || '').toUpperCase();
+          const _skipStylePrefix = (_noPrefixType === 'BOX' || _noPrefixType === 'ROLL OUT TRAY');
+          const skuPrefix = (item.style_code && !_skipStylePrefix) ? escapeHtml(item.style_code) + '-' : '';
+
+          // CB-25: 反查父 item 的 construction(quote_items 無此欄),供 mapping 查表用
+          let _itemCt = 'framed';
+          if (item.style_code && Array.isArray(_allDoorStyles)) {
+            const _ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
+            if (_ds && _ds.construction_type) _itemCt = String(_ds.construction_type).toLowerCase();
+          }
+
+          subs.forEach(function (sub, subIdx) {
+            itemNum++;
+            const parentNum  = itemNum;          // CB-25: mapping row 用 parentNum.N 編號
+            const isFirstSub = subIdx === 0;
+            const subQty     = parseInt(sub.qty, 10) || 0;
+
+            // ── CB-25 改動 B:分離父 row Mod Fee 與 mapping rows ──────────────
+            // 父 row Mod Fee 只留「未搬走的成本」(工本費 + 無 mapping 的 material);
+            // 有 mapping_sku 的 material 搬到獨立 mapping row(Total = 材料費)。
+            const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+            let parentPerSubModCost = 0;
+            const mappingList = [];
+            mods.forEach(function (m) {
+              const c  = parseFloat(m && m.cost);
+              const mt = parseFloat(m && m.material_cost);
+              const mq = parseInt(m && m.mapping_qty, 10) || 0;
+              const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+              parentPerSubModCost += (isNaN(c) ? 0 : c);
+              if (hasMapping) {
+                const matPerSub = isNaN(mt) ? 0 : mt;   // 每 sub-unit 材料費
+                mappingList.push({
+                  code:  m.mapping_sku,
+                  qty:   mq * subQty,
+                  unit:  mq > 0 ? (matPerSub / mq) : 0,
+                  total: matPerSub * subQty,
+                });
+              } else {
+                parentPerSubModCost += (isNaN(mt) ? 0 : mt);  // 防呆:無 mapping 的 material 留父 row
+              }
+            });
+
+            const modFeeTotal  = parentPerSubModCost * subQty;
+            const skuLineTotal = item.unit_price * subQty;   // CB-25 改動 C:Total 折前(本頁本就用 snapshot 原價)
+            const asmFeeTotal  = (item.assemble_fee || 0) * subQty;
+            const lineTotal    = skuLineTotal + modFeeTotal + asmFeeTotal;
+
+            const subLabelHtml = isSplit
+              ? `<br><span class="sub-label">Sub ${subIdx + 1} of ${subs.length}</span>`
+              : '';
+            const customBadgeHtml = (isCustom && isFirstSub)
+              ? `<span class="custom-badge">CUSTOM</span>`
+              : '';
+
+            // CB-9: Tag 只在主行(第一個 sub)顯示,子項留空
+            const tagCellHtml = escapeHtml(getTagForItem(item));
+
+            const itemContext = { sku_code: item.sku_code, totalSubs: subs.length };
+            const modsBlockHtml = renderModsBlock(sub, notesIndex, notes, itemContext);
+
+            // CB-11 任務B: DOOR & FRAME 固定顯示「Hinge not included」(此頁欄位為 sku_type)
+            const hingeNoteHtml = ((item.sku_type || '').toUpperCase() === 'DOOR & FRAME')
+              ? `<div class="hinge-note">${escapeHtml(pcTxt('nq3.hinge_note', 'Hinge not included'))}</div>`
+              : '';
+
+            // 🆕 補上父 row Description(對齊 mapping row 的 mapDescCell)
+            const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
+            
+            // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
+            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
+
+            const assembledHtml = (item.assemble_status === 'RTA' ? 'No' : 'Yes');
+            const trClass = isFirstSub ? '' : 'sub-continuation';
+
+            const modFeeCellHtml = modFeeTotal > 0
+              ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
+              : '<span style="color:var(--muted);">—</span>';
+
+            const asmFeeCellHtml = asmFeeTotal > 0
+              ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
+              : '<span style="color:var(--muted);">—</span>';
+
+            rows.push(`
+              <tr class="${trClass}">
+                <td style="font-size:11px;color:var(--muted);font-weight:500;white-space:nowrap;">#${parentNum}</td>
+                <td style="font-size:12px;white-space:nowrap;">${tagCellHtml}</td>
+                <td class="td-right">${subQty}</td>
+                <td class="td-sku">${skuCellHtml}</td>
+                <td class="td-desc">${descCellHtml}</td>
+                <td style="font-size:12px;">${assembledHtml}</td>
+                <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+                <td class="td-right">${modFeeCellHtml}</td>
+                <td class="td-right">${asmFeeCellHtml}</td>
+                <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+              </tr>`);
+
+            // ── CB-25 改動 B:mapping SKU 獨立 row,緊跟父 row,編號 parentNum.N ──
+            mappingList.forEach(function (map, k) {
+              const info = getMappingSkuInfo(map.code, _itemCt);
+              const mt2 = (info.type || '').toUpperCase();
+              const mapSkip = (mt2 === 'BOX' || mt2 === 'ROLL OUT TRAY');   // CB-23 #1:mapping 也適用
+              const mapPrefix = (item.style_code && !mapSkip) ? escapeHtml(item.style_code) + '-' : '';
+              const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}`;
+              const mapDescCell = info.description ? `<div class="desc-main">${escapeHtml(info.description)}</div>` : '';
+
+              rows.push(`
+                <tr class="mapping-row">
+                  <td>#${parentNum}.${k + 1}</td>
+                  <td style="font-size:12px;white-space:nowrap;">${escapeHtml(info.tag)}</td>
+                  <td class="td-right">${map.qty}</td>
+                  <td class="td-sku">${mapSkuCell}</td>
+                  <td class="td-desc">${mapDescCell}</td>
+                  <td style="font-size:12px;color:var(--muted);">—</td>
+                  <td class="td-right">$${map.unit.toFixed(2)}</td>
+                  <td class="td-right"><span style="color:var(--muted);">—</span></td>
+                  <td class="td-right"><span style="color:var(--muted);">—</span></td>
+                  <td class="td-right td-total">$${map.total.toFixed(2)}</td>
+                </tr>`);
+            });
+          });
+        });
+      });
+    });
+  });
+
+  return { rowsHtml: rows.join(''), notes: notes };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// init / load
+// ─────────────────────────────────────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  const params  = new URLSearchParams(window.location.search);
+  const quoteId = params.get('id');
+  if (!quoteId) {
+    showError(pcTxt('qd.err.no_id', 'No quote ID provided.'), 'qd.err.no_id', 'No quote ID provided.');
     return;
   }
 
-  tbody.innerHTML = quotes.map(q => {
-    const sc         = statusClass[q.status] || 'pending';
-    // CB-56: display-only label,由 status-label.js 提供;查無則 fallback 回 DB 原值。
-    const statusText = pcQuoteStatusLabel(q.status);
-    const isDraft    = q.status === 'Draft';
-    const isReturned = q.status === 'Returned';
-    const isPending  = q.status === 'Pending';
-    const safePo     = escapeHtml(q.po_number || q.draft_number || '—');  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
-    const safeJob    = escapeHtml(q.job_name || '—');
+  const { data: quote, error: qErr } = await _supabase
+    .from('quotes').select('*, quote_items(*)').eq('id', quoteId).single();
+  if (qErr || !quote) {
+    showError(pcTxt('qd.err.not_found', 'Quote not found.'), 'qd.err.not_found', 'Quote not found.');
+    return;
+  }
 
-    if (isDraft) {
-      // Draft row — whole row NOT clickable, only the action buttons
-      return `
-        <tr class="row-draft">
-          <td>
-            <div class="td-po">${safePo}</div>
-            <div class="td-job">${safeJob}</div>
-          </td>
-          <td class="td-date">${formatDate(q.created_at)}</td>
-          <td class="td-amount draft-dash r">—</td>
-          <td><span class="status-badge ${sc}">${statusText}</span></td>
-          <td class="draft-actions-cell">
-            <div class="draft-actions-wrap">
-              <a class="btn-edit-draft" href="new-quote.html?draft=${q.id}">${escapeHtml(pcTxt('quotes.row.continue', '\u270E Continue'))}</a>
-              <button class="btn-delete-draft js-delete-draft"
-                      data-quote-id="${q.id}"
-                      data-job-name="${escapeHtml(q.job_name || '—')}"
-                      title="${escapeHtml(pcTxt('quotes.row.delete_draft', 'Delete draft'))}"
-                      aria-label="${escapeHtml(pcTxt('quotes.row.delete_draft', 'Delete draft'))}">
-                <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-              </button>
-            </div>
-          </td>
-        </tr>`;
-    }
+  const { data: me } = await _supabase.from('dealers').select('company_name, role').eq('id', session.user.id).single();
+  const isAdmin = ['admin','super_admin'].includes(me?.role);
+  _isAdmin = isAdmin;
 
-    // Returned row — clickable，加 "Action Required" 標籤、淡橘色背景
-    if (isReturned) {
-      return `
-        <tr class="row-returned" onclick="window.location.href='quote-detail.html?id=${q.id}'">
-          <td>
-            <div class="td-po">${safePo}</div>
-            <div class="td-job">${safeJob}</div>
-            <div class="action-required-tag">${escapeHtml(pcTxt('quotes.row.action_required', '\u26A0 Action Required'))}</div>
-          </td>
-          <td class="td-date">${formatDate(q.created_at)}</td>
-          <td class="td-amount r">${fmt(q.grand_total)}</td>
-          <td><span class="status-badge ${sc}">${statusText}</span></td>
-          <td class="arrow-cell">→</td>
-        </tr>`;
-    }
-
-    // CB-43 T6: Pending row — 整列可點進 detail;Pay Now 帶 stopPropagation 於 target 階段攔截冒泡
-    if (isPending) {
-      return `
-        <tr class="row-clickable" onclick="window.location.href='quote-detail.html?id=${q.id}'">
-          <td>
-            <div class="td-po">${safePo}</div>
-            <div class="td-job">${safeJob}</div>
-          </td>
-          <td class="td-date">${formatDate(q.created_at)}</td>
-          <td class="td-amount r">${fmt(q.grand_total)}</td>
-          <td><span class="status-badge ${sc}">${statusText}</span></td>
-          <td class="draft-actions-cell">
-            <a class="btn-pay-now" href="payment.html?quote_id=${q.id}" onclick="event.stopPropagation()">${escapeHtml(pcTxt('quotes.row.pay_now', 'Pay Now'))}</a>
-          </td>
-        </tr>`;
-    }
-
-    // Regular row — whole row clickable
-    return `
-      <tr class="row-clickable" onclick="window.location.href='quote-detail.html?id=${q.id}'">
-        <td>
-          <div class="td-po">${safePo}</div>
-          <div class="td-job">${safeJob}</div>
-        </td>
-        <td class="td-date">${formatDate(q.created_at)}</td>
-        <td class="td-amount r">${fmt(q.grand_total)}</td>
-        <td><span class="status-badge ${sc}">${statusText}</span></td>
-        <td class="arrow-cell">→</td>
-      </tr>`;
-  }).join('');
-}
-
-function applyFilters() {
-  const status = document.getElementById('filterStatus').value;
-  const from   = document.getElementById('filterFrom').value;
-  const to     = document.getElementById('filterTo').value;
-  const search = document.getElementById('filterSearch').value.trim();  // 雙編號制: 保留原樣,D/P 判斷需要
-
-  let filtered = allQuotes;
-  if (status) filtered = filtered.filter(q => q.status === status);
-  if (from)   filtered = filtered.filter(q => q.created_at >= from);
-  if (to)     filtered = filtered.filter(q => q.created_at <= to + 'T23:59:59');
-  if (search) {
-    // 選項 C 混合搜尋: 完整編號(D/P + 5碼)精確比對;否則模糊比對兩個編號 + Job Name
-    if (/^D\d{5}$/i.test(search)) {
-      filtered = filtered.filter(q => (q.draft_number || '').toUpperCase() === search.toUpperCase());
-    } else if (/^PDC\d{5}$/i.test(search)) {
-      filtered = filtered.filter(q => (q.po_number || '').toUpperCase() === search.toUpperCase());
+  // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
+  // pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好(共用電腦情境)。
+  // typeof 防護針對版本錯配(新 HTML + 快取舊 i18n.js),故以 console.error 明確報錯。
+  if (isAdmin) {
+    if (typeof window.pcForceLang === 'function') {
+      window.pcForceLang('en');
     } else {
-      const s = search.toLowerCase();
-      filtered = filtered.filter(q =>
-        (q.draft_number || '').toLowerCase().includes(s) ||
-        (q.po_number    || '').toLowerCase().includes(s) ||
-        (q.job_name     || '').toLowerCase().includes(s)
-      );
+      console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+      document.documentElement.setAttribute('lang', 'en');
+    }
+  }
+  _me = { company_name: me?.company_name, role: me?.role };   // CB-50: 當下登入者（download stamp 用）
+  if (!isAdmin && quote.dealer_id !== session.user.id) {
+    showError(pcTxt('qd.err.no_permission', 'You do not have permission to view this quote.'),
+      'qd.err.no_permission', 'You do not have permission to view this quote.');
+    return;
+  }
+
+  const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
+  let shippingAddr = null;
+  if (quote.shipping_address_id) {
+    const { data: addr } = await _supabase.from('addresses').select('*').eq('id', quote.shipping_address_id).single();
+    shippingAddr = addr;
+  }
+
+  // ── Admin only: load return history ──
+  if (isAdmin) {
+    const { data: history, error: histErr } = await _supabase
+      .from('quote_return_history')
+      .select('*')
+      .eq('quote_id', quote.id)
+      .order('returned_at', { ascending: false });
+
+    if (histErr) {
+      console.warn('[init] Failed to load return history:', histErr);
+      _returnHistory = [];
+    } else {
+      _returnHistory = history || [];
+
+      const adminIds = [...new Set(_returnHistory.map(h => h.returned_by))];
+      if (adminIds.length > 0) {
+        const { data: admins } = await _supabase
+          .from('dealers')
+          .select('id, contact_name, email')
+          .in('id', adminIds);
+        const adminMap = {};
+        (admins || []).forEach(a => { adminMap[a.id] = a; });
+        _returnHistory.forEach(h => {
+          h._returnedByInfo = adminMap[h.returned_by] || null;
+        });
+      }
     }
   }
 
-  renderTable(sortQuotes(filtered));
+  // F4.1 v2: reconstruct sub_groups from flat quote_items rows
+  _groupedItems = reconstructGroupedItems(quote.quote_items || []);
+
+  // CB-5 需求1: 載入 door_styles(整單 lead time;quote_items 沒有 construction_type/is_stock)
+  // CB-9: 同時載入 skus_framed / skus_frameless 的 tag(Order List Tag 欄查表用)。
+  //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
+  const [styleRes, framedRes, framelessRes] = await Promise.all([
+    _supabase.from('door_styles').select('style_code, construction_type, is_stock').eq('is_active', true),
+    _supabase.from('skus_framed').select('sku_code, tag, type, description, needs_confirmation'),
+    _supabase.from('skus_frameless').select('sku_code, tag, type, description, needs_confirmation'),
+  ]);
+  _allDoorStyles    = styleRes.data     || [];
+  _allSkusFramed    = framedRes.data    || [];
+  _allSkusFrameless = framelessRes.data || [];
+
+  // F-CUSTOM (Phase 5): debug log for custom item count
+  const customCount = _groupedItems.filter(i => i.is_custom).length;
+  if (customCount > 0) {
+    console.log('[F-CUSTOM] quote-detail: ' + customCount + ' custom item(s) in this quote');
+  }
+
+  // Store for PDF
+  _quote = quote; _dealer = dealer; _addr = shippingAddr;
+  _loadState = 'ready';
+  renderQuote(quote, dealer, shippingAddr);
 }
 
-function resetFilters() {
-  document.getElementById('filterStatus').value = '';
-  document.getElementById('filterFrom').value   = '';
-  document.getElementById('filterTo').value     = '';
-  document.getElementById('filterSearch').value = '';
-  renderTable(sortQuotes(allQuotes));
+// ── Return History 區塊 HTML(admin only)──
+function buildReturnHistoryHtml() {
+  if (!_isAdmin) return '';
+  if (!_returnHistory || _returnHistory.length === 0) return '';
+
+  const eventsHtml = _returnHistory.map(h => {
+    const adminInfo  = h._returnedByInfo;
+    const adminLabel = adminInfo
+      ? (adminInfo.contact_name || adminInfo.email || 'Unknown admin')
+      : 'Unknown admin';
+
+    return `
+      <div class="return-event">
+        <div class="return-event-head">
+          <span class="return-event-version">v${h.revision_at_return}</span>
+          <span>Revision requested by</span>
+          <span class="return-event-by">${escapeHtml(adminLabel)}</span>
+          <span class="return-event-time">${formatDateTime(h.returned_at)}</span>
+        </div>
+        <div class="return-event-reason">${escapeHtml(h.return_reason || '—')}</div>
+      </div>`;
+  }).join('');
+
+  const count = _returnHistory.length;
+  return `
+    <div class="return-history" id="returnHistorySection">
+      <div class="return-history-header" onclick="toggleReturnHistory()">
+        <div class="return-history-title">
+          <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+          Revision History
+          <span class="return-history-count">${count} event${count !== 1 ? 's' : ''}</span>
+        </div>
+        <span class="return-history-toggle">
+          <span id="returnHistoryToggleText">Show</span>
+          <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+        </span>
+      </div>
+      <div class="return-history-body">
+        <div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:12px;">
+          Internal record — only visible to admins. Dealers cannot see this history.
+        </div>
+        ${eventsHtml}
+      </div>
+    </div>`;
 }
 
-// ── Delete Draft ───────────────────────────────────────────────────
-function openDeleteModal(quoteId, jobName) {
-  pendingDeleteId   = quoteId;
-  pendingDeleteName = jobName || '—';
-  document.getElementById('deleteJobName').textContent = pendingDeleteName;
-  document.getElementById('deleteError').classList.remove('show');
-  document.getElementById('btnDeleteConfirm').classList.remove('loading');
-  document.getElementById('btnDeleteConfirm').disabled = false;
-  document.getElementById('btnDeleteCancel').disabled  = false;
-  document.getElementById('deleteModal').classList.add('show');
+function toggleReturnHistory() {
+  const el = document.getElementById('returnHistorySection');
+  if (!el) return;
+  const isOpen = el.classList.toggle('open');
+  const txt = document.getElementById('returnHistoryToggleText');
+  if (txt) txt.textContent = isOpen ? 'Hide' : 'Show';
 }
 
-function closeDeleteModal() {
-  // Don't close if a delete is currently in flight
-  if (document.getElementById('btnDeleteConfirm').classList.contains('loading')) return;
-  document.getElementById('deleteModal').classList.remove('show');
-  pendingDeleteId   = null;
-  pendingDeleteName = null;
+function renderQuote(quote, dealer, addr) {
+  const sc    = statusClass[quote.status] || 'pending';
+// CB-56: display-only label,由 status-label.js 提供;查無則 fallback 回 DB 原值。
+  const statusText = pcQuoteStatusLabel(quote.status);
+  const isReturned = quote.status === 'Returned';
+
+  // Back link target — admin → admin-quotes, dealer → quotes
+  const backHref  = _isAdmin ? 'admin-quotes.html' : 'quotes.html';
+  const backLabel = _isAdmin
+    ? '← Back to Quotes'                                   // Q-58: admin 專屬,不翻
+    : pcTxt('qd.back_my_quotes', '← Back to My Quotes');
+  const backLinkHtml = `<a href="${backHref}" class="back-link">${backLabel}</a>`;
+
+  // C1: detect pending shipping for display logic
+  const pendingShipping = isPendingShipping(quote);
+
+  // C1: admin edit shipping permission (pickup excluded)
+  const canAdminEditShipping = _isAdmin
+    && SHIPPING_EDIT_ALLOWED_STATUSES.includes(quote.status)
+    && quote.logistic_type !== 'pickup';
+
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-4: Admin "Edit" button — entry point for the new revision flow.
+  //
+  // Shows when admin views a Pending or Returned quote. Clicking takes
+  // admin to Step 1 in admin-edit mode, where edits are buffered in
+  // sessionStorage until Step 3's "Request Revision" writes to DB.
+  //
+  // Pending  → admin edits a freshly-submitted PO, then Request Revision
+  // Returned → admin re-edits a previously-returned PO (customer asked
+  //            for more changes after dealer was about to resubmit)
+  // ─────────────────────────────────────────────────────────────────────
+  const canAdminEdit = _isAdmin && ADMIN_EDIT_ALLOWED_STATUSES.includes(quote.status);
+  const adminEditButtonHtml = canAdminEdit ? `
+    <a href="new-quote.html?draft=${quote.id}&mode=admin-edit" class="btn-action admin-edit">
+      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      Edit
+    </a>` : '';
+
+  // ── CB-36: Internal Draft 的 Edit 入口(僅 admin + status=Draft + 未通知 dealer)──
+  // 導向 admin-draft 流程(?adminDraft=1),讓 admin 重新走 1→2→mod→3,step3 出現三按鈕。
+  // 已通知的 Draft(admin_notified_at 有值)不顯示 — 那張等同 dealer 的,由 dealer 自己 Continue。
+  const canEditInternalDraft = _isAdmin && quote.status === 'Draft' && quote.admin_notified_at == null;
+  const internalDraftEditButtonHtml = canEditInternalDraft ? `
+    <button class="btn-action admin-edit" onclick="editInternalDraft()">
+      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      Edit
+    </button>` : '';
+
+  // ── CB-43 T14-2: 放行按鈕(僅 admin + status='Stock Review')──
+  // dealer 絕對看不到 —— 放行是內部動作(sales 確認庫存)。
+  // 這是 Stock Review → Pending 的唯一路徑:admin-quotes.html 的 Stock Review
+  // dropdown 已刻意排除 Pending(T14-1 R1),按鈕缺席 = 單子永遠卡住。
+  const canReleaseStock = _isAdmin && quote.status === 'Stock Review';
+  const releaseStockButtonHtml = canReleaseStock
+    ? `<button id="releaseStockBtn" class="btn-action stock-release" onclick="releaseStock()">${RELEASE_BTN_INNER}</button>`
+    : '';
+
+  // ── CB-55 / CB-59: Fulfilled 按鈕(admin + super_admin + status='Order Processing')──
+  // CB-59 將 CB-55 原本的 super_admin only 放寬為 admin + super_admin;
+  // dealer 仍絕對看不到。階段 0 已實測 admin 的 JWT 可通過
+  // admin_update_all_quotes 且不被 F2 trigger 擋,故此處放寬即可。
+  // 這裡的條件只決定「要不要渲染」;真正的授權與狀態守衛在 order-complete.js
+  // 與 DB 的 .eq('status',...) 兩層,前端渲染條件不是安全邊界。
+  const canFulfillOrder = _isAdmin && quote.status === 'Order Processing';
+  const fulfillOrderButtonHtml = canFulfillOrder
+    ? `<button id="fulfillOrderBtn" class="btn-action order-fulfill" onclick="fulfillOrder()">${FULFILL_BTN_INNER}</button>`
+    : '';
+
+// ── Ship To 區塊(5 檔鏡像同一份 resolver)──
+  const PROCRAFT_PICKUP_LINES = [
+    'ProCraft Cabinetry DC LLC',
+    '6750 Santa Barbara Court Suite B',
+    'Elkridge, MD 21075',
+    'Hours: Mon-Fri 8:00 AM - 4:30 PM',
+  ];
+  function resolveShipTo(logisticType, addr) {
+    const t = String(logisticType || '').toLowerCase();
+    if (t === 'pickup') {
+      return { title: 'PICK UP LOCATION', lines: PROCRAFT_PICKUP_LINES.slice() };
+    }
+    const title = (t === 'delivery') ? 'DELIVERY TO' : 'SHIP TO';
+    const a = addr || {};
+    const cityLine = [
+      [a.city, a.state].filter(Boolean).join(', '),
+      a.zip_code
+    ].filter(Boolean).join(' ');
+    const lines = [a.recipient_name, a.address_line, a.address_line2, cityLine, a.phone]
+      .filter(function (l) { return l && String(l).trim(); });
+    return { title: title, lines: lines };
+  }
+
+  // Ship To 新規格:依 logistic_type 決定標題 + 內容(pickup 顯示 ProCraft,忽略地址)
+  const _lt = String(quote.logistic_type || 'pickup').toLowerCase();
+  let _shipAddr = null;
+  if (_lt !== 'pickup') {
+    _shipAddr = addr ? addr : {
+      recipient_name: dealer?.company_name,
+      address_line:   dealer?.address_line1 || '',
+      address_line2:  dealer?.address_line2 || '',
+      city:           dealer?.city || '',
+      state:          dealer?.state || '',
+      zip_code:       dealer?.zip_code || '',
+      phone:          dealer?.phone || '',
+    };
+  }
+  const _shipTo = resolveShipTo(_lt, _shipAddr);
+  const shipToTitle = _shipTo.title;
+  const shippingHtml = _shipTo.lines
+    .map(function (l, i) { return i === 0 ? `<strong>${escapeHtml(l)}</strong>` : escapeHtml(l); })
+    .join('<br>');
+  // ─────────────────────────────────────────────────────────────────────
+  // F4.1 v2: Build items table (11-col) + Notes table from grouped items
+  // ─────────────────────────────────────────────────────────────────────
+  let itemsTableHtml;
+  let notesTableHtml = '';
+  if (_groupedItems && _groupedItems.length) {
+    const result = buildItemRowsHtml(_groupedItems);
+    itemsTableHtml = result.rowsHtml;
+    notesTableHtml = renderNotesTable(result.notes);
+  } else {
+    itemsTableHtml = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">${escapeHtml(pcTxt('qd.items.none', 'No items.'))}</td></tr>`;
+  }
+
+  // CB-5 需求1: 整單 lead time(顯示在 items 表格正下方)
+  const leadTimeHtml = buildLeadTimeHtml(_groupedItems, _allDoorStyles);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // F-TAX: Calculate totals for display.
+  //
+  // quotes.subtotal is the raw SKU subtotal. quotes.grand_total is the final
+  // figure (snapshot). We recompute mod totals live for DISPLAY consistency.
+  //
+  // We do NOT recompute tax or grand — both were snapshotted at submit time.
+  // The snapshot wins. No discount is derived here (see CB-40 removal below).
+  // ─────────────────────────────────────────────────────────────────────────
+  const skuSubtotal       = parseFloat(quote.subtotal || 0);
+  const modsSubtotal      = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
+  const taxableMods       = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
+  const nonTaxableMods    = modsSubtotal - taxableMods;
+
+  // ── CB-27: Modifications by-type 明細 + Subtotal 顯示分桶對齊 CB-25 ──
+  //   只改「顯示」:把 mapping material 從 Modifications 搬到 Subtotal 顯示。
+  //   ⚠ 不動 skuSubtotal / modsSubtotal 兩變數 —— 兩顯示值之和維持不變。
+  const _ct                  = resolveQuoteConstructionType(_groupedItems || [], _allDoorStyles);
+  const modBreakdown         = _groupedItems ? calcModByType(_groupedItems, _ct) : { byType:{}, ordered:[], modsDisplayTotal:0 };
+  const mappingMaterialTotal = modsSubtotal - modBreakdown.modsDisplayTotal;
+
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-47: 折扣顯示。純讀快照 —— quotes.subtotal 已是折【後】淨額,
+  //   折前 = subtotal + discount_total。本檔不做任何規則匹配或金額重算,
+  //   Pending 以上的單因此永遠顯示送出當下的金額(snapshot 原則)。
+  //   舊單 discount_total 為 DEFAULT 0 → 整塊不渲染,畫面與 CB-46 後一致。
+  // ─────────────────────────────────────────────────────────────────────
+  const discountTotal   = parseFloat(quote.discount_total || 0);
+  const appliedRules    = Array.isArray(quote.applied_discount_rules)
+                            ? quote.applied_discount_rules : [];
+  const subtotalNetDisp   = skuSubtotal + mappingMaterialTotal;
+  const subtotalGrossDisp = subtotalNetDisp + discountTotal;
+
+  const discountRowsHtml = (discountTotal > 0)
+    ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div class="asm-breakdown">
+          ${appliedRules.map(function (r) {
+            return `<div class="asm-breakdown-row"><span>${escapeHtml(r.rule_name || pcTxt('qd.sum.discount', 'Discount'))}</span>` +
+                   `<span style="color:#8B6914;">−${fmt(r.discount_total)}</span></div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Total Discount</span>
+        <span class="total-val" style="color:#8B6914;">−${fmt(discountTotal)}</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Subtotal After Discount</span>
+        <span class="total-val">${fmt(subtotalNetDisp)}</span>
+      </div>`
+    : '';
+
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-40 removal (Path B / back-solve) — 2026-07-23
+  //   原此處由 DB 快照反推 discount,供 CB-13 歷史單顯示 Discount 行。
+  //   已完全移除:歷史單結案無人回看,且反推會把「取整落差」誤判為折扣
+  //   (PDC09011 顯示假的 −$0.01)。
+  //   ⚠ 該 1 分落差 root cause 不在本檔,而在 step3 寫入端:tax 與 grand
+  //     各自 toFixed(2),且 grand 用「未取整」的 tax → 一進一捨差 1 分。
+  //     → 追蹤於 CB-46(金額寫入取整策略,P2,CB-43 completion 後動工)。
+  //   ⚠ 未來折扣一律「明確存 DB」(CB-41-lite quote_discounts),禁止再用反推。
+  // ─────────────────────────────────────────────────────────────────────
+
+  // Assemble breakdown by type
+  const byType = {};
+  (quote.quote_items || []).forEach(i => {
+    if ((i.assemble_status || '').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
+    const t = (i.sku_type || 'OTHER').toUpperCase();
+    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
+    byType[t].qty   += i.quantity;
+    byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+  });
+  const assembleTotal = parseFloat(quote.assemble_total || 0);
+  // F-COL-ABBREVIATIONS: use shortType() for the by-type breakdown labels
+  const asmBreakdownHtml = assembleTotal > 0
+    ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
+          <span class="total-label">${escapeHtml(pcTxt('nq3.col.assemble_fee', 'Assemble Fee'))}</span><span class="total-val" style="color:#8B6914;">+${fmt(assembleTotal)}</span>
+        </div>
+        <div class="asm-breakdown">
+          ${TYPE_ORDER.filter(t=>byType[t]).map(t=>
+            `<div class="asm-breakdown-row"><span>${shortType(t)} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
+          ).join('')}
+        </div>
+      </div>`
+    : '';
+
+  // CB-27: Modifications row — 標題 + by-type 明細 + Total(仿 asmBreakdownHtml)
+  const modsRowHtml = modBreakdown.modsDisplayTotal > 0
+    ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
+          <span class="total-label">${escapeHtml(pcTxt('nq3.sum.modifications', 'Modifications'))}</span><span class="total-val" style="color:#8B6914;"></span>
+        </div>
+        <div class="asm-breakdown">
+          ${modBreakdown.ordered.map(t=>
+            `<div class="asm-breakdown-row"><span>${shortType(t)} ×${modBreakdown.byType[t].qty}</span><span style="color:#8B6914;">+${fmt(modBreakdown.byType[t].modFee)}</span></div>`
+          ).join('')}
+          <div class="asm-breakdown-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:4px;"><span>${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</span><span style="color:#8B6914;">+${fmt(modBreakdown.modsDisplayTotal)}</span></div>
+        </div>
+      </div>`
+    : '';
+
+  // C1: Shipping row — handle pending case + admin edit link
+  const freeShip  = !pendingShipping && parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
+  const taxExempt = parseFloat(quote.tax_amount) === 0 && !!(dealer && dealer.tax_exempt);
+
+  const editLinkLabel = pendingShipping ? 'Set Fee' : 'Edit Fee';
+  const adminEditLink = canAdminEditShipping
+    ? `<span class="admin-edit-link" onclick="openShippingEditor()">✎ ${editLinkLabel}</span>`
+    : '';
+
+  const existingShippingValue = (quote.shipping_cost === null || quote.shipping_cost === undefined)
+    ? ''
+    : parseFloat(quote.shipping_cost).toFixed(2);
+
+  let shippingRowHtml;
+  if (pendingShipping) {
+    shippingRowHtml = `
+      <div class="total-row">
+        <span class="total-label">
+          Shipping
+          <span class="pending-tag">${escapeHtml(pcTxt('qd.ship.awaiting', '⚠ Awaiting Sales confirmation'))}</span>
+          ${adminEditLink}
+        </span>
+        <span class="total-val pending">Contact Sales Team</span>
+      </div>`;
+  } else {
+    shippingRowHtml = `
+      <div class="total-row">
+        <span class="total-label">
+          ${escapeHtml(pcTxt('nq3.sum.shipping', 'Shipping'))}${freeShip ? ' <span class="free-tag">' + escapeHtml(pcTxt('qd.ship.free', '✓ Free')) + '</span>' : ''}
+          ${adminEditLink}
+        </span>
+        <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
+      </div>`;
+  }
+
+  const shippingEditorHtml = canAdminEditShipping ? `
+    <div class="admin-shipping-editor" id="shippingEditor">
+      <span class="editor-label">Set Shipping</span>
+      <span class="editor-currency-prefix">$</span>
+      <input type="number" id="shippingInput" min="0" step="0.01" placeholder="0.00" value="${existingShippingValue}"/>
+      <button class="editor-btn save" id="shippingSaveBtn" onclick="saveShipping()">Save</button>
+      <button class="editor-btn cancel" onclick="closeShippingEditor()">Cancel</button>
+      <div class="editor-hint">
+        Enter the shipping fee for this quote. Use 0 for free shipping. The dealer will see this value.
+        After saving, return the quote so the dealer can review and resubmit.
+      </div>
+      <div class="editor-error" id="shippingEditorError" style="display:none;"></div>
+    </div>` : '';
+
+  // F-TAX: Tax row with taxable base detail (if partially taxable)
+  let taxRowHtml;
+  if (taxExempt) {
+    taxRowHtml = `
+      <div class="total-row">
+        <span class="total-label">${escapeHtml(pcTxt('nq3.sum.tax', 'Tax'))} <span class="exempt-tag">${escapeHtml(pcTxt('qd.tax.exempt', '✓ Exempt'))}</span></span>
+        <span class="total-val">${fmt(quote.tax_amount)}</span>
+      </div>`;
+  } else {
+    // Build tax detail note (if mods are partially taxable)
+    // tax base = SKU + taxable mods
+    let taxDetailHtml = '';
+    if (modsSubtotal > 0 && nonTaxableMods > 0.005) {
+      const taxBase = skuSubtotal + taxableMods;
+      taxDetailHtml = `<div class="tax-note-detail">Taxable base: ${fmt(taxBase)} (excludes ${fmt(nonTaxableMods)} non-taxable mods)</div>`;
+    }
+    taxRowHtml = `
+      <div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
+        <div style="display:flex;justify-content:space-between;">
+          <span class="total-label">Tax</span>
+          <span class="total-val">${fmt(quote.tax_amount)}</span>
+        </div>
+        ${taxDetailHtml}
+      </div>`;
+  }
+
+  // C1: Pending grand total footnote
+  const pendingFootnote = pendingShipping
+    ? `<div class="pending-grand-note">* Shipping fee pending — final total will be confirmed by Sales</div>`
+    : '';
+
+  // ── Item 7: 依 status 渲染下載按鈕 ──
+  let downloadButtonsHtml;
+  if (quote.status === 'Draft') {
+    downloadButtonsHtml = `
+      <button class="btn-action" onclick="downloadDraftQuote()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        ${escapeHtml(pcTxt('qd.btn.download_draft', 'Download Draft Quote'))}
+      </button>`;
+  } else {
+    // F9: Packing List 僅 admin / super_admin 可見,dealer 端不 render。
+    //     Invoice 不受影響,dealer 仍可下載。
+    const packingListButtonHtml = _isAdmin
+      ? `
+      <button class="btn-action secondary" onclick="downloadPackingList()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        Download Packing List
+      </button>`
+      : '';
+    downloadButtonsHtml = `${packingListButtonHtml}
+      <button class="btn-action" onclick="downloadInvoice()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        ${escapeHtml(pcTxt('qd.btn.download_invoice', 'Download Invoice'))}
+      </button>`;
+  }
+
+  // CB-43 T6: Pay Now — dealer 端、僅 Pending 顯示。付款失敗由 T8 退回 Pending 後按鈕自然重現。
+  const payNowButtonHtml = (!_isAdmin && quote.status === 'Pending')
+      ? `
+        <a class="btn-action" href="payment.html?quote_id=${quote.id}">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          ${escapeHtml(pcTxt('qd.btn.pay_now', 'Pay Now'))}
+        </a>`
+      : '';
+  
+    // CB-43 T15: Continue Payment — dealer 端、Payment Processing 顯示,連回 payment.html 續付同一張 invoice(同一筆 QBO link)。
+    const continuePaymentButtonHtml = (!_isAdmin && quote.status === 'Payment Processing')
+      ? `
+        <a class="btn-action" href="payment.html?quote_id=${quote.id}">
+          <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          ${escapeHtml(pcTxt('qd.btn.continue_payment', 'Continue Payment'))}
+        </a>`
+      : '';
+
+    // CB-45: Download Receipt — 已付款後顯示;admin/dealer 皆可(憑證性質,Q3)。
+    // CB-55 B-2:條件放寬納入 'Order Completed'。原本寫死 === 'Order Processing',
+    //   單子一轉終局態按鈕就消失 → 感謝信裡「open your order and click Download
+    //   Receipt」的指示會撲空,dealer 拿不到憑證。
+    //   downloadReceipt() 內部只查 payments.status='confirmed',不讀 quote.status,
+    //   故內部邏輯零改動。
+    const receiptButtonHtml = ['Order Processing', 'Order Completed'].includes(quote.status)
+      ? `
+        <button class="btn-action" onclick="downloadReceipt()">
+          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+          ${escapeHtml(pcTxt('qd.btn.download_receipt', 'Download Receipt'))}
+        </button>`
+      : '';
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-4: Returned banner — differs by viewer role.
+  //
+  // Dealer view: shows "Review & Resubmit" button → opens Step 1 in
+  //              read-only review mode. Markup % remains editable in step3.
+  // Admin view:  no button (admin uses the "Edit" button in the header to
+  //              re-enter admin-edit mode if a further revision is needed).
+  //              Banner becomes pure informational.
+  // ─────────────────────────────────────────────────────────────────────
+  let returnedBannerHtml = '';
+  if (isReturned) {
+    const reasonText = quote.return_reason
+      ? escapeHtml(quote.return_reason)
+      : '<span style="color:var(--muted);font-style:italic;">' + escapeHtml(pcTxt('qd.banner.no_reason', 'No reason provided.')) + '</span>';
+
+    let bannerActionHtml = '';
+    if (!_isAdmin) {
+      // Dealer-facing: Review & Resubmit
+      bannerActionHtml = `
+        <a href="new-quote.html?draft=${quote.id}&mode=review" class="btn-action review-resubmit">
+          <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          ${escapeHtml(pcTxt('qd.btn.review_resubmit', 'Review & Resubmit'))}
+        </a>`;
+    } else {
+      // Admin view: informational only. Edit button lives in the header.
+      bannerActionHtml = `
+        <span class="return-banner-meta">
+          Revision was sent to the dealer. They will review and resubmit. To make further changes, use the Edit button above.
+        </span>`;
+    }
+
+    returnedBannerHtml = `
+      <div class="return-banner">
+        <div class="return-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        </div>
+        <div class="return-banner-body">
+          <div class="return-banner-title">${escapeHtml(pcTxt('qd.banner.revision_requested', 'Revision Requested'))}</div>
+          <div class="return-banner-msg">${reasonText}</div>
+          <div class="return-banner-action">
+            ${bannerActionHtml}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Return History（admin only）──
+  const returnHistoryHtml = buildReturnHistoryHtml();
+
+  document.getElementById('pageContent').innerHTML = `
+    ${backLinkHtml}
+    ${returnedBannerHtml}
+    ${returnHistoryHtml}
+    <div class="quote-header">
+      <div>
+        <div class="quote-number">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div>
+        <div class="quote-date">Submitted ${formatDate(quote.created_at)}</div>
+      </div>
+      <div class="header-right">
+        <span class="status-badge ${sc}">${statusText}</span>
+        ${payNowButtonHtml}
+        ${continuePaymentButtonHtml}
+        ${adminEditButtonHtml}
+        ${internalDraftEditButtonHtml}
+        ${releaseStockButtonHtml}
+        ${fulfillOrderButtonHtml}
+        ${downloadButtonsHtml}
+        ${receiptButtonHtml}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">${escapeHtml(pcTxt('nq3.sec.order_info', 'Order Information'))}</span></div>
+      <div class="card-body">
+        <div class="info-grid">
+          <div><div class="info-label">${escapeHtml(quote.po_number ? pcTxt('nq3.field.po_number', 'PO Number') : pcTxt('nq1.field.draft_id', 'Draft ID'))}</div><div class="info-value">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.job_name', 'Job Name'))}</div><div class="info-value">${escapeHtml(quote.job_name||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.dealer', 'Dealer'))}</div><div class="info-value">${escapeHtml(dealer?.company_name||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.contact', 'Contact'))}</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('qd.field.logistic', 'Logistic'))}</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('qd.field.status', 'Status'))}</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${statusText}</span></div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('qd.field.fulfillment_date', 'Fulfillment Date'))}</div><div class="info-value">${formatDateOnly(quote.fulfillment_date)}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">${shipToTitle}</span></div>
+      <div class="card-body"><div class="info-value">${shippingHtml}</div>${leadTimeHtml}</div>
+    </div>
+
+    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">${escapeHtml(pcTxt('nq3.sec.notes', 'Notes'))}</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${escapeHtml(quote.notes)}</div></div></div>` : ''}
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">${escapeHtml(pcTxt('nq3.sec.items', 'Items'))}</span></div>
+      <div style="overflow-x:auto;">
+        <table class="items-table">
+        <thead>
+        <tr>
+              <th>#</th>
+              <th>${escapeHtml(pcTxt('nq3.col.tag', 'Tag'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.qty', 'Qty'))}</th>
+              <th>${escapeHtml(pcTxt('nq3.col.sku', 'SKU'))}</th>
+              <th>${escapeHtml(pcTxt('nq3.col.description', 'Description'))}</th>
+              <th>${escapeHtml(pcTxt('nq3.col.assembled', 'Assembled?'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.unit_price', 'Unit Price'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.mod_fee', 'Mod Fee'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.assemble_fee', 'Assemble Fee'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</th>
+            </tr>
+          </thead>
+          <tbody>${itemsTableHtml}</tbody>
+        </table>
+      </div>
+
+      ${notesTableHtml}
+
+      <div class="totals">
+        <div class="total-row"><span class="total-label">${escapeHtml(pcTxt('nq3.sum.subtotal', 'Subtotal'))}</span><span class="total-val">${fmt(discountTotal > 0 ? subtotalGrossDisp : subtotalNetDisp)}</span></div>
+        ${discountRowsHtml}
+        ${modsRowHtml}
+        ${asmBreakdownHtml}
+        ${shippingRowHtml}
+        ${shippingEditorHtml}
+        ${taxRowHtml}
+        <div class="total-row grand">
+          <span class="total-label">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="total-val">${fmt(quote.grand_total)}</span>
+        </div>
+        ${pendingFootnote}
+      </div>
+    </div>`;
 }
 
-// Close modal when clicking outside the box (but not while loading)
-document.getElementById('deleteModal').addEventListener('click', function(e) {
-  if (e.target === this) closeDeleteModal();
-});
+// ─────────────────────────────────────────────────────────────────────────
+// C1: Admin shipping editor functions
+// ─────────────────────────────────────────────────────────────────────────
 
-async function confirmDelete() {
-  if (!pendingDeleteId) return;
+function openShippingEditor() {
+  const editor = document.getElementById('shippingEditor');
+  if (!editor) return;
+  editor.classList.add('show');
+  const input = document.getElementById('shippingInput');
+  if (input) {
+    input.focus();
+    input.select();
+  }
+  const errEl = document.getElementById('shippingEditorError');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+}
 
-  const btn      = document.getElementById('btnDeleteConfirm');
-  const cancel   = document.getElementById('btnDeleteCancel');
-  const errEl    = document.getElementById('deleteError');
-  const quoteId  = pendingDeleteId;
+function closeShippingEditor() {
+  const editor = document.getElementById('shippingEditor');
+  if (!editor) return;
+  editor.classList.remove('show');
+  const errEl = document.getElementById('shippingEditorError');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+}
 
-  btn.classList.add('loading');
-  btn.disabled    = true;
-  cancel.disabled = true;
-  errEl.classList.remove('show');
+async function saveShipping() {
+  if (!_isAdmin || !_quote) return;
+  if (!SHIPPING_EDIT_ALLOWED_STATUSES.includes(_quote.status)) return;
+  if (_quote.logistic_type === 'pickup') return;
+
+  const input  = document.getElementById('shippingInput');
+  const errEl  = document.getElementById('shippingEditorError');
+  const saveBtn = document.getElementById('shippingSaveBtn');
+  if (!input) return;
+
+  const showError = (msg) => {
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+  };
+
+  const raw = (input.value || '').trim();
+  if (raw === '') {
+    showError('Please enter a shipping fee. Use 0 for free shipping.');
+    input.focus();
+    return;
+  }
+  const newShipping = parseFloat(raw);
+  if (isNaN(newShipping) || newShipping < 0) {
+    showError('Please enter a valid non-negative number.');
+    input.focus();
+    return;
+  }
+
+  // CB-13 (Approach A): 改運費只把運費差額換進快照 grand,絕不重算折扣
+  // (重算會抹掉 grand 裡內含的歷史促銷)。折扣維持快照原狀。
+  //   newGrand = oldGrand − oldShipping + newShipping
+  // 運費不進稅基、也不被折扣,所以這個差額式精準。pending(null)視為 0。
+  const oldGrand    = parseFloat(_quote.grand_total || 0);
+  const oldShipping = (_quote.shipping_cost == null) ? 0 : parseFloat(_quote.shipping_cost || 0);
+  const newShippingRounded = parseFloat(newShipping.toFixed(2));
+  const newGrand = parseFloat((oldGrand - oldShipping + newShippingRounded).toFixed(2));
+
+  console.log('[CB-13] saveShipping delta:',
+    'oldGrand=$' + oldGrand.toFixed(2),
+    'oldShipping=$' + oldShipping.toFixed(2),
+    'newShipping=$' + newShippingRounded.toFixed(2),
+    'newGrand=$' + newGrand.toFixed(2)
+  );
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
 
   try {
-    // ── Step 1: delete child rows first to satisfy FK constraint ──
-    const { error: itemsErr } = await _supabase
-      .from('quote_items').delete().eq('quote_id', quoteId);
-    if (itemsErr) throw itemsErr;
-
-    // ── Step 2: delete the quote itself ──
-    // RLS only allows status='Draft' AND dealer_id=auth.uid(), so this
-    // implicitly guards against deleting non-Draft quotes even if the UI
-    // bypasses the check.
-    const { error: quoteErr, count } = await _supabase
+    const { error } = await _supabase
       .from('quotes')
-      .delete({ count: 'exact' })
-      .eq('id', quoteId);
-    if (quoteErr) throw quoteErr;
-    if (count === 0) {
-      // Nothing was deleted — most likely RLS blocked it (e.g. status changed)
-      throw new Error(pcTxt('quotes.delete.err_blocked',
-        'Could not delete this draft. It may no longer be a draft, or the page is out of date.'));
-    }
+      .update({
+        shipping_cost: newShippingRounded,
+        grand_total:   newGrand,
+      })
+      .eq('id', _quote.id);
 
-    // ── Success ──
-    document.getElementById('deleteModal').classList.remove('show');
-    showToast(pcTxt('quotes.delete.toast', 'Draft "{name}" deleted.', { name: pendingDeleteName })
-      .replace('{name}', pendingDeleteName));
+    if (error) throw error;
 
-    // Reset state and reload list
-    pendingDeleteId   = null;
-    pendingDeleteName = null;
-    await loadQuotes();
-
+    _quote.shipping_cost = newShippingRounded;
+    _quote.grand_total   = newGrand;
+    renderQuote(_quote, _dealer, _addr);
   } catch (err) {
-    console.error('[deleteDraft]', err);
-    btn.classList.remove('loading');
-    btn.disabled    = false;
-    cancel.disabled = false;
-    // err.message 可能來自 Supabase(維持原文)或上方已翻譯的 Error
-    errEl.textContent = err.message || pcTxt('common.err.unexpected', 'Something went wrong. Please try again.');
-    errEl.classList.add('show');
+    console.error('[saveShipping] failed:', err);
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+    showError(err.message || 'Failed to save. Please try again.');
   }
 }
 
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+// ──────────────────────────────────────────────────────────────────────
+// CB-43 T14-2: 放行 — Stock Review → Pending + 通知 dealer 可付款
+//
+// 寫序(硬規則,不可調換):
+//   ① UPDATE quotes(count:'exact' + status 守衛)
+//   ② 成功後才寄 email(非阻斷 — email 失敗不回滾狀態)
+//   ③ reload
+//
+// status 守衛(.eq('status','Stock Review'))防併發:兩個 admin 同時按 →
+// 只有一個 count=1,另一個 count=0。admin_update_all_quotes policy 沒有
+// WITH CHECK,DB 層不會擋,所以守衛必須在前端自己加。
+//
+// RLS silent failure:Supabase 被擋時回 0 rows 且無 error → count===0 一律當錯誤。
+// ──────────────────────────────────────────────────────────────────────
+async function releaseStock() {
+  if (!_isAdmin || !_quote) return;
+  if (_quote.status !== 'Stock Review') return;
+
+  const btn = document.getElementById('releaseStockBtn');
+  if (btn && btn.disabled) return;   // mid-flight 防呆:連點只算一次
+
+  const poLabel = _quote.po_number || _quote.draft_number || 'This order';
+  const ok = confirm(
+    'Confirm all items are in stock and release this order for payment?\n\n'
+    + poLabel + ' will move to ' + pcQuoteStatusLabel('Pending') + ' and the dealer will be emailed a payment link immediately.\n\n'
+    + 'This cannot be undone.'
+  );
+  if (!ok) return;
+
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Releasing...'; }
+
+  // ① quotes → Pending
+  try {
+    const upd = await _supabase
+      .from('quotes')
+      .update({ status: 'Pending' }, { count: 'exact' })
+      .eq('id', _quote.id)
+      .eq('status', 'Stock Review');
+    if (upd.error) throw upd.error;
+    if (upd.count === 0) {
+      alert('This order is no longer in Stock Review. It may have been changed by someone else.\n\nRefreshing now.');
+      window.location.reload();
+      return;
+    }
+  } catch (err) {
+    console.error('[releaseStock] update failed:', err);
+    alert('Failed to release this order: ' + (err.message || 'An unexpected error occurred.') + '\n\nPlease try again.');
+    if (btn) { btn.disabled = false; btn.innerHTML = RELEASE_BTN_INNER; }
+    return;
+  }
+
+  // ② email(非阻斷:狀態已放行,不回滾。但失敗必須明確告知 admin —
+  //    payment_ready 是 dealer「可以付款了」的唯一通知,靜默失敗 = dealer 失聯)。
+  //    刻意偏離 admin-payments.html 的 fire-and-forget:此處必須檢查 res.ok。
+  let emailOk = true;
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const res = await fetch(window.SB_URL + '/functions/v1/send-payment-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify({ type: 'payment_ready', quote_id: _quote.id }),
+    });
+    if (!res.ok) {
+      emailOk = false;
+      console.error('[releaseStock] send-payment-email returned', res.status);
+    }
+  } catch (emailErr) {
+    emailOk = false;
+    console.error('[releaseStock] send-payment-email failed (non-blocking):', emailErr);
+  }
+
+  // ③
+  alert(emailOk
+    ? 'Order released. The dealer has been notified and can now pay.'
+    : 'Order released to ' + pcQuoteStatusLabel('Pending') + ', but the notification email failed to send.\n\nPlease contact the dealer manually.');
+  window.location.reload();
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// 🔴 CB-62 B2|語言切換重繪
-// -------------------------------------------------------------------
-// 靜態 data-i18n 節點由 i18n.js 自行重繪;data-pc-status-label 的九個
-// 篩選選項由 status-label.js 自行重繪(value 不受影響)。
-// 這裡只負責 JS 動態產生的內容:退回橫幅與表格。
-// 呼叫 applyFilters() 而非 renderTable(allQuotes),是為了【保留使用者
-// 當下的篩選條件】—— 換語言不該把篩選重置。
-// ═══════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────────────────
+// CB-55 / CB-59: Fulfilled — Order Processing → Order Completed
+//                 + fulfillment_date + 感謝信
+//
+// 實作全部在 components/order-complete.js,與 admin-quotes.html 共用同一份。
+// 此處只把本頁的 context 交給模組:日期 modal、寫序、status 守衛、寄信失敗
+// 處理皆由模組統一負責,兩頁行為必定一致(這是 Q-17=B 的整個重點)。
+// ─────────────────────────────────────────────────────────────────────────
+async function fulfillOrder() {
+  if (!_quote) return;
+  await window.ProCraftOrderComplete.run({
+    supabase: _supabase,
+    quote:    _quote,
+    isAdmin:  _isAdmin,
+    buttonEl: document.getElementById('fulfillOrderBtn'),
+    onDone:   function () { window.location.reload(); }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PDF download functions
+// F4.1 v2: pass sub_groups + modifications so PDF builder can render correctly
+//
+// F-HIDDEN-MODS (2026-05-18): We INTENTIONALLY do NOT filter MF01 No Skin
+// here either. PDF builder applies its own _isHiddenMod() filter at render
+// time, so we just pass through the raw modifications.
+// ─────────────────────────────────────────────────────────────────────────
+
+function buildQuoteDataForPdf() {
+  // Build per-item structure with sub_groups, mirroring step3
+  const items = (_groupedItems || []).map(function(item) {
+    // CB-25: per-item 反查 construction(quote_items 無此欄),與 on-screen mapping 查表同源
+    let _itemCt = 'framed';
+    if (item.style_code && Array.isArray(_allDoorStyles)) {
+      const _ds = _allDoorStyles.find(function (d) { return d.style_code === item.style_code; });
+      if (_ds && _ds.construction_type) _itemCt = String(_ds.construction_type).toLowerCase();
+    }
+    return {
+      style_name:      item.style_name,
+      style_code:      item.style_code,
+      sku_code:        item.sku_code,
+      sku_desc:        item.sku_desc || '',
+      sku_type:        item.sku_type || null,
+      assemble_status: item.assemble_status,
+      quantity:        item.sub_groups.reduce((s, g) => s + (parseInt(g.qty, 10) || 0), 0),
+      unit_price:      item.unit_price,
+      discount_amount: parseFloat(item.discount_amount || 0),   // CB-47 (D13)
+      msrp:            item.msrp || null,
+      assemble_fee:    item.assemble_fee,
+      sub_groups:      enrichSubGroupsForPdf(item.sub_groups, _itemCt),  // CB-25: 掛 mapping type/desc/tag 給 PDF
+      is_custom:       !!item.is_custom,
+      tag:             getTagForItem(item),  // CB-9: 帶 tag 給 PDF
+      needs_confirmation: getNeedsConfirmationForItem(item),  // CB-29: 反查 catalog 帶給 PDF
+    };
+  });
+
+  const shippingCost = (_quote.shipping_cost === null || _quote.shipping_cost === undefined)
+    ? null
+    : parseFloat(_quote.shipping_cost);
+
+  // F-TAX: compute mod totals from grouped items (live read from quote_items.modifications)
+  const modsTotal        = _groupedItems ? calcTotalModsCost(_groupedItems) : 0;
+  const taxableModsTotal = _groupedItems ? calcTaxableModsCost(_groupedItems) : 0;
+
+  // Tax rate: derive from snapshot. tax_amount was snapshotted at submit time;
+  // effective rate = tax_amount / taxable base (SKU + taxable mods).
+  const skuSubtotal = parseFloat(_quote.subtotal || 0);
+  const taxableBase = skuSubtotal + taxableModsTotal;
+  const taxAmount   = parseFloat(_quote.tax_amount || 0);
+  const _taxRate    = (taxableBase > 0 && taxAmount > 0) ? (taxAmount / taxableBase) : 0;
+  const _taxExempt  = taxAmount === 0 && !!(_dealer && _dealer.tax_exempt);
+
+  return {
+    po_number:     _quote.po_number || null,
+    draft_number:  _quote.draft_number || null,   // 雙編號制: Draft Quote PDF 用(D/P 切換在階段 6)
+    job_name:      _quote.job_name || null,
+    status:        _quote.status,
+    created_at:    _quote.created_at,
+    logistic_type: _quote.logistic_type || 'pickup',
+    delivery_fee:  parseFloat(_quote.delivery_fee || 0),
+    shipping_cost: shippingCost,
+    items:         items,
+    estimated_lead_time: calculateLeadTime(_groupedItems, _allDoorStyles),  // CB-9 後續: 帶 lead time 給 PDF
+    construction_type:   resolveQuoteConstructionType(_groupedItems, _allDoorStyles),  // CB-22: PDF Order List 排序依據
+    modifications_total:         parseFloat(modsTotal.toFixed(2)),
+    modifications_total_taxable: parseFloat(taxableModsTotal.toFixed(2)),
+    // CB-47:折扣快照給 PDF 顯示用。金額本身已含在 items[].discount_amount,
+    //   pdf-builder 由此 live 重算,與 DB grand_total 收斂(CB-45 對帳不受影響)。
+    discount_total:         parseFloat(_quote.discount_total || 0),
+    applied_discount_rules: Array.isArray(_quote.applied_discount_rules)
+                              ? _quote.applied_discount_rules : null,
+    _taxRate:      _taxRate,
+    _taxExempt:    _taxExempt,
+    _isPendingShipping: (_quote.logistic_type === 'shipping' && shippingCost === null),
+  };
+}
+
+async function downloadDraftQuote() {
+  if (!_quote || !_dealer) return;
+  const quoteDataForPdf = buildQuoteDataForPdf();
+  const doc = await ProCraftPDF.buildDraftQuotePdf(
+    quoteDataForPdf, _dealer, _addr, { markupPercent: 0, stamp: { mode: 'download', user: _me } }
+  );
+  const filename = ProCraftPDF.getPdfFilename('draft-quote', {
+    poNumber:       _quote.po_number || _quote.draft_number || 'Draft',  // 雙編號制
+    dealerUid:      _dealer.uid,
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+async function downloadPackingList() {
+  if (!_quote || !_dealer) return;
+  const quoteDataForPdf = buildQuoteDataForPdf();
+  const doc = await ProCraftPDF.buildPackingListPdf(
+    quoteDataForPdf, _dealer, _addr, { stamp: { mode: 'download', user: _me } }
+  );
+  const filename = ProCraftPDF.getPdfFilename('packing-list', {
+    poNumber:       _quote.po_number || 'Quote',
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+async function downloadInvoice() {
+  if (!_quote || !_dealer) return;
+  const quoteDataForPdf = buildQuoteDataForPdf();
+  const doc = await ProCraftPDF.buildInvoicePdf(
+    quoteDataForPdf, _dealer, _addr, { markupPercent: 0, stamp: { mode: 'download', user: _me } }
+  );
+  const filename = ProCraftPDF.getPdfFilename('invoice', {
+    poNumber:       _quote.po_number || 'Quote',
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+// CB-45: Download Receipt — 付款後(Order Processing)已付款憑證。
+// B3: 取該 quote 唯一的 confirmed payment 列(quote_id + status='confirmed' 保證單筆,
+//     order confirmed_at desc limit 1 為防呆)。dealer RLS 可讀自己的 payments。
+// fee/total_paid 讀 payment 列存值,不現算;confirmed_at ?? created_at 為 B2 fallback。
+async function downloadReceipt() {
+  if (!_quote || !_dealer) return;
+
+  const { data: pays, error: payErr } = await _supabase
+    .from('payments')
+    .select('payment_method, base_amount, fee_percentage, fee_amount, total_paid, confirmed_at, created_at')
+    .eq('quote_id', _quote.id)
+    .eq('status', 'confirmed')
+    .order('confirmed_at', { ascending: false })
+    .limit(1);
+
+  if (payErr) {
+    console.error('[CB-45] load confirmed payment failed:', payErr);
+    alert(pcTxt('qd.receipt.err_load',
+      "Sorry — we couldn't load your receipt just now. Please try again, or contact us if it keeps happening."));
+    return;
+  }
+  if (!pays || !pays.length) {
+    console.warn('[CB-45] no confirmed payment row for quote', _quote.id);
+    alert(pcTxt('qd.receipt.err_none',
+      "Sorry — we couldn't find a confirmed payment for this order. Please contact us and we'll help."));
+    return;
+  }
+
+  const p = pays[0];
+  const receipt = {
+    paymentMethod: p.payment_method,
+    feePercentage: p.fee_percentage,
+    feeAmount:     p.fee_amount,
+    totalPaid:     p.total_paid,
+    baseAmount:    p.base_amount,
+    confirmedAt:   p.confirmed_at || p.created_at,
+  };
+
+  const quoteDataForPdf = buildQuoteDataForPdf();
+
+  let doc;
+  try {
+    doc = await ProCraftPDF.buildReceiptPdf(
+      quoteDataForPdf, _dealer, _addr, { markupPercent: 0, receipt, stamp: { mode: 'download', user: _me } }
+    );
+  } catch (err) {
+    // CB-45 對帳斷言 fail-loud:live grand 與付款當時 base_amount 不一致 → 不出憑證。
+    console.error('[CB-45] receipt build blocked (reconciliation or render):', err);
+    alert(pcTxt('qd.receipt.err_build',
+      "Sorry — we ran into a problem preparing this receipt. Please contact us and we'll sort it out for you."));
+    return;
+  }
+
+  const filename = ProCraftPDF.getPdfFilename('receipt', {
+    poNumber:       _quote.po_number || 'Quote',
+    revisionNumber: _quote.revision_number || 1,
+  });
+  doc.save(filename);
+}
+
+function showError(msg, key, fallback) {
+  _loadState   = 'error';
+  _errKey      = key || null;
+  _errFallback = fallback || msg;
+  document.getElementById('pageContent').innerHTML=`<div class="error-wrap"><svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--border);margin:0 auto 16px;display:block;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>${msg}</div>`;
+}
+
+// ── CB-62 Q-57:本頁保留 navigator 的語言切換鈕,故需重繪掛勾 ──
+//   §4.4:直接呼叫 renderQuote / showError,不加 typeof 防護 —— 名字寫錯要立刻報錯。
+//   §4.3:依 _loadState 判斷,不用 `if (_quote)` —— 錯誤畫面出現時 _quote 必為 null,
+//         用資料有無當條件會讓錯誤訊息永遠停在舊語言。
 document.addEventListener('pc:i18n-changed', function () {
-  // ⚠️ 不可用 allQuotes.length 當防護 —— 零報價時空狀態文字會停在舊語言。
-  //    改以「是否至少載入過一次」為條件,避免在資料到位前把載入骨架洗掉。
-  if (!pcQuotesLoaded) return;
-  updateReturnedAlert();
-  applyFilters();
+  if (_loadState === 'ready') {
+    renderQuote(_quote, _dealer, _addr);
+  } else if (_loadState === 'error') {
+    showError(pcTxt(_errKey, _errFallback), _errKey, _errFallback);
+  }
 });
 
 init();
