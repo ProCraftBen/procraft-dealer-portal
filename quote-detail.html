@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ProCraft — Quote Detail</title>
+  <title data-i18n="qd.page.title">ProCraft — Quote Detail</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -575,16 +575,17 @@
 <div id="pcd-nav" data-page="quotes"></div>
 
 <div class="page" id="pageContent">
-  <div class="loading-wrap"><div class="spinner-large"></div>Loading quote...</div>
+  <div class="loading-wrap"><div class="spinner-large"></div><span data-i18n="qd.loading">Loading quote...</span></div>
 </div>
 
 <div id="pcd-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/i18n.js?v=cb62c"></script>
 <script src="components/status-label.js?v=1.1"></script>
-<script src="components/navigator.js"></script>
-<script src="components/footer.js"></script>
+<script src="components/navigator.js?v=cb62c"></script>
+<script src="components/footer.js?v=cb62c"></script>
 <!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
 <script src="components/order-complete.js"></script>
 <script>
@@ -685,7 +686,10 @@ function shortStatus(s) {
 
 // CB-5 需求3: RTA → 顯示 Unassembled(全字);DB value 不動
 function formatAssembleStatus(v) {
-  return v === 'RTA' ? 'Unassembled' : 'Assembled';
+  // CB-62 Q-59:顯示轉換,儲存端讀 assemble_status('Assembled' / 'RTA')。沿用 step2 的 key。
+  return v === 'RTA'
+    ? pcTxt('nq2.asm.unassembled', 'Unassembled')
+    : pcTxt('nq2.asm.assembled', 'Assembled');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -784,7 +788,8 @@ function buildLeadTimeHtml(items, doorStyles) {
   const lt = calculateLeadTime(items, doorStyles);
   if (!lt) return '';
   return '<div style="margin-top:10px;text-align:left;padding:0 20px;">' +
-    '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">Estimated Lead Time</span>' +
+    '<span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-right:8px;">' +
+      escapeHtml(pcTxt('nq3.lead.label', 'Estimated Lead Time')) + '</span>' +
     '<span style="font-size:13px;font-weight:600;color:var(--green-mid);">' + escapeHtml(lt) + '</span></div>';
 }
 
@@ -797,6 +802,31 @@ const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false, _me = null;
+
+// CB-62 Q-57:語言切換重繪用。§4.3 —— 條件問「載入過了嗎」,不是「現在有資料嗎」。
+let _loadState = 'loading';          // 'loading' | 'ready' | 'error'
+let _errKey = null, _errFallback = '';
+
+/**
+ * CB-62:i18n 取字。i18n.js 未載入或字典未就緒時回傳英文 fallback。
+ * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+ */
+function pcTxt(key, fallback, params) {
+  if (typeof window.pcT === 'function') {
+    const s = window.pcT(key, params || null, fallback);
+    if (s) return s;
+  }
+  return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+    return (params && params[name] != null) ? String(params[name]) : whole;
+  });
+}
+
+/** CB-62 Q-17:複數。呼叫端依數量挑 .one / .other。 */
+function pcPlural(baseKey, n, enOne, enOther) {
+  const key = baseKey + (n === 1 ? '.one' : '.other');
+  const fb  = (n === 1 ? enOne : enOther).replace('{n}', function () { return String(n); });
+  return pcTxt(key, fb, { n: n });
+}
 // CB-59:Fulfilled 放寬給 admin + super_admin,直接沿用 _isAdmin,
 //   原本的 _isSuperAdmin 旗標已無使用者,一併移除不留死變數。
 let _returnHistory = [];
@@ -1138,7 +1168,7 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
     if (status === 'skipped' || status === 'configured') {
       return '';
     }
-    return `<div class="mods-list"><span class="mod-status-unprocessed">⚠ Modifications pending</span></div>`;
+    return `<div class="mods-list"><span class="mod-status-unprocessed">${escapeHtml(pcTxt('nq3.mods.pending', '⚠ Modifications pending'))}</span></div>`;
   }
 
   const lines = visibleMods.map(function (m) {
@@ -1160,7 +1190,7 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
         subTotal:   itemContext.totalSubs,
         mfCode:     m.mf_code || '',
         label:      label,
-        content:    formatModValue(m.value) || '(no detail)',
+        content:    formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)'),
       });
       return `<div class="mod-line">${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
     }
@@ -1338,7 +1368,7 @@ function buildItemRowsHtml(groupedItems) {
 
             // CB-11 任務B: DOOR & FRAME 固定顯示「Hinge not included」(此頁欄位為 sku_type)
             const hingeNoteHtml = ((item.sku_type || '').toUpperCase() === 'DOOR & FRAME')
-              ? `<div class="hinge-note">Hinge not included</div>`
+              ? `<div class="hinge-note">${escapeHtml(pcTxt('nq3.hinge_note', 'Hinge not included'))}</div>`
               : '';
 
             // 🆕 補上父 row Description(對齊 mapping row 的 mapDescCell)
@@ -1413,17 +1443,39 @@ async function init() {
 
   const params  = new URLSearchParams(window.location.search);
   const quoteId = params.get('id');
-  if (!quoteId) { showError('No quote ID provided.'); return; }
+  if (!quoteId) {
+    showError(pcTxt('qd.err.no_id', 'No quote ID provided.'), 'qd.err.no_id', 'No quote ID provided.');
+    return;
+  }
 
   const { data: quote, error: qErr } = await _supabase
     .from('quotes').select('*, quote_items(*)').eq('id', quoteId).single();
-  if (qErr || !quote) { showError('Quote not found.'); return; }
+  if (qErr || !quote) {
+    showError(pcTxt('qd.err.not_found', 'Quote not found.'), 'qd.err.not_found', 'Quote not found.');
+    return;
+  }
 
   const { data: me } = await _supabase.from('dealers').select('company_name, role').eq('id', session.user.id).single();
   const isAdmin = ['admin','super_admin'].includes(me?.role);
   _isAdmin = isAdmin;
+
+  // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
+  // pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好(共用電腦情境)。
+  // typeof 防護針對版本錯配(新 HTML + 快取舊 i18n.js),故以 console.error 明確報錯。
+  if (isAdmin) {
+    if (typeof window.pcForceLang === 'function') {
+      window.pcForceLang('en');
+    } else {
+      console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+      document.documentElement.setAttribute('lang', 'en');
+    }
+  }
   _me = { company_name: me?.company_name, role: me?.role };   // CB-50: 當下登入者（download stamp 用）
-  if (!isAdmin && quote.dealer_id !== session.user.id) { showError('You do not have permission to view this quote.'); return; }
+  if (!isAdmin && quote.dealer_id !== session.user.id) {
+    showError(pcTxt('qd.err.no_permission', 'You do not have permission to view this quote.'),
+      'qd.err.no_permission', 'You do not have permission to view this quote.');
+    return;
+  }
 
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
   let shippingAddr = null;
@@ -1484,6 +1536,7 @@ async function init() {
 
   // Store for PDF
   _quote = quote; _dealer = dealer; _addr = shippingAddr;
+  _loadState = 'ready';
   renderQuote(quote, dealer, shippingAddr);
 }
 
@@ -1549,7 +1602,9 @@ function renderQuote(quote, dealer, addr) {
 
   // Back link target — admin → admin-quotes, dealer → quotes
   const backHref  = _isAdmin ? 'admin-quotes.html' : 'quotes.html';
-  const backLabel = _isAdmin ? '← Back to Quotes' : '← Back to My Quotes';
+  const backLabel = _isAdmin
+    ? '← Back to Quotes'                                   // Q-58: admin 專屬,不翻
+    : pcTxt('qd.back_my_quotes', '← Back to My Quotes');
   const backLinkHtml = `<a href="${backHref}" class="back-link">${backLabel}</a>`;
 
   // C1: detect pending shipping for display logic
@@ -1660,7 +1715,7 @@ function renderQuote(quote, dealer, addr) {
     itemsTableHtml = result.rowsHtml;
     notesTableHtml = renderNotesTable(result.notes);
   } else {
-    itemsTableHtml = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">No items.</td></tr>`;
+    itemsTableHtml = `<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted);">${escapeHtml(pcTxt('qd.items.none', 'No items.'))}</td></tr>`;
   }
 
   // CB-5 需求1: 整單 lead time(顯示在 items 表格正下方)
@@ -1703,7 +1758,7 @@ function renderQuote(quote, dealer, addr) {
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div class="asm-breakdown">
           ${appliedRules.map(function (r) {
-            return `<div class="asm-breakdown-row"><span>${escapeHtml(r.rule_name || 'Discount')}</span>` +
+            return `<div class="asm-breakdown-row"><span>${escapeHtml(r.rule_name || pcTxt('qd.sum.discount', 'Discount'))}</span>` +
                    `<span style="color:#8B6914;">−${fmt(r.discount_total)}</span></div>`;
           }).join('')}
         </div>
@@ -1743,7 +1798,7 @@ function renderQuote(quote, dealer, addr) {
   const asmBreakdownHtml = assembleTotal > 0
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
-          <span class="total-label">Assemble Fee</span><span class="total-val" style="color:#8B6914;">+${fmt(assembleTotal)}</span>
+          <span class="total-label">${escapeHtml(pcTxt('nq3.col.assemble_fee', 'Assemble Fee'))}</span><span class="total-val" style="color:#8B6914;">+${fmt(assembleTotal)}</span>
         </div>
         <div class="asm-breakdown">
           ${TYPE_ORDER.filter(t=>byType[t]).map(t=>
@@ -1757,13 +1812,13 @@ function renderQuote(quote, dealer, addr) {
   const modsRowHtml = modBreakdown.modsDisplayTotal > 0
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
-          <span class="total-label">Modifications</span><span class="total-val" style="color:#8B6914;"></span>
+          <span class="total-label">${escapeHtml(pcTxt('nq3.sum.modifications', 'Modifications'))}</span><span class="total-val" style="color:#8B6914;"></span>
         </div>
         <div class="asm-breakdown">
           ${modBreakdown.ordered.map(t=>
             `<div class="asm-breakdown-row"><span>${shortType(t)} ×${modBreakdown.byType[t].qty}</span><span style="color:#8B6914;">+${fmt(modBreakdown.byType[t].modFee)}</span></div>`
           ).join('')}
-          <div class="asm-breakdown-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:4px;"><span>Total</span><span style="color:#8B6914;">+${fmt(modBreakdown.modsDisplayTotal)}</span></div>
+          <div class="asm-breakdown-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:4px;"><span>${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</span><span style="color:#8B6914;">+${fmt(modBreakdown.modsDisplayTotal)}</span></div>
         </div>
       </div>`
     : '';
@@ -1787,7 +1842,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="total-row">
         <span class="total-label">
           Shipping
-          <span class="pending-tag">⚠ Awaiting Sales confirmation</span>
+          <span class="pending-tag">${escapeHtml(pcTxt('qd.ship.awaiting', '⚠ Awaiting Sales confirmation'))}</span>
           ${adminEditLink}
         </span>
         <span class="total-val pending">Contact Sales Team</span>
@@ -1796,7 +1851,7 @@ function renderQuote(quote, dealer, addr) {
     shippingRowHtml = `
       <div class="total-row">
         <span class="total-label">
-          Shipping${freeShip ? ' <span class="free-tag">✓ Free</span>' : ''}
+          ${escapeHtml(pcTxt('nq3.sum.shipping', 'Shipping'))}${freeShip ? ' <span class="free-tag">' + escapeHtml(pcTxt('qd.ship.free', '✓ Free')) + '</span>' : ''}
           ${adminEditLink}
         </span>
         <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
@@ -1822,7 +1877,7 @@ function renderQuote(quote, dealer, addr) {
   if (taxExempt) {
     taxRowHtml = `
       <div class="total-row">
-        <span class="total-label">Tax <span class="exempt-tag">✓ Exempt</span></span>
+        <span class="total-label">${escapeHtml(pcTxt('nq3.sum.tax', 'Tax'))} <span class="exempt-tag">${escapeHtml(pcTxt('qd.tax.exempt', '✓ Exempt'))}</span></span>
         <span class="total-val">${fmt(quote.tax_amount)}</span>
       </div>`;
   } else {
@@ -1854,7 +1909,7 @@ function renderQuote(quote, dealer, addr) {
     downloadButtonsHtml = `
       <button class="btn-action" onclick="downloadDraftQuote()">
         <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
-        Download Draft Quote
+        ${escapeHtml(pcTxt('qd.btn.download_draft', 'Download Draft Quote'))}
       </button>`;
   } else {
     // F9: Packing List 僅 admin / super_admin 可見,dealer 端不 render。
@@ -1869,7 +1924,7 @@ function renderQuote(quote, dealer, addr) {
     downloadButtonsHtml = `${packingListButtonHtml}
       <button class="btn-action" onclick="downloadInvoice()">
         <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
-        Download Invoice
+        ${escapeHtml(pcTxt('qd.btn.download_invoice', 'Download Invoice'))}
       </button>`;
   }
 
@@ -1878,7 +1933,7 @@ function renderQuote(quote, dealer, addr) {
       ? `
         <a class="btn-action" href="payment.html?quote_id=${quote.id}">
           <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
-          Pay Now
+          ${escapeHtml(pcTxt('qd.btn.pay_now', 'Pay Now'))}
         </a>`
       : '';
   
@@ -1887,7 +1942,7 @@ function renderQuote(quote, dealer, addr) {
       ? `
         <a class="btn-action" href="payment.html?quote_id=${quote.id}">
           <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
-          Continue Payment
+          ${escapeHtml(pcTxt('qd.btn.continue_payment', 'Continue Payment'))}
         </a>`
       : '';
 
@@ -1901,7 +1956,7 @@ function renderQuote(quote, dealer, addr) {
       ? `
         <button class="btn-action" onclick="downloadReceipt()">
           <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
-          Download Receipt
+          ${escapeHtml(pcTxt('qd.btn.download_receipt', 'Download Receipt'))}
         </button>`
       : '';
   // ─────────────────────────────────────────────────────────────────────
@@ -1917,7 +1972,7 @@ function renderQuote(quote, dealer, addr) {
   if (isReturned) {
     const reasonText = quote.return_reason
       ? escapeHtml(quote.return_reason)
-      : '<span style="color:var(--muted);font-style:italic;">No reason provided.</span>';
+      : '<span style="color:var(--muted);font-style:italic;">' + escapeHtml(pcTxt('qd.banner.no_reason', 'No reason provided.')) + '</span>';
 
     let bannerActionHtml = '';
     if (!_isAdmin) {
@@ -1925,7 +1980,7 @@ function renderQuote(quote, dealer, addr) {
       bannerActionHtml = `
         <a href="new-quote.html?draft=${quote.id}&mode=review" class="btn-action review-resubmit">
           <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-          Review &amp; Resubmit
+          ${escapeHtml(pcTxt('qd.btn.review_resubmit', 'Review & Resubmit'))}
         </a>`;
     } else {
       // Admin view: informational only. Edit button lives in the header.
@@ -1941,7 +1996,7 @@ function renderQuote(quote, dealer, addr) {
           <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
         </div>
         <div class="return-banner-body">
-          <div class="return-banner-title">Revision Requested</div>
+          <div class="return-banner-title">${escapeHtml(pcTxt('qd.banner.revision_requested', 'Revision Requested'))}</div>
           <div class="return-banner-msg">${reasonText}</div>
           <div class="return-banner-action">
             ${bannerActionHtml}
@@ -1976,16 +2031,16 @@ function renderQuote(quote, dealer, addr) {
     </div>
 
     <div class="card">
-      <div class="card-header"><span class="card-title">Order Information</span></div>
+      <div class="card-header"><span class="card-title">${escapeHtml(pcTxt('nq3.sec.order_info', 'Order Information'))}</span></div>
       <div class="card-body">
         <div class="info-grid">
-          <div><div class="info-label">${quote.po_number ? 'PO Number' : 'Draft ID'}</div><div class="info-value">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div></div>
-          <div><div class="info-label">Job Name</div><div class="info-value">${escapeHtml(quote.job_name||'—')}</div></div>
-          <div><div class="info-label">Dealer</div><div class="info-value">${escapeHtml(dealer?.company_name||'—')}</div></div>
-          <div><div class="info-label">Contact</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
-          <div><div class="info-label">Logistic</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
-          <div><div class="info-label">Status</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${statusText}</span></div></div>
-          <div><div class="info-label">Fulfillment Date</div><div class="info-value">${formatDateOnly(quote.fulfillment_date)}</div></div>
+          <div><div class="info-label">${escapeHtml(quote.po_number ? pcTxt('nq3.field.po_number', 'PO Number') : pcTxt('nq1.field.draft_id', 'Draft ID'))}</div><div class="info-value">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.job_name', 'Job Name'))}</div><div class="info-value">${escapeHtml(quote.job_name||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.dealer', 'Dealer'))}</div><div class="info-value">${escapeHtml(dealer?.company_name||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.contact', 'Contact'))}</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('qd.field.logistic', 'Logistic'))}</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('qd.field.status', 'Status'))}</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${statusText}</span></div></div>
+          <div><div class="info-label">${escapeHtml(pcTxt('qd.field.fulfillment_date', 'Fulfillment Date'))}</div><div class="info-value">${formatDateOnly(quote.fulfillment_date)}</div></div>
         </div>
       </div>
     </div>
@@ -1995,24 +2050,24 @@ function renderQuote(quote, dealer, addr) {
       <div class="card-body"><div class="info-value">${shippingHtml}</div>${leadTimeHtml}</div>
     </div>
 
-    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">Notes</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${escapeHtml(quote.notes)}</div></div></div>` : ''}
+    ${quote.notes ? `<div class="card"><div class="card-header"><span class="card-title">${escapeHtml(pcTxt('nq3.sec.notes', 'Notes'))}</span></div><div class="card-body"><div class="info-value" style="font-style:italic;">${escapeHtml(quote.notes)}</div></div></div>` : ''}
 
     <div class="card">
-      <div class="card-header"><span class="card-title">Items</span></div>
+      <div class="card-header"><span class="card-title">${escapeHtml(pcTxt('nq3.sec.items', 'Items'))}</span></div>
       <div style="overflow-x:auto;">
         <table class="items-table">
         <thead>
         <tr>
               <th>#</th>
-              <th>Tag</th>
-              <th class="th-right">Qty</th>
-              <th>SKU</th>
-              <th>Description</th>
-              <th>Assembled?</th>
-              <th class="th-right">Unit Price</th>
-              <th class="th-right">Mod Fee</th>
-              <th class="th-right">Assemble Fee</th>
-              <th class="th-right">Total</th>
+              <th>${escapeHtml(pcTxt('nq3.col.tag', 'Tag'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.qty', 'Qty'))}</th>
+              <th>${escapeHtml(pcTxt('nq3.col.sku', 'SKU'))}</th>
+              <th>${escapeHtml(pcTxt('nq3.col.description', 'Description'))}</th>
+              <th>${escapeHtml(pcTxt('nq3.col.assembled', 'Assembled?'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.unit_price', 'Unit Price'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.mod_fee', 'Mod Fee'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.assemble_fee', 'Assemble Fee'))}</th>
+              <th class="th-right">${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</th>
             </tr>
           </thead>
           <tbody>${itemsTableHtml}</tbody>
@@ -2022,7 +2077,7 @@ function renderQuote(quote, dealer, addr) {
       ${notesTableHtml}
 
       <div class="totals">
-        <div class="total-row"><span class="total-label">Subtotal</span><span class="total-val">${fmt(discountTotal > 0 ? subtotalGrossDisp : subtotalNetDisp)}</span></div>
+        <div class="total-row"><span class="total-label">${escapeHtml(pcTxt('nq3.sum.subtotal', 'Subtotal'))}</span><span class="total-val">${fmt(discountTotal > 0 ? subtotalGrossDisp : subtotalNetDisp)}</span></div>
         ${discountRowsHtml}
         ${modsRowHtml}
         ${asmBreakdownHtml}
@@ -2030,7 +2085,7 @@ function renderQuote(quote, dealer, addr) {
         ${shippingEditorHtml}
         ${taxRowHtml}
         <div class="total-row grand">
-          <span class="total-label">Order Total</span><span class="total-val">${fmt(quote.grand_total)}</span>
+          <span class="total-label">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="total-val">${fmt(quote.grand_total)}</span>
         </div>
         ${pendingFootnote}
       </div>
@@ -2365,12 +2420,14 @@ async function downloadReceipt() {
 
   if (payErr) {
     console.error('[CB-45] load confirmed payment failed:', payErr);
-    alert("Sorry — we couldn't load your receipt just now. Please try again, or contact us if it keeps happening.");
+    alert(pcTxt('qd.receipt.err_load',
+      "Sorry — we couldn't load your receipt just now. Please try again, or contact us if it keeps happening."));
     return;
   }
   if (!pays || !pays.length) {
     console.warn('[CB-45] no confirmed payment row for quote', _quote.id);
-    alert("Sorry — we couldn't find a confirmed payment for this order. Please contact us and we'll help.");
+    alert(pcTxt('qd.receipt.err_none',
+      "Sorry — we couldn't find a confirmed payment for this order. Please contact us and we'll help."));
     return;
   }
 
@@ -2394,7 +2451,8 @@ async function downloadReceipt() {
   } catch (err) {
     // CB-45 對帳斷言 fail-loud:live grand 與付款當時 base_amount 不一致 → 不出憑證。
     console.error('[CB-45] receipt build blocked (reconciliation or render):', err);
-    alert("Sorry — we ran into a problem preparing this receipt. Please contact us and we'll sort it out for you.");
+    alert(pcTxt('qd.receipt.err_build',
+      "Sorry — we ran into a problem preparing this receipt. Please contact us and we'll sort it out for you."));
     return;
   }
 
@@ -2405,12 +2463,27 @@ async function downloadReceipt() {
   doc.save(filename);
 }
 
-function showError(msg) {
+function showError(msg, key, fallback) {
+  _loadState   = 'error';
+  _errKey      = key || null;
+  _errFallback = fallback || msg;
   document.getElementById('pageContent').innerHTML=`<div class="error-wrap"><svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:var(--border);margin:0 auto 16px;display:block;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>${msg}</div>`;
 }
 
+// ── CB-62 Q-57:本頁保留 navigator 的語言切換鈕,故需重繪掛勾 ──
+//   §4.4:直接呼叫 renderQuote / showError,不加 typeof 防護 —— 名字寫錯要立刻報錯。
+//   §4.3:依 _loadState 判斷,不用 `if (_quote)` —— 錯誤畫面出現時 _quote 必為 null,
+//         用資料有無當條件會讓錯誤訊息永遠停在舊語言。
+document.addEventListener('pc:i18n-changed', function () {
+  if (_loadState === 'ready') {
+    renderQuote(_quote, _dealer, _addr);
+  } else if (_loadState === 'error') {
+    showError(pcTxt(_errKey, _errFallback), _errKey, _errFallback);
+  }
+});
+
 init();
 </script>
-<script src="components/feedback-widget.js?v=1.0"></script>
+<script src="components/feedback-widget.js?v=cb62c"></script>
 </body>
 </html>
