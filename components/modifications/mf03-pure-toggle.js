@@ -521,7 +521,14 @@
         const lbl = state.mf_params._display_label
           || state.mf_params.toggle_label
           || 'this option';
-        return { valid: false, errors: ['Please select Yes or No for ' + lbl] };
+        return {
+          valid: false,
+          errors: [pcTxt(
+            'mf.err.select_yes_no',
+            'Please select Yes or No for {label}',
+            { label: lbl }
+          )]
+        };
       }
       return { valid: true, errors: [] };
     }
@@ -646,6 +653,20 @@
       setLocked:      setLocked,     // F-BINDING-GROUP(保留,新規格未使用)
       destroy:        destroy
     };
+  }
+
+/**
+   * CB-62:i18n 取字。i18n.js 未載入(admin 頁)時回傳英文 fallback。
+   * 參數代入一律用函式形式的 replace,避免 $& / $' 被當成特殊樣式。
+   */
+  function pcTxt(key, fallback, params) {
+    if (typeof window.pcT === 'function') {
+      const s = window.pcT(key, params || null, fallback);
+      if (s) return s;
+    }
+    return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+      return (params && params[name] != null) ? String(params[name]) : whole;
+    });
   }
 
   /**
