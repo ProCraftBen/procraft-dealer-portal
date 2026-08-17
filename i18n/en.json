@@ -777,7 +777,6 @@
   "nq3.err.po_missing_revision": "PO number missing — cannot request revision.",
   "nq3.err.status_changed_resubmit": "Couldn't submit this order — its status may have changed. Please refresh the page and try again.",
   "nq3.err.status_changed_submit": "Couldn't submit this order — it may have been removed or its status changed. Please refresh the page and try again.",
-  "nq3.err.status_changed_save": "Couldn't save your changes — this order's status may have changed. Please refresh the page and try again.",
   "mf.opt.placeholder": "-- Please select --",
   "mf.err.select_option": "Please select an option.",
   "mf.err.enter_value": "Please enter a value.",
