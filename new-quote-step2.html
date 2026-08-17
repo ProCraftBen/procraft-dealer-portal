@@ -1084,16 +1084,16 @@
     <!-- LEFT: Style Image Grid -->
     <div class="style-grid-panel">
       <div class="panel-header">
-        <div class="panel-label">Door Styles</div>
+        <div class="panel-label" data-i18n="nq2.panel.door_styles">Door Styles</div>
         <div class="search-box">
           <svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
-          <input type="text" id="styleSearch" placeholder="Search styles..." oninput="filterStyles()"/>
+          <input type="text" id="styleSearch" placeholder="Search styles..." data-i18n-placeholder="nq2.ph.style_search" oninput="filterStyles()"/>
         </div>
       </div>
       <div class="subcat-tabs" id="subcatTabs"></div>
       <div class="style-grid-body">
         <div class="style-img-grid" id="styleListBody">
-          <div style="padding:16px;font-size:12px;color:var(--muted);">Loading...</div>
+          <div style="padding:16px;font-size:12px;color:var(--muted);" data-i18n="nq2.loading">Loading...</div>
         </div>
       </div>
     </div>
@@ -1101,12 +1101,12 @@
     <!-- RIGHT: Preview -->
     <div class="preview-panel">
       <div class="preview-panel-header">
-        <div class="preview-panel-title">Door Style Preview</div>
+        <div class="preview-panel-title" data-i18n="nq2.preview.title">Door Style Preview</div>
       </div>
       <div class="preview-body">
         <div class="preview-empty" id="previewEmpty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
-          <p>Click a door style<br>from the grid to preview</p>
+          <p data-i18n="nq2.preview.empty">Click a door style<br>from the grid to preview</p>
         </div>
         <div class="preview-content" id="previewContent">
           <div class="preview-lead-time" id="previewLeadTime" style="display:none;"></div>
@@ -1114,11 +1114,11 @@
             <img class="preview-img" id="previewImg" src="" alt=""/>
             <div class="preview-swatch" id="previewSwatch"></div>
           </div>
-          <div style="font-size:10px;color:var(--muted);letter-spacing:0.06em;margin-top:6px;margin-bottom:2px;">Click image to enlarge</div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:0.06em;margin-top:6px;margin-bottom:2px;" data-i18n="nq2.preview.enlarge_hint">Click image to enlarge</div>
           <div class="preview-name" id="previewName"></div>
           <div class="preview-meta" id="previewMeta"></div>
           <div class="preview-nonstock-note" id="previewNonStockNote" style="display:none;"></div>
-          <div id="selectedBadge" style="display:none;margin-top:8px;background:rgba(62,90,66,0.08);border:1px solid var(--green-dark);border-radius:3px;padding:6px 14px;font-size:11px;font-weight:500;color:var(--green-dark);letter-spacing:0.1em;">✓ SELECTED</div>
+          <div id="selectedBadge" data-i18n="nq2.badge.selected" style="display:none;margin-top:8px;background:rgba(62,90,66,0.08);border:1px solid var(--green-dark);border-radius:3px;padding:6px 14px;font-size:11px;font-weight:500;color:var(--green-dark);letter-spacing:0.1em;">✓ SELECTED</div>
         </div>
       </div>
     </div>
@@ -1128,31 +1128,31 @@
   <!-- SKU Panel -->
   <div class="sku-panel">
     <div class="sku-panel-header">
-      <span class="sku-panel-title">Items</span>
-      <span class="sku-style-tag" id="skuStyleTag">— select a style above —</span>
+      <span class="sku-panel-title" data-i18n="nq2.panel.items">Items</span>
+      <span class="sku-style-tag" id="skuStyleTag" data-i18n="nq2.style_tag.empty">— select a style above —</span>
       <div class="cat-tabs" id="catTabs"></div>
       <div class="sku-search-wrap" id="skuSearchWrap" style="display:none;">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
-        <input type="text" id="skuSearch" placeholder="Search SKU / description..." oninput="renderSkuTable()"/>
+        <input type="text" id="skuSearch" placeholder="Search SKU / description..." data-i18n-placeholder="nq2.ph.sku_search" oninput="renderSkuTable()"/>
       </div>
       <div class="sku-sort-wrap">
-        <label for="skuSort">Sort</label>
+        <label for="skuSort" data-i18n="nq2.sort.label">Sort</label>
         <select class="sku-sort-select" id="skuSort" onchange="setSort(this.value)">
-          <option value="type">SKU Type group</option>
-          <option value="sku">SKU (A–Z)</option>
-          <option value="price_asc">Price (Low to High)</option>
-          <option value="price_desc">Price (High to Low)</option>
+          <option value="type" data-i18n="nq2.sort.type">SKU Type group</option>
+          <option value="sku" data-i18n="nq2.sort.sku">SKU (A–Z)</option>
+          <option value="price_asc" data-i18n="nq2.sort.price_asc">Price (Low to High)</option>
+          <option value="price_desc" data-i18n="nq2.sort.price_desc">Price (High to Low)</option>
         </select>
       </div>
     </div>
 
     <!-- CB-29 A1: 靜態提醒 banner(always 顯示;篩選列下方、表格上方) -->
     <div style="margin:8px 0;padding:10px 14px;background:rgba(201,168,76,0.10);border:1px solid rgba(201,168,76,0.45);border-radius:4px;font-size:12px;color:#8B6914;letter-spacing:0.02em;">
-      ⚠️ Items marked need sales check availability
+      <span data-i18n="nq2.banner.sales_check">⚠️ Items marked need sales check availability</span>
     </div>
 
     <div class="sku-table-wrap" id="skuTableWrap">
-          <div class="sku-placeholder">Select a door style and click "Select This Style" to view available items.</div>
+          <div class="sku-placeholder" data-i18n="nq2.sku.placeholder">Select a door style and click "Select This Style" to view available items.</div>
           </div>
     
         <!-- F-CUSTOM v1.1: Custom Items section at the bottom of SKU panel.
@@ -1162,8 +1162,8 @@
     <div class="custom-items-section" id="customItemsSection" style="display:none;">
       <div class="custom-items-header">
         <div class="custom-items-title-wrap">
-          <span class="custom-items-title">Custom Items</span>
-          <span class="custom-items-hint">Hand-entered items not in catalog (admin only)</span>
+          <span class="custom-items-title" data-i18n="nq2.custom.title">Custom Items</span>
+          <span class="custom-items-hint" data-i18n="nq2.custom.hint">Hand-entered items not in catalog (admin only)</span>
         </div>
         <button id="btnAddCustomItem" class="btn-add-custom" type="button"
           onclick="openCustomModal()" title="Add a custom item not in catalog">
@@ -1190,25 +1190,25 @@
 <div class="custom-modal-overlay" id="customModalOverlay">
   <div class="custom-modal-container" role="dialog" aria-modal="true" aria-labelledby="customModalTitle">
     <div class="custom-modal-header">
-      <span class="custom-modal-title" id="customModalTitle">Add Custom Item</span>
+      <span class="custom-modal-title" id="customModalTitle" data-i18n="nq2.modal.add_custom">Add Custom Item</span>
       <button class="custom-modal-close" type="button" onclick="closeCustomModal()" aria-label="Close">×</button>
     </div>
     <div class="custom-modal-body">
 
       <!-- Type selector -->
-      <div class="custom-form-label required">Item Type</div>
+      <div class="custom-form-label required" data-i18n="nq2.field.item_type">Item Type</div>
       <div class="custom-type-grid" id="customTypeGrid">
         <div class="custom-type-card" data-type="Cabinet" onclick="onCustomTypeSelect('Cabinet')">
-          <div class="custom-type-card-label">Cabinet</div>
-          <div class="custom-type-card-hint">New door style or custom size</div>
+          <div class="custom-type-card-label" data-i18n="nq2.type.cabinet">Cabinet</div>
+          <div class="custom-type-card-hint" data-i18n="nq2.type.cabinet_hint">New door style or custom size</div>
         </div>
         <div class="custom-type-card" data-type="Accessory" onclick="onCustomTypeSelect('Accessory')">
-          <div class="custom-type-card-label">Accessory</div>
-          <div class="custom-type-card-hint">Toe Kick, Filler, Molding...</div>
+          <div class="custom-type-card-label" data-i18n="nq2.type.accessory">Accessory</div>
+          <div class="custom-type-card-hint" data-i18n="nq2.type.accessory_hint">Toe Kick, Filler, Molding...</div>
         </div>
         <div class="custom-type-card" data-type="Other" onclick="onCustomTypeSelect('Other')">
-          <div class="custom-type-card-label">Other</div>
-          <div class="custom-type-card-hint">Anything else</div>
+          <div class="custom-type-card-label" data-i18n="nq2.type.other">Other</div>
+          <div class="custom-type-card-hint" data-i18n="nq2.type.other_hint">Anything else</div>
         </div>
       </div>
 
@@ -1216,10 +1216,10 @@
            CABINET section (shown only when type === 'Cabinet')
            ════════════════════════════════════════════════ -->
       <div class="custom-cabinet-section" id="customCabinetSection" style="display:none;">
-        <div class="custom-cabinet-section-title">Cabinet Details</div>
+        <div class="custom-cabinet-section-title" data-i18n="nq2.section.cabinet_details">Cabinet Details</div>
 
         <div class="custom-form-row">
-          <label class="custom-form-label required">Construction Type</label>
+          <label class="custom-form-label required" data-i18n="nq2.field.construction">Construction Type</label>
           <div class="custom-construction-group" id="customConstructionGroup">
             <button type="button" class="custom-construction-btn" data-value="framed"
               onclick="setCustomConstruction('framed')">Framed</button>
@@ -1229,36 +1229,36 @@
         </div>
 
         <div class="custom-form-row">
-          <label class="custom-form-label required">Door Style</label>
+          <label class="custom-form-label required" data-i18n="nq2.field.door_style">Door Style</label>
           <input type="text" id="customDoorStyleCabinet" class="custom-form-input"
-            placeholder="Type door style name (e.g. Custom Walnut)"
+            placeholder="Type door style name (e.g. Custom Walnut)" data-i18n-placeholder="nq2.ph.door_style"
             maxlength="80"/>
         </div>
 
         <div class="custom-form-row">
-          <label class="custom-form-label required">Cabinet Type</label>
+          <label class="custom-form-label required" data-i18n="nq2.field.cabinet_type">Cabinet Type</label>
           <select id="customCabinetTypeSelect" class="custom-form-select"
             onchange="onCustomCabinetTypeChange()">
-            <option value="">— Select cabinet type —</option>
+            <option value="" data-i18n="nq2.select.cabinet_type">— Select cabinet type —</option>
           </select>
         </div>
 
         <div class="custom-form-row">
-          <label class="custom-form-label required">Assemble Status</label>
+          <label class="custom-form-label required" data-i18n="nq2.field.assemble_status">Assemble Status</label>
           <div class="custom-radio-group" id="customAsmStatusGroup">
-            <button type="button" class="custom-radio-btn active" data-value="RTA" onclick="setCustomAsmStatus('RTA')">Unassembled</button>
-            <button type="button" class="custom-radio-btn" data-value="Assembled" onclick="setCustomAsmStatus('Assembled')">Assembled</button>
+            <button type="button" class="custom-radio-btn active" data-value="RTA" onclick="setCustomAsmStatus('RTA')" data-i18n="nq2.asm.unassembled">Unassembled</button>
+            <button type="button" class="custom-radio-btn" data-value="Assembled" onclick="setCustomAsmStatus('Assembled')" data-i18n="nq2.asm.assembled">Assembled</button>
           </div>
         </div>
 
         <div class="custom-form-row">
-          <label class="custom-form-label">Assemble Fee (per unit)</label>
+          <label class="custom-form-label" data-i18n="nq2.field.assemble_fee">Assemble Fee (per unit)</label>
           <div class="custom-form-input-prefix">
             <span class="prefix">$</span>
             <input type="number" id="customAsmFee" class="custom-form-input"
               min="0" step="0.01" placeholder="0.00" disabled/>
           </div>
-          <div class="custom-form-help">Auto-calculated from dealer settings (read-only).</div>
+          <div class="custom-form-help" data-i18n="nq2.help.assemble_fee">Auto-calculated from dealer settings (read-only).</div>
         </div>
       </div>
 
@@ -1266,9 +1266,9 @@
            ACCESSORY section (shown only when type === 'Accessory')
            ════════════════════════════════════════════════ -->
       <div class="custom-cabinet-section" id="customAccessorySection" style="display:none;">
-        <div class="custom-cabinet-section-title">Accessory Details</div>
+        <div class="custom-cabinet-section-title" data-i18n="nq2.section.accessory_details">Accessory Details</div>
         <div class="custom-form-row">
-          <label class="custom-form-label">Door Style</label>
+          <label class="custom-form-label" data-i18n="nq2.field.door_style">Door Style</label>
           <input type="text" class="custom-form-input" value="Accessories" disabled
             id="customAccessoryDoorStyle"/>
         </div>
@@ -1278,11 +1278,11 @@
            OTHER section (shown only when type === 'Other')
            ════════════════════════════════════════════════ -->
       <div class="custom-cabinet-section" id="customOtherSection" style="display:none;">
-        <div class="custom-cabinet-section-title">Other Details</div>
+        <div class="custom-cabinet-section-title" data-i18n="nq2.section.other_details">Other Details</div>
         <div class="custom-form-row">
-          <label class="custom-form-label">Door Style (optional)</label>
+          <label class="custom-form-label" data-i18n="nq2.field.door_style_optional">Door Style (optional)</label>
           <input type="text" id="customDoorStyleOther" class="custom-form-input"
-            placeholder="Leave blank or type any reference"
+            placeholder="Leave blank or type any reference" data-i18n-placeholder="nq2.ph.door_style_other"
             maxlength="80"/>
         </div>
       </div>
@@ -1291,40 +1291,40 @@
            Common fields — always shown after type is selected
            ════════════════════════════════════════════════ -->
       <div class="custom-form-row" id="customCommonFieldsRow1" style="display:none;">
-        <label class="custom-form-label required">SKU Code</label>
+        <label class="custom-form-label required" data-i18n="nq2.field.sku_code">SKU Code</label>
         <input type="text" id="customSkuCode" class="custom-form-input"
-          placeholder="e.g. CUST-001, PROMO-DENT-12"
+          placeholder="e.g. CUST-001, PROMO-DENT-12" data-i18n-placeholder="nq2.ph.sku_code"
           maxlength="60"/>
       </div>
 
       <div class="custom-form-row" id="customCommonFieldsRow2" style="display:none;">
-        <label class="custom-form-label required">Description</label>
+        <label class="custom-form-label required" data-i18n="nq2.field.description">Description</label>
         <input type="text" id="customSkuDesc" class="custom-form-input"
-          placeholder="e.g. Custom Birch Cabinet 9in W x 30in H"
+          placeholder="e.g. Custom Birch Cabinet 9in W x 30in H" data-i18n-placeholder="nq2.ph.description"
           maxlength="200"/>
       </div>
 
       <div class="custom-form-row row-flex" id="customCommonFieldsRow3" style="display:none;">
         <div>
-          <label class="custom-form-label required">Quantity</label>
+          <label class="custom-form-label required" data-i18n="nq2.field.quantity">Quantity</label>
           <input type="number" id="customQty" class="custom-form-input"
             min="1" step="1" value="1"/>
         </div>
         <div>
-          <label class="custom-form-label required">Unit Price</label>
+          <label class="custom-form-label required" data-i18n="nq2.field.unit_price">Unit Price</label>
           <div class="custom-form-input-prefix">
             <span class="prefix">$</span>
             <input type="number" id="customUnitPrice" class="custom-form-input"
               min="0" step="0.01" placeholder="0.00"/>
           </div>
-          <div class="custom-form-help">This price does not participate in MSRP calculation. Enter the final amount you want to charge.</div>
+          <div class="custom-form-help" data-i18n="nq2.help.unit_price">This price does not participate in MSRP calculation. Enter the final amount you want to charge.</div>
         </div>
       </div>
 
     </div>
     <div class="custom-modal-footer">
       <button class="custom-btn custom-btn-cancel" type="button" onclick="closeCustomModal()">Cancel</button>
-      <button class="custom-btn custom-btn-save" type="button" id="customSaveBtn" onclick="saveCustomItem()">Add to Cart</button>
+      <button class="custom-btn custom-btn-save" type="button" id="customSaveBtn" onclick="saveCustomItem()" data-i18n="nq2.btn.add_to_cart">Add to Cart</button>
     </div>
   </div>
 </div>
@@ -1341,16 +1341,16 @@
 <!-- Cart Drawer -->
 <div class="cart-drawer" id="cartDrawer">
   <div class="cart-drawer-header">
-    <span class="cart-drawer-title">Quote Items</span>
+    <span class="cart-drawer-title" data-i18n="nq2.cart.title">Quote Items</span>
     <button class="cart-close" onclick="closeCart()">×</button>
   </div>
   <div class="cart-body" id="cartBody">
-    <div class="cart-empty">No items yet.<br>Select a style and add items.</div>
+    <div class="cart-empty" data-i18n="nq2.cart.empty">No items yet.<br>Select a style and add items.</div>
   </div>
   <div class="cart-footer" id="cartFooter" style="display:none;">
-    <div class="cart-total"><span>Subtotal</span><span id="cartTotal">$0.00</span></div>
-    <div class="cart-note">* Dealer pricing applied. Final pricing confirmed upon order processing.</div>
-    <button class="btn-checkout" id="btnCheckout" onclick="goNext()">Continue →</button>
+    <div class="cart-total"><span data-i18n="nq2.cart.subtotal">Subtotal</span><span id="cartTotal">$0.00</span></div>
+    <div class="cart-note" data-i18n="nq2.cart.note">* Dealer pricing applied. Final pricing confirmed upon order processing.</div>
+    <button class="btn-checkout" id="btnCheckout" onclick="goNext()" data-i18n="nq2.btn.continue">Continue →</button>
   </div>
 </div>
 
@@ -1359,19 +1359,60 @@
 
 <!-- Bottom Bar -->
 <div class="bottom-bar">
-  <div class="bottom-left"><strong id="bottomCount">0 items</strong> in quote</div>
+  <div class="bottom-left"><strong id="bottomCount">0 items</strong> <span data-i18n="nq2.bottom.in_quote">in quote</span></div>
   <div style="display:flex;gap:10px;align-items:center;">
-    <a href="new-quote.html" class="btn-back" id="btnBack">← Back</a>
-    <button class="btn-next" id="btnNext" onclick="goNext()" disabled>Continue →</button>
+    <a href="new-quote.html" class="btn-back" id="btnBack" data-i18n="nq2.btn.back">← Back</a>
+    <button class="btn-next" id="btnNext" onclick="goNext()" disabled data-i18n="nq2.btn.continue">Continue →</button>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/quote-flow-header.js"></script>
+<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/quote-flow-header.js?v=1.5"></script>
 <script>
 const { createClient } = supabase;
-const _supabase = createClient(
+
+  // CB-62 B4-1a:step2 原本沒有 escapeHtml,下方幾處插值需要它。
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+// ═══════════════════════════════════════════════════════════════════
+  // CB-62 B4-1a|i18n 區域輔助
+  // pcT 未載入或字典未就緒時回 null → 一律帶英文保底,畫面不得出現 "null"。
+  // 命名用 pc 前綴避免 global 碰撞(B-1 教訓)。
+  // 本頁不放語言切換鈕(Q-32 C),語言在進入流程前已選定。
+  // ═══════════════════════════════════════════════════════════════════
+  // step2 原本沒有 escapeHtml —— CB-62 的幾處插值需要它。
+  // 與 new-quote.html / quotes.html 的實作一致。
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  
+  function pcTxt(key, fallback, params) {
+      if (typeof window.pcT === 'function') {
+        const s = window.pcT(key, params || null, fallback);
+        if (s) return s;
+      }
+      return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+        return (params && params[name] != null) ? String(params[name]) : whole;
+      });
+    }
+  function pcPlural(baseKey, n, enOne, enOther) {
+    const key = (n === 1) ? baseKey + '.one' : baseKey + '.other';
+    return pcTxt(key, (n === 1 ? enOne : enOther).replace('{n}', n), { n: n });
+  }
+
+  const _supabase = createClient(
   window.SB_URL,
   window.SB_KEY
 );
@@ -1495,6 +1536,20 @@ async function init() {
   }
   currentUserRole = (meRow.role || 'dealer').toLowerCase();
   isAdminViewer   = currentUserRole === 'admin' || currentUserRole === 'super_admin';
+
+  // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
+  // 本頁 admin 與 dealer 走同一個 URL,「以 i18n.js 載入與否為開關」在此不成立。
+  // pcForceLang 不寫 localStorage,不污染 dealer 的語言偏好(共用電腦情境)。
+  // typeof 防護針對版本錯配(新 HTML + 快取舊 i18n.js),故以 console.error 明確報錯,
+  // 並退而至少修正 html[lang] 的版面覆蓋。
+  if (isAdminViewer) {
+    if (typeof window.pcForceLang === 'function') {
+      window.pcForceLang('en');
+    } else {
+      console.error('[CB-62] pcForceLang missing — stale i18n.js cached; admin may see Spanish');
+      document.documentElement.setAttribute('lang', 'en');
+    }
+  }
   console.log('[F-CUSTOM] currentUserRole =', currentUserRole);
 
   // adminDraft can also come from Step 1 sessionStorage
@@ -1553,7 +1608,7 @@ async function init() {
   const { data:d } = await _supabase
     .from('dealers').select('*').eq('id', dealerIdToLoad).single();
   if (!d) {
-    alert('Could not load dealer data. Please go back and try again.');
+    alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.'));
     return;
   }
   dealer = d;
@@ -1785,13 +1840,13 @@ function updatePreviewLeadAndNote(style) {
     ? leadTimeForDoor(style.construction_type, style.is_stock)
     : null;
   if (lt) {
-    ltEl.innerHTML = '<span class="lt-label">Lead Time:</span> ' + lt;
+    ltEl.innerHTML = '<span class="lt-label">' + escapeHtml(pcTxt('nq2.lead_time', 'Lead Time:')) + '</span> ' + lt;
     ltEl.style.display = 'block';
   } else {
     ltEl.style.display = 'none';   // stock / coming soon → 整條不出現
   }
   if (style && !style.is_coming_soon && style.is_stock === false) {
-    noteEl.textContent = NONSTOCK_NOTE_TEXT;
+    noteEl.textContent = NONSTOCK_NOTE_TEXT_FN();
     noteEl.style.display = 'block';
   } else {
     noteEl.style.display = 'none';
@@ -1805,8 +1860,13 @@ function formatAssembleStatus(v) {
 }
 
 // ── CB-5 需求2: non-stock advisory note text ──
-const NONSTOCK_NOTE_TEXT =
-  'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.';
+// CB-62:改為函式,語言切換後取得的才是當前語言(常數會凍結在載入時的語言)。
+function NONSTOCK_NOTE_TEXT_FN() {
+  return pcTxt('nq2.note.nonstock',
+    'This is a non-stock product, and the team needs to confirm whether it can be successfully transferred.');
+}
+// ⚠️ 不要在此處求值 —— 語言檔是非同步載入的,此刻 pcT 還沒有字典。
+//    一律在使用時呼叫 NONSTOCK_NOTE_TEXT_FN()。
 
 // ── CB-5 需求4: preferred SKU type group order (covers ProCraft + Milania) ──
 // Base → Tall → Wall → Vanity → ... → Accessories last; unknowns alphabetical at end.
@@ -1896,7 +1956,7 @@ function renderStyleList() {
   if (q) filtered = filtered.filter(s => s.style_name.toLowerCase().includes(q) || s.style_code.toLowerCase().includes(q));
 
   if (!filtered.length) {
-    grid.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--muted);">No styles found.</div>';
+    grid.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--muted);">' + escapeHtml(pcTxt('nq2.styles.none', 'No styles found.')) + '</div>';
     return;
   }
 
@@ -1965,7 +2025,9 @@ function previewStyle(code) {
 
   const btn = document.getElementById('btnSelectStyle');
   const isActive = activeStyle && activeStyle.style_code === code;
-  btn.textContent = isActive ? '✓ Selected' : 'Select This Style';
+  btn.textContent = isActive
+      ? pcTxt('nq2.btn.selected', '\u2713 Selected')
+      : pcTxt('nq2.btn.select_style', 'Select This Style');
   btn.className = 'btn-select-style' + (isActive ? ' confirmed' : '');
 }
 
@@ -2078,7 +2140,7 @@ function renderSkuTable() {
   });
 
   const wrap = document.getElementById('skuTableWrap');
-  if (!skus.length) { wrap.innerHTML = '<div class="sku-placeholder">No items found.</div>'; return; }
+  if (!skus.length) { wrap.innerHTML = '<div class="sku-placeholder">' + escapeHtml(pcTxt('nq2.sku.none', 'No items found.')) + '</div>'; return; }
 
   // Stock/Non-Stock tag is only meaningful for Framed; hide for Frameless
   const stockTag = isFrameless
@@ -2150,13 +2212,13 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
   if (isReviewLocked()) return;  // CB-4: read-only review — no adding
   const el  = document.getElementById('qty-'+skuCode);
   const qty = parseInt(el?.value||0);
-  if (qty<=0) { showToast('Please enter a quantity first'); return; }
+  if (qty<=0) { showToast(pcTxt('nq2.toast.qty_first', 'Please enter a quantity first')); return; }
   const sku = getActiveSkus().find(s => s.sku_code === skuCode);
-  if (!sku) { showToast('SKU not found'); return; }
+  if (!sku) { showToast(pcTxt('nq2.toast.sku_not_found', 'SKU not found')); return; }
   const grp2      = (activeStyle.grp || 'GROUP A').toUpperCase();
   const msrpValue = getMsrpForGroup(sku, grp2);
   if (msrpValue === null) {
-    showToast('This SKU is not available for the selected style group');
+    showToast(pcTxt('nq2.toast.sku_unavailable', 'This SKU is not available for the selected style group'));
     return;
   }
 const key = `${activeStyle.style_code}-${skuCode}-${type}`;
@@ -2201,7 +2263,9 @@ const key = `${activeStyle.style_code}-${skuCode}-${type}`;
   if (el) el.value=1;
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   renderCart();
-  showToast(`${sku.sku_code} (${type}) × ${qty} added`);
+  showToast(pcTxt('nq2.toast.added', '{sku} ({type}) \u00D7 {qty} added',
+      { sku: sku.sku_code, type: type, qty: qty })
+      .replace('{sku}', sku.sku_code).replace('{type}', type).replace('{qty}', qty));
 }
 
 function removeFromCart(key) {
@@ -2350,12 +2414,12 @@ function openCustomModal(editKey) {
     // EDIT mode — prefill from existing cart item
     const item = cartItems.find(function (i) { return i.key === editKey; });
     if (!item || !item.is_custom) {
-      showToast('Item not found or not editable');
+      showToast(pcTxt('nq2.toast.item_not_editable', 'Item not found or not editable'));
       return;
     }
 
-    document.getElementById('customModalTitle').textContent = 'Edit Custom Item';
-    document.getElementById('customSaveBtn').textContent    = 'Save Changes';
+    document.getElementById('customModalTitle').textContent = pcTxt('nq2.modal.edit_custom', 'Edit Custom Item');
+    document.getElementById('customSaveBtn').textContent    = pcTxt('nq2.btn.save_changes', 'Save Changes');
 
     // Infer type from sku_type
     let inferredType;
@@ -2386,7 +2450,7 @@ function openCustomModal(editKey) {
     }
   } else {
     // ADD mode — fresh form
-    document.getElementById('customModalTitle').textContent = 'Add Custom Item';
+    document.getElementById('customModalTitle').textContent = pcTxt('nq2.modal.add_custom', 'Add Custom Item');
     document.getElementById('customSaveBtn').textContent    = 'Add to Cart';
   }
 
@@ -2461,7 +2525,7 @@ function saveCustomItem() {
     });
 
   if (!customModalState.type) {
-    showToast('Please select an item type', true);
+    showToast(pcTxt('nq2.toast.select_item_type', 'Please select an item type'), true);
     return;
   }
   if (!skuCode) {
@@ -2615,7 +2679,9 @@ function saveCustomItem() {
   renderCart();
   renderCustomItemsList();
   closeCustomModal();
-  showToast(isEditing ? (skuCode + ' updated') : (skuCode + ' added to cart'));
+  showToast(isEditing
+      ? pcTxt('nq2.toast.custom_updated', '{sku} updated',        { sku: skuCode }).replace('{sku}', skuCode)
+      : pcTxt('nq2.toast.custom_added',   '{sku} added to cart',  { sku: skuCode }).replace('{sku}', skuCode));
 }
 
 // ──────────────────────────────────────────────────────────────────
@@ -2627,8 +2693,8 @@ function renderCustomItemsList() {
   const customs = cartItems.filter(function (i) { return i.is_custom; });
 
   if (!customs.length) {
-    listEl.innerHTML = '<div class="custom-items-empty">' +
-      'No custom items yet. Click "+ Add Custom Item" above to add one.' +
+  listEl.innerHTML = '<div class="custom-items-empty">' +
+      escapeHtml(pcTxt('nq2.custom.empty', 'No custom items yet. Click "+ Add Custom Item" above to add one.')) +
       '</div>';
     return;
   }
@@ -2816,11 +2882,12 @@ function renderCart() {
   const totalLines   = cartItems.length;
 
   document.getElementById('cartFabBadge').textContent = totalQty;
-  document.getElementById('bottomCount').textContent = `${totalQty} item${totalQty!==1?'s':''}`;
+  document.getElementById('bottomCount').textContent =
+      pcPlural('nq2.count', totalQty, '{n} item', '{n} items');
   document.getElementById('btnNext').disabled = totalLines===0;
 
   if (!totalLines) {
-    document.getElementById('cartBody').innerHTML='<div class="cart-empty">No items yet.<br>Select a style to begin.</div>';
+    document.getElementById('cartBody').innerHTML='<div class="cart-empty">' + pcTxt('nq2.cart.empty_short', 'No items yet.<br>Select a style to begin.') + '</div>';
     document.getElementById('cartFooter').style.display='none';
     return;
   }
@@ -2908,7 +2975,13 @@ function renderCart() {
     footerEl.insertBefore(asmRow, footerEl.firstChild);
   }
   if (assembleTotal > 0) {
-    asmRow.innerHTML = `<span>Assemble Fee (est.)</span><span>+$${assembleTotal.toFixed(2)}</span>`;
+    asmRow.textContent = '';
+    const _asmL = document.createElement('span');
+    _asmL.textContent = pcTxt('nq2.cart.assemble_fee', 'Assemble Fee (est.)');
+    const _asmR = document.createElement('span');
+    _asmR.textContent = '+$' + assembleTotal.toFixed(2);
+    asmRow.appendChild(_asmL);
+    asmRow.appendChild(_asmR);
     asmRow.style.display='flex';
   } else {
     asmRow.style.display='none';
@@ -2943,8 +3016,20 @@ function goNext() {
   window.location.href = nextUrl;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+  // 🔴 CB-62 B4-1a|語言切換重繪
+  // 靜態 data-i18n 節點由 i18n.js 自行重繪;這裡只處理 JS 動態產生的內容。
+  // ⚠️ 防護條件用「是否載入過」而非「現在有無資料」(B2/B3 教訓)。
+  // ═══════════════════════════════════════════════════════════════════
+  document.addEventListener('pc:i18n-changed', function () {
+    if (typeof renderStyleList       === 'function') renderStyleList();
+    if (typeof renderSkuTable        === 'function') renderSkuTable();
+    if (typeof renderCart            === 'function') renderCart();
+    if (typeof renderCustomItemsList === 'function') renderCustomItemsList();
+  });
+
 init();
 </script>
-<script src="components/feedback-widget.js?v=1.0"></script>
+<script src="components/feedback-widget.js?v=cb62c"></script>
 </body>
 </html>
