@@ -91,6 +91,20 @@
     .stat-label { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
 
     .action-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    /* ── CB-63: dashboard 促銷欄 ─────────────────────────── */
+    .dash-promo-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+    .promo-col { order: -1; }
+    @media (min-width: 768px) {
+      .dash-promo-grid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 24px; }
+      .promo-col { order: 0; }
+    }
+    .promo-box { position: relative; width: 100%; aspect-ratio: 4 / 5; background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .promo-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.4s ease; display: block; }
+    .promo-slide.is-active { opacity: 1; }
+    .promo-slide img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .promo-dots { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+    .promo-dot { width: 8px; height: 8px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: transparent; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+    .promo-dot.is-on { background: var(--gold); border-color: var(--gold); }
   </style>
 </head>
 <body>
@@ -100,7 +114,6 @@
 
 <div class="page">
   <div class="page-header">
-    <div id="pcd-lang-switch"></div>
     <div class="greeting" data-i18n="dashboard.welcome">Welcome back</div>
     <!-- ⚠️ #companyName 由 JS 寫入公司名稱。data-i18n 只作為載入中的佔位,
          寫入公司名時會【移除該屬性】,否則切換語言會把公司名蓋成「載入中」。 -->
@@ -126,7 +139,7 @@
       <span data-i18n="dashboard.action.edit_profile">Edit Profile</span>
     </a>
   </div>
-
+  <div class="dash-promo-grid">
   <div class="panel">
     <div class="panel-header">
       <span class="panel-title" data-i18n="dashboard.recent.title">Recent Quotes</span>
@@ -136,18 +149,74 @@
       <div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div>
     </div>
   </div>
-</div>
+  <aside class="promo-col">
+    <div class="promo-box" id="promoBox">
+      <a class="promo-slide is-active" href="https://dc.procraftcabinetry.com/" target="_blank" rel="noopener">
+        <img src="assets/promo-2026-08-new-promote.webp" alt="ProCraft Cabinetry DC — shaker cabinet doors in white, charcoal and light gray" width="800" height="1000" decoding="async"/>
+      </a>
+      <a class="promo-slide" href="https://dc.procraftcabinetry.com/" target="_blank" rel="noopener">
+        <img src="assets/promo-2026-08-visualizer.webp" alt="ProCraft Cabinetry DC — stacked shaker door samples in three finishes" width="800" height="1000" loading="lazy" decoding="async"/>
+      </a>
+    </div>
+    <div class="promo-dots" id="promoDots">
+      <button type="button" class="promo-dot is-on" aria-label="Promotion 1"></button>
+      <button type="button" class="promo-dot" aria-label="Promotion 2"></button>
+    </div>
+  </aside>
 
+  </div>
+</div>
+  
+<script>
+(function () {
+  var box = document.getElementById('promoBox');
+  if (!box) return;
+  var slides = box.querySelectorAll('.promo-slide');
+  var dots   = document.querySelectorAll('#promoDots .promo-dot');
+  if (slides.length < 2) return;
+
+  var INTERVAL = 6000;
+  var idx = 0, timer = null;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function show(n) {
+    idx = (n + slides.length) % slides.length;
+    for (var i = 0; i < slides.length; i++) {
+      slides[i].classList.toggle('is-active', i === idx);
+    }
+    for (var j = 0; j < dots.length; j++) {
+      dots[j].classList.toggle('is-on', j === idx);
+      dots[j].setAttribute('aria-current', j === idx ? 'true' : 'false');
+    }
+  }
+  function stop()  { if (timer) { clearInterval(timer); timer = null; } }
+  function start() { if (reduce) return; stop(); timer = setInterval(function () { show(idx + 1); }, INTERVAL); }
+
+  for (var k = 0; k < dots.length; k++) {
+    (function (k) {
+      dots[k].addEventListener('click', function () { show(k); start(); });
+    })(k);
+  }
+  box.addEventListener('mouseenter', stop);
+  box.addEventListener('mouseleave', start);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { stop(); } else { start(); }
+  });
+
+  show(0);
+  start();
+})();
+</script>
 <!-- Unified Footer -->
 <div id="pcd-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="components/status-label.js?v=1.1"></script>
-<script src="components/i18n.js?v=cb62b"></script>
-<script src="components/lang-switch.js?v=cb62b"></script>
-<script src="components/navigator.js"></script>
-<script src="components/footer.js"></script>
+<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/lang-switch.js?v=cb62c"></script>
+<script src="components/navigator.js?v=cb62c"></script>
+<script src="components/footer.js?v=cb62c"></script>
 <script>
   const SUPABASE_URL = window.SB_URL;
   const SUPABASE_KEY = window.SB_KEY;
@@ -299,7 +368,7 @@
 
   init();
 </script>
-<script src="components/feedback-widget.js?v=1.1"></script>
+<script src="components/feedback-widget.js?v=cb62c"></script>
 </body>
 
 
