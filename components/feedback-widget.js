@@ -4,7 +4,7 @@
  * ═══════════════════════════════════════════════════════════════════
  *
  * Usage:
- *   <script src="components/feedback-widget.js?v=1.2"></script>
+ *   <script src="components/feedback-widget.js?v=1.3"></script>
  *   (Place AFTER the supabase-js script and AFTER user is logged in.)
  *
  * The widget:
@@ -22,6 +22,18 @@
  *
  * Dependencies (must exist in page before this script runs):
  *   - window.supabase (from @supabase/supabase-js@2 CDN)
+ *
+ * Version: 1.3 (CB-62 B3)
+ *   - i18n support. The UI lives in a CLOSED shadow root, so i18n.js cannot
+ *     reach it with document.querySelectorAll — this file hydrates its own
+ *     markup by calling pcApplyI18n(_shadow).
+ *   - On language change it RE-HYDRATES ONLY, never rebuilds the modal:
+ *     the user may be mid-sentence, and a rebuild would wipe their text,
+ *     their chosen sentiment and category.
+ *   - Admin pages never load i18n.js, so pcT is undefined and every string
+ *     falls back to the English written here — byte-for-byte unchanged.
+ *   - SENTIMENTS / CATEGORIES: `value` is the DB column value and is NEVER
+ *     translated; only `label` is display text.
  *
  * Version: 1.2
  *   - Tab now opens modal directly (removed expand-to-pill intermediate step)
@@ -41,17 +53,54 @@
   const MOBILE_BREAKPOINT = 700;
   const MESSAGE_MAX = 2000;
 
+  // ═══════════════════════════════════════════════════════════════════
+  // 🔴 CB-62 B3|i18n on a closed shadow root
+  // -------------------------------------------------------------------
+  // 本元件把畫面封在 attachShadow({ mode: 'closed' }) 裡,i18n.js 的
+  // document.querySelectorAll() 【看不進來】。所以 data-i18n 標記要由本檔
+  // 自己水合:呼叫 pcApplyI18n(_shadow)(該函式接受任何有 querySelectorAll
+  // 的 root,ShadowRoot 符合)。
+  //
+  // ⚠️ 只【重新水合】,絕不重建 modal —— 使用者可能正在打字,重建會把
+  //    輸入內容、已選的評價與分類全部清掉。
+  //
+  // admin 頁沒有 i18n.js → pcT 不存在 → 全部走英文,行為與改版前相同。
+  // ═══════════════════════════════════════════════════════════════════
+  function t(key, fallback, params) {
+    return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
+  }
+
+  function applyI18n() {
+    if (!_shadow || typeof window.pcApplyI18n !== 'function') return;
+    window.pcApplyI18n(_shadow);
+    // tab 的 aria-label / title 是屬性,不走 data-i18n(它同時要當 title),
+    // 這裡一併更新。
+    const tab = _shadow.querySelector('.pfb-tab');
+    if (tab) {
+      const label = t('feedback.tab_title', 'Send feedback');
+      tab.setAttribute('aria-label', label);
+      tab.title = label;
+    }
+    // 送出按鈕在送出中會被換成 spinner + 文字,此時不覆寫(避免打斷狀態)。
+    const submit = _shadow.querySelector('#pfb-submit');
+    if (submit && !submit.disabled && !submit.querySelector('.pfb-spinner')) {
+      submit.textContent = t('feedback.btn.send', 'Send');
+    }
+  }
+
   const CATEGORIES = [
-    { value: 'bug',         icon: '🐛', label: 'Bug' },
-    { value: 'feature',     icon: '💡', label: 'Feature' },
-    { value: 'hard_to_use', icon: '😖', label: 'Hard to use' },
-    { value: 'visual',      icon: '🎨', label: 'Visual' },
-    { value: 'other',       icon: '💬', label: 'Other' },
+    { value: 'bug',         icon: '🐛', label: 'Bug',         key: 'feedback.category.bug' },
+    { value: 'feature',     icon: '💡', label: 'Feature',     key: 'feedback.category.feature' },
+    { value: 'hard_to_use', icon: '😖', label: 'Hard to use', key: 'feedback.category.hard_to_use' },
+    { value: 'visual',      icon: '🎨', label: 'Visual',      key: 'feedback.category.visual' },
+    { value: 'other',       icon: '💬', label: 'Other',       key: 'feedback.category.other' },
   ];
+  // 🔴 CB-62 B3:value 是寫進 DB 的欄位值,永遠不翻譯;只有 label 是顯示文字。
+  //    這是「陣列同時餵顯示與資料」的典型 —— 兩者已分欄,無需拆解。
   const SENTIMENTS = [
-    { value: 'positive', icon: '😀', label: 'Good' },
-    { value: 'neutral',  icon: '😐', label: 'OK' },
-    { value: 'negative', icon: '😞', label: 'Bad' },
+    { value: 'positive', icon: '😀', label: 'Good', key: 'feedback.sentiment.positive' },
+    { value: 'neutral',  icon: '😐', label: 'OK',   key: 'feedback.sentiment.neutral' },
+    { value: 'negative', icon: '😞', label: 'Bad',  key: 'feedback.sentiment.negative' },
   ];
 
   // ──────────────────────────────────────────────────────────────────
@@ -467,7 +516,20 @@
     renderTab();
     renderModal();
 
-    console.log('[FeedbackWidget] Mounted v1.2 — user:', _dealerRow.company_name,
+    // 🔴 CB-62 B3:shadow root 內的標記由本檔自己水合(i18n.js 掃不進來)。
+    applyI18n();
+
+    // 語言切換 → 【只重新水合,不重建】。使用者可能正在打字,重建會清掉
+    // 輸入內容與已選的評價/分類。同時重譯目前顯示中的錯誤訊息。
+    document.addEventListener('pc:i18n-changed', function () {
+      applyI18n();
+      const el = _shadow && _shadow.querySelector('#pfb-error');
+      if (el && el.dataset.pcErrKey) {
+        el.textContent = t(el.dataset.pcErrKey, el.dataset.pcErrEn || '');
+      }
+    });
+
+    console.log('[FeedbackWidget] Mounted v1.3 — user:', _dealerRow.company_name,
                 '· role:', _dealerRow.role,
                 '· mobile:', _isMobile);
   }
@@ -482,9 +544,10 @@
     const tab = document.createElement('button');
     tab.className = 'pfb-tab';
     tab.type = 'button';
-    tab.setAttribute('aria-label', 'Send feedback');
-    tab.title = 'Send feedback';
-    tab.textContent = 'Feedback';  // hidden via font-size:0 on mobile
+    tab.setAttribute('aria-label', t('feedback.tab_title', 'Send feedback'));
+    tab.title = t('feedback.tab_title', 'Send feedback');
+    tab.setAttribute('data-i18n', 'feedback.tab');
+    tab.textContent = t('feedback.tab', 'Feedback');  // hidden via font-size:0 on mobile
     tab.addEventListener('click', openModal);
     _shadow.appendChild(tab);
   }
@@ -498,21 +561,21 @@
     overlay.innerHTML = `
       <div class="pfb-modal">
         <div class="pfb-modal-header">
-          <span class="pfb-modal-title">Send Feedback</span>
-          <button class="pfb-modal-close" type="button" aria-label="Close">×</button>
+          <span class="pfb-modal-title" data-i18n="feedback.modal.title">Send Feedback</span>
+          <button class="pfb-modal-close" type="button" data-i18n-aria-label="feedback.close" aria-label="Close">×</button>
         </div>
 
         <div class="pfb-modal-body" data-screen="form">
           <div class="pfb-field">
             <label class="pfb-label">
-              How was your experience?
-              <span class="pfb-optional">(optional)</span>
+              <span data-i18n="feedback.field.sentiment">How was your experience?</span>
+              <span class="pfb-optional" data-i18n="feedback.optional">(optional)</span>
             </label>
             <div class="pfb-options pfb-sentiment-options">
               ${SENTIMENTS.map(function (s) {
                 return '<button type="button" class="pfb-option pfb-sentiment" data-value="' + esc(s.value) + '">' +
                   '<span class="pfb-option-icon">' + s.icon + '</span>' +
-                  '<span>' + esc(s.label) + '</span>' +
+                  '<span data-i18n="' + esc(s.key) + '">' + esc(t(s.key, s.label)) + '</span>' +
                 '</button>';
               }).join('')}
             </div>
@@ -520,14 +583,14 @@
 
           <div class="pfb-field">
             <label class="pfb-label">
-              What's this about?
-              <span class="pfb-optional">(optional)</span>
+              <span data-i18n="feedback.field.category">What's this about?</span>
+              <span class="pfb-optional" data-i18n="feedback.optional">(optional)</span>
             </label>
             <div class="pfb-options pfb-category-options">
               ${CATEGORIES.map(function (c) {
                 return '<button type="button" class="pfb-option pfb-category" data-value="' + esc(c.value) + '">' +
                   '<span class="pfb-option-icon">' + c.icon + '</span>' +
-                  '<span>' + esc(c.label) + '</span>' +
+                  '<span data-i18n="' + esc(c.key) + '">' + esc(t(c.key, c.label)) + '</span>' +
                 '</button>';
               }).join('')}
             </div>
@@ -535,12 +598,13 @@
 
           <div class="pfb-field">
             <label class="pfb-label" for="pfb-message">
-              Tell us more
+              <span data-i18n="feedback.field.message">Tell us more</span>
               <span class="pfb-required">*</span>
             </label>
             <div class="pfb-textarea-wrap">
               <textarea id="pfb-message" class="pfb-textarea" rows="4"
                 placeholder="What's on your mind? The more specific, the better."
+                data-i18n-placeholder="feedback.ph.message"
                 maxlength="${MESSAGE_MAX}"></textarea>
               <div class="pfb-counter">0 / ${MESSAGE_MAX}</div>
             </div>
@@ -549,16 +613,16 @@
 
         <div class="pfb-thanks" data-screen="thanks">
           <div class="pfb-thanks-check">✓</div>
-          <div class="pfb-thanks-title">Thanks for your feedback!</div>
-          <div class="pfb-thanks-msg">We read every submission and use it to improve the portal.</div>
-          <button type="button" class="pfb-thanks-close">Close</button>
+          <div class="pfb-thanks-title" data-i18n="feedback.thanks.title">Thanks for your feedback!</div>
+          <div class="pfb-thanks-msg" data-i18n="feedback.thanks.msg">We read every submission and use it to improve the portal.</div>
+          <button type="button" class="pfb-thanks-close" data-i18n="feedback.close">Close</button>
         </div>
 
         <div class="pfb-error" id="pfb-error"></div>
 
         <div class="pfb-modal-footer" data-screen="form">
-          <button type="button" class="pfb-btn pfb-btn-cancel" id="pfb-cancel">Cancel</button>
-          <button type="button" class="pfb-btn pfb-btn-submit" id="pfb-submit" disabled>Send</button>
+          <button type="button" class="pfb-btn pfb-btn-cancel" id="pfb-cancel" data-i18n="common.btn.cancel">Cancel</button>
+          <button type="button" class="pfb-btn pfb-btn-submit" id="pfb-submit" disabled data-i18n="feedback.btn.send">Send</button>
         </div>
       </div>
     `;
@@ -688,10 +752,13 @@
     hideError();
   }
 
-  function showError(msg) {
+  // CB-62 B3:把 key 記在節點上,語言切換時可重新翻譯目前顯示中的訊息。
+  function showError(key, fallback) {
     const el = _shadow.querySelector('#pfb-error');
     if (!el) return;
-    el.textContent = msg;
+    el.dataset.pcErrKey = key || '';
+    el.dataset.pcErrEn  = fallback || '';
+    el.textContent = key ? t(key, fallback) : fallback;
     el.classList.add('show');
   }
   function hideError() {
@@ -699,6 +766,7 @@
     if (!el) return;
     el.classList.remove('show');
     el.textContent = '';
+    el.dataset.pcErrKey = '';
   }
 
   // ──────────────────────────────────────────────────────────────────
@@ -710,11 +778,11 @@
     const ta = _shadow.querySelector('#pfb-message');
     const message = (ta.value || '').trim();
     if (!message) {
-      showError('Please write a message before sending.');
+      showError('feedback.err.empty', 'Please write a message before sending.');
       return;
     }
     if (message.length > MESSAGE_MAX) {
-      showError('Message is too long. Please shorten it.');
+      showError('feedback.err.too_long', 'Message is too long. Please shorten it.');
       return;
     }
 
@@ -723,7 +791,7 @@
     const originalLabel = submitBtn.innerHTML;
     submitBtn.disabled = true;
     cancelBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="pfb-spinner"></span>Sending...';
+    submitBtn.innerHTML = '<span class="pfb-spinner"></span>' + esc(t('feedback.btn.sending', 'Sending...'));
 
     const payload = {
       dealer_id:         _session.user.id,
@@ -746,13 +814,13 @@
         // Map DB errors to user-friendly messages
         const errMsg = (error.message || '').toLowerCase();
         if (errMsg.includes('rate limit')) {
-          showError("You've sent a lot of feedback recently — thanks! Please wait a bit before sending more.");
+          showError('feedback.err.rate_limit', 'You\'ve sent a lot of feedback recently — thanks! Please wait a bit before sending more.');
         } else if (errMsg.includes('jwt') || errMsg.includes('expired') || error.code === 'PGRST301') {
-          showError('Your session expired. Please log in again.');
+          showError('feedback.err.session', 'Your session expired. Please log in again.');
         } else if (errMsg.includes('message_length') || errMsg.includes('check constraint')) {
-          showError("Message must be 1-2000 characters.");
+          showError('feedback.err.length', 'Message must be 1-2000 characters.');
         } else {
-          showError('Something went wrong. Please try again or contact support.');
+          showError('feedback.err.support', 'Something went wrong. Please try again or contact support.');
         }
 
         // Restore button state
@@ -769,9 +837,11 @@
     } catch (err) {
       console.error('[FeedbackWidget] Unexpected error:', err);
       const isNetworkErr = err && (err.message || '').toLowerCase().includes('fetch');
-      showError(isNetworkErr
-        ? "Couldn't send. Please check your connection and try again."
-        : 'Something went wrong. Please try again.');
+      if (isNetworkErr) {
+        showError('feedback.err.network', "Couldn't send. Please check your connection and try again.");
+      } else {
+        showError('common.err.unexpected', 'Something went wrong. Please try again.');
+      }
 
       submitBtn.disabled = false;
       cancelBtn.disabled = false;
