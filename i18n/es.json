@@ -67,6 +67,8 @@
   "common.badge.recommended": "Recomendado",
   "common.filter.all_statuses": "Todos los estados",
 
+  "qd.err.no_id": "No se proporcionó ningún ID de cotización.",
+  "qd.err.not_found": "No se encontró la cotización.",
   "quotes.title": "Mis cotizaciones",
   "quotes.loading": "Cargando...",
   "quotes.btn.new_quote": "Nueva cotización",
