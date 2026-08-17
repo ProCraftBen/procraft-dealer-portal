@@ -1,5 +1,12 @@
 /* ============================================================
- * ProCraft Dealer Portal — Quote Flow Header Component v1.4
+ * ProCraft Dealer Portal — Quote Flow Header Component v1.5
+ *
+ * v1.5 (CB-62 B4-1a): i18n. Step labels, the Discard button and both
+ *   confirm() messages are looked up from the language files when
+ *   components/i18n.js is present; otherwise the English written here is
+ *   used verbatim. Re-renders on pc:i18n-changed.
+ *   No language switch here by design (Q-32): the flow pages inherit the
+ *   language already chosen elsewhere and remembered in localStorage.
  *
  * Renders a minimal header for the new-quote step1/2/2.5/3 flow:
  *  - (Optional) Orange "Admin Mode" bar
@@ -7,7 +14,7 @@
  *
  * Usage in step pages:
  *   <div id="pcd-quote-flow-header" data-step="1"></div>
- *   <script src="components/quote-flow-header.js"></script>
+ *   <script src="components/quote-flow-header.js?v=1.5"></script>
  *
  * Optional attributes on the mount div:
  *   data-step="1|2|3|4"      — current step (required)
@@ -249,8 +256,25 @@
     }
   `;
 
+  // ═══════════════════════════════════════════════════════════════════
+  // CB-62 B4-1a|i18n 區域輔助
+  // -------------------------------------------------------------------
+  // pcT 未載入或字典未就緒時回 null → 一律帶英文保底,畫面不得出現 "null"。
+  // 報價流程四頁【不放語言切換鈕】(Q-32 採 C):語言是全站狀態,dealer 在
+  // 進入流程前就選好了,localStorage 全程記住,這四頁只負責以當前語言渲染。
+  // ═══════════════════════════════════════════════════════════════════
+  function t(key, fallback, params) {
+    return (typeof window.pcT === 'function' && window.pcT(key, params)) || fallback;
+  }
+
   // v1.2: 4 steps total. Step 3 (Modifications) inserted between Products and Review.
-  const STEP_LABELS = ['Order Info', 'Products', 'Modifications', 'Review'];
+  // CB-62: label 僅供顯示;TOTAL_STEPS 取陣列長度,翻譯不影響步數。
+  const STEP_LABELS = [
+    { key: 'flow.step.order_info',    label: 'Order Info' },
+    { key: 'flow.step.products',      label: 'Products' },
+    { key: 'flow.step.modifications', label: 'Modifications' },
+    { key: 'flow.step.review',        label: 'Review' },
+  ];
   const TOTAL_STEPS = STEP_LABELS.length;  // = 4
 
   function injectCss() {
@@ -275,7 +299,7 @@
       return `
         <div class="${cls}">
           <div class="pcd-qfh-step-circle">${circle}</div>
-          <span class="pcd-qfh-step-label">${STEP_LABELS[n - 1]}</span>
+          <span class="pcd-qfh-step-label">${t(STEP_LABELS[n - 1].key, STEP_LABELS[n - 1].label)}</span>
         </div>`;
     }).join('');
 
@@ -343,7 +367,9 @@
 
   // ── Discard label + target resolver ─────────────────────────
   function resolveDiscard(opts) {
-    const label = opts.isResumingReturned ? 'Cancel Editing' : 'Discard';
+    const label = opts.isResumingReturned
+      ? t('flow.btn.cancel_editing', 'Cancel Editing')
+      : t('flow.btn.discard', 'Discard');
 
     let target;
     if (opts.isResumingReturned && opts.draftId) {
@@ -356,9 +382,10 @@
       target = opts.viewerIsAdmin ? 'admin.html' : 'dashboard.html';
     }
 
+    // 原生 confirm() 無法用標記,於呼叫點查表(CB-62 B4 / Q-31)。
     const confirmMsg = opts.isResumingReturned
-      ? 'Cancel editing? Unsaved changes will be lost.'
-      : 'Discard your changes? Unsaved data will be lost.';
+      ? t('flow.confirm.cancel_editing', 'Cancel editing? Unsaved changes will be lost.')
+      : t('flow.confirm.discard', 'Discard your changes? Unsaved data will be lost.');
 
     return { label, target, confirmMsg };
   }
@@ -389,7 +416,7 @@
     const logo = document.getElementById('pcd-qfh-logo');
     if (logo) {
       logo.onclick = () => {
-        if (window.confirm('Discard your unsaved changes?')) {
+        if (window.confirm(t('flow.confirm.logo', 'Discard your unsaved changes?'))) {
           try {
             sessionStorage.removeItem('quoteStep1');
             sessionStorage.removeItem('quoteStep2');
@@ -523,6 +550,13 @@
     const container = document.getElementById('pcd-quote-flow-header');
     if (!container) return;
     renderInto(container);
+
+    // CB-62 B4-1a:語言變更 → 重繪整條流程列。
+    // 這條列沒有使用者輸入(logo / 步驟 / Discard 按鈕),整段重建無風險;
+    // 折扣模組由 loadDiscountModule() 於 renderInto 內重新掛回。
+    document.addEventListener('pc:i18n-changed', function () {
+      renderInto(container);
+    });
   }
 
   if (document.readyState === 'loading') {
