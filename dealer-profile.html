@@ -97,73 +97,73 @@
 <div id="pcd-nav" data-page="dealer-profile"></div>
 
 <div class="first-time-banner" id="firstTimeBanner">
-  👋 Welcome to ProCraft Dealer Portal! Please take a few minutes to <strong>set up your store profile</strong> — this helps customers find and connect with your showroom.
+  <span data-i18n="profile.welcome.1">👋 Welcome to ProCraft Dealer Portal! Please take a few minutes to </span><strong data-i18n="profile.welcome.strong">set up your store profile</strong><span data-i18n="profile.welcome.2"> — this helps customers find and connect with your showroom.</span>
 </div>
 
 <div class="page">
-  <div class="page-title">Store Profile</div>
-  <div class="page-sub">Complete your profile so customers can find your showroom on the ProCraft Dealer Locator.</div>
+  <div class="page-title" data-i18n="profile.title">Store Profile</div>
+  <div class="page-sub" data-i18n="profile.subtitle">Complete your profile so customers can find your showroom on the ProCraft Dealer Locator.</div>
 
   <div class="error-msg" id="errorMsg"></div>
-  <div class="success-msg" id="successMsg">✓ Profile saved successfully!</div>
+  <div class="success-msg" id="successMsg" data-i18n="profile.saved">✓ Profile saved successfully!</div>
 
   <!-- Contact Info -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Contact Information</span></div>
+    <div class="card-header"><span class="card-title" data-i18n="profile.contact.title">Contact Information</span></div>
     <div class="card-body">
-      <p class="section-desc">The following information was set up by ProCraft. Contact us if any details need to be corrected.</p>
+      <p class="section-desc" data-i18n="profile.contact.desc">The following information was set up by ProCraft. Contact us if any details need to be corrected.</p>
       <div class="confirmed-row">
         <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         <div>
-          <div class="confirmed-text">Company Name</div>
+          <div class="confirmed-text" data-i18n="profile.field.company_name">Company Name</div>
           <div class="confirmed-value" id="display_company_name">—</div>
         </div>
       </div>
       <div class="confirmed-row">
         <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         <div>
-          <div class="confirmed-text">Email Address</div>
+          <div class="confirmed-text" data-i18n="profile.field.email">Email Address</div>
           <div class="confirmed-value" id="display_email">—</div>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Contact Name <span class="required">*</span></label>
+        <label class="form-label"><span data-i18n="profile.field.contact_name">Contact Name</span> <span class="required">*</span></label>
         <input class="form-input" id="f_contact_name" type="text" placeholder="John Smith"/>
       </div>
       <div class="form-group">
-        <label class="form-label">Contact Phone <span class="required">*</span></label>
+        <label class="form-label"><span data-i18n="profile.field.contact_phone">Contact Phone</span> <span class="required">*</span></label>
         <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
       </div>
       <div class="form-group">
-        <label class="form-label">Business Phone <span class="badge-optional">Optional</span></label>
+        <label class="form-label"><span data-i18n="profile.field.business_phone">Business Phone</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
         <input class="form-input" id="f_business_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
-        <span class="form-hint" style="margin-top:4px;display:block;">This will be displayed on the dealer locator page (public website).</span>
+        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.business_phone">This will be displayed on the dealer locator page (public website).</span>
       </div>
       <div class="form-group">
-        <label class="form-label">Google My Business <span class="badge-optional">Optional</span></label>
+        <label class="form-label"><span data-i18n="profile.field.gmb">Google My Business</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
         <input class="form-input" id="f_gmb_url" type="url" placeholder="https://g.page/your-business"/>
-        <span class="form-hint" style="margin-top:4px;display:block;">Link to your Google Business profile so customers can find reviews and directions.</span>
+        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.gmb">Link to your Google Business profile so customers can find reviews and directions.</span>
       </div>
       <div class="form-group">
-        <label class="form-label">Optional Email 1 <span class="badge-optional">Optional</span></label>
+        <label class="form-label"><span data-i18n="profile.field.optional_email_1">Optional Email 1</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
         <input class="form-input" id="f_secondary_email" type="email" placeholder="backup@yourcompany.com"/>
-        <span class="form-hint" style="margin-top:4px;display:block;">Additional email address for receiving notifications.</span>
+        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.optional_email_1">Additional email address for receiving notifications.</span>
       </div>
       <div class="form-group">
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="f_secondary_email_notify" style="width:16px;height:16px;accent-color:var(--green-dark);cursor:pointer;"/>
-          <label for="f_secondary_email_notify" style="font-size:13px;color:var(--text);cursor:pointer;">Send notifications to Optional Email 1</label>
+          <label for="f_secondary_email_notify" style="font-size:13px;color:var(--text);cursor:pointer;" data-i18n="profile.notify.email_1">Send notifications to Optional Email 1</label>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Optional Email 2 <span class="badge-optional">Optional</span></label>
+        <label class="form-label"><span data-i18n="profile.field.optional_email_2">Optional Email 2</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
         <input class="form-input" id="f_optional_email_2" type="email" placeholder="contact2@yourcompany.com"/>
-        <span class="form-hint" style="margin-top:4px;display:block;">Second additional email address for receiving notifications.</span>
+        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.optional_email_2">Second additional email address for receiving notifications.</span>
       </div>
       <div class="form-group">
         <div style="display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="f_optional_email_2_notify" style="width:16px;height:16px;accent-color:var(--green-dark);cursor:pointer;"/>
-          <label for="f_optional_email_2_notify" style="font-size:13px;color:var(--text);cursor:pointer;">Send notifications to Optional Email 2</label>
+          <label for="f_optional_email_2_notify" style="font-size:13px;color:var(--text);cursor:pointer;" data-i18n="profile.notify.email_2">Send notifications to Optional Email 2</label>
         </div>
       </div>
     </div>
@@ -171,28 +171,28 @@
 
   <!-- Address -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Store Address <span class="required">*</span></span></div>
+    <div class="card-header"><span class="card-title"><span data-i18n="profile.address.title">Store Address</span> <span class="required">*</span></span></div>
     <div class="card-body">
       <p class="section-desc">Your address is used to show your location on the ProCraft Dealer Locator map. Start typing to use Google address search for accurate results.</p>
       <div class="form-group">
-        <label class="form-label">Address Line 1 <span class="required">*</span></label>
-        <input class="form-input" id="f_address_line1" type="text" placeholder="Start typing address..." autocomplete="off"/>
+        <label class="form-label"><span data-i18n="profile.field.address1">Address Line 1</span> <span class="required">*</span></label>
+        <input class="form-input" id="f_address_line1" type="text" placeholder="Start typing address..." data-i18n-placeholder="profile.ph.address1" autocomplete="off"/>
       </div>
       <div class="form-group">
-        <label class="form-label">Address Line 2</label>
+        <label class="form-label" data-i18n="profile.field.address2">Address Line 2</label>
         <input class="form-input" id="f_address_line2" type="text" placeholder="Suite 100"/>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
         <div class="form-group">
-          <label class="form-label">City <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="profile.field.city">City</span> <span class="required">*</span></label>
           <input class="form-input" id="f_city" type="text" placeholder="Washington"/>
         </div>
         <div class="form-group">
-          <label class="form-label">State <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="profile.field.state">State</span> <span class="required">*</span></label>
           <input class="form-input" id="f_state" type="text" placeholder="DC"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Zip Code <span class="required">*</span></label>
+          <label class="form-label"><span data-i18n="profile.field.zip">Zip Code</span> <span class="required">*</span></label>
           <input class="form-input" id="f_zip_code" type="text" placeholder="20001"/>
         </div>
       </div>
@@ -204,41 +204,41 @@
 
   <!-- Business Hours -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Business Hours <span class="required">*</span></span></div>
+    <div class="card-header"><span class="card-title"><span data-i18n="profile.hours.title">Business Hours</span> <span class="required">*</span></span></div>
     <div class="card-body">
-      <p class="section-desc">Let customers know when your showroom is open. Set each day to Open, By Appointment, or Closed.</p>
+      <p class="section-desc" data-i18n="profile.hours.desc">Let customers know when your showroom is open. Set each day to Open, By Appointment, or Closed.</p>
       <div class="hours-list" id="hoursList"></div>
     </div>
   </div>
 
   <!-- Store Presentation -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Store Presentation <span class="badge-optional">Recommended</span></span></div>
+    <div class="card-header"><span class="card-title"><span data-i18n="profile.presentation.title">Store Presentation</span> <span class="badge-optional" data-i18n="common.badge.recommended">Recommended</span></span></div>
     <div class="card-body">
       <p class="section-desc">This text appears on your public dealer page. If left blank, those sections will not be shown. We recommend filling these in to attract more customers.</p>
       <div class="form-group">
-        <label class="form-label">Store Heading <span class="badge-optional">Optional</span></label>
-        <input class="form-input" id="f_heading" type="text" maxlength="30" placeholder="e.g. Maryland's Premier Cabinet Showroom" oninput="updateCount('f_heading','count_heading',30); updatePreview();"/>
+        <label class="form-label"><span data-i18n="profile.field.heading">Store Heading</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
+        <input class="form-input" id="f_heading" type="text" maxlength="30" placeholder="e.g. Maryland's Premier Cabinet Showroom" data-i18n-placeholder="profile.ph.heading" oninput="updateCount('f_heading','count_heading',30); updatePreview();"/>
         <div class="hint-row">
-          <span class="form-hint">A short tagline that appears at the top of your dealer page</span>
+          <span class="form-hint" data-i18n="profile.hint.heading">A short tagline that appears at the top of your dealer page</span>
           <span class="char-count" id="count_heading">0/30</span>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Description <span class="badge-optional">Optional</span></label>
-        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="e.g. Family-owned showroom serving the DC metro area since 2005. We carry ProCraft's full cabinet line with over 50 door styles on display." oninput="updateCount('f_description','count_description',200); updatePreview();"></textarea>
+        <label class="form-label"><span data-i18n="profile.field.description">Description</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
+        <textarea class="form-textarea" id="f_description" maxlength="200" placeholder="e.g. Family-owned showroom serving the DC metro area since 2005. We carry ProCraft's full cabinet line with over 50 door styles on display." data-i18n-placeholder="profile.ph.description" oninput="updateCount('f_description','count_description',200); updatePreview();"></textarea>
         <div class="hint-row">
-          <span class="form-hint">Tell customers about your showroom, specialties, and what makes you unique</span>
+          <span class="form-hint" data-i18n="profile.hint.description">Tell customers about your showroom, specialties, and what makes you unique</span>
           <span class="char-count" id="count_description">0/200</span>
         </div>
       </div>
       <div class="preview-box" id="previewBox">
-        <div class="preview-label">Preview — how it looks on your dealer page</div>
+        <div class="preview-label" data-i18n="profile.preview.label">Preview — how it looks on your dealer page</div>
         <div class="preview-heading" id="previewHeading"></div>
         <div class="preview-desc" id="previewDesc"></div>
       </div>
       <div class="form-group" style="margin-top:18px;">
-        <label class="form-label">Website <span class="badge-optional">Optional</span></label>
+        <label class="form-label"><span data-i18n="profile.field.website">Website</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
         <input class="form-input" id="f_website" type="url" placeholder="https://www.yourshowroom.com"/>
       </div>
     </div>
@@ -246,13 +246,13 @@
 
   <!-- Photos -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Store Photos <span class="required">*</span></span></div>
+    <div class="card-header"><span class="card-title"><span data-i18n="profile.photos.title">Store Photos</span> <span class="required">*</span></span></div>
     <div class="card-body">
-      <p class="section-desc">Upload at least one photo of your showroom. The first photo will be used as your featured image on the dealer locator.</p>
+      <p class="section-desc" data-i18n="profile.photos.desc">Upload at least one photo of your showroom. The first photo will be used as your featured image on the dealer locator.</p>
       <div class="upload-area" id="uploadArea" onclick="document.getElementById('uploadInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
         <svg class="upload-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-        <div class="upload-text">Click to upload or drag & drop photos</div>
-        <div class="upload-sub">JPG, PNG — Max 5MB per photo — Up to 5 photos</div>
+        <div class="upload-text" data-i18n="profile.photos.upload">Click to upload or drag & drop photos</div>
+        <div class="upload-sub" data-i18n="profile.photos.limits">JPG, PNG — Max 5MB per photo — Up to 5 photos</div>
       </div>
       <input class="upload-input" type="file" id="uploadInput" accept="image/jpeg,image/png" multiple onchange="handleFileSelect(event)"/>
       <div class="upload-error" id="uploadError" style="display:none;margin-top:10px;background:rgba(192,57,43,0.07);border:1px solid rgba(192,57,43,0.25);border-radius:3px;padding:10px 14px;font-size:12px;color:var(--error);"></div>
@@ -264,20 +264,20 @@
 
   <!-- Pricing Info (read-only) -->
   <div class="card">
-    <div class="card-header"><span class="card-title">Pricing Information</span></div>
+    <div class="card-header"><span class="card-title" data-i18n="profile.pricing.title">Pricing Information</span></div>
     <div class="card-body">
-      <p class="section-desc">Your pricing is set by ProCraft Cabinetry DC. Contact us if you have any questions.</p>
+      <p class="section-desc" data-i18n="profile.pricing.desc">Your pricing is set by ProCraft Cabinetry DC. Contact us if you have any questions.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
         <div>
-          <div class="form-label">Stock Multiplier</div>
+          <div class="form-label" data-i18n="profile.field.stock_mult">Stock Multiplier</div>
           <div class="confirmed-row"><div><div class="confirmed-value" id="display_stock_multiplier">—</div></div></div>
         </div>
         <div>
-          <div class="form-label">Non-Stock Multiplier</div>
+          <div class="form-label" data-i18n="profile.field.non_stock_mult">Non-Stock Multiplier</div>
           <div class="confirmed-row"><div><div class="confirmed-value" id="display_non_stock_multiplier">—</div></div></div>
         </div>
         <div>
-          <div class="form-label">Frameless Multiplier</div>
+          <div class="form-label" data-i18n="profile.field.frameless_mult">Frameless Multiplier</div>
           <div class="confirmed-row"><div><div class="confirmed-value" id="display_frameless_multiplier">—</div></div></div>
         </div>
       </div>
@@ -285,7 +285,7 @@
   </div>
 
   <button class="btn-submit" id="btnSubmit" onclick="saveProfile()">
-    <span class="btn-text">Save Profile</span>
+    <span class="btn-text" data-i18n="profile.btn.save">Save Profile</span>
     <div class="spinner"></div>
   </button>
 </div>
@@ -294,8 +294,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/navigator.js"></script>
-<script src="components/footer.js"></script>
+<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/lang-switch.js?v=cb62c"></script>
+<script src="components/navigator.js?v=cb62c"></script>
+<script src="components/footer.js?v=cb62c"></script>
 <script>
 const { createClient } = window.supabase;
 const _supabase = createClient(
@@ -303,7 +305,34 @@ const _supabase = createClient(
   window.SB_KEY
 );
 
+// 🔴 DAYS 同時是【顯示文字】與【資料庫 key 的來源】(day.toLowerCase())。
+//    絕不可翻譯本陣列 —— 翻了 key 會變成 'lunes',破壞 dealers.business_hours
+//    的結構,並連帶影響同步到公開 Dealer Locator 的資料。
+//    顯示名一律經 pcDayLabel() 取得(CB-62 B2 / Q-18)。
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-62 B2|i18n 區域輔助
+// pcT 未載入或字典未就緒時回 null → 一律帶英文保底,畫面不得出現 "null"。
+// 命名用 pc 前綴避免 global 碰撞(B-1 教訓)。
+// ═══════════════════════════════════════════════════════════════════
+function pcTxt(key, fallback, params) {
+  if (typeof window.pcT === 'function') {
+    const s = window.pcT(key, params || null, fallback);
+    if (s) return s;
+  }
+  return String(fallback).replace(/\{(\w+)\}/g, function (whole, name) {
+    return (params && params[name] != null) ? String(params[name]) : whole;
+  });
+}
+function pcPlural(baseKey, n, enOne, enOther) {
+  const key = (n === 1) ? baseKey + '.one' : baseKey + '.other';
+  return pcTxt(key, (n === 1 ? enOne : enOther).replace('{n}', n), { n: n });
+}
+// 星期顯示名;key 仍為英文小寫,不受語言影響。
+function pcDayLabel(day) {
+  return pcTxt('hours.day.' + day.toLowerCase(), day);
+}
 let currentUser = null;
 let images = []; // { url, path, featured }
 let isFirstTime = false;
@@ -323,12 +352,13 @@ function buildHoursUI(saved) {
     const data = saved?.[key] || { type: 'open', open: '09:00', close: '18:00' };
     return `
       <div class="hours-row">
-        <span class="hours-day">${day}</span>
+        <span class="hours-day">${pcDayLabel(day)}</span>
         <div class="hours-controls">
           <select class="hours-select" id="h_${key}_type" onchange="toggleHours('${key}')">
-            <option value="open"        ${data.type==='open'?'selected':''}>Open</option>
-            <option value="appointment" ${data.type==='appointment'?'selected':''}>By Appointment</option>
-            <option value="closed"      ${data.type==='closed'?'selected':''}>Closed</option>
+            <!-- 🔴 value 為 DB 值,永不翻譯;只換顯示文字(同步 Locator 不受影響)。 -->
+            <option value="open"        ${data.type==='open'?'selected':''}>${pcTxt('hours.type.open','Open')}</option>
+            <option value="appointment" ${data.type==='appointment'?'selected':''}>${pcTxt('hours.type.appointment','By Appointment')}</option>
+            <option value="closed"      ${data.type==='closed'?'selected':''}>${pcTxt('hours.type.closed','Closed')}</option>
           </select>
           <input class="hours-time" type="time" id="h_${key}_open"  value="${data.open||'09:00'}"  ${data.type!=='open'?'disabled':''}/>
           <span class="hours-sep">–</span>
@@ -360,7 +390,10 @@ function getHours() {
 function renderImages() {
   const grid  = document.getElementById('imageGrid');
   const label = document.getElementById('imageCountLabel');
-  label.textContent = images.length ? `${images.length}/5 photos${images[0] ? ' — First photo is the featured image' : ''}` : '';
+  label.textContent = images.length
+    ? pcPlural('profile.photos.count', images.length, '{n}/5 photo', '{n}/5 photos')
+      + (images[0] ? pcTxt('profile.photos.featured', ' \u2014 First photo is the featured image') : '')
+    : '';
 
   if (!images.length) { grid.innerHTML = ''; return; }
 
@@ -422,11 +455,11 @@ async function compressImage(file, maxDim = 1200, quality = 0.82) {
 
 async function handleFiles(files) {
   const remaining = 5 - images.length;
-  if (remaining <= 0) { showUploadError('Maximum 5 photos allowed.'); return; }
+  if (remaining <= 0) { showUploadError(pcTxt('profile.err.max_photos', 'Maximum 5 photos allowed.')); return; }
 
   const toAdd = files.slice(0, remaining).filter(f => {
-    if (!['image/jpeg','image/png'].includes(f.type)) { showUploadError(`${f.name} is not a JPG or PNG.`); return false; }
-    if (f.size > 5 * 1024 * 1024) { showUploadError(`${f.name} exceeds 5MB limit.`); return false; }
+    if (!['image/jpeg','image/png'].includes(f.type)) { showUploadError(pcTxt('profile.err.not_image', '{name} is not a JPG or PNG.', { name: f.name }).replace('{name}', f.name)); return false; }
+    if (f.size > 5 * 1024 * 1024) { showUploadError(pcTxt('profile.err.too_large', '{name} exceeds 5MB limit.', { name: f.name }).replace('{name}', f.name)); return false; }
     return true;
   });
 
@@ -434,7 +467,7 @@ async function handleFiles(files) {
 
   clearUploadError();
   const progress = document.getElementById('uploadProgress');
-  progress.textContent = 'Optimizing photos...';
+  progress.textContent = pcTxt('profile.photos.optimizing', 'Optimizing photos...');
   progress.classList.add('show');
 
   for (const file of toAdd) {
@@ -540,12 +573,12 @@ async function saveProfile() {
   const lng             = document.getElementById('f_lng').value;
   const address_formatted = document.getElementById('f_address_formatted').value;
 
-  if (!contact_name) { showError('Please enter a contact name.'); return; }
-  if (!phone)        { showError('Please enter a phone number.'); return; }
-  if (!address_line1 || !city || !state || !zip_code) { showError('Please fill in your store address.'); return; }
-  if (heading.length > 30) { showError('Heading must be 30 characters or less.'); return; }
-  if (description.length > 200) { showError('Description must be 200 characters or less.'); return; }
-  if (!images.length) { showError('Please upload at least one store photo.'); return; }
+  if (!contact_name) { showError(pcTxt('profile.err.contact_name', 'Please enter a contact name.')); return; }
+  if (!phone)        { showError(pcTxt('profile.err.phone', 'Please enter a phone number.')); return; }
+  if (!address_line1 || !city || !state || !zip_code) { showError(pcTxt('profile.err.address', 'Please fill in your store address.')); return; }
+  if (heading.length > 30) { showError(pcTxt('profile.err.heading_len', 'Heading must be 30 characters or less.')); return; }
+  if (description.length > 200) { showError(pcTxt('profile.err.description_len', 'Description must be 200 characters or less.')); return; }
+  if (!images.length) { showError(pcTxt('profile.err.no_photo', 'Please upload at least one store photo.')); return; }
 
   btn.classList.add('loading');
   btn.disabled = true;
@@ -558,7 +591,7 @@ async function saveProfile() {
           const ext  = file.name.split('.').pop();
           const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
           const { error: uploadErr } = await _supabase.storage.from('dealer-image').upload(path, file);
-          if (uploadErr) { showError(`Failed to upload photo.`); return; }
+          if (uploadErr) { showError(pcTxt('profile.err.upload_failed', 'Failed to upload photo.')); return; }
           const { data } = _supabase.storage.from('dealer-image').getPublicUrl(path);
           images[i] = { url: data.publicUrl, path };
         }
@@ -675,8 +708,39 @@ function initMaps() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 CB-62 B2|語言切換重繪
+// -------------------------------------------------------------------
+// 靜態 data-i18n 節點由 i18n.js 自行重繪;這裡只處理 JS 動態產生的內容:
+// 營業時間列與照片張數標籤。
+//
+// ⚠️ 營業時間重繪必須【先保存使用者當下的選擇】再重建,否則換個語言就把
+//    還沒存檔的設定清掉。getHours() 只回傳 open 日的時間,故另用
+//    pcSnapshotHours() 無論型態都保留時間值。
+// ═══════════════════════════════════════════════════════════════════
+function pcSnapshotHours() {
+  const h = {};
+  DAYS.forEach(day => {
+    const key = day.toLowerCase();
+    const typeEl = document.getElementById(`h_${key}_type`);
+    if (!typeEl) return;
+    h[key] = {
+      type:  typeEl.value,
+      open:  document.getElementById(`h_${key}_open`).value,
+      close: document.getElementById(`h_${key}_close`).value
+    };
+  });
+  return Object.keys(h).length ? h : null;
+}
+
+document.addEventListener('pc:i18n-changed', function () {
+  const snap = pcSnapshotHours();
+  if (snap) buildHoursUI(snap);
+  renderImages();
+});
+
 init();
 </script>
-<script src="components/feedback-widget.js?v=1.0"></script>
+<script src="components/feedback-widget.js?v=cb62c"></script>
 </body>
 </html>
