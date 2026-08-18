@@ -359,7 +359,21 @@ return total;
     if (typeof v === 'boolean') return v ? 'Yes' : 'No';
     if (typeof v === 'object') {
       // F-QTY-SELECTOR: MF03 toggle-with-qty 的 value { enabled, qty }
-      if ('enabled' in v && !('value' in v) && !('selected' in v) && !('label' in v)) {
+      //
+      // 【守衛對象】僅 MF03(toggle-with-qty 形態),非通用物件處理。
+      // 【假設形狀】{ enabled, qty } —— 判斷依據為 qty key 是否存在(正向判斷)。
+      // 【變更連動】若 MF03 的 getValue() 結構變更
+      //   (components/modifications/mf03-pure-toggle.js),此守衛須同步檢視。
+      //
+      // 【F-35 教訓|不可改回負向判斷】
+      //   前一版條件為「有 enabled、且無 value/selected/label」,
+      //   即以「排除其他元件的 key」定義。MF07 v3 移除 selected 後,
+      //   四個條件全數通過,MF07 誤入本分支並回傳 'Yes',
+      //   潛伏整個 MF07 生命週期至 F-35 才被發現。
+      //   負向判斷的失效模式是「誤吃」→ 顯示錯值,肉眼不可辨。
+      //   正向判斷的失效模式是「漏掉」→ 顯示 label 無值,肉眼可見。
+      //   涉及形狀判斷時一律採正向。
+      if ('enabled' in v && 'qty' in v) {
         if (v.enabled !== true) return '';
         return (typeof v.qty === 'number') ? ('Qty ' + v.qty) : 'Yes';
       }
@@ -372,7 +386,11 @@ return total;
       else if ('note' in v && v.note)          parts.push(String(v.note));
 
       if (parts.length) return parts.join(' — ');
-      try { return JSON.stringify(v); } catch (e) { return ''; }
+      // F-35 (D-4): 舊寫法為 JSON.stringify(v),回傳非空字串,
+      //   使呼叫端的 `|| '(no detail)'` 永不觸發,並將 cost / taxable
+      //   等內部欄位外洩至 dealer 可見的 Detail / Note 欄。
+      //   改回 '' 後,既有占位符依原設計運作。
+      return '';
     }
     return String(v);
   }
