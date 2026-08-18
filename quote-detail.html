@@ -291,7 +291,6 @@
       color: var(--muted);
       font-style: italic;
     }
-
     /* CB-11 任務B: DOOR & FRAME 固定註記「Hinge not included」(樣式比照 mod 子項) */
     .items-table td.td-sku .hinge-note {
       font-size: 11px;
@@ -838,6 +837,40 @@ function buildLeadTimeHtml(items, doorStyles) {
 // F4.1 v2 — Notes table configuration (aligned with new-quote-step3.html)
 // ─────────────────────────────────────────────────────────────────────────────
 const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
+
+// ── CB-69:mod 標籤的顯示層覆寫 ────────────────────────────────────────────
+//   業主要求把兩個標籤改短:
+//     MF06  Modification Note  → Note
+//     MF07  Admin Modification → Admin Note
+//
+//   🔴 為什麼不直接改 DB 的 display_label(PM 裁示採顯示層,B 案):
+//     ① display_label 在存檔當下就快照進 quote_items.modifications。
+//        改 DB 只影響新單,既有單仍顯示舊字串 —— 新舊不一致。
+//     ② new-quote-modifications.html 的 dealer fallback 以
+//        mf_code + display_label 比對已存 mod(CB-62 B4-1b2 標記的脆弱結構)。
+//        改了 DB 之後,dealer 重開舊單時 'Admin Modification' 對不上新規則
+//        'Admin Note',admin-only mod 會撈不回來 —— 靜默失效,難以測出。
+//     符合「顯示 ≠ 值」:DB 值不動,只換畫面與 PDF 上的字。
+//
+//   🔴 以 mf_code 為 key,不以舊 display_label 字串為 key。
+//     mf_code 是穩定識別碼;拿字串當 key 等於再造一個 B4-1b2。
+//
+//   ⚠ 三檔平行邏輯,須手動保持一致。
+//   ⚠ 涵蓋範圍僅本三檔(step3 / quote-detail / PDF)。
+//     new-quote-modifications.html 的 mod 設定 modal 不在 CB-69 範圍,
+//     仍顯示 DB 原字串 —— 如需一併改,另開票。
+const MOD_LABEL_DISPLAY_OVERRIDE = {
+  MF06: 'Note',
+  MF07: 'Admin Note',
+};
+
+function displayModLabel(mod) {
+  const code = String((mod && mod.mf_code) || '').toUpperCase();
+  return MOD_LABEL_DISPLAY_OVERRIDE[code]
+      || (mod && mod.display_label)
+      || code
+      || 'Modification';
+}
 const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 // Store for PDF generation
@@ -937,7 +970,12 @@ function isHiddenMod(mod) {
   return false;
 }
 
-// Format mod value: handles MF01 (string), MF07 ({selected, description, ...}), MF06 (free text), etc.
+// Format mod value: handles MF01 (string), MF06 (free text), MF07, MF03 toggle-with-qty, etc.
+//
+// F-41:舊註解寫 MF07 為 ({selected, description, ...})。該結構在 MF07 v3 已不存在
+//   —— 實際為 { enabled, description, cost, taxable }(見 components/modifications/
+//   mf07-super.js)。註解漂移正是 F-35 誤判的溫床:當時的守衛以「排除其他元件的
+//   key」定義,而參照的正是這個已不存在的形狀。改註解不是美化,是移除誤導來源。
 function formatModValue(v) {
   if (v == null) return '';
   if (typeof v === 'string')  return v;
@@ -1212,6 +1250,11 @@ function groupByTypeOrdered(data, constructionType) {
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2.1 — Render mods inside Description column (NO fees).
 //
+// CB-69:回傳位置不變(仍是 SKU 欄),變的是自由文字類 mod 的內容 ——
+//   由 [See note No.N] 占位改為直接印全文。
+//   函式名保留(三檔平行邏輯,改名須三檔同動)。
+//   notesIndex / notesCollector 兩參數保留但不再寫入,移除屬 F-45 範圍。
+//
 // F-HIDDEN-MODS (2026-05-18): Filter mods via isHiddenMod() BEFORE empty-check.
 // ─────────────────────────────────────────────────────────────────────────────
 function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
@@ -1230,7 +1273,7 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
   }
 
   const lines = visibleMods.map(function (m) {
-    const label = m.display_label || m.mf_code || 'Modification';
+    const label = displayModLabel(m);   // CB-69:顯示層覆寫
     // CB-12: Matching Interior(required MF03)— value 決定顯示文字
     const isRequiredMf03 = m.mf_code === 'MF03' && (m.value === 'yes' || m.value === 'no');
     const effectiveLabel = (isRequiredMf03 && m.value === 'no' && m.no_label)
@@ -1239,18 +1282,12 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
     const useNotes = shouldUseNotesTable(m);
 
     if (useNotes) {
-      notesIndex.counter += 1;
-      const noteNum = notesIndex.counter;
-      notesCollector.push({
-        num:        noteNum,
-        skuCode:    itemContext.sku_code,
-        subIndex:   sub.sub_index || 1,
-        subTotal:   itemContext.totalSubs,
-        mfCode:     m.mf_code || '',
-        label:      label,
-        content:    formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)'),
-      });
-      return `<div class="mod-line">${escapeHtml(label)}: <span class="mod-note-ref">[See note №${noteNum} below]</span></div>`;
+      // CB-69:自由文字類(MF06 / MF07 / 逾 40 字)不再跨表對照,直接印出全文。
+      //   位置不變(仍在 SKU 欄內),變的只有內容:由 [See note No.N] 改為全文。
+      //   `|| '(no detail)'` 占位符原樣保留 —— 空 description 落庫防堵為 F-39,
+      //   不在本票範圍,此處行為必須與改動前一致。
+      const noteVal = formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)');
+      return `<div class="mod-line">${escapeHtml(label)}: ${escapeHtml(noteVal)}</div>`;
     }
 
     const value = formatModValue(m.value);
@@ -1432,7 +1469,8 @@ function buildItemRowsHtml(groupedItems) {
             // 🆕 補上父 row Description(對齊 mapping row 的 mapDescCell)
             const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
             
-            // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
+            // CB-69(B 案):mod 與 Hinge 註記維持在 SKU 欄內,接在 SKU code 下方。
+            //   表格列結構不變 —— 不新增橫跨十欄的子列。
             const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
 
             const assembledHtml = (item.assemble_status === 'RTA' ? 'No' : 'Yes');
@@ -2413,6 +2451,9 @@ function buildQuoteDataForPdf() {
     po_number:     _quote.po_number || null,
     draft_number:  _quote.draft_number || null,   // 雙編號制: Draft Quote PDF 用(D/P 切換在階段 6)
     job_name:      _quote.job_name || null,
+    // F-40:訂單層級 note 送進 PDF(pdf-builder 的 _drawOrderNote 取用)。
+    //   PDF 沒印出來時,先確認這一行還在 —— 斷點一直在來源端,不在 pdf-builder。
+    notes:         _quote.notes || null,
     status:        _quote.status,
     created_at:    _quote.created_at,
     logistic_type: _quote.logistic_type || 'pickup',
