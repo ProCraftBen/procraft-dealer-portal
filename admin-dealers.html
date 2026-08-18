@@ -916,6 +916,26 @@ function ruleOptions(uid, field) {
 }
 
 // ── 勾選式多選 ─────────────────────────────────────────────────────────
+// F-51 (E): 單一謂詞來源。
+// 顯示過濾 (renderPickList) 與批次選取 (pickSelectShown) 必須永遠一致;
+// 兩處各寫一份比對式會漂移,且漂移不會報錯、無人察覺。一律走這支。
+//
+// 前提假設(勿在未確認前改動):
+//   * 比對對象是 o.label,不是 o.code。Door Style 的 label 為
+//     "style_name (style_code)",故搜尋詞也會命中名稱文字。
+//   * 比對是「任意位置子字串」,非前綴。
+//   兩者皆為既有行為,E 階段不改變,僅集中管理。
+function pickMatches(uid, field) {
+  const row = ruleRow(uid);
+  if (!row) return [];
+  const opts = ruleOptions(uid, field);
+  const q    = String(row.search[field] || '').trim().toLowerCase();
+  if (!q) return opts.slice();
+  return opts.filter(function (o) {
+    return o.label.toLowerCase().indexOf(q) !== -1;
+  });
+}
+
 function renderPickList(uid, field) {
   const row = ruleRow(uid);
   const box = document.getElementById('r' + uid + '_' + field + '_list');
@@ -923,8 +943,7 @@ function renderPickList(uid, field) {
 
   const isAll = row.all[field];
   const opts  = ruleOptions(uid, field);
-  const q     = String(row.search[field] || '').trim().toLowerCase();
-  const shown = q ? opts.filter(function (o) { return o.label.toLowerCase().indexOf(q) !== -1; }) : opts;
+  const shown = pickMatches(uid, field);
 
   box.classList.toggle('locked', isAll);
 
@@ -985,9 +1004,7 @@ function onRuleSearch(uid, field, v) {
 function pickSelectShown(uid, field) {
   const row = ruleRow(uid);
   if (!row) return;
-  const q = String(row.search[field] || '').trim().toLowerCase();
-  ruleOptions(uid, field).forEach(function (o) {
-    if (q && o.label.toLowerCase().indexOf(q) === -1) return;
+  pickMatches(uid, field).forEach(function (o) {
     if (row.sel[field].indexOf(o.code) === -1) row.sel[field].push(o.code);
   });
   renderPickList(uid, field);
