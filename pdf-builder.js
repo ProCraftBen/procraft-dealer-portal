@@ -12,7 +12,7 @@
 //     using sub.qty (not item.quantity) for each row.
 //   • Mods inline in Description column (NO fees in Description; fees
 //     go in dedicated "Mod Fee" column for invoice/draft-quote modes).
-//     ⚠ CB-69 已改:mods 一律移至 SKU 下方縮排子列,見下方 CB-69 段。
+//     ⚠ CB-69 已改:notes table 廢除,自由文字類 mod 改在本欄直接印全文。
 //   • Packing List: mods shown WITHOUT fees (workers must read notes clearly).
 //   • Invoice / Draft Quote: 11-column layout (added Mod Fee col).
 //   • Totals: Modifications row inserted between Subtotal and Asm Fee.
@@ -1075,8 +1075,8 @@ return total;
   // F4.2: Notes Table
   // ----------------------------------------
   //
-  // ⚠ CB-69 起本函式已無呼叫端 —— mod 內容改由 _drawItemTable 的縮排子列
-  //   呈現。函式本體依 PM Q-3=A 保留不刪,清理另開 F-45(CB-69 上線穩定後)。
+  // ⚠ CB-69 起本函式已無呼叫端 —— 自由文字類 mod 改在 SKU 欄內直接印全文,
+  //   不再跨表對照。函式本體依 PM Q-3=A 保留不刪,清理另開 F-45(上線穩定後)。
   //   請勿因「看起來沒人用」而順手移除。
   function _drawNotesTable(doc, context) {
     const { margin, pageW, headerH } = LAYOUT;
