@@ -756,7 +756,6 @@ return total;
     }
 
     visibleMods.forEach(function (m) {
-      const label = m.display_label || m.mf_code || 'Modification';
       const label = _displayModLabel(m);   // CB-69:顯示層覆寫
       if (_shouldUseNotesTable(m)) {
         // CB-69:自由文字類(MF06 / MF07 / 逾 40 字)不再跨表對照,
