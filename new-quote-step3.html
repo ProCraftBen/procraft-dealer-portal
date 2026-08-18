@@ -219,11 +219,7 @@ color: var(--green-dark);
       font-style: italic;
     }
 
-    /* CB-11 任務B: DOOR & FRAME 固定註記「Hinge not included」(樣式比照 mod 子項) */
-    /* CB-69:選擇器由 `td.td-sku .hinge-note` 放寬 —— Q-6 淨化後 hinge 註記
-    已移出 SKU 欄、改在 tr.mod-note-row 內。若沿用舊選擇器,規則會靜默失配,
-    字級與顏色全數掉回預設,而畫面仍「看得到字」,不易察覺。            */
-    .items-table .hinge-note {
+    .items-table td.td-sku .hinge-note {
       font-size: 11px;
       color: var(--green-dark);
       line-height: 1.5;
@@ -2547,10 +2543,9 @@ function buildItemRowsHtml(markupPct) {
               ? `<div class="hinge-note">${escapeHtml(pcTxt('nq3.hinge_note', 'Hinge not included'))}</div>`
               : '';
 
-            // CB-69 / PM Q-6=C:SKU 欄淨化 —— 只留 SKU code + CUSTOM badge + Sub N of M。
-            //   Hinge 註記與 mod 條列全數移入下方縮排子列。與 pdf-builder / quote-detail 同構。
-            const subRowHtml = [hingeNoteHtml, modsBlockHtml].filter(Boolean).join('');
-            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}`;
+            // CB-69(B 案):mod 與 Hinge 註記維持在 SKU 欄內,接在 SKU code 下方。
+            //   表格列結構不變 —— 不新增橫跨十欄的子列。
+            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
             const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
 
             const assembledHtml = (item.type === 'RTA' ? 'No' : 'Yes');
@@ -2577,16 +2572,6 @@ function buildItemRowsHtml(markupPct) {
                 <td class="td-right">${asmFeeCellHtml}</td>
                 <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
               </tr>`);
-
-            // ── CB-69:縮排子列 —— 緊跟父 row,mapping rows 之前 ──────────────
-            //   一個 line-item 最多一列(內容串接),不是每項一列。
-            //   縮排以 CSS padding-left 達成,沿用 tr.mapping-row 的既有慣例。
-            if (subRowHtml) {
-              rows.push(`
-              <tr class="mod-note-row">
-                <td colspan="10">${subRowHtml}</td>
-              </tr>`);
-            }
 
             // ── CB-25 改動 B:mapping SKU 獨立 row,緊跟父 row,編號 parentNum.N ──
             mappingList.forEach(function (map, k) {
