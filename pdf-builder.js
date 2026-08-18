@@ -12,18 +12,40 @@
 //     using sub.qty (not item.quantity) for each row.
 //   • Mods inline in Description column (NO fees in Description; fees
 //     go in dedicated "Mod Fee" column for invoice/draft-quote modes).
-//   • Notes table (MF06, MF07, long-value mods) rendered below items,
-//     before totals. Description column shows [See note №N below].
-//   • Packing List: mods shown in Description WITHOUT fees + Notes
-//     table at bottom (workers must read notes clearly).
-//   • Invoice / Draft Quote: 11-column layout (added Mod Fee col),
-//     mods inline in Description, Notes table below.
+//     ⚠ CB-69 已改:notes table 廢除,自由文字類 mod 改在本欄直接印全文。
+//   • Packing List: mods shown WITHOUT fees (workers must read notes clearly).
+//   • Invoice / Draft Quote: 11-column layout (added Mod Fee col).
 //   • Totals: Modifications row inserted between Subtotal and Asm Fee.
 //   • Tax base = SKU + TAXABLE mods only (reads m.tax_status from
 //     snapshot written by step2.5 handleMfSave). Tax row in PDF
 //     does NOT disclose taxable base breakdown (per Ben's Q3 choice).
 //   • Markup applies only to Unit Price; Mods and Assembly never marked up.
 //   • Mod Fee column displays UN-marked-up cost.
+//
+// CB-69 (2026-08-18) — PDF 版面重整。本段為現行行為的權威描述,
+// 上方 F4.2 段落中與此衝突者一律以本段為準。
+//   • F-40:訂單層級 note(quotes.notes)輸出至 PDF,位置在 Bill/Ship 下方、
+//     item table 之前(PM Q-1=A:保證第 1 頁)。四種 PDF 皆輸出。
+//     ⚠ 兩個 buildQuoteDataForPdf()(step3 / quote-detail)須各自傳入
+//       quoteData.notes,否則本檔收不到值 —— 斷點在來源端,不在此。
+//   • CB-69:mod 內容留在 SKU 欄內,接在 SKU code 下方換行(PM 定版:B 案)。
+//     表格列結構不變 —— 不新增 colSpan 子列。相對改動前唯一的差異是:
+//     自由文字類 mod 不再印 [See note No.N],改在同格直接印出全文。
+//     ⚠ 曾短暫實作過「另起一列橫跨十欄」的 A 案,已回退。若日後又想改回,
+//       請先讀下方欄寬那段 —— A 案會連動加粗範圍與三個金額欄的寬度來源。
+//   • Notes table 因此不再被呼叫。_drawNotesTable() 本體保留不刪
+//     (PM Q-3=A;清理另開 F-45)。_shouldUseNotesTable() 函式體零改動,
+//     語意由「是否進 notes table」改為「是否套用 (no detail) 占位符」。
+//   • F-43:Mod Fee 欄寬不足致金額折行(+$150.00 被折成 "+$150.0" / "0")。
+//     Mod Fee 14→17.5mm,Asm Fee 14→16mm,Total 16→17.5mm(PM Q-5=B)。
+//     B 案下 mod 仍在 SKU 欄,故 SKU 只能讓出 2mm;其餘來自 # 與 Asm? 兩欄
+//     的過配。詳見 _drawItemTable 內 columnStyles 上方那段。
+//   • F-31:item table 的 autoTable margin 原本未給 bottom,套用預設
+//     40pt(14.11mm)→ 表格底線 282.9mm,而 totals / T&C / notes 三處
+//     皆以 275mm 為換頁門檻。同一份 PDF 兩套底部基準,戳記(STAMP_Y=281)
+//     因此落在 item table 作圖範圍內。修法為補 bottom: 22 對齊 275,
+//     不搬動 STAMP_Y。
+//   • PDF 不進 i18n(CB-62 Q-56):本檔新增文字一律英文硬編碼。
 //
 // Notes table whitelist + fallback (mirrors step3):
 //   MF_USE_NOTES_TABLE = ['MF06', 'MF07']
@@ -124,6 +146,40 @@
   };
 
   const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
+  
+  // ── CB-69:mod 標籤的顯示層覆寫 ────────────────────────────────────────────
+  //   業主要求把兩個標籤改短:
+  //     MF06  Modification Note  → Note
+  //     MF07  Admin Modification → Admin Note
+  //
+  //   🔴 為什麼不直接改 DB 的 display_label(PM 裁示採顯示層,B 案):
+  //     ① display_label 在存檔當下就快照進 quote_items.modifications。
+  //        改 DB 只影響新單,既有單仍顯示舊字串 —— 新舊不一致。
+  //     ② new-quote-modifications.html 的 dealer fallback 以
+  //        mf_code + display_label 比對已存 mod(CB-62 B4-1b2 標記的脆弱結構)。
+  //        改了 DB 之後,dealer 重開舊單時 'Admin Modification' 對不上新規則
+  //        'Admin Note',admin-only mod 會撈不回來 —— 靜默失效,難以測出。
+  //     符合「顯示 ≠ 值」:DB 值不動,只換畫面與 PDF 上的字。
+  //
+  //   🔴 以 mf_code 為 key,不以舊 display_label 字串為 key。
+  //     mf_code 是穩定識別碼;拿字串當 key 等於再造一個 B4-1b2。
+  //
+  //   ⚠ 三檔平行邏輯,須手動保持一致。
+  //   ⚠ 涵蓋範圍僅本三檔(step3 / quote-detail / PDF)。
+  //     new-quote-modifications.html 的 mod 設定 modal 不在 CB-69 範圍,
+  //     仍顯示 DB 原字串 —— 如需一併改,另開票。
+  const MOD_LABEL_DISPLAY_OVERRIDE = {
+    MF06: 'Note',
+    MF07: 'Admin Note',
+  };
+
+  function _displayModLabel(mod) {
+    const code = String((mod && mod.mf_code) || '').toUpperCase();
+    return MOD_LABEL_DISPLAY_OVERRIDE[code]
+        || (mod && mod.display_label)
+        || code
+        || 'Modification';
+  }
   const NOTES_TABLE_FALLBACK_LENGTH = 40;
   const CUSTOM_SUFFIX = ' [CUSTOM]';
 
@@ -678,6 +734,13 @@ return total;
   // ----------------------------------------
 
   // CB-7: 只回「mod 文字」放進 SKU 欄(skuDesc 改放 Description 欄)。
+  //
+  // CB-69:回傳位置不變(仍是 SKU 欄),變的是自由文字類 mod 的內容 ——
+  //   由 [See note No.N] 占位改為直接印全文,見下方 _shouldUseNotesTable 分支。
+  //
+  // notesIndex / notesCollector 兩參數保留但不再寫入 —— 呼叫端仍傳,
+  //   移除須連動 _drawItemTable 的回傳與兩支 _finalize*(),屬 F-45 範圍。
+  //
   // showPrices=false（Packing List）→ 材料子行只顯示數量,不印 $。
   function _buildModsText(ctx) {
     const { sub, item, totalSubs, notesIndex, notesCollector, showPrices, mappingCollector } = ctx;
@@ -693,17 +756,15 @@ return total;
     }
 
     visibleMods.forEach(function (m) {
-      const label = m.display_label || m.mf_code || 'Modification';
+      const label = _displayModLabel(m);   // CB-69:顯示層覆寫
       if (_shouldUseNotesTable(m)) {
-        notesIndex.counter += 1;
-        const noteNum = notesIndex.counter;
-        notesCollector.push({
-          num: noteNum, skuCode: item.sku_code,
-          subIndex: sub.sub_index || 1, subTotal: totalSubs,
-          mfCode: m.mf_code || '', label: label,
-          content: _formatModValue(m.value) || '(no detail)',
-        });
-        lines.push(`! See Note No.${noteNum} — ${label}`);
+        // CB-69:自由文字類(MF06 / MF07 / 逾 40 字)不再跨表對照,
+        //   直接於 SKU 欄內印出全文,由 overflow:'linebreak' 自然換行。
+        //   ⚠ 這是 B 案的必然代價:500 字會把該列拉高。欄寬若再縮,
+        //     列高會再漲 —— 兩者的取捨見下方 columnStyles 上方那段。
+        //   `|| '(no detail)'` 占位符原樣保留 —— 空 description 落庫防堵
+        //   為 F-39,不在本票範圍,此處行為必須與改動前一致。
+        lines.push(`• ${label}: ${_formatModValue(m.value) || '(no detail)'}`);
       } else {
         // 改動 8 (CB-12): MF03 Matching Interior 特例
         //   value==='no'  → 顯示 no_label(Wood Interior)
@@ -857,6 +918,8 @@ return total;
                 notesIndex: notesIndex, notesCollector: notes,
                 showPrices: showPrices,
               });
+              // CB-69(B 案):mod / Hinge / Need-to-check 維持在 SKU 欄內,
+              //   接在 SKU code 下方換行。表格列結構不變。
               const extraLines = [hingeLine, confirmLine, modsText].filter(Boolean).join('\n');
               const skuCellText = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
                 + (extraLines ? `\n${extraLines}` : '');
@@ -879,6 +942,8 @@ return total;
                 ]);
               }
               rowFills.push(fill);
+
+            
 
               // CB-25: mapping SKU 獨立 row,緊跟父 row,同 item 同色
               mappingList.forEach(function (map, k) {
@@ -903,27 +968,56 @@ return total;
       });
     });
 
-    // 欄寬(沿用 改動 12/16/17)
+    // ── 欄寬(CB-69 重配;取代 改動 12/16/17)────────────────────────────────
+    //   預算 = pageW 210 − margin 10×2 = 190mm。超出會被 autotable 壓縮並印警告。
+    //   B 案合計 188(Invoice)/ 188(Packing),各留 2mm 餘裕。
+    //
+    //   所需寬度 = 文字寬 + cellPadding×2(=4mm),於 jspdf 2.5.1 +
+    //   autotable 3.8.2(與 CDN 同版)實測:
+    //     +$999.99 → 15.74mm   +$9999.99 → 17.29mm   +$99999.99 → 18.84mm
+    //     $9999.99 → 15.66mm   $99999.99 → 17.21mm   $999999.99 → 18.76mm
+    //   F-43 原始現象:Mod Fee 14mm(內容區 10mm)→ +$150.00(11.74mm)
+    //   被折成 ["+$150.0", "0"],快速閱讀會誤讀為 $150.0。
+    //
+    //   🔴 欄寬是零和,且 B 案下 SKU 欄還要裝 mod 文字,能讓的很有限。
+    //      本次三個金額欄合計 +7mm,來源逐筆如下 —— 日後要再加寬任一欄,
+    //      必須同樣寫清楚從哪裡拿:
+    //        # 欄     12 → 11   (−1;實測最寬內容 "12.1" 只需 10.13mm)
+    //        Asm? 欄  18 → 14   (−4;內容僅 Yes/No/—,表頭 "Asm?" 需 11.82mm)
+    //        SKU 欄   52 → 50   (−2;再縮列高會明顯上升,見下)
+    //        預算餘裕  188 → 190 (−2)
+    //
+    //   🔴 SKU 欄寬與列高是直接的取捨。實測同一筆(SKU + Sub + Hinge + 500 字 mod):
+    //        SKU 50mm →  8 行,列高 33.2mm
+    //        SKU 47mm → 10 行,列高 40.5mm
+    //      每個帶 mod 的品項多 7mm,一張 15 項的單就多一頁。
+    //      為了把 Mod Fee 撐到涵蓋 +$99,999.99 而縮 SKU,買到的是
+    //      「單行改動費超過 $9,999.99」這種情形(MF07 warn_threshold 僅 1000),
+    //      付出的卻是每一列都要付的列高。故取 17.5 而非 19。
+    //
+    //   涵蓋範圍:Mod Fee → +$9,999.99 / Asm Fee → +$999.99 / Total → $99,999.99
+    //
+    //   Packing List 無金額欄,不受 F-43 影響,欄寬原樣不動。
     const columnStyles = isPacking
       ? {
           0: { cellWidth: 10 },
           1: { cellWidth: 14, overflow: 'linebreak' },
-          2: { halign: 'right', cellWidth: 14 },
+          2: { halign: 'right', cellWidth: 14, fontStyle: 'bold' },   // F-31:只粗 Qty
           3: { cellWidth: 64, overflow: 'linebreak' },
           4: { cellWidth: 62, overflow: 'linebreak' },
           5: { cellWidth: 24 },
         }
       : {
-          0: { cellWidth: 12 },
+          0: { cellWidth: 11 },                                        // 12→11
           1: { cellWidth: 12, overflow: 'linebreak' },
-          2: { halign: 'right', cellWidth: 10 },
-          3: { cellWidth: 52, overflow: 'linebreak' },
+          2: { halign: 'right', cellWidth: 10, fontStyle: 'bold' },    // F-31:只粗 Qty
+          3: { cellWidth: 50, overflow: 'linebreak' },                 // 52→50(仍裝 mod 文字,不加粗)
           4: { cellWidth: 24, overflow: 'linebreak' },
-          5: { cellWidth: 18 },
-          6: { halign: 'right', cellWidth: 16, fontSize: 8 },
-          7: { halign: 'right', cellWidth: 14, fontSize: 8 },
-          8: { halign: 'right', cellWidth: 14, fontSize: 8 },
-          9: { halign: 'right', fontStyle: 'bold', cellWidth: 16, fontSize: 8 },
+          5: { cellWidth: 14 },                                        // 18→14
+          6: { halign: 'right', cellWidth: 16,   fontSize: 8 },
+          7: { halign: 'right', cellWidth: 17.5, fontSize: 8 },        // F-43 主修:14→17.5
+          8: { halign: 'right', cellWidth: 16,   fontSize: 8 },        // Q-5:14→16
+          9: { halign: 'right', fontStyle: 'bold', cellWidth: 17.5, fontSize: 8 },  // Q-5:16→17.5(bold 為既有行為)
         };
 
     const onDrawPage = (data) => {
@@ -941,7 +1035,14 @@ return total;
       startY: startY,
       head: head,
       body: body,
-      margin: { left: margin, right: margin, top: headerH + 4 },
+      // 🔴 F-31:bottom 為新增,不可省略。
+      //   autotable 3.8.2 對 margin 物件缺漏的邊套用預設 40pt = 14.11mm
+      //   → 表格底線 297−14.11 = 282.9mm,而 totals / T&C / notes 三處
+      //   一律以 275 為換頁門檻。實測滿版單最後一列底部達 282.31mm,
+      //   直接被 STAMP_Y=281 的下載戳記蓋住。
+      //   22 = 297 − 275,使四處共用同一條底線;戳記 281 落在 275 與
+      //   頁尾條 287 之間的空帶。改此值前請先確認這三個數字的關係。
+      margin: { left: margin, right: margin, top: headerH + 4, bottom: 22 },
       styles: { fontSize: bodyFs, cellPadding: 2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
       headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: headFs },
       columnStyles: columnStyles,
@@ -953,9 +1054,64 @@ return total;
   }
 
   // ----------------------------------------
+  // F-40: 訂單層級 Note(quotes.notes)
+  // ----------------------------------------
+  //
+  // 【為什麼在這裡,而不是表格下方】(PM Q-1=A)
+  //   這是 dealer 填的特殊指示(交期 / 安裝 / 特殊處理),生產端以 PDF 為
+  //   作業依據。放在 Bill/Ship 下方可保證落在第 1 頁;放在表格之後,長單時
+  //   會被推到第 2、3 頁。系統收下了指示卻沒傳遞到,責任在系統側。
+  //
+  // 【為什麼用 autoTable 而不是 rect + text】
+  //   quotes.notes 目前無 maxlength(前端補 maxlength 為 F-44),長度不可控。
+  //   PM Q-2=A 裁示不截斷 —— 截斷生產指示的風險高於多印一頁。
+  //   autoTable 自帶跨頁切割與換頁重畫 header,手刻 rect 做不到這件事。
+  //
+  // 【四種 PDF 皆輸出】Packing List 是生產端唯一會看的文件,更不能少。
+  //
+  // ⚠ quoteData.notes 由兩個 buildQuoteDataForPdf() 傳入。若 PDF 上沒出現,
+  //   先查來源端有沒有帶這個 key,而不是查這支函式。
+  function _drawOrderNote(doc, context) {
+    const { margin, headerH } = LAYOUT;
+    const { notes, startY, headerContext } = context;
+
+    const text = (notes == null) ? '' : String(notes).trim();
+    if (!text) return startY;   // 無 note → 版面與改動前完全一致
+
+    doc.autoTable({
+      startY: startY,
+      head: [['ORDER NOTES']],   // PDF 不進 i18n(CB-62 Q-56):英文硬編碼
+      body: [[text]],
+      margin: { left: margin, right: margin, top: headerH + 4, bottom: 22 },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        textColor: [30, 30, 30],
+        overflow: 'linebreak',
+        valign: 'top',
+      },
+      headStyles: {
+        fillColor: [255, 235, 215],
+        textColor: COLORS.note,
+        fontStyle: 'bold',
+        fontSize: 8,
+      },
+      bodyStyles: { fillColor: [255, 247, 235] },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1 && headerContext) _drawHeader(doc, headerContext);
+      },
+    });
+
+    return doc.lastAutoTable.finalY + 4;
+  }
+
+  // ----------------------------------------
   // F4.2: Notes Table
   // ----------------------------------------
-
+  //
+  // ⚠ CB-69 起本函式已無呼叫端 —— 自由文字類 mod 改在 SKU 欄內直接印全文,
+  //   不再跨表對照。函式本體依 PM Q-3=A 保留不刪,清理另開 F-45(上線穩定後)。
+  //   請勿因「看起來沒人用」而順手移除。
   function _drawNotesTable(doc, context) {
     const { margin, pageW, headerH } = LAYOUT;
     const { notes, startY, headerContext } = context;
@@ -1393,6 +1549,14 @@ return total;
       startY: y - 4,
       leadTime: quoteData.estimated_lead_time,   // CB-24: Lead Time 移到 SHIP TO 下方
       logisticType: quoteData.logistic_type,     // Ship To 新規格:pickup/delivery/shipping 切換
+    });
+
+    // F-40 (PM Q-1=A):訂單 note 置於 Bill/Ship 下方、item table 之前。
+    //   無 note 時原樣回傳 y,版面與改動前一致。
+    y = _drawOrderNote(doc, {
+      notes:         quoteData.notes,
+      startY:        y,
+      headerContext: headerContext,
     });
 
     // F-CUSTOM (Phase 6): debug log for custom item count
@@ -1856,6 +2020,7 @@ return total;
     _calcTaxableModsCost:     _calcTaxableModsCost,
     _formatModValue:          _formatModValue,
     _shouldUseNotesTable:     _shouldUseNotesTable,
+    _displayModLabel:         _displayModLabel,          // CB-69
     _buildModsText:           _buildModsText,
 
     _drawHeader:             _drawHeader,
@@ -1864,6 +2029,7 @@ return total;
     _addPageNumbers:         _addPageNumbers,
     _drawStamp:              _drawStamp,
     _drawItemTable:          _drawItemTable,
+    _drawOrderNote:          _drawOrderNote,                          // F-40
     _drawNotesTable:         _drawNotesTable,
     _drawAssembledSummary:   _drawAssembledSummary,              // 改動 15
     _drawTotals:             _drawTotals,
