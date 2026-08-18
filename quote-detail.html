@@ -291,7 +291,7 @@
       color: var(--muted);
       font-style: italic;
     }
-
+    /* CB-11 任務B: DOOR & FRAME 固定註記「Hinge not included」(樣式比照 mod 子項) */
     .items-table td.td-sku .hinge-note {
       font-size: 11px;
       color: var(--green-dark);
@@ -1216,8 +1216,9 @@ function groupByTypeOrdered(data, constructionType) {
 // ─────────────────────────────────────────────────────────────────────────────
 // F4.1 v2.1 — Render mods inside Description column (NO fees).
 //
-// CB-69:回傳值語意變更 —— 由「放進 SKU 欄的 HTML」改為「放進縮排子列的 HTML」。
-//   函式名保留(三檔平行邏輯,改名須三檔同動)。去向見 buildItemRowsHtml 的 subRowHtml。
+// CB-69:回傳位置不變(仍是 SKU 欄),變的是自由文字類 mod 的內容 ——
+//   由 [See note No.N] 占位改為直接印全文。
+//   函式名保留(三檔平行邏輯,改名須三檔同動)。
 //   notesIndex / notesCollector 兩參數保留但不再寫入,移除屬 F-45 範圍。
 //
 // F-HIDDEN-MODS (2026-05-18): Filter mods via isHiddenMod() BEFORE empty-check.
@@ -1248,7 +1249,7 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
 
     if (useNotes) {
       // CB-69:自由文字類(MF06 / MF07 / 逾 40 字)不再跨表對照,直接印出全文。
-      //   子列橫跨十欄,500 字上限自然換行。
+      //   位置不變(仍在 SKU 欄內),變的只有內容:由 [See note No.N] 改為全文。
       //   `|| '(no detail)'` 占位符原樣保留 —— 空 description 落庫防堵為 F-39,
       //   不在本票範圍,此處行為必須與改動前一致。
       const noteVal = formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)');
