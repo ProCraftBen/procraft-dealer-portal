@@ -153,22 +153,6 @@ color: var(--green-dark);
       white-space: nowrap;
     }
     .items-table tbody tr.mapping-row .td-sku { padding-left: 14px; }
-
-    /* ── CB-69:mod 縮排子列 ─────────────────────────────────────────
-       結構與慣例比照 tr.mapping-row(同為父 row 的附屬列)。
-       刻意【不】套用 tr.sub-continuation —— 那是拆分件第 2 個 sub 起的
-       視覺標記,子列不是另一個 sub,套上去會讓兩種關係混淆。          */
-    .items-table tbody tr.mod-note-row td {
-      border-left: 2px solid rgba(62,90,66,0.25);
-      padding: 0 10px 10px 34px;
-    }
-    /* .mods-list 原本要與同格內的 SKU 文字分隔,故有 margin/border-top。
-       獨立成列後這些分隔線變成多餘,在此歸零。                        */
-    .items-table tbody tr.mod-note-row .mods-list {
-      margin-top: 0;
-      padding: 0;
-      border-top: none;
-    }
     /* CB-7: mod 子項移入 SKU 欄後，需允許換行（td-sku 原為 nowrap）*/
     .items-table td.td-sku .mods-list,
     .items-table td.td-sku .mods-list * { white-space: normal; }
