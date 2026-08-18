@@ -2142,7 +2142,13 @@ if (draftId) {
     elBtnSubmit.style.display = 'none';
     elBtnDraft.style.display  = 'none';
     elBtnRev.style.display    = 'inline-flex';
-    document.getElementById('btnAdminSubmit').style.display = 'inline-flex';  // CB-32
+    // ── CB-66 Q-7A: Pending 不顯示 Submit (Admin) ──────────────────────────
+    //   該按鈕對已有 po_number 的單走 submitQuote 分支 2 → 寫入 'Stock Review'。
+    //   Pending 單必有 po_number,故會把「已放行、dealer 可付款」的單拉回待審,
+    //   dealer 端付款入口靜默消失,且所發 admin_submitted_po 語意不符。
+    //   Pending 的唯一出口是 Request Revision。Stock Review / Returned 不受影響。
+    document.getElementById('btnAdminSubmit').style.display =
+      (quoteStatus === 'Pending') ? 'none' : 'inline-flex';  // CB-32
     elSubmitNote.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
     elSubmitNote.innerHTML =
       'Review the changes, then either send this Purchase Order back to the dealer for revision, or submit it on the dealer\'s behalf.';
@@ -3158,8 +3164,23 @@ async function saveDraft() {
     let _savedCreatedAt = null;   // CB-20: 從 insert 回傳抓 created_at(僅首存走 insert 分支)
 
     if (draftId) {
-      const { error } = await _supabase.from('quotes').update(payload).eq('id', draftId);
+      // ── CB-66: 前態守衛 + count:'exact' ────────────────────────────────
+      //   admin 走 admin_update_all_quotes(USING/WITH CHECK 只查 role),DB 層
+      //   對 admin 的 status 零約束;F2 trigger 亦於 auth.uid() <> OLD.dealer_id
+      //   時直接 RETURN NEW。故此處的 status guard 是 admin 路徑的唯一防線。
+      //   Pending 刻意排除:CB-61 後 Pending 唯一出口為 Request Revision。
+      //   🔴 檢查必須在 quote_items delete【之前】—— 順序顛倒會產生
+      //      「items 已清空但 quotes UPDATE 失敗」的空殼報價,不可逆。
+      //      (同一個坑見 submitQuote 分支 1 的 Q8-A 註解。)
+      const { error, count: updCount } = await _supabase
+        .from('quotes').update(payload, { count: 'exact' })
+        .eq('id', draftId)
+        .in('status', ['Draft', 'Stock Review', 'Returned']);
       if (error) throw error;
+      if (updCount === 0) {
+        throw new Error(pcTxt('nq3.err.status_changed_save',
+          "Couldn't save your changes — this order's status may have changed. Please refresh the page and try again."));
+      }
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
 
@@ -3782,9 +3803,20 @@ async function requestRevision(note) {
       // revision_number intentionally NOT changed — dealer's Resubmit bumps it.
     };
 
-    const { error: updateError } = await _supabase
-      .from('quotes').update(updatePayload).eq('id', draftId);
+    // ── CB-66: 前態守衛 + count:'exact' ──────────────────────────────────
+    //   併發核心情境:admin 停在 Step 3 期間,dealer 於 payment.html 推進至
+    //   'Payment Processing'(QBO invoice 已由專人開立)。無守衛時此 UPDATE
+    //   會成功寫入 'Returned',portal 金額與已開立 invoice 分岔且不可逆。
+    //   🔴 檢查必須在 quote_items delete【之前】(理由同 saveDraft)。
+    const { error: updateError, count: updCount } = await _supabase
+      .from('quotes').update(updatePayload, { count: 'exact' })
+      .eq('id', draftId)
+      .in('status', ['Draft', 'Stock Review', 'Returned', 'Pending']);
     if (updateError) throw updateError;
+    if (updCount === 0) {
+      throw new Error(pcTxt('nq3.err.status_changed_save',
+        "Couldn't save your changes — this order's status may have changed. Please refresh the page and try again."));
+    }
     await _supabase.from('quote_items').delete().eq('quote_id', draftId);
     const { error: itemsError } = await _supabase
       .from('quote_items').insert(buildItemsPayload(draftId));
