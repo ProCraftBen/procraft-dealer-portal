@@ -146,6 +146,40 @@
   };
 
   const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
+  
+  // ── CB-69:mod 標籤的顯示層覆寫 ────────────────────────────────────────────
+  //   業主要求把兩個標籤改短:
+  //     MF06  Modification Note  → Note
+  //     MF07  Admin Modification → Admin Note
+  //
+  //   🔴 為什麼不直接改 DB 的 display_label(PM 裁示採顯示層,B 案):
+  //     ① display_label 在存檔當下就快照進 quote_items.modifications。
+  //        改 DB 只影響新單,既有單仍顯示舊字串 —— 新舊不一致。
+  //     ② new-quote-modifications.html 的 dealer fallback 以
+  //        mf_code + display_label 比對已存 mod(CB-62 B4-1b2 標記的脆弱結構)。
+  //        改了 DB 之後,dealer 重開舊單時 'Admin Modification' 對不上新規則
+  //        'Admin Note',admin-only mod 會撈不回來 —— 靜默失效,難以測出。
+  //     符合「顯示 ≠ 值」:DB 值不動,只換畫面與 PDF 上的字。
+  //
+  //   🔴 以 mf_code 為 key,不以舊 display_label 字串為 key。
+  //     mf_code 是穩定識別碼;拿字串當 key 等於再造一個 B4-1b2。
+  //
+  //   ⚠ 三檔平行邏輯,須手動保持一致。
+  //   ⚠ 涵蓋範圍僅本三檔(step3 / quote-detail / PDF)。
+  //     new-quote-modifications.html 的 mod 設定 modal 不在 CB-69 範圍,
+  //     仍顯示 DB 原字串 —— 如需一併改,另開票。
+  const MOD_LABEL_DISPLAY_OVERRIDE = {
+    MF06: 'Note',
+    MF07: 'Admin Note',
+  };
+
+  function _displayModLabel(mod) {
+    const code = String((mod && mod.mf_code) || '').toUpperCase();
+    return MOD_LABEL_DISPLAY_OVERRIDE[code]
+        || (mod && mod.display_label)
+        || code
+        || 'Modification';
+  }
   const NOTES_TABLE_FALLBACK_LENGTH = 40;
   const CUSTOM_SUFFIX = ' [CUSTOM]';
 
@@ -723,6 +757,7 @@ return total;
 
     visibleMods.forEach(function (m) {
       const label = m.display_label || m.mf_code || 'Modification';
+      const label = _displayModLabel(m);   // CB-69:顯示層覆寫
       if (_shouldUseNotesTable(m)) {
         // CB-69:自由文字類(MF06 / MF07 / 逾 40 字)不再跨表對照,
         //   直接於 SKU 欄內印出全文,由 overflow:'linebreak' 自然換行。
@@ -1986,6 +2021,7 @@ return total;
     _calcTaxableModsCost:     _calcTaxableModsCost,
     _formatModValue:          _formatModValue,
     _shouldUseNotesTable:     _shouldUseNotesTable,
+    _displayModLabel:         _displayModLabel,          // CB-69
     _buildModsText:           _buildModsText,
 
     _drawHeader:             _drawHeader,
