@@ -153,6 +153,22 @@ color: var(--green-dark);
       white-space: nowrap;
     }
     .items-table tbody tr.mapping-row .td-sku { padding-left: 14px; }
+
+    /* ── CB-69:mod 縮排子列 ─────────────────────────────────────────
+       結構與慣例比照 tr.mapping-row(同為父 row 的附屬列)。
+       刻意【不】套用 tr.sub-continuation —— 那是拆分件第 2 個 sub 起的
+       視覺標記,子列不是另一個 sub,套上去會讓兩種關係混淆。          */
+    .items-table tbody tr.mod-note-row td {
+      border-left: 2px solid rgba(62,90,66,0.25);
+      padding: 0 10px 10px 34px;
+    }
+    /* .mods-list 原本要與同格內的 SKU 文字分隔,故有 margin/border-top。
+       獨立成列後這些分隔線變成多餘,在此歸零。                        */
+    .items-table tbody tr.mod-note-row .mods-list {
+      margin-top: 0;
+      padding: 0;
+      border-top: none;
+    }
     /* CB-7: mod 子項移入 SKU 欄後，需允許換行（td-sku 原為 nowrap）*/
     .items-table td.td-sku .mods-list,
     .items-table td.td-sku .mods-list * { white-space: normal; }
@@ -220,7 +236,10 @@ color: var(--green-dark);
     }
 
     /* CB-11 任務B: DOOR & FRAME 固定註記「Hinge not included」(樣式比照 mod 子項) */
-    .items-table td.td-sku .hinge-note {
+    /* CB-69:選擇器由 `td.td-sku .hinge-note` 放寬 —— Q-6 淨化後 hinge 註記
+    已移出 SKU 欄、改在 tr.mod-note-row 內。若沿用舊選擇器,規則會靜默失配,
+    字級與顏色全數掉回預設,而畫面仍「看得到字」,不易察覺。            */
+    .items-table .hinge-note {
       font-size: 11px;
       color: var(--green-dark);
       line-height: 1.5;
@@ -1346,7 +1365,12 @@ function calcTaxableModsCost(items) {
   return total;
 }
 
-// Format mod value: handles MF01 (string), MF07 ({selected, description, ...}), MF06 (free text), etc.
+// Format mod value: handles MF01 (string), MF06 (free text), MF07, MF03 toggle-with-qty, etc.
+//
+// F-41:舊註解寫 MF07 為 ({selected, description, ...})。該結構在 MF07 v3 已不存在
+//   —— 實際為 { enabled, description, cost, taxable }(見 components/modifications/
+//   mf07-super.js)。註解漂移正是 F-35 誤判的溫床:當時的守衛以「排除其他元件的
+//   key」定義,而參照的正是這個已不存在的形狀。改註解不是美化,是移除誤導來源。
 function formatModValue(v) {
   if (v == null) return '';
   if (typeof v === 'string')  return v;
@@ -1589,6 +1613,10 @@ function computeSkuTotals(markupPct) {
 //   - unprocessed + empty mods → KEEP "⚠ Modifications pending" warning
 //     (this is a real problem state — dealer forgot to configure)
 //
+// CB-69:回傳值語意變更 —— 由「放進 SKU 欄的 HTML」改為「放進縮排子列的 HTML」。
+//   函式名保留(三檔平行邏輯,改名須三檔同動)。去向見 buildItemRowsHtml 的 subRowHtml。
+//   notesIndex / notesCollector 兩參數保留但不再寫入,移除屬 F-45 範圍。
+//
 // F-HIDDEN-MODS (2026-05-18):
 //   Filter mods via isHiddenMod() BEFORE the empty-check. If MF01 No Skin was
 //   the only mod, the visibleMods array becomes empty → same treatment as
@@ -1627,18 +1655,14 @@ function renderModsBlock(sub, notesIndex, notesCollector, itemContext) {
     const useNotes = shouldUseNotesTable(m);
 
     if (useNotes) {
-      notesIndex.counter += 1;
-      const noteNum = notesIndex.counter;
-      notesCollector.push({
-        num:        noteNum,
-        skuCode:    itemContext.sku_code,
-        subIndex:   sub.sub_index || 1,
-        subTotal:   itemContext.totalSubs,
-        mfCode:     m.mf_code || '',
-        label:      label,
-        content:    formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)'),
-      });
-      return `<div class="mod-line">${escapeHtml(label)}: <span class="mod-note-ref">${escapeHtml(pcTxt('nq3.mods.see_note', '[See note №{n} below]', { n: noteNum }))}</span></div>`;
+      // CB-69:自由文字類(MF06 / MF07 / 逾 40 字)不再跨表對照,直接印出全文。
+      //   子列橫跨十欄,500 字上限自然換行。
+      //   `|| '(no detail)'` 占位符原樣保留 —— 空 description 落庫防堵為 F-39,
+      //   不在本票範圍,此處行為必須與改動前一致。
+      //   i18n key nq3.mods.see_note 因此成為孤兒 —— PM Q-4=B 裁示保留,
+      //   不動 CB-62 的 763 key 平價基線;清理併入 F-46(西語覆核回收後)。
+      const noteVal = formatModValue(m.value) || pcTxt('nq3.mods.no_detail', '(no detail)');
+      return `<div class="mod-line">${escapeHtml(label)}: ${escapeHtml(noteVal)}</div>`;
     }
 
     const value = formatModValue(m.value);
@@ -2539,8 +2563,10 @@ function buildItemRowsHtml(markupPct) {
               ? `<div class="hinge-note">${escapeHtml(pcTxt('nq3.hinge_note', 'Hinge not included'))}</div>`
               : '';
 
-            // CB-25: 移除 PROMO badge;mod 子項(無金額)仍放 SKU 欄
-            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}${hingeNoteHtml}${modsBlockHtml}`;
+            // CB-69 / PM Q-6=C:SKU 欄淨化 —— 只留 SKU code + CUSTOM badge + Sub N of M。
+            //   Hinge 註記與 mod 條列全數移入下方縮排子列。與 pdf-builder / quote-detail 同構。
+            const subRowHtml = [hingeNoteHtml, modsBlockHtml].filter(Boolean).join('');
+            const skuCellHtml  = `${skuPrefix}${escapeHtml(item.sku_code)}${customBadgeHtml}${subLabelHtml}`;
             const descCellHtml = item.sku_desc ? `<div class="desc-main">${escapeHtml(item.sku_desc)}</div>` : '';
 
             const assembledHtml = (item.type === 'RTA' ? 'No' : 'Yes');
@@ -2567,6 +2593,16 @@ function buildItemRowsHtml(markupPct) {
                 <td class="td-right">${asmFeeCellHtml}</td>
                 <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
               </tr>`);
+
+            // ── CB-69:縮排子列 —— 緊跟父 row,mapping rows 之前 ──────────────
+            //   一個 line-item 最多一列(內容串接),不是每項一列。
+            //   縮排以 CSS padding-left 達成,沿用 tr.mapping-row 的既有慣例。
+            if (subRowHtml) {
+              rows.push(`
+              <tr class="mod-note-row">
+                <td colspan="10">${subRowHtml}</td>
+              </tr>`);
+            }
 
             // ── CB-25 改動 B:mapping SKU 獨立 row,緊跟父 row,編號 parentNum.N ──
             mappingList.forEach(function (map, k) {
@@ -3023,6 +3059,11 @@ function buildQuoteDataForPdf(opts) {
     po_number:     _existingPoNumber || null,           // submit 後才有
     draft_number:  _existingDraftNumber || null,         // 雙編號制: Draft Quote PDF 用(實際 D/P 切換在階段 6 pdf-builder)
     job_name:      step1Data?.jobName || null,
+    // F-40:訂單層級 note 送進 PDF(pdf-builder 的 _drawOrderNote 取用)。
+    //   冷熱兩入口皆供應:熱路徑為 sessionStorage quoteStep1,冷路徑為
+    //   cb53BuildStep1FromQuote() 的 notes: q.notes || ''。
+    //   PDF 沒印出來時,先確認這一行還在 —— 斷點一直在來源端,不在 pdf-builder。
+    notes:         step1Data?.notes || null,
     logistic_type: step1Data?.logisticType || 'pickup',
     delivery_fee:  round2(step1Data?.deliveryFee || 0),   // CB-46
     items:         items,
