@@ -162,6 +162,8 @@
     .pick-opt input     { flex: 0 0 auto; }
     .pick-opt span      { word-break: break-word; }
     .pick-empty         { font-size: 11px; color: var(--muted); font-style: italic; padding: 8px 10px; }
+    .pick-hint          { display: none; font-size: 10px; color: var(--muted); line-height: 1.5; margin: 4px 0 2px; }
+    .pick-hint b        { color: var(--text); font-weight: 600; }
     /* 可收合的規則說明 */
     .rule-help          { border: 1px solid var(--border); border-radius: 3px; margin-bottom: 12px; background: var(--cream); }
     .rule-help > summary { cursor: pointer; list-style: none; padding: 8px 12px; font-size: 11px; letter-spacing: 0.06em; color: var(--gold); user-select: none; }
@@ -916,6 +918,16 @@ function ruleOptions(uid, field) {
 }
 
 // ── 勾選式多選 ─────────────────────────────────────────────────────────
+// F-51 (D): Select shown 批次選取的確認門檻。
+// ⚠️ 此為判斷值,非計算值 —— 依 admin 實際搜尋習慣調整,調整時不需動邏輯。
+// 2026-08-18 初始依據:
+//   * Door Style 一個樣式家族(如 ML 開頭)約 24 筆,設 20 使家族批選
+//     會經過一次確認。
+//   * SKU 瀏覽型批選(如搜 B)動輒 200+,同樣會確認。
+// 前提假設:本門檻只影響「輸入不是任何一個代碼」的路徑。輸入恰等於
+//   某代碼時走精確快捷,不受本門檻影響。
+const SELECT_SHOWN_CONFIRM_THRESHOLD = 20;
+
 // F-51 (E): 單一謂詞來源。
 // 顯示過濾 (renderPickList) 與批次選取 (pickSelectShown) 必須永遠一致;
 // 兩處各寫一份比對式會漂移,且漂移不會報錯、無人察覺。一律走這支。
@@ -934,6 +946,73 @@ function pickMatches(uid, field) {
   return opts.filter(function (o) {
     return o.label.toLowerCase().indexOf(q) !== -1;
   });
+}
+
+// F-51 (D): 搜尋詞是否「恰好等於」某個代碼。
+// Stage 0 實測 dup_code_groups = 0(ds / sku 兩維度),故同一 construction
+// type 桶內代碼唯一,精確命中必為 0 或 1 筆。
+function pickExactMatches(uid, field) {
+  const row = ruleRow(uid);
+  if (!row) return [];
+  const q = String(row.search[field] || '').trim().toLowerCase();
+  if (!q) return [];
+  return ruleOptions(uid, field).filter(function (o) {
+    return String(o.code).toLowerCase() === q;
+  });
+}
+
+// F-51 (D): 實際寫入 row.sel 的唯一出口。
+function pickCommit(uid, field, list) {
+  const row = ruleRow(uid);
+  if (!row) return;
+  list.forEach(function (o) {
+    if (row.sel[field].indexOf(o.code) === -1) row.sel[field].push(o.code);
+  });
+  renderPickList(uid, field);
+}
+
+function pickSetHint(uid, field, code, total) {
+  const el = document.getElementById('r' + uid + '_' + field + '_hint');
+  if (!el) return;
+  const others = total - 1;
+  el.innerHTML = 'Selected <b>' + ruleEscHtml(code) + '</b> only. '
+    + others + ' other match' + (others === 1 ? '' : 'es') + ' \u2014 '
+    + '<button type="button" class="pick-link"'
+    +   ' onclick="pickSelectAllMatches(' + uid + ',\'' + field + '\')">'
+    +   'Select all ' + total + '</button>';
+  el.style.display = 'block';
+}
+
+function pickClearHint(uid, field) {
+  const el = document.getElementById('r' + uid + '_' + field + '_hint');
+  if (!el) return;
+  el.innerHTML = '';
+  el.style.display = 'none';
+}
+
+// F-51 (D + T13): 寫入前的最後一道。分支 3 與「Select all N」連結共用。
+function pickConfirmAll(uid, field, matched) {
+  const d     = RULE_DIMS[field];
+  const label = (d && d.label) ? d.label : 'option';
+  if (!window.confirm(
+        'Select all ' + matched.length + ' matching ' + label + ' options?\n\n'
+        + 'All ' + matched.length + ' will be added to this discount rule.')) {
+    return;
+  }
+  pickClearHint(uid, field);
+  pickCommit(uid, field, matched);
+}
+
+// F-51 (T13): 分支 1 提示中的「Select all N」。
+// PM 拍板:此連結必須確認 —— inline 提示是「告知還有 N-1 筆」,
+// 確認框是「你確定要把 N 筆寫進折扣規則」,目的不同,且後者是寫入前
+// 的最後一道,不得因分支 1 已提示而省略。
+function pickSelectAllMatches(uid, field) {
+  const row = ruleRow(uid);
+  if (!row || row.all[field]) return;
+  const matched = pickMatches(uid, field);
+  if (!matched.length) return;
+  pickConfirmAll(uid, field, matched);
 }
 
 function renderPickList(uid, field) {
@@ -991,6 +1070,7 @@ function onRuleAll(uid, field) {
   if (!row || !box) return;
   row.all[field] = box.checked;
   if (box.checked) row.sel[field] = [];
+  pickClearHint(uid, field);
   renderPickList(uid, field);
 }
 
@@ -998,25 +1078,52 @@ function onRuleSearch(uid, field, v) {
   const row = ruleRow(uid);
   if (!row) return;
   row.search[field] = v;
+  pickClearHint(uid, field);
   renderPickList(uid, field);
 }
 
 function pickSelectShown(uid, field) {
   const row = ruleRow(uid);
   if (!row) return;
-  pickMatches(uid, field).forEach(function (o) {
-    if (row.sel[field].indexOf(o.code) === -1) row.sel[field].push(o.code);
-  });
-  renderPickList(uid, field);
+  if (row.all[field]) return;   // F-51 (d1): 勾 All 時不得批次寫入
+
+  const matched = pickMatches(uid, field);
+  if (!matched.length) return;
+
+  const dim = RULE_DIMS[field];
+
+  // type 維度無搜尋框 -> 全選是唯一正確用法,不確認。
+  // 無搜尋即無誤中可能(Stage 0 實測碰撞數 0)。
+  if (!dim || !dim.search) { pickCommit(uid, field, matched); return; }
+
+  const exact = pickExactMatches(uid, field);
+
+  // 分支 1:輸入恰為某代碼,且另有其他命中 -> 只選該筆,不打斷。
+  if (exact.length === 1 && matched.length > 1) {
+    pickCommit(uid, field, exact);
+    pickSetHint(uid, field, exact[0].code, matched.length);
+    return;
+  }
+
+  pickClearHint(uid, field);
+
+  // 分支 2:命中數在門檻內 -> 直接選,不打斷。
+  if (matched.length <= SELECT_SHOWN_CONFIRM_THRESHOLD) {
+    pickCommit(uid, field, matched);
+    return;
+  }
+
+  // 分支 3:無精確代碼且命中過多 -> 確認後才寫入。
+  pickConfirmAll(uid, field, matched);
 }
 
 function pickClear(uid, field) {
   const row = ruleRow(uid);
   if (!row) return;
   row.sel[field] = [];
+  pickClearHint(uid, field);
   renderPickList(uid, field);
 }
-
 function pickBlockHtml(uid, field) {
   const d = RULE_DIMS[field];
   const searchHtml = d.search
@@ -1036,6 +1143,7 @@ function pickBlockHtml(uid, field) {
     +     '<button type="button" class="pick-link" onclick="pickSelectShown(' + uid + ',\'' + field + '\')">Select shown</button>'
     +     '<button type="button" class="pick-link" onclick="pickClear(' + uid + ',\'' + field + '\')">Clear</button>'
     +   '</div>'
+    +   '<div class="pick-hint" id="r' + uid + '_' + field + '_hint"></div>'
     +   '<div class="pick-list" id="r' + uid + '_' + field + '_list"></div>'
     + '</div>';
 }
