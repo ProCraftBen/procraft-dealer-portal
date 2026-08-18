@@ -944,7 +944,7 @@ function formatModValue(v) {
   if (typeof v === 'number')  return String(v);
   if (typeof v === 'boolean') return v ? 'Yes' : 'No';
   if (typeof v === 'object') {
-// F-QTY-SELECTOR: MF03 toggle-with-qty 的 value { enabled, qty }。
+  // F-QTY-SELECTOR: MF03 toggle-with-qty 的 value { enabled, qty }。
     //
     // 【守衛對象】僅 MF03(toggle-with-qty 形態),非通用物件處理。
     // 【假設形狀】{ enabled, qty } —— 判斷依據為 qty key 是否存在(正向判斷)。
