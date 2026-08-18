@@ -28,20 +28,18 @@
 //     item table 之前(PM Q-1=A:保證第 1 頁)。四種 PDF 皆輸出。
 //     ⚠ 兩個 buildQuoteDataForPdf()(step3 / quote-detail)須各自傳入
 //       quoteData.notes,否則本檔收不到值 —— 斷點在來源端,不在此。
-//   • CB-69:mod 內容全數移出 SKU 欄,改為 SKU 下方的縮排子列
-//     (colSpan 全欄,縮排以 cellPadding.left 達成)。
-//     每個 line-item 最多一個子列;Hinge / Need-to-check / mods 依序併入。
-//     SKU 欄淨化後只剩 SKU code + [CUSTOM] + Sub N of M,故可整欄加粗。
-//     ⚠ 子列每 push 一列,rowFills 必須同步 push —— 否則斑馬底色整體錯位
-//       (靜默失效,肉眼須逐列核對)。
+//   • CB-69:mod 內容留在 SKU 欄內,接在 SKU code 下方換行(PM 定版:B 案)。
+//     表格列結構不變 —— 不新增 colSpan 子列。相對改動前唯一的差異是:
+//     自由文字類 mod 不再印 [See note No.N],改在同格直接印出全文。
+//     ⚠ 曾短暫實作過「另起一列橫跨十欄」的 A 案,已回退。若日後又想改回,
+//       請先讀下方欄寬那段 —— A 案會連動加粗範圍與三個金額欄的寬度來源。
 //   • Notes table 因此不再被呼叫。_drawNotesTable() 本體保留不刪
 //     (PM Q-3=A;清理另開 F-45)。_shouldUseNotesTable() 函式體零改動,
 //     語意由「是否進 notes table」改為「是否套用 (no detail) 占位符」。
 //   • F-43:Mod Fee 欄寬不足致金額折行(+$150.00 被折成 "+$150.0" / "0")。
-//     Mod Fee 14→19mm,Total 16→19mm,Asm Fee 14→17.5mm(PM Q-5=B)。
-//     涵蓋範圍與「為何無法涵蓋理論最大值」見 _drawItemTable 內 columnStyles
-//     上方那段。欄寬為零和,SKU 欄淨化所釋出的寬度即為此三欄的來源 ——
-//     兩項不可分批。
+//     Mod Fee 14→17.5mm,Asm Fee 14→16mm,Total 16→17.5mm(PM Q-5=B)。
+//     B 案下 mod 仍在 SKU 欄,故 SKU 只能讓出 2mm;其餘來自 # 與 Asm? 兩欄
+//     的過配。詳見 _drawItemTable 內 columnStyles 上方那段。
 //   • F-31:item table 的 autoTable margin 原本未給 bottom,套用預設
 //     40pt(14.11mm)→ 表格底線 282.9mm,而 totals / T&C / notes 三處
 //     皆以 275mm 為換頁門檻。同一份 PDF 兩套底部基準,戳記(STAMP_Y=281)
@@ -701,11 +699,10 @@ return total;
   // F4.2: Items 表格繪製
   // ----------------------------------------
 
-  // CB-69:回傳值語意變更 —— 由「放進 SKU 欄的文字」改為「放進縮排子列的文字」。
-  //   函式名保留(三檔平行邏輯,改名須三檔同動,收益不抵風險),
-  //   實際去向見 _drawItemTable 的 subRowText。
-  //   回傳仍為字串(PM 裁示採 A 案):三檔各只有一個呼叫點,
-  //   包成物件不會帶來實質好處,反而多一個手動同步的出錯面。
+  // CB-7: 只回「mod 文字」放進 SKU 欄(skuDesc 改放 Description 欄)。
+  //
+  // CB-69:回傳位置不變(仍是 SKU 欄),變的是自由文字類 mod 的內容 ——
+  //   由 [See note No.N] 占位改為直接印全文,見下方 _shouldUseNotesTable 分支。
   //
   // notesIndex / notesCollector 兩參數保留但不再寫入 —— 呼叫端仍傳,
   //   移除須連動 _drawItemTable 的回傳與兩支 _finalize*(),屬 F-45 範圍。
@@ -728,8 +725,9 @@ return total;
       const label = m.display_label || m.mf_code || 'Modification';
       if (_shouldUseNotesTable(m)) {
         // CB-69:自由文字類(MF06 / MF07 / 逾 40 字)不再跨表對照,
-        //   直接於子列印出全文。子列為 colSpan 全欄(約 188mm),
-        //   500 字上限自然換行,不會撐爆表格。
+        //   直接於 SKU 欄內印出全文,由 overflow:'linebreak' 自然換行。
+        //   ⚠ 這是 B 案的必然代價:500 字會把該列拉高。欄寬若再縮,
+        //     列高會再漲 —— 兩者的取捨見下方 columnStyles 上方那段。
         //   `|| '(no detail)'` 占位符原樣保留 —— 空 description 落庫防堵
         //   為 F-39,不在本票範圍,此處行為必須與改動前一致。
         lines.push(`• ${label}: ${_formatModValue(m.value) || '(no detail)'}`);
@@ -886,12 +884,11 @@ return total;
                 notesIndex: notesIndex, notesCollector: notes,
                 showPrices: showPrices,
               });
-              // CB-69 / PM Q-6=C:SKU 欄淨化 —— 只留 SKU code + [CUSTOM] + Sub N of M。
-              //   Hinge / Need-to-check / mods 全數移入下方縮排子列(subRowText)。
-              //   淨化是 col 3 加粗的前提(否則 mod 條列會一併變粗,粗體失去強調意義),
-              //   同時釋出欄寬給 F-43 的 Mod Fee / Asm Fee / Total(欄寬為零和)。
-              const subRowText  = [hingeLine, confirmLine, modsText].filter(Boolean).join('\n');
-              const skuCellText = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`;
+              // CB-69(B 案):mod / Hinge / Need-to-check 維持在 SKU 欄內,
+              //   接在 SKU code 下方換行。表格列結構不變。
+              const extraLines = [hingeLine, confirmLine, modsText].filter(Boolean).join('\n');
+              const skuCellText = `${skuPrefix}${item.sku_code}${customSuffix}${subLabelLine}`
+                + (extraLines ? `\n${extraLines}` : '');
 
               const assembledCell = (assembleStatus === 'RTA' ? 'No' : 'Yes');
 
@@ -912,28 +909,7 @@ return total;
               }
               rowFills.push(fill);
 
-              // ── CB-69:縮排子列 —— 緊跟父 row,mapping rows 之前 ──────────────
-              //   一個 line-item 最多一列(內容以 \n 串接),不是每項一列:
-              //   cellPadding 只付一次列高成本,直接關係到本票「消除第 2 頁」的效益。
-              //   縮排以 cellPadding.left 達成,不用縮排字元 —— jsPDF 標準字型走
-              //   WinAnsi,↳(U+21B3)等字元不在編碼表內,會印成亂碼。
-              //   行首的 • 沿用既有寫法(U+2022 在 WinAnsi 內,安全)。
-              //
-              //   🔴 rowFills 必須同步 push,且值與父 row 相同。
-              //      didParseCell 依 body row index 取色,少推一格 → 該 item 之後
-              //      所有列的斑馬底色整體錯位。此為靜默失效。
-              if (subRowText) {
-                body.push([{
-                  content: subRowText,
-                  colSpan: colCount,
-                  styles: {
-                    fontSize:  isPacking ? 9 : 8,
-                    textColor: COLORS.modText,
-                    cellPadding: { top: 1, right: 2, bottom: 2, left: 20 },
-                  },
-                }]);
-                rowFills.push(fill);
-              }
+            
 
               // CB-25: mapping SKU 獨立 row,緊跟父 row,同 item 同色
               mappingList.forEach(function (map, k) {
@@ -960,47 +936,54 @@ return total;
 
     // ── 欄寬(CB-69 重配;取代 改動 12/16/17)────────────────────────────────
     //   預算 = pageW 210 − margin 10×2 = 190mm。超出會被 autotable 壓縮並印警告。
-    //   Invoice 合計 188.5 / Packing 合計 188,各留餘裕。
+    //   B 案合計 188(Invoice)/ 188(Packing),各留 2mm 餘裕。
     //
     //   所需寬度 = 文字寬 + cellPadding×2(=4mm),於 jspdf 2.5.1 +
     //   autotable 3.8.2(與 CDN 同版)實測:
-    //     +$99999.99 → 18.84mm   $999999.99 → 18.76mm
-    //     +$9999.99  → 17.29mm   $9999.99   → 15.66mm
+    //     +$999.99 → 15.74mm   +$9999.99 → 17.29mm   +$99999.99 → 18.84mm
+    //     $9999.99 → 15.66mm   $99999.99 → 17.21mm   $999999.99 → 18.76mm
     //   F-43 原始現象:Mod Fee 14mm(內容區 10mm)→ +$150.00(11.74mm)
     //   被折成 ["+$150.0", "0"],快速閱讀會誤讀為 $150.0。
     //
-    //   🔴 Mod Fee 顯示的是 modFeeTotal = 每單位 cost × subQty,不是單位成本。
-    //      因此 MF07 的 mf_params.max_cost = 99999 並【不】構成上限 ——
-    //      乘上 qty 後沒有有限上界,「涵蓋理論最大值」在這裡不是可達成的目標。
-    //      現行配置的實際涵蓋範圍:
-    //        Mod Fee / Asm Fee → 行小計至 +$99,999.99
-    //        Total            → 行小計至  $999,999.99
-    //      超過即折行。以 ProCraft 的單行品項而言遠超實務範圍
-    //      (MF07 的 warn_threshold 僅 1000),但這是刻意選定的門檻,不是巧合。
-    //      若日後出現超過的真實單據,調整前請先讀下面那段「零和」。
+    //   🔴 欄寬是零和,且 B 案下 SKU 欄還要裝 mod 文字,能讓的很有限。
+    //      本次三個金額欄合計 +7mm,來源逐筆如下 —— 日後要再加寬任一欄,
+    //      必須同樣寫清楚從哪裡拿:
+    //        # 欄     12 → 11   (−1;實測最寬內容 "12.1" 只需 10.13mm)
+    //        Asm? 欄  18 → 14   (−4;內容僅 Yes/No/—,表頭 "Asm?" 需 11.82mm)
+    //        SKU 欄   52 → 50   (−2;再縮列高會明顯上升,見下)
+    //        預算餘裕  188 → 190 (−2)
     //
-    //   🔴 欄寬為零和。若日後要加寬任一金額欄,必須同時說明從哪一欄取得,
-    //      不可只改單欄 —— 合計超過 190 會讓所有欄一起被壓縮。
+    //   🔴 SKU 欄寬與列高是直接的取捨。實測同一筆(SKU + Sub + Hinge + 500 字 mod):
+    //        SKU 50mm →  8 行,列高 33.2mm
+    //        SKU 47mm → 10 行,列高 40.5mm
+    //      每個帶 mod 的品項多 7mm,一張 15 項的單就多一頁。
+    //      為了把 Mod Fee 撐到涵蓋 +$99,999.99 而縮 SKU,買到的是
+    //      「單行改動費超過 $9,999.99」這種情形(MF07 warn_threshold 僅 1000),
+    //      付出的卻是每一列都要付的列高。故取 17.5 而非 19。
+    //
+    //   涵蓋範圍:Mod Fee → +$9,999.99 / Asm Fee → +$999.99 / Total → $99,999.99
+    //
+    //   Packing List 無金額欄,不受 F-43 影響,欄寬原樣不動。
     const columnStyles = isPacking
       ? {
           0: { cellWidth: 10 },
           1: { cellWidth: 14, overflow: 'linebreak' },
-          2: { halign: 'right', cellWidth: 14, fontStyle: 'bold' },   // F-31
-          3: { cellWidth: 40, overflow: 'linebreak', fontStyle: 'bold' },  // F-31 + Q-6 淨化後由 64 縮減
-          4: { cellWidth: 86, overflow: 'linebreak' },                // 接收 SKU 釋出量;生產端可讀性
+          2: { halign: 'right', cellWidth: 14, fontStyle: 'bold' },   // F-31:只粗 Qty
+          3: { cellWidth: 64, overflow: 'linebreak' },
+          4: { cellWidth: 62, overflow: 'linebreak' },
           5: { cellWidth: 24 },
         }
       : {
-          0: { cellWidth: 11 },                                        // 12→11(12.1 型 mapping 編號實測需 10.13)
+          0: { cellWidth: 11 },                                        // 12→11
           1: { cellWidth: 12, overflow: 'linebreak' },
-          2: { halign: 'right', cellWidth: 10, fontStyle: 'bold' },    // F-31
-          3: { cellWidth: 40, overflow: 'linebreak', fontStyle: 'bold' },  // F-31 + Q-6(52→40)
-          4: { cellWidth: 30, overflow: 'linebreak' },                 // 24→30
-          5: { cellWidth: 14 },                                        // 18→14(內容僅 Yes/No,原為過配)
-          6: { halign: 'right', cellWidth: 16,   fontSize: 8 },        // $9999.99
-          7: { halign: 'right', cellWidth: 19,   fontSize: 8 },        // F-43 主修:14→19
-          8: { halign: 'right', cellWidth: 17.5, fontSize: 8 },        // Q-5:14→17.5
-          9: { halign: 'right', fontStyle: 'bold', cellWidth: 19, fontSize: 8 },  // Q-5:16→19
+          2: { halign: 'right', cellWidth: 10, fontStyle: 'bold' },    // F-31:只粗 Qty
+          3: { cellWidth: 50, overflow: 'linebreak' },                 // 52→50(仍裝 mod 文字,不加粗)
+          4: { cellWidth: 24, overflow: 'linebreak' },
+          5: { cellWidth: 14 },                                        // 18→14
+          6: { halign: 'right', cellWidth: 16,   fontSize: 8 },
+          7: { halign: 'right', cellWidth: 17.5, fontSize: 8 },        // F-43 主修:14→17.5
+          8: { halign: 'right', cellWidth: 16,   fontSize: 8 },        // Q-5:14→16
+          9: { halign: 'right', fontStyle: 'bold', cellWidth: 17.5, fontSize: 8 },  // Q-5:16→17.5(bold 為既有行為)
         };
 
     const onDrawPage = (data) => {
