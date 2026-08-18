@@ -600,6 +600,37 @@ function editInternalDraft() {
   window.location.href = 'new-quote.html?draft=' + _quote.id + '&adminDraft=1';
 }
 
+// ── CB-66: dealer 建立(或 admin 建立且已通知)的 Draft → admin-draft 流程 ──
+// 與 editInternalDraft() 導向同一路由,刻意獨立成兩支:CB-36 那支屬 Internal Draft
+// 語意,兩者的顯示條件互為補集(admin_notified_at 為 NULL / 非 NULL),混用會讓
+// 未來任一側的條件變更污染另一側。
+// 🔴 不使用 mode=admin-edit —— new-quote.html 的 resolveViewMode() 對 status='Draft'
+//    直接回 'normal',URL hint 無效,會落入 dealer 模式(無 admin banner、無三按鈕)。
+function editDealerDraft() {
+  if (!_quote || !_quote.id) return;
+  if (!window.confirm(CB66_CONFIRM_DRAFT)) return;
+  sessionStorage.setItem('adminDraftDealerId', _quote.dealer_id);
+  sessionStorage.removeItem('quoteStep1');
+  sessionStorage.removeItem('quoteStep2');
+  window.location.href = 'new-quote.html?draft=' + _quote.id + '&adminDraft=1';
+}
+
+// ── CB-66: admin-edit 入口(Stock Review / Returned / Pending)──
+// 確認框僅 Pending 跳(Q-5B):Stock Review / Returned 的既有 UX 不變。
+function editDealerQuote() {
+  if (!_quote || !_quote.id) return;
+  if (_quote.status === 'Pending' && !window.confirm(CB66_CONFIRM_PENDING)) return;
+  window.location.href = 'new-quote.html?draft=' + _quote.id + '&mode=admin-edit';
+}
+
+// CB-66: 確認框文案。admin 專屬 → 一律英文硬編碼,不掛 i18n 標記
+// (未載入對應 key 的標記會成為死標記,同 F-25)。
+const CB66_CONFIRM_DRAFT =
+  "This is the dealer's draft. Editing it may overwrite changes the dealer is currently making. Continue?";
+const CB66_CONFIRM_PENDING =
+  "This order is awaiting dealer payment and the dealer may already have the quote documents. "
+  + "Any change must be sent back with Request Revision. Continue?";
+
   
 const { createClient } = window.supabase;
 const _supabase = createClient(
@@ -641,10 +672,19 @@ const SHIPPING_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned'];
 // Admin can edit dealer-submitted POs in Stock Review, and previously-returned
 // POs in Returned (in case customer requests further changes). Draft has
 // its own admin-draft flow; Pending/Processing/Complete/Closed are locked.
-// CB-43 T14-3: 'Pending' → 'Stock Review'。Stock Review = 最後可修改的階段,
-// 放行 = 金額鎖定,之後只能付款。且 Stock Review 有了 Edit 才進得去 admin-edit
-// 模式 → 才有 Request Revision(退回 dealer 改單)→「部分品項沒貨」才有解。
-const ADMIN_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned'];
+// CB-43 T14-3 曾將 'Pending' 移出本清單,理由是「放行 = 金額鎖定」。該規則成立
+// 於舊的自動付款流程 —— 當時放行會自動開 QB invoice + 寄 pay link,故放行即鎖定。
+//
+// CB-61 把開單觸發點後移:現在需 dealer 主動送出付款(進入 'Payment Processing')
+// 後,專人才手動開立 QBO invoice。因此 CB-66 將鎖定點對齊實際開單時機,自
+// Stock Review 之後移至 Payment Processing 之後。這不是放寬保護,是讓保護對齊
+// CB-61 後的實際流程。
+//
+// 🔴 'Payment Processing' 及其後絕不可加入:E1a 已觸發,專人已開好 invoice 並寄出
+//    pay link。此時編輯 = portal 金額與已開立 invoice 分岔,且 dealer 手上持有舊
+//    pay link → 對帳裂開,不可逆。
+// 🔴 'Draft' 亦不在此清單 —— Draft 走 adminDraft=1 流程,見下方 editDealerDraft()。
+const ADMIN_EDIT_ALLOWED_STATUSES = ['Stock Review', 'Returned', 'Pending'];
 
 // ── CB-43 T14-2: 放行按鈕的 inner HTML ──
 // 建立按鈕與「失敗還原按鈕」共用同一份,避免兩處文案漂移。
@@ -1627,18 +1667,30 @@ function renderQuote(quote, dealer, addr) {
   //            for more changes after dealer was about to resubmit)
   // ─────────────────────────────────────────────────────────────────────
   const canAdminEdit = _isAdmin && ADMIN_EDIT_ALLOWED_STATUSES.includes(quote.status);
+  // CB-66 Q-5B: <a> → <button>,以承載 Pending 的確認框。導向 URL 一字不變。
   const adminEditButtonHtml = canAdminEdit ? `
-    <a href="new-quote.html?draft=${quote.id}&mode=admin-edit" class="btn-action admin-edit">
+    <button type="button" class="btn-action admin-edit" onclick="editDealerQuote()">
       <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       Edit
-    </a>` : '';
+    </button>` : '';
 
   // ── CB-36: Internal Draft 的 Edit 入口(僅 admin + status=Draft + 未通知 dealer)──
   // 導向 admin-draft 流程(?adminDraft=1),讓 admin 重新走 1→2→mod→3,step3 出現三按鈕。
   // 已通知的 Draft(admin_notified_at 有值)不顯示 — 那張等同 dealer 的,由 dealer 自己 Continue。
   const canEditInternalDraft = _isAdmin && quote.status === 'Draft' && quote.admin_notified_at == null;
   const internalDraftEditButtonHtml = canEditInternalDraft ? `
-    <button class="btn-action admin-edit" onclick="editInternalDraft()">
+    <button type="button" class="btn-action admin-edit" onclick="editInternalDraft()">
+      <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      Edit
+    </button>` : '';
+
+  // ── CB-66: dealer 側 Draft 的 Edit 入口 ──────────────────────────────
+  // 條件為 CB-36 的嚴格補集:admin_notified_at 非 NULL = dealer 自建,或 admin
+  // 建立且已通知(該單已 dealer 可見,語意上等同 dealer 的)。兩顆按鈕不可能並存。
+  // Pending 不走這裡 —— 由上方 adminEditButtonHtml 處理。
+  const canEditDealerDraft = _isAdmin && quote.status === 'Draft' && quote.admin_notified_at != null;
+  const dealerDraftEditButtonHtml = canEditDealerDraft ? `
+    <button type="button" class="btn-action admin-edit" onclick="editDealerDraft()">
       <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
       Edit
     </button>` : '';
@@ -2023,6 +2075,7 @@ function renderQuote(quote, dealer, addr) {
         ${continuePaymentButtonHtml}
         ${adminEditButtonHtml}
         ${internalDraftEditButtonHtml}
+        ${dealerDraftEditButtonHtml}
         ${releaseStockButtonHtml}
         ${fulfillOrderButtonHtml}
         ${downloadButtonsHtml}
