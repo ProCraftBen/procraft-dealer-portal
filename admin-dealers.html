@@ -1017,11 +1017,11 @@ async function loadDealers() {
 
   _listState.total = count;
 
-  // 🔴 page 超出範圍時重跑一次。重入而非就地補查,是為了讓 reqSeq 序號
-  //    機制照常運作 —— 就地補查會產生一次不受序號保護的請求。
-  //    不會無限遞迴:clamp 後 page 必落在有效範圍,total 未變,第二次不再 clamp。
-  if (clampPage()) { loadDealers(); return; }
-
+  // F-30 S3-d2: 此處原有第二道 clamp,已移除 —— 實測確認 PostgREST 對
+  // 「offset 超出實際列數」一律回 416/PGRST103,【零筆時亦然】。
+  // 因此所有超界情形都在 queryDealers() 內被接住並修復,執行到這裡時
+  // page 必定有效。留著會是不可達的死碼,且帶一個永不觸發的遞迴重入。
+  // clampPage() 本身保留,由 queryDealers() 呼叫。
   renderCountLabel(rows.length);
   renderPager();
 
