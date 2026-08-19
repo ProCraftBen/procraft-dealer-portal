@@ -816,13 +816,17 @@ function onDealerFilter() {
   loadDealers();
 }
 
-async function queryDealers() {
-  const from = (_listState.page - 1) * DEALERS_PAGE_SIZE;
-  const to   = from + DEALERS_PAGE_SIZE - 1;
-
+// F-30 S3-d1: 查詢建構與執行分離。
+// 🔴 為什麼要分離(勿合回去):PostgREST 對超出範圍的 offset 回 416 /
+//    PGRST103【錯誤】,不是空陣列。原設計把 clamp 放在 loadDealers() 的
+//    error 分支【之後】,永遠執行不到 —— admin 會看到「Could not load
+//    dealers」而非自動回到有效頁。
+//    修正方式:在此偵測 PGRST103 → 以 head 查詢取真實 count → clamp → 重跑。
+//    重跑上限一次,不會遞迴。
+function buildDealerQuery(countOnly) {
   let qb = _supabase
     .from('dealers')
-    .select('*', { count: 'exact' })
+    .select('*', countOnly ? { count: 'exact', head: true } : { count: 'exact' })
     .eq('role', 'dealer');
 
   if (_listState.q) qb = qb.or(buildSearchOr(_listState.q));
@@ -843,12 +847,29 @@ async function queryDealers() {
 
   // 篩選 → 排序 → range,全部掛在同一次 PostgREST 查詢。
   // 🔴 禁止先取一頁再 client 端 filter —— 那會讓 count 與內容不一致。
-  const { data, error, count } = await qb
-    .order('company_name', { ascending: true })
-    .order('id', { ascending: true })
-    .range(from, to);
+  qb = qb.order('company_name', { ascending: true }).order('id', { ascending: true });
 
-  return { rows: data || [], error: error || null, count: (count == null ? 0 : count) };
+  if (!countOnly) {
+    const from = (_listState.page - 1) * DEALERS_PAGE_SIZE;
+    qb = qb.range(from, from + DEALERS_PAGE_SIZE - 1);
+  }
+  return qb;
+}
+
+async function queryDealers() {
+  let r = await buildDealerQuery(false);
+
+  // range 超出 → 取真實 count,clamp 後重跑一次。
+  if (r.error && r.error.code === 'PGRST103') {
+    const probe = await buildDealerQuery(true);
+    if (!probe.error) {
+      _listState.total = (probe.count == null ? 0 : probe.count);
+      clampPage();
+      r = await buildDealerQuery(false);
+    }
+  }
+
+  return { rows: r.data || [], error: r.error || null, count: (r.count == null ? 0 : r.count) };
 }
 
 function onDealerSearch(v) {
