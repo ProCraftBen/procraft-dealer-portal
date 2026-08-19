@@ -30,7 +30,11 @@
     .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
-    .table-count { font-size: 11px; color: var(--muted); }
+    .table-count { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .table-tools { display: flex; align-items: center; gap: 14px; }
+    .list-search { height: 32px; width: 240px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .list-search:focus { outline: none; border-color: var(--gold); }
+    .search-note { display: none; padding: 8px 20px; border-bottom: 1px solid var(--border); background: #FDFBF6; font-size: 11px; color: var(--muted); }
     .overflow-x { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
@@ -193,8 +197,13 @@
   <div class="table-wrap">
     <div class="table-header">
       <span class="table-title">All Dealers</span>
-      <span class="table-count" id="tableCount"></span>
+      <div class="table-tools">
+        <input class="list-search" id="dealerSearch" type="text" autocomplete="off"
+               placeholder="Search dealers…" oninput="onDealerSearch(this.value)"/>
+        <span class="table-count" id="tableCount"></span>
+      </div>
     </div>
+    <div class="search-note" id="searchNote"></div>
     <div class="overflow-x">
       <table>
         <thead>
@@ -499,6 +508,25 @@ const _supabase = createClient(
 let editingDealerId = null;
 let deletingDealerId = null;
 
+// ── F-30 S1: 清單查詢核心 ────────────────────────────────────────────
+// 🟡 半通用(判斷依據):分頁大小為【判斷值非計算值】—— 依 admin 單螢幕
+//    可掃視量而定,改動不需動邏輯(比照 F-51 SELECT_SHOWN_CONFIRM_THRESHOLD)。
+//    具名常數的紀律通用;25 這個值特定於本頁,quotes 列高不同,CB-60 不應沿用。
+const DEALERS_PAGE_SIZE = 25;
+
+// 🔴 此處特定(判斷依據):uid / slug 之所以納入,是為補償欄位精簡(11→5)
+//    後失去的「UID → dealer」反查方向。此理由不存在於其他頁,CB-60 不得沿用。
+const SEARCH_COLUMNS = ['company_name', 'contact_name', 'email', 'uid', 'slug', 'city'];
+const SEARCH_MAX_LEN = 100;
+
+// 🟢 通用(判斷依據):reqSeq 依賴的是「非同步回應可能亂序」,與資料無關。
+//    慢的舊請求覆蓋新結果不會報錯 —— 靜默失敗,必須有序號。
+let _listState = {
+  q: '', salesId: '', status: '',
+  page: 1, total: 0, reqSeq: 0, searchAltered: false,
+};
+let _searchTimer = null;
+
 // CB-38: 一次撈全表 dealers(id/contact_name/email/role),client 端分流:
 //   salesList     — role IN ('admin','super_admin'),用來建 dropdown
 //   dealerNameMap — 全部人員(含 dealer),用來解析任意 assigned_sales_id
@@ -677,22 +705,154 @@ async function init() {
   await loadDealers();
 }
 
+// ── F-30 S1: 搜尋輸入淨化 ────────────────────────────────────────────
+// 🟢 通用(判斷依據):依賴的是 PostgREST .or() 的語法字元集,與被搜尋的
+//    欄位無關。欄位清單以參數/常數傳入,不得黏進本層。
+//
+// 🔴 為什麼需要這支(勿在未重測前簡化):
+//    postgrest-js 的 .or() 實作為
+//      url.searchParams.append(key, '(' + filters + ')')
+//    零跳脫、字串原樣送出。函式庫註解自己寫明「呼叫端須自行確保已淨化」。
+//    淨化責任 100% 在我們這側。
+//
+// 2026-08-19 staging 實測(F-30 Q-10,TOTAL=7):
+//    "%a%"    → 6        雙引號包裹被接受,不改變語意
+//    "%a,b%"  → 0 無ERR  引號內 , 未被當條件分隔符
+//    "%a)b%"  → 0 無ERR  引號內 ) 未破壞 group 結構
+//    "%%"     → 7(=TOTAL) 未跳脫的 % 洩漏成萬用字元
+//    "%\\%"   → 0         跳脫後阻擋成功
+//    "%*%"    → 7(=TOTAL) 🔴 * 在 PostgREST 亦為萬用字元(Stage 1 遺漏)
+//    "%\\*%"  → 0
+//    "%_%"    → 7(=TOTAL) / "%\\_%" → 0
+//
+// 🔴 未證實項(勿當已知):
+//    (1) escaped 形式一律回 0,無法區辨「正確跳脫成字面字元」與「無效
+//        pattern」。兩者安全性相同、正確性不同。需一筆 company_name 含 %
+//        的資料才分得出來 → 列入 Stage 3 seeding 邊界資料,屆時確認。
+//    (2) 雙引號 " 與反斜線 \ 自身的跳脫形式【未經實測】。這兩個字元跳脫
+//        錯誤即為結構逃逸(關閉包裹層),屬安全關鍵路徑。
+//        → 本版【移除】而非跳脫,並向使用者顯示提示。
+//        用未經測試的跳脫守安全關鍵路徑,是拿假設當事實(F-19)。
+function sanitizeSearchTerm(raw) {
+  let s = String(raw == null ? '' : raw);
+  s = s.replace(/[\u0000-\u001F\u007F]/g, '');
+  const stripped = s.replace(/["\\]/g, '');
+  const altered  = (stripped !== s);
+  s = stripped.trim();
+  if (s.length > SEARCH_MAX_LEN) s = s.slice(0, SEARCH_MAX_LEN);
+  return { term: s, altered: altered };
+}
+
+// 三個萬用字元一律以【兩個反斜線】前綴 —— 這是上方實測通過的形式。
+// 反斜線與雙引號已在 sanitize 移除,故此處不需處理。
+function escapeIlikeValue(s) {
+  return String(s).replace(/[%_*]/g, '\\\\$&');
+}
+
+function buildSearchOr(term) {
+  const v = escapeIlikeValue(term);
+  return SEARCH_COLUMNS.map(function (c) {
+    return c + '.ilike."%' + v + '%"';
+  }).join(',');
+}
+
+// ── F-30 S1: 唯一查詢出口 ────────────────────────────────────────────
+// 🟢 通用(判斷依據):比照 F-51 pickCommit() 的單一寫入出口原則。淨化、
+//    tiebreaker、range、count 各只存在一份。兩份會漂移,且漂移不報錯。
+//
+// 🟡 半通用(判斷依據):tiebreaker【機制】通用 —— 唯一 tiebreaker 是分頁
+//    正確性的必要條件,非排序偏好;缺少它 .range() 會跳號/重複且不報錯。
+//    【欄位】各頁不同 —— dealers 用 company_name ASC, id ASC(人工掃視以
+//    公司名為主);quotes 可能用 created_at DESC, id DESC(時序為主)。
+//    CB-60 只複用「必須有唯一 tiebreaker」這條規則,不複用欄位。
+async function queryDealers() {
+  const from = (_listState.page - 1) * DEALERS_PAGE_SIZE;
+  const to   = from + DEALERS_PAGE_SIZE - 1;
+
+  let qb = _supabase
+    .from('dealers')
+    .select('*', { count: 'exact' })
+    .eq('role', 'dealer');
+
+  if (_listState.q) qb = qb.or(buildSearchOr(_listState.q));
+
+  // 篩選 → 排序 → range,全部掛在同一次 PostgREST 查詢。
+  // 🔴 禁止先取一頁再 client 端 filter —— 那會讓 count 與內容不一致。
+  const { data, error, count } = await qb
+    .order('company_name', { ascending: true })
+    .order('id', { ascending: true })
+    .range(from, to);
+
+  return { rows: data || [], error: error || null, count: (count == null ? 0 : count) };
+}
+
+function onDealerSearch(v) {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(function () {
+    const r = sanitizeSearchTerm(v);
+    _listState.q             = r.term;
+    _listState.searchAltered = r.altered;
+    // 🟢 通用:篩選改變後 total 可能縮小,不重置會停在超出範圍的頁
+    //    → 畫面空白但無錯誤 = 靜默失敗。
+    _listState.page = 1;
+    loadDealers();
+  }, 300);
+}
+
+function renderSearchNote() {
+  const el = document.getElementById('searchNote');
+  if (!el) return;
+  if (_listState.searchAltered) {
+    el.textContent = 'Quote and backslash characters were removed from this search.';
+    el.style.display = 'block';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+}
+
+function renderCountLabel(shownCount) {
+  const el = document.getElementById('tableCount');
+  if (!el) return;
+  const total = _listState.total;
+  if (!total) { el.textContent = '0 dealers'; return; }
+  const from = (_listState.page - 1) * DEALERS_PAGE_SIZE + 1;
+  const to   = from + shownCount - 1;
+  el.textContent = 'Showing ' + from + '\u2013' + to + ' of ' + total;
+}
+
 async function loadDealers() {
   const { data: { session } } = await _supabase.auth.getSession();
   const { data: currentUser } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   const canDelete = currentUser?.role === 'super_admin';
 
-  const { data: dealers } = await _supabase.from('dealers').select('*').eq('role', 'dealer').order('company_name');
+  const seq = ++_listState.reqSeq;
+  const { rows, error, count } = await queryDealers();
+  if (seq !== _listState.reqSeq) return;   // 已有更新的請求送出 → 丟棄本次結果
 
   const tbody = document.getElementById('dealersBody');
-  document.getElementById('tableCount').textContent = `${dealers?.length || 0} dealer${dealers?.length !== 1 ? 's' : ''}`;
+  renderSearchNote();
 
-  if (!dealers?.length) {
+  // 🟢 通用:error / 無資料 / 無符合 三態必須分流。合併任兩態即製造靜默
+  //    失敗 —— RLS 擋住時回 200 + 空陣列 + error null,與「真的沒資料」同形。
+  //    S4 補完三態文案;S1 先確保 error 不被吞掉(此為新增碼,非 F-60 清償)。
+  if (error) {
+    _listState.total = 0;
+    renderCountLabel(0);
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state">Could not load dealers. Please refresh.</div></td></tr>`;
+    console.error('[F-30] loadDealers failed:', error);
+    return;
+  }
+
+  _listState.total = count;
+  renderCountLabel(rows.length);
+
+  if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
     return;
   }
 
-  tbody.innerHTML = dealers.map(d => `
+  tbody.innerHTML = rows.map(d => `
     <tr>
       <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div></td>
       <td><span style="font-size:12px;font-weight:500;letter-spacing:0.1em;color:var(--green-dark);">${d.uid || '—'}</span></td>
