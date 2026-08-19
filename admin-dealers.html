@@ -31,7 +31,9 @@
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); white-space: nowrap; }
-    .table-tools { display: flex; align-items: center; gap: 14px; }
+    .table-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .list-filter { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); max-width: 200px; }
+    .list-filter:focus { outline: none; border-color: var(--gold); }
     .list-search { height: 32px; width: 240px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
     .list-search:focus { outline: none; border-color: var(--gold); }
     .search-note { display: none; padding: 8px 20px; border-bottom: 1px solid var(--border); background: #FDFBF6; font-size: 11px; color: var(--muted); }
@@ -200,6 +202,14 @@
       <div class="table-tools">
         <input class="list-search" id="dealerSearch" type="text" autocomplete="off"
                placeholder="Search dealers…" oninput="onDealerSearch(this.value)"/>
+        <select class="list-filter" id="filterSales" onchange="onDealerFilter()">
+          <option value="">All Sales</option>
+        </select>
+        <select class="list-filter" id="filterStatus" onchange="onDealerFilter()">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
         <span class="table-count" id="tableCount"></span>
       </div>
     </div>
@@ -702,6 +712,7 @@ async function init() {
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
   await loadSalesOptions();   // CB-38:必須在 loadDealers() 之前,列表要用 dealerNameMap
+  renderSalesFilterOptions(); // F-30 S2:篩選 dropdown 依賴 salesList,順序不可調換
   await loadDealers();
 }
 
@@ -765,6 +776,42 @@ function buildSearchOr(term) {
 //    【欄位】各頁不同 —— dealers 用 company_name ASC, id ASC(人工掃視以
 //    公司名為主);quotes 可能用 created_at DESC, id DESC(時序為主)。
 //    CB-60 只複用「必須有唯一 tiebreaker」這條規則,不複用欄位。
+// ── F-30 S2: 篩選 ────────────────────────────────────────────────────
+// 🔴 此處特定(判斷依據):assigned_sales_id 為 CB-38 dealers 表專屬欄位
+//    (自我參照 dealers.id);is_active 亦僅 dealers 有。其他表無對應概念,
+//    CB-60 不得沿用本節,只複用「篩選改變即重置 page」這條通用規則。
+//
+// Unassigned 用哨兵值而非空字串:空字串已被「All Sales」佔用,
+// 兩者語意相反(全部 vs 僅未指派),混用即靜默失敗。
+const UNASSIGNED_SALES = '__unassigned__';
+
+// salesList 由 loadSalesOptions() 填入,init() 保證其先於 loadDealers() 完成。
+function renderSalesFilterOptions() {
+  const sel = document.getElementById('filterSales');
+  if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">All Sales</option>'
+                + '<option value="' + UNASSIGNED_SALES + '">Unassigned</option>';
+  salesList.forEach(function (s) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = salesLabel(s);
+    sel.appendChild(opt);
+  });
+  if (keep) sel.value = keep;
+}
+
+function onDealerFilter() {
+  const sales  = document.getElementById('filterSales');
+  const status = document.getElementById('filterStatus');
+  _listState.salesId = sales  ? sales.value  : '';
+  _listState.status  = status ? status.value : '';
+  // 🟢 通用:與搜尋同理 —— 篩選改變後 total 可能縮小,不重置會停在
+  //    超出範圍的頁,畫面空白但無錯誤。
+  _listState.page = 1;
+  loadDealers();
+}
+
 async function queryDealers() {
   const from = (_listState.page - 1) * DEALERS_PAGE_SIZE;
   const to   = from + DEALERS_PAGE_SIZE - 1;
@@ -775,6 +822,20 @@ async function queryDealers() {
     .eq('role', 'dealer');
 
   if (_listState.q) qb = qb.or(buildSearchOr(_listState.q));
+
+  if (_listState.salesId === UNASSIGNED_SALES) {
+    qb = qb.is('assigned_sales_id', null);
+  } else if (_listState.salesId) {
+    qb = qb.eq('assigned_sales_id', _listState.salesId);
+  }
+
+  // 🔴 inactive 用 not.is.true 而非 eq.false —— 若 is_active 存在 NULL,
+  //    eq.false 會漏掉它們,但列表顯示用的是 truthy 判斷
+  //    (d.is_active ? Active : Inactive),NULL 會顯示為 Inactive。
+  //    篩選與顯示不一致 = 靜默失敗:admin 看到 3 筆 Inactive,篩選卻只回 2 筆。
+  //    not.is.true 同時涵蓋 false 與 NULL,與顯示邏輯對齊。
+  if (_listState.status === 'active')        qb = qb.eq('is_active', true);
+  else if (_listState.status === 'inactive') qb = qb.not('is_active', 'is', true);
 
   // 篩選 → 排序 → range,全部掛在同一次 PostgREST 查詢。
   // 🔴 禁止先取一頁再 client 端 filter —— 那會讓 count 與內容不一致。
