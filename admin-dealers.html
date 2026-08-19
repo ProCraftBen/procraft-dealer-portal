@@ -882,6 +882,44 @@ function renderCountLabel(shownCount) {
   el.textContent = 'Showing ' + from + '\u2013' + to + ' of ' + total;
 }
 
+// ── F-30 S3: 分頁控制 ────────────────────────────────────────────────
+// 🟢 通用(判斷依據):以下四支為純算術與 DOM 開關,不依賴任何欄位語意
+//    或表結構。三頁行為必然相同,CB-60 可直接複用,只需換 DOM id 與
+//    每頁筆數常數。
+function totalPages() {
+  const t = _listState.total;
+  return t > 0 ? Math.ceil(t / DEALERS_PAGE_SIZE) : 1;
+}
+
+// 🔴 clamp 的存在理由:篩選後 total 縮小時,當前 page 可能已超出範圍。
+//    此時查詢會回空陣列 + count > 0 —— 不報錯,畫面空白,admin 會誤判
+//    為「查無資料」。這是分頁最典型的靜默失敗。
+function clampPage() {
+  const max = totalPages();
+  if (_listState.page > max) { _listState.page = max; return true; }
+  if (_listState.page < 1)   { _listState.page = 1;   return true; }
+  return false;
+}
+
+function goPage(delta) {
+  const max  = totalPages();
+  const next = _listState.page + delta;
+  if (next < 1 || next > max) return;   // 按鈕已 disabled,此為第二道
+  _listState.page = next;
+  loadDealers();
+}
+
+function renderPager() {
+  const bar = document.getElementById('pagerBar');
+  if (!bar) return;
+  if (_listState.total <= DEALERS_PAGE_SIZE) { bar.style.display = 'none'; return; }
+  const max = totalPages();
+  bar.style.display = 'flex';
+  document.getElementById('pagerInfo').textContent = 'Page ' + _listState.page + ' of ' + max;
+  document.getElementById('pagerPrev').disabled = (_listState.page <= 1);
+  document.getElementById('pagerNext').disabled = (_listState.page >= max);
+}
+
 async function loadDealers() {
   const { data: { session } } = await _supabase.auth.getSession();
   const { data: currentUser } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
@@ -900,13 +938,21 @@ async function loadDealers() {
   if (error) {
     _listState.total = 0;
     renderCountLabel(0);
+    renderPager();
     tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state">Could not load dealers. Please refresh.</div></td></tr>`;
     console.error('[F-30] loadDealers failed:', error);
     return;
   }
 
   _listState.total = count;
+
+  // 🔴 page 超出範圍時重跑一次。重入而非就地補查,是為了讓 reqSeq 序號
+  //    機制照常運作 —— 就地補查會產生一次不受序號保護的請求。
+  //    不會無限遞迴:clamp 後 page 必落在有效範圍,total 未變,第二次不再 clamp。
+  if (clampPage()) { loadDealers(); return; }
+
   renderCountLabel(rows.length);
+  renderPager();
 
   if (!rows.length) {
     tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
