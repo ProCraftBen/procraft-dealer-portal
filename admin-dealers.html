@@ -751,7 +751,13 @@ async function init() {
 function sanitizeSearchTerm(raw) {
   let s = String(raw == null ? '' : raw);
   s = s.replace(/[\u0000-\u001F\u007F]/g, '');
-  const stripped = s.replace(/["\\]/g, '');
+  // F-30 S1-d1: * 一併移除,不再嘗試跳脫。
+  // 實測(2026-08-19,seeding 資料):% 與 _ 跳脫後可正確比對字面字元;
+  // 但 * 不行 —— PostgREST 在跳脫【之前】就把 * 換成 %,使 \* 變成 \%,
+  // 實際去比對「含字面 % 的公司名」。搜 Star* 回 0 筆並非無結果,
+  // 而是比對了錯的東西 = 靜默的假陰性。
+  // 移除後 Star* 退化為 Star,可正常命中,且使用者看得到提示。
+  const stripped = s.replace(/["\\*]/g, '');
   const altered  = (stripped !== s);
   s = stripped.trim();
   if (s.length > SEARCH_MAX_LEN) s = s.slice(0, SEARCH_MAX_LEN);
@@ -761,7 +767,7 @@ function sanitizeSearchTerm(raw) {
 // 三個萬用字元一律以【兩個反斜線】前綴 —— 這是上方實測通過的形式。
 // 反斜線與雙引號已在 sanitize 移除,故此處不需處理。
 function escapeIlikeValue(s) {
-  return String(s).replace(/[%_*]/g, '\\\\$&');
+  return String(s).replace(/[%_]/g, '\\\\$&');
 }
 
 function buildSearchOr(term) {
@@ -889,7 +895,7 @@ function renderSearchNote() {
   const el = document.getElementById('searchNote');
   if (!el) return;
   if (_listState.searchAltered) {
-    el.textContent = 'Quote and backslash characters were removed from this search.';
+    el.textContent = 'Quote, backslash and asterisk characters were removed from this search.';
     el.style.display = 'block';
   } else {
     el.textContent = '';
