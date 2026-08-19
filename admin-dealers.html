@@ -30,7 +30,18 @@
     .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
-    .table-count { font-size: 11px; color: var(--muted); }
+    .table-count { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .table-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .list-filter { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); max-width: 200px; }
+    .list-filter:focus { outline: none; border-color: var(--gold); }
+    .list-search { height: 32px; width: 240px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .list-search:focus { outline: none; border-color: var(--gold); }
+    .search-note { display: none; padding: 8px 20px; border-bottom: 1px solid var(--border); background: #FDFBF6; font-size: 11px; color: var(--muted); }
+    .pager-bar { display: none; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--border); background: #FAFAF8; }
+    .pager-info { font-size: 11px; color: var(--muted); }
+    .pager-btn { min-height: 32px; padding: 0 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--white); font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--green-dark); cursor: pointer; }
+    .pager-btn:hover:not(:disabled) { background: var(--cream); }
+    .pager-btn:disabled { opacity: 0.4; cursor: default; }
     .overflow-x { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
@@ -191,32 +202,44 @@
     </button>
   </div>
   <div class="table-wrap">
-    <div class="table-header">
+  <div class="table-header">
       <span class="table-title">All Dealers</span>
-      <span class="table-count" id="tableCount"></span>
+      <div class="table-tools">
+        <input class="list-search" id="dealerSearch" type="text" autocomplete="off"
+               placeholder="Search dealers…" oninput="onDealerSearch(this.value)"/>
+        <select class="list-filter" id="filterSales" onchange="onDealerFilter()">
+          <option value="">All Sales</option>
+        </select>
+        <select class="list-filter" id="filterStatus" onchange="onDealerFilter()">
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <span class="table-count" id="tableCount"></span>
+      </div>
     </div>
+    <div class="search-note" id="searchNote"></div>
     <div class="overflow-x">
       <table>
         <thead>
           <tr>
             <th>Company</th>
-            <th>UID</th>
             <th>Location</th>
             <th>Email</th>
             <th>Sales</th>
-            <th>Slug</th>
-            <th>Stock</th>
-            <th>Non-Stock</th>
-            <th>Frameless</th>
-            <th>Tax Rate</th>
             <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="dealersBody">
-          <tr><td colspan="12"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="6"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="pager-bar" id="pagerBar">
+      <span class="pager-info" id="pagerInfo"></span>
+      <button class="pager-btn" id="pagerPrev" onclick="goPage(-1)">Prev</button>
+      <button class="pager-btn" id="pagerNext" onclick="goPage(1)">Next</button>
     </div>
   </div>
 </div>
@@ -499,6 +522,25 @@ const _supabase = createClient(
 let editingDealerId = null;
 let deletingDealerId = null;
 
+// ── F-30 S1: 清單查詢核心 ────────────────────────────────────────────
+// 🟡 半通用(判斷依據):分頁大小為【判斷值非計算值】—— 依 admin 單螢幕
+//    可掃視量而定,改動不需動邏輯(比照 F-51 SELECT_SHOWN_CONFIRM_THRESHOLD)。
+//    具名常數的紀律通用;25 這個值特定於本頁,quotes 列高不同,CB-60 不應沿用。
+const DEALERS_PAGE_SIZE = 25;
+
+// 🔴 此處特定(判斷依據):uid / slug 之所以納入,是為補償欄位精簡(11→5)
+//    後失去的「UID → dealer」反查方向。此理由不存在於其他頁,CB-60 不得沿用。
+const SEARCH_COLUMNS = ['company_name', 'contact_name', 'email', 'uid', 'slug', 'city'];
+const SEARCH_MAX_LEN = 100;
+
+// 🟢 通用(判斷依據):reqSeq 依賴的是「非同步回應可能亂序」,與資料無關。
+//    慢的舊請求覆蓋新結果不會報錯 —— 靜默失敗,必須有序號。
+let _listState = {
+  q: '', salesId: '', status: '',
+  page: 1, total: 0, reqSeq: 0, searchAltered: false,
+};
+let _searchTimer = null;
+
 // CB-38: 一次撈全表 dealers(id/contact_name/email/role),client 端分流:
 //   salesList     — role IN ('admin','super_admin'),用來建 dropdown
 //   dealerNameMap — 全部人員(含 dealer),用來解析任意 assigned_sales_id
@@ -674,7 +716,285 @@ async function init() {
   const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   if (!['admin','super_admin'].includes(me?.role)) { window.location.href = 'dashboard.html'; return; }
   await loadSalesOptions();   // CB-38:必須在 loadDealers() 之前,列表要用 dealerNameMap
+  renderSalesFilterOptions(); // F-30 S2:篩選 dropdown 依賴 salesList,順序不可調換
   await loadDealers();
+}
+
+// ── F-30 S1: 搜尋輸入淨化 ────────────────────────────────────────────
+// 🟢 通用(判斷依據):依賴的是 PostgREST .or() 的語法字元集,與被搜尋的
+//    欄位無關。欄位清單以參數/常數傳入,不得黏進本層。
+//
+// 🔴 為什麼需要這支(勿在未重測前簡化):
+//    postgrest-js 的 .or() 實作為
+//      url.searchParams.append(key, '(' + filters + ')')
+//    零跳脫、字串原樣送出。函式庫註解自己寫明「呼叫端須自行確保已淨化」。
+//    淨化責任 100% 在我們這側。
+//
+// 2026-08-19 staging 實測(F-30 Q-10,TOTAL=7):
+//    "%a%"    → 6        雙引號包裹被接受,不改變語意
+//    "%a,b%"  → 0 無ERR  引號內 , 未被當條件分隔符
+//    "%a)b%"  → 0 無ERR  引號內 ) 未破壞 group 結構
+//    "%%"     → 7(=TOTAL) 未跳脫的 % 洩漏成萬用字元
+//    "%\\%"   → 0         跳脫後阻擋成功
+//    "%*%"    → 7(=TOTAL) 🔴 * 在 PostgREST 亦為萬用字元(Stage 1 遺漏)
+//    "%\\*%"  → 0
+//    "%_%"    → 7(=TOTAL) / "%\\_%" → 0
+//
+// 🔴 未證實項(勿當已知):
+//    (1) escaped 形式一律回 0,無法區辨「正確跳脫成字面字元」與「無效
+//        pattern」。兩者安全性相同、正確性不同。需一筆 company_name 含 %
+//        的資料才分得出來 → 列入 Stage 3 seeding 邊界資料,屆時確認。
+//    (2) 雙引號 " 與反斜線 \ 自身的跳脫形式【未經實測】。這兩個字元跳脫
+//        錯誤即為結構逃逸(關閉包裹層),屬安全關鍵路徑。
+//        → 本版【移除】而非跳脫,並向使用者顯示提示。
+//        用未經測試的跳脫守安全關鍵路徑,是拿假設當事實(F-19)。
+function sanitizeSearchTerm(raw) {
+  let s = String(raw == null ? '' : raw);
+  s = s.replace(/[\u0000-\u001F\u007F]/g, '');
+  // F-30 S1-d1: * 一併移除,不再嘗試跳脫。
+  // 實測(2026-08-19,seeding 資料):% 與 _ 跳脫後可正確比對字面字元;
+  // 但 * 不行 —— PostgREST 在跳脫【之前】就把 * 換成 %,使 \* 變成 \%,
+  // 實際去比對「含字面 % 的公司名」。搜 Star* 回 0 筆並非無結果,
+  // 而是比對了錯的東西 = 靜默的假陰性。
+  // 移除後 Star* 退化為 Star,可正常命中,且使用者看得到提示。
+  const stripped = s.replace(/["\\*]/g, '');
+  const altered  = (stripped !== s);
+  s = stripped.trim();
+  if (s.length > SEARCH_MAX_LEN) s = s.slice(0, SEARCH_MAX_LEN);
+  return { term: s, altered: altered };
+}
+
+// 三個萬用字元一律以【兩個反斜線】前綴 —— 這是上方實測通過的形式。
+// 反斜線與雙引號已在 sanitize 移除,故此處不需處理。
+function escapeIlikeValue(s) {
+  return String(s).replace(/[%_]/g, '\\\\$&');
+}
+
+function buildSearchOr(term) {
+  const v = escapeIlikeValue(term);
+  return SEARCH_COLUMNS.map(function (c) {
+    return c + '.ilike."%' + v + '%"';
+  }).join(',');
+}
+
+// ── F-30 S1: 唯一查詢出口 ────────────────────────────────────────────
+// 🟢 通用(判斷依據):比照 F-51 pickCommit() 的單一寫入出口原則。淨化、
+//    tiebreaker、range、count 各只存在一份。兩份會漂移,且漂移不報錯。
+//
+// 🟡 半通用(判斷依據):tiebreaker【機制】通用 —— 唯一 tiebreaker 是分頁
+//    正確性的必要條件,非排序偏好;缺少它 .range() 會跳號/重複且不報錯。
+//    【欄位】各頁不同 —— dealers 用 company_name ASC, id ASC(人工掃視以
+//    公司名為主);quotes 可能用 created_at DESC, id DESC(時序為主)。
+//    CB-60 只複用「必須有唯一 tiebreaker」這條規則,不複用欄位。
+// ── F-30 S2: 篩選 ────────────────────────────────────────────────────
+// 🔴 此處特定(判斷依據):assigned_sales_id 為 CB-38 dealers 表專屬欄位
+//    (自我參照 dealers.id);is_active 亦僅 dealers 有。其他表無對應概念,
+//    CB-60 不得沿用本節,只複用「篩選改變即重置 page」這條通用規則。
+//
+// Unassigned 用哨兵值而非空字串:空字串已被「All Sales」佔用,
+// 兩者語意相反(全部 vs 僅未指派),混用即靜默失敗。
+const UNASSIGNED_SALES = '__unassigned__';
+
+// salesList 由 loadSalesOptions() 填入,init() 保證其先於 loadDealers() 完成。
+function renderSalesFilterOptions() {
+  const sel = document.getElementById('filterSales');
+  if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">All Sales</option>'
+                + '<option value="' + UNASSIGNED_SALES + '">Unassigned</option>';
+  salesList.forEach(function (s) {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = salesLabel(s);
+    sel.appendChild(opt);
+  });
+  if (keep) sel.value = keep;
+}
+
+function onDealerFilter() {
+  const sales  = document.getElementById('filterSales');
+  const status = document.getElementById('filterStatus');
+  _listState.salesId = sales  ? sales.value  : '';
+  _listState.status  = status ? status.value : '';
+  // 🟢 通用:與搜尋同理 —— 篩選改變後 total 可能縮小,不重置會停在
+  //    超出範圍的頁,畫面空白但無錯誤。
+  _listState.page = 1;
+  loadDealers();
+}
+
+// F-30 S3-d1: 查詢建構與執行分離。
+// 🔴 為什麼要分離(勿合回去):PostgREST 對超出範圍的 offset 回 416 /
+//    PGRST103【錯誤】,不是空陣列。原設計把 clamp 放在 loadDealers() 的
+//    error 分支【之後】,永遠執行不到 —— admin 會看到「Could not load
+//    dealers」而非自動回到有效頁。
+//    修正方式:在此偵測 PGRST103 → 以 head 查詢取真實 count → clamp → 重跑。
+//    重跑上限一次,不會遞迴。
+function buildDealerQuery(countOnly) {
+  let qb = _supabase
+    .from('dealers')
+    .select('*', countOnly ? { count: 'exact', head: true } : { count: 'exact' })
+    .eq('role', 'dealer');
+
+  if (_listState.q) qb = qb.or(buildSearchOr(_listState.q));
+
+  if (_listState.salesId === UNASSIGNED_SALES) {
+    qb = qb.is('assigned_sales_id', null);
+  } else if (_listState.salesId) {
+    qb = qb.eq('assigned_sales_id', _listState.salesId);
+  }
+
+  // 🔴 inactive 用 not.is.true 而非 eq.false —— 若 is_active 存在 NULL,
+  //    eq.false 會漏掉它們,但列表顯示用的是 truthy 判斷
+  //    (d.is_active ? Active : Inactive),NULL 會顯示為 Inactive。
+  //    篩選與顯示不一致 = 靜默失敗:admin 看到 3 筆 Inactive,篩選卻只回 2 筆。
+  //    not.is.true 同時涵蓋 false 與 NULL,與顯示邏輯對齊。
+  if (_listState.status === 'active')        qb = qb.eq('is_active', true);
+  else if (_listState.status === 'inactive') qb = qb.not('is_active', 'is', true);
+
+  // 篩選 → 排序 → range,全部掛在同一次 PostgREST 查詢。
+  // 🔴 禁止先取一頁再 client 端 filter —— 那會讓 count 與內容不一致。
+  qb = qb.order('company_name', { ascending: true }).order('id', { ascending: true });
+
+  if (!countOnly) {
+    const from = (_listState.page - 1) * DEALERS_PAGE_SIZE;
+    qb = qb.range(from, from + DEALERS_PAGE_SIZE - 1);
+  }
+  return qb;
+}
+
+async function queryDealers() {
+  let r = await buildDealerQuery(false);
+
+  // range 超出 → 取真實 count,clamp 後重跑一次。
+  if (r.error && r.error.code === 'PGRST103') {
+    const probe = await buildDealerQuery(true);
+    if (!probe.error) {
+      _listState.total = (probe.count == null ? 0 : probe.count);
+      clampPage();
+      r = await buildDealerQuery(false);
+    }
+  }
+
+  return { rows: r.data || [], error: r.error || null, count: (r.count == null ? 0 : r.count) };
+}
+
+function onDealerSearch(v) {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(function () {
+    const r = sanitizeSearchTerm(v);
+    _listState.q             = r.term;
+    _listState.searchAltered = r.altered;
+    // 🟢 通用:篩選改變後 total 可能縮小,不重置會停在超出範圍的頁
+    //    → 畫面空白但無錯誤 = 靜默失敗。
+    _listState.page = 1;
+    loadDealers();
+  }, 300);
+}
+
+function renderSearchNote() {
+  const el = document.getElementById('searchNote');
+  if (!el) return;
+  if (_listState.searchAltered) {
+    el.textContent = 'Quote, backslash and asterisk characters were removed from this search.';
+    el.style.display = 'block';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+}
+
+function renderCountLabel(shownCount) {
+  const el = document.getElementById('tableCount');
+  if (!el) return;
+  const total = _listState.total;
+  if (!total) { el.textContent = '0 dealers'; return; }
+  const from = (_listState.page - 1) * DEALERS_PAGE_SIZE + 1;
+  const to   = from + shownCount - 1;
+  el.textContent = 'Showing ' + from + '\u2013' + to + ' of ' + total;
+}
+
+// ── F-30 S3: 分頁控制 ────────────────────────────────────────────────
+// 🟢 通用(判斷依據):以下四支為純算術與 DOM 開關,不依賴任何欄位語意
+//    或表結構。三頁行為必然相同,CB-60 可直接複用,只需換 DOM id 與
+//    每頁筆數常數。
+function totalPages() {
+  const t = _listState.total;
+  return t > 0 ? Math.ceil(t / DEALERS_PAGE_SIZE) : 1;
+}
+
+// 🔴 clamp 的存在理由:篩選後 total 縮小時,當前 page 可能已超出範圍。
+//    此時查詢會回空陣列 + count > 0 —— 不報錯,畫面空白,admin 會誤判
+//    為「查無資料」。這是分頁最典型的靜默失敗。
+function clampPage() {
+  const max = totalPages();
+  if (_listState.page > max) { _listState.page = max; return true; }
+  if (_listState.page < 1)   { _listState.page = 1;   return true; }
+  return false;
+}
+
+function goPage(delta) {
+  const max  = totalPages();
+  const next = _listState.page + delta;
+  if (next < 1 || next > max) return;   // 按鈕已 disabled,此為第二道
+  _listState.page = next;
+  loadDealers();
+}
+
+function renderPager() {
+  const bar = document.getElementById('pagerBar');
+  if (!bar) return;
+  if (_listState.total <= DEALERS_PAGE_SIZE) { bar.style.display = 'none'; return; }
+  const max = totalPages();
+  bar.style.display = 'flex';
+  document.getElementById('pagerInfo').textContent = 'Page ' + _listState.page + ' of ' + max;
+  document.getElementById('pagerPrev').disabled = (_listState.page <= 1);
+  document.getElementById('pagerNext').disabled = (_listState.page >= max);
+}
+
+// ── F-30 S4: 欄位精簡與 empty-state 三態 ────────────────────────────
+// 🟡 半通用(判斷依據):colspan 必須與 <th> 數量一致,否則 empty-state
+//    只佔第一欄,版面歪掉【但不報錯】。用常數而非字面值,是為了讓
+//    「改欄位數」與「改 colspan」無法脫鉤 —— 兩者分開寫必然漂移。
+//    機制通用;6 這個值特定於本頁。
+const LIST_COLSPAN = 6;
+
+// 🟢 通用(判斷依據):error / 無資料 / 無符合 三態的【區分邏輯】通用,
+//    文案為參數。合併任兩態即製造靜默失敗 ——「查無符合條件」顯示成
+//    「還沒有 dealer」,admin 會以為資料不存在而去重建。
+function hasActiveFilter() {
+  return !!(_listState.q || _listState.salesId || _listState.status);
+}
+
+function emptyStateHtml(kind) {
+  const icon = '<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>';
+  let body;
+  if (kind === 'error') {
+    body = 'Could not load dealers. Please refresh.';
+  } else if (kind === 'filtered') {
+    body = icon + 'No dealers match your filters.'
+         + '<button type="button" class="pager-btn" style="margin-top:12px;" onclick="clearDealerFilters()">Clear filters</button>';
+  } else {
+    body = icon + 'No dealers yet.';
+  }
+  return '<tr><td colspan="' + LIST_COLSPAN + '"><div class="empty-state">' + body + '</div></td></tr>';
+}
+
+function clearDealerFilters() {
+  const s = document.getElementById('dealerSearch');
+  const a = document.getElementById('filterSales');
+  const b = document.getElementById('filterStatus');
+  if (s) s.value = '';
+  if (a) a.value = '';
+  if (b) b.value = '';
+  // 🔴 必須清掉 pending 的 debounce timer —— 否則使用者按下 Clear 後
+  //    300ms 前的舊輸入仍會回寫 _listState.q,篩選被無聲還原。
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _listState.q             = '';
+  _listState.salesId       = '';
+  _listState.status        = '';
+  _listState.searchAltered = false;
+  _listState.page          = 1;
+  loadDealers();
 }
 
 async function loadDealers() {
@@ -682,28 +1002,46 @@ async function loadDealers() {
   const { data: currentUser } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
   const canDelete = currentUser?.role === 'super_admin';
 
-  const { data: dealers } = await _supabase.from('dealers').select('*').eq('role', 'dealer').order('company_name');
+  const seq = ++_listState.reqSeq;
+  const { rows, error, count } = await queryDealers();
+  if (seq !== _listState.reqSeq) return;   // 已有更新的請求送出 → 丟棄本次結果
 
   const tbody = document.getElementById('dealersBody');
-  document.getElementById('tableCount').textContent = `${dealers?.length || 0} dealer${dealers?.length !== 1 ? 's' : ''}`;
+  renderSearchNote();
 
-  if (!dealers?.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
+  // 🟢 通用:error / 無資料 / 無符合 三態必須分流。合併任兩態即製造靜默
+  //    失敗 —— RLS 擋住時回 200 + 空陣列 + error null,與「真的沒資料」同形。
+  //    S4 補完三態文案;S1 先確保 error 不被吞掉(此為新增碼,非 F-60 清償)。
+  if (error) {
+    _listState.total = 0;
+    renderCountLabel(0);
+    renderPager();
+    tbody.innerHTML = emptyStateHtml('error');
+    console.error('[F-30] loadDealers failed:', error);
     return;
   }
 
-  tbody.innerHTML = dealers.map(d => `
+  _listState.total = count;
+
+  // F-30 S3-d2: 此處原有第二道 clamp,已移除 —— 實測確認 PostgREST 對
+  // 「offset 超出實際列數」一律回 416/PGRST103,【零筆時亦然】。
+  // 因此所有超界情形都在 queryDealers() 內被接住並修復,執行到這裡時
+  // page 必定有效。留著會是不可達的死碼,且帶一個永不觸發的遞迴重入。
+  // clampPage() 本身保留,由 queryDealers() 呼叫。
+  renderCountLabel(rows.length);
+  renderPager();
+
+  if (!rows.length) {
+    tbody.innerHTML = emptyStateHtml(hasActiveFilter() ? 'filtered' : 'empty');
+    return;
+  }
+
+  tbody.innerHTML = rows.map(d => `
     <tr>
       <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div></td>
-      <td><span style="font-size:12px;font-weight:500;letter-spacing:0.1em;color:var(--green-dark);">${d.uid || '—'}</span></td>
       <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
       <td>${d.email || '—'}</td>
       <td>${renderSalesCell(d.assigned_sales_id)}</td>
-      <td><span style="font-size:11px;color:var(--muted);">${d.slug || '—'}</span></td>
-      <td>${d.stock_multiplier ? `${d.stock_multiplier}x` : '—'}</td>
-      <td>${d.non_stock_multiplier ? `${d.non_stock_multiplier}x` : '—'}</td>
-      <td>${d.frameless_multiplier ? `${d.frameless_multiplier}x` : '—'}</td>
-      <td>${d.tax_exempt ? '<span style="color:#16A34A;font-size:11px;">Exempt</span>' : `${((d.tax_rate || 0) * 100).toFixed(1)}%`}</td>
       <td>${d.is_active ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
       <td style="white-space:nowrap">
         <button class="btn-edit" onclick="openEditDealer('${d.id}')">Edit</button>
