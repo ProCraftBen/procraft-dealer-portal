@@ -224,22 +224,16 @@
         <thead>
           <tr>
             <th>Company</th>
-            <th>UID</th>
             <th>Location</th>
             <th>Email</th>
             <th>Sales</th>
-            <th>Slug</th>
-            <th>Stock</th>
-            <th>Non-Stock</th>
-            <th>Frameless</th>
-            <th>Tax Rate</th>
             <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="dealersBody">
-          <tr><td colspan="12"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
-         </tbody>
+          <tr><td colspan="6"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+        </tbody>
       </table>
     </div>
     <div class="pager-bar" id="pagerBar">
@@ -930,6 +924,52 @@ function renderPager() {
   document.getElementById('pagerNext').disabled = (_listState.page >= max);
 }
 
+// ── F-30 S4: 欄位精簡與 empty-state 三態 ────────────────────────────
+// 🟡 半通用(判斷依據):colspan 必須與 <th> 數量一致,否則 empty-state
+//    只佔第一欄,版面歪掉【但不報錯】。用常數而非字面值,是為了讓
+//    「改欄位數」與「改 colspan」無法脫鉤 —— 兩者分開寫必然漂移。
+//    機制通用;6 這個值特定於本頁。
+const LIST_COLSPAN = 6;
+
+// 🟢 通用(判斷依據):error / 無資料 / 無符合 三態的【區分邏輯】通用,
+//    文案為參數。合併任兩態即製造靜默失敗 ——「查無符合條件」顯示成
+//    「還沒有 dealer」,admin 會以為資料不存在而去重建。
+function hasActiveFilter() {
+  return !!(_listState.q || _listState.salesId || _listState.status);
+}
+
+function emptyStateHtml(kind) {
+  const icon = '<svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>';
+  let body;
+  if (kind === 'error') {
+    body = 'Could not load dealers. Please refresh.';
+  } else if (kind === 'filtered') {
+    body = icon + 'No dealers match your filters.'
+         + '<button type="button" class="pager-btn" style="margin-top:12px;" onclick="clearDealerFilters()">Clear filters</button>';
+  } else {
+    body = icon + 'No dealers yet.';
+  }
+  return '<tr><td colspan="' + LIST_COLSPAN + '"><div class="empty-state">' + body + '</div></td></tr>';
+}
+
+function clearDealerFilters() {
+  const s = document.getElementById('dealerSearch');
+  const a = document.getElementById('filterSales');
+  const b = document.getElementById('filterStatus');
+  if (s) s.value = '';
+  if (a) a.value = '';
+  if (b) b.value = '';
+  // 🔴 必須清掉 pending 的 debounce timer —— 否則使用者按下 Clear 後
+  //    300ms 前的舊輸入仍會回寫 _listState.q,篩選被無聲還原。
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _listState.q             = '';
+  _listState.salesId       = '';
+  _listState.status        = '';
+  _listState.searchAltered = false;
+  _listState.page          = 1;
+  loadDealers();
+}
+
 async function loadDealers() {
   const { data: { session } } = await _supabase.auth.getSession();
   const { data: currentUser } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
@@ -949,7 +989,7 @@ async function loadDealers() {
     _listState.total = 0;
     renderCountLabel(0);
     renderPager();
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state">Could not load dealers. Please refresh.</div></td></tr>`;
+    tbody.innerHTML = emptyStateHtml('error');
     console.error('[F-30] loadDealers failed:', error);
     return;
   }
@@ -965,22 +1005,16 @@ async function loadDealers() {
   renderPager();
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>No dealers yet.</div></td></tr>`;
+    tbody.innerHTML = emptyStateHtml(hasActiveFilter() ? 'filtered' : 'empty');
     return;
   }
 
   tbody.innerHTML = rows.map(d => `
     <tr>
       <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div></td>
-      <td><span style="font-size:12px;font-weight:500;letter-spacing:0.1em;color:var(--green-dark);">${d.uid || '—'}</span></td>
       <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
       <td>${d.email || '—'}</td>
       <td>${renderSalesCell(d.assigned_sales_id)}</td>
-      <td><span style="font-size:11px;color:var(--muted);">${d.slug || '—'}</span></td>
-      <td>${d.stock_multiplier ? `${d.stock_multiplier}x` : '—'}</td>
-      <td>${d.non_stock_multiplier ? `${d.non_stock_multiplier}x` : '—'}</td>
-      <td>${d.frameless_multiplier ? `${d.frameless_multiplier}x` : '—'}</td>
-      <td>${d.tax_exempt ? '<span style="color:#16A34A;font-size:11px;">Exempt</span>' : `${((d.tax_rate || 0) * 100).toFixed(1)}%`}</td>
       <td>${d.is_active ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
       <td style="white-space:nowrap">
         <button class="btn-edit" onclick="openEditDealer('${d.id}')">Edit</button>
