@@ -1064,12 +1064,13 @@ const NOTES_TABLE_FALLBACK_LENGTH = 40;
 // Mirror with pdf-builder.js / quote-detail.html.
 // ─────────────────────────────────────────────────────────────────────
 const TYPE_SHORT_MAP = {
-  'BASE':         'BAS',
-  'WALL':         'WAL',
-  'TALL':         'TAL',
-  'ACCESSORIES':  'ACC',
-  'OTHER':        'OTH',
-  'MODIFICATION': 'MOD',
+  'BASE':           'BAS',
+  'WALL':           'WAL',
+  'TALL':           'TAL',
+  'ROLL OUT TRAY':  'ROT',   // CB-72:三檔同步縮寫表,step3 / quote-detail / pdf-builder 三份必須一致
+  'ACCESSORIES':    'ACC',
+  'OTHER':          'OTH',
+  'MODIFICATION':   'MOD',
 };
 const STATUS_SHORT_MAP = {
   'ASSEMBLED': 'ASM',
@@ -1361,6 +1362,53 @@ function calcTotalModsCost(items) {
   return total;
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-72: mapping SKU(bundle 子項)的組裝費。
+//
+// 【資料來源】quote_items.modifications[].mapping_asm_fee —— 由 new-quote-modifications.html
+//   在 handleMfSave 時算好落庫(Q-1 = A 寫入端)。本檔【只讀不算】,絕不重算。
+//   舊單無此 key → parseFloat(undefined) = NaN → 回 0,live 金額不變。
+//
+// 【正向判斷】沿用三檔既有的 hasMapping 條件(有 mapping_sku 且 mapping_qty > 0),
+//   不新增分支、不以「排除」定義。
+// ─────────────────────────────────────────────────────────────────────────────
+function calcPerSubMappingAsmFee(sub) {
+  const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+  return mods.reduce(function (s, m) {
+    const mq = parseInt(m && m.mapping_qty, 10) || 0;
+    const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+    if (!hasMapping) return s;
+    const f = parseFloat(m && m.mapping_asm_fee);
+    return s + (isNaN(f) ? 0 : round2(f));   // CB-46 SOP:pre-round 再累加
+  }, 0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CB-72: 整單 Assemble Fee 總額 = 櫃體組裝費 + mapping SKU 組裝費。
+//
+// 【唯一責任點】本檔原有 5 處各自 inline 的 assembleTotal reduce 全部改走此函式。
+//   其中 3 處是落庫路徑(Save Draft / Submit / Request Revision),漏改任一處
+//   會使 quotes.assemble_total 與畫面值不符,且【不報錯】。
+//   新增 assembleTotal 的呼叫端一律走這裡,不得再 inline reduce。
+//
+// 【取整】CB-46 SOP:每個加數先 round2 再累加。原 inline 版為「先加總再取整」,
+//   因 assemble_fee 為 2 位小數、qty 為整數,兩者結果恆等,無既有金額變動。
+// ─────────────────────────────────────────────────────────────────────────────
+function calcAssembleTotal(items) {
+  let total = 0;
+  (items || []).forEach(function (item) {
+    total += round2((item.assemble_fee || 0) * (item.quantity || 0));
+    getNormalizedSubGroups(item).forEach(function (sub) {
+      const subQty = parseInt(sub.qty, 10) || 0;
+      total += round2(calcPerSubMappingAsmFee(sub) * subQty);
+    });
+  });
+  return round2(total);
+}
+  
+
+  
 // ─────────────────────────────────────────────────────────────────────────────
 // F-TAX: Sum of all TAXABLE mods (× sub.qty) across the whole quote.
 // Used for tax base only. Mods without tax_status===true are excluded.
@@ -2262,7 +2310,12 @@ if (draftId) {
 // F-CUSTOM (Phase 4): Added 'OTHER' between ACCESSORIES and MODIFICATION.
 // Custom Other items get sku_type='OTHER' from step2; this ensures they sort
 // after accessories but before MODIFICATION group (mods are always last per spec).
-const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
+// CB-72:加入 'ROLL OUT TRAY'。此常數是 renderAsmBreakdown() 的白名單 ——
+//   `TYPE_ORDER.filter(t => byType[t])` 會把不在清單內的分組【靜默丟棄】,
+//   不報錯。若漏加,Assemble Fee 總額含 ROT 但明細不含,兩者差額無解釋。
+//   ⚠ 本常數與同檔的 FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22,Order List
+//     表格分組用)語意重疊但內容不同,兩者都在本檔內,勿誤改(D-3)。
+const TYPE_ORDER = ['BASE','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
 
 function typeRank(type) {
   const idx = TYPE_ORDER.indexOf((type||'').toUpperCase());
@@ -2281,14 +2334,39 @@ function groupAndSort(data) {
   return grouped;
 }
 
-function calcAsmByType(data) {
+// CB-72: 新增 constructionType 參數 + mapping SKU 組裝費分組。
+//   分組標籤取 mapping SKU【自身】的 type(= 'ROLL OUT TRAY'),不取父櫃體的
+//   BASE / TALL —— 與組裝費欄位的取值依據一致。
+//   查不到 type → 落入 OTHER(在 TYPE_ORDER 內,會顯示出來),失效模式為
+//   「分組跑錯位置(可見)」而非「整列消失(不可見)」。
+//   ⚠ 原本的早退 return 已改為 if 區塊 —— 早退會讓 RTA 或無櫃體組裝費的品項
+//     連帶跳過下方 mapping 段,使 ROT 組裝費漏計。
+function calcAsmByType(data, constructionType) {
   const byType = {};
-  data.forEach(item => {
-    if (item.type?.toLowerCase() !== 'assembled' || !item.assemble_fee) return;
-    const t = (item.skuType || 'OTHER').toUpperCase();
-    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
-    byType[t].qty   += item.quantity;
-    byType[t].total += item.assemble_fee * item.quantity;
+  (data || []).forEach(item => {
+    // ── 櫃體本身的組裝費(既有行為,原樣保留)──
+    if (item.type?.toLowerCase() === 'assembled' && item.assemble_fee) {
+      const t = (item.skuType || 'OTHER').toUpperCase();
+      if (!byType[t]) byType[t] = { qty: 0, total: 0 };
+      byType[t].qty   += item.quantity;
+      byType[t].total += item.assemble_fee * item.quantity;
+    }
+    // ── CB-72: mapping SKU(bundle 子項)的組裝費 ──
+    getNormalizedSubGroups(item).forEach(function (sub) {
+      const subQty = parseInt(sub.qty, 10) || 0;
+      const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+      mods.forEach(function (m) {
+        const mq = parseInt(m && m.mapping_qty, 10) || 0;
+        if (!(m && m.mapping_sku) || !(mq > 0)) return;
+        const fee = parseFloat(m && m.mapping_asm_fee);
+        if (!isFinite(fee) || !(fee > 0)) return;
+        const info = getMappingSkuInfo(m.mapping_sku, constructionType);
+        const mt   = (info.type || OTHER_GROUP_LABEL).toUpperCase();
+        if (!byType[mt]) byType[mt] = { qty: 0, total: 0 };
+        byType[mt].qty   += mq * subQty;
+        byType[mt].total += round2(fee * subQty);
+      });
+    });
   });
   return byType;
 }
@@ -2544,11 +2622,15 @@ function buildItemRowsHtml(markupPct) {
               parentPerSubModCost += (isNaN(c) ? 0 : c);
               if (hasMapping) {
                 const matPerSub = isNaN(mt) ? 0 : mt;   // 每 sub-unit 材料費
+                // CB-72: 每 sub-unit 組裝費(只讀落庫值,不重算)。舊單無此 key → 0。
+                const _asmRaw   = parseFloat(m && m.mapping_asm_fee);
+                const asmPerSub = isNaN(_asmRaw) ? 0 : round2(_asmRaw);
                 mappingList.push({
                   code:  m.mapping_sku,
                   qty:   mq * subQty,
                   unit:  mq > 0 ? (matPerSub / mq) : 0,
-                  total: matPerSub * subQty,
+                  asm:   round2(asmPerSub * subQty),                                 // CB-72
+                  total: round2(round2(matPerSub * subQty) + round2(asmPerSub * subQty)),   // CB-72:材料 + 組裝
                 });
               } else {
                 parentPerSubModCost += (isNaN(mt) ? 0 : mt);  // 防呆:無 mapping 的 material 留父 row
@@ -2617,6 +2699,13 @@ function buildItemRowsHtml(markupPct) {
               const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}`;
               const mapDescCell = info.description ? `<div class="desc-main">${escapeHtml(info.description)}</div>` : '';
 
+              // CB-72: Assembled 改為 Yes(bundle 子項隨父櫃體一併組裝);
+              //   Assemble Fee 沿用父 row 慣例 > 0 ? '+$X' : '—'(Q-3,0 為合法值)。
+              //   兩者皆硬編碼英文,與父 row 一致,不掛 i18n key(CB-62 Q-5)。
+              const mapAsmCellHtml = map.asm > 0
+                ? `<span style="color:var(--muted);">+$${map.asm.toFixed(2)}</span>`
+                : '<span style="color:var(--muted);">—</span>';
+
               rows.push(`
                 <tr class="mapping-row">
                   <td>#${parentNum}.${k + 1}</td>
@@ -2624,10 +2713,10 @@ function buildItemRowsHtml(markupPct) {
                   <td class="td-right">${map.qty}</td>
                   <td class="td-sku">${mapSkuCell}</td>
                   <td class="td-desc">${mapDescCell}</td>
-                  <td style="font-size:12px;color:var(--muted);">—</td>
+                  <td style="font-size:12px;">Yes</td>
                   <td class="td-right">$${map.unit.toFixed(2)}</td>
                   <td class="td-right"><span style="color:var(--muted);">—</span></td>
-                  <td class="td-right"><span style="color:var(--muted);">—</span></td>
+                  <td class="td-right">${mapAsmCellHtml}</td>
                   <td class="td-right td-total">$${map.total.toFixed(2)}</td>
                 </tr>`);
             });
@@ -2793,7 +2882,7 @@ function applyTotals(opts) {
   if (assembleTotalR > 0) {
     document.getElementById('assembleRow').style.display = 'block';
     document.getElementById('totalAssemble').textContent = `+$${assembleTotalR.toFixed(2)}`;
-    const byType = calcAsmByType(step2Data);
+    const byType = calcAsmByType(step2Data, _ct);   // CB-72:_ct = 整單 construction(mapping SKU 反查用)
     renderAsmBreakdown(byType, true, 'assembleBreakdown');
   } else {
     document.getElementById('assembleRow').style.display = 'none';
@@ -2905,7 +2994,7 @@ function renderReview() {
   const skuSubtotal          = _t47.net;
   const modsSubtotal         = calcTotalModsCost(step2Data);
   const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-  const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0);
+    const assembleTotal        = calcAssembleTotal(step2Data);   // CB-72
 
   // F-TAX: debug log for visibility
   console.log('[F-TAX] renderReview totals:',
@@ -3147,7 +3236,7 @@ async function saveDraft() {
     const skuSubtotal          = _t47s.net;             // 折後淨額(quotes.subtotal 存這個)
     const modsSubtotal         = round2(calcTotalModsCost(step2Data));
     const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
-    const assembleTotal        = round2(step2Data.reduce(function(s,i) { return s + (i.assemble_fee || 0) * i.quantity; }, 0));
+    const assembleTotal        = calcAssembleTotal(step2Data);   // CB-72(內含 round2)
 
     // F-TAX: tax base = SKU + taxable mods; billing base = SKU + all mods
     const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
@@ -3396,7 +3485,7 @@ async function submitQuote() {
     const skuSubtotal          = _t47q.net;             // 折後淨額
     const modsSubtotal         = round2(calcTotalModsCost(step2Data));
     const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
-    const assembleTotal        = round2(step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0));
+    const assembleTotal        = calcAssembleTotal(step2Data);   // CB-72(內含 round2)
 
     // F-TAX
     const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
@@ -3797,7 +3886,7 @@ async function requestRevision(note) {
     const skuSubtotal         = _t47r.net;             // 折後淨額
     const modsSubtotal        = round2(calcTotalModsCost(step2Data));
     const taxableModsSubtotal = round2(calcTaxableModsCost(step2Data));
-    const assembleTotal       = round2(step2Data.reduce((s,i) => s + (i.assemble_fee || 0) * i.quantity, 0));
+    const assembleTotal       = calcAssembleTotal(step2Data);   // CB-72(內含 round2)
 
     const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
     const billingBase = round2(skuSubtotal + modsSubtotal);
@@ -4225,7 +4314,7 @@ function updateMarkupPreview() {
   const markedSkuSubtotal    = _t47m.net;
   const modsSubtotal         = calcTotalModsCost(step2Data);
   const taxableModsSubtotal  = calcTaxableModsCost(step2Data);   // F-TAX
-  const assembleTotal        = step2Data.reduce((s,i) => s + (i.assemble_fee||0)*i.quantity, 0);
+  const assembleTotal        = calcAssembleTotal(step2Data);   // CB-72
 
   applyTotals({
     skuSubtotal:          markedSkuSubtotal,
