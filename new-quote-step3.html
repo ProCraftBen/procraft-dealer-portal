@@ -593,6 +593,12 @@ color: var(--green-dark);
           <div class="info-label" data-i18n="nq3.field.job_name">Job Name</div>
           <div class="info-value" id="reviewJobName">—</div>
         </div>
+        <!-- CB-74:Sales 名稱。畫面端【掛 i18n】(nq3.field.sales),
+             PDF 端則英文硬編碼且不掛標記(CB-62 Q-56)——兩者刻意不同,勿對齊。 -->
+        <div class="info-item">
+          <div class="info-label" data-i18n="nq3.field.sales">Sales</div>
+          <div class="info-value" id="reviewSalesName">—</div>
+        </div>
         <div class="info-item">
           <div class="info-label" data-i18n="nq3.field.dealer">Dealer</div>
           <div class="info-value" id="reviewDealer">—</div>
@@ -953,6 +959,7 @@ const _supabase = createClient(
 );
 
 let dealer    = null;
+let _salesName = null;   // CB-74: dealer 對應的業務姓名(RPC 取得;null → 顯示 —)
 let _meStamp  = null;   // CB-50: 當下登入者（download stamp 用；step3 admin-draft 時 dealer≠登入者）
 let step1Data = null;
 let step2Data = null;
@@ -2160,6 +2167,23 @@ let dealerIdToLoad = session.user.id;
   }
   dealer = d;
 
+  // ── CB-74:取 dealer 對應的業務姓名 ───────────────────────────────────────
+  //   🔴 不可改成直接查 dealers。該表 SELECT policy 聯集為
+  //      `id = auth.uid() OR is_admin()`,而 sales 姓名位於 role=admin 的
+  //      【另一列】—— dealer 身分讀取結果為 null 且【不報錯】,四種 PDF 的
+  //      Sales 欄會全數靜默落回 '—'。故走 SECURITY DEFINER RPC(CB-74 M1),
+  //      其回傳面僅 contact_name 單欄,不外洩 admin 列的多層定價欄位。
+  //   admin 代建時 dealerIdToLoad 已是【被代建 dealer】的 id,RPC 內以
+  //      is_admin() 分支放行,兩種身分皆正確。
+  //   ⚠ fail-open:RPC 失敗只 warn,不阻擋報價流程(顯示 '—')。
+  //   ⚠ 未指派 sales 與讀不到共用同一個 '—'(PM Q-1 定版)。
+  {
+    const { data: _sn, error: _snErr } = await _supabase
+      .rpc('get_assigned_sales_name', { p_dealer_id: dealerIdToLoad });
+    if (_snErr) console.warn('[CB-74] get_assigned_sales_name failed:', _snErr);
+    _salesName = _sn || null;
+  }
+
   // CB-5 需求1/2: 載入 door_styles(整單 lead time + non-stock 判斷)
   // CB-9: 同時載入 skus_framed / skus_frameless 的 tag(Order List Tag 欄查表用)。
   //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
@@ -2959,6 +2983,7 @@ function renderReview() {
   const poDisplay = _existingPoNumber || _existingDraftNumber || '—';  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
   document.getElementById('reviewPO').textContent       = poDisplay;
   document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
+  document.getElementById('reviewSalesName').textContent = _salesName || '—';   // CB-74
   document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
   document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
 
@@ -3152,6 +3177,11 @@ function buildQuoteDataForPdf(opts) {
     po_number:     _existingPoNumber || null,           // submit 後才有
     draft_number:  _existingDraftNumber || null,         // 雙編號制: Draft Quote PDF 用(實際 D/P 切換在階段 6 pdf-builder)
     job_name:      step1Data?.jobName || null,
+    // CB-74:業務姓名送進 PDF(pdf-builder 的 _drawHeader 取用)。
+    //   🔴 本檔與 quote-detail.html 各有一份 buildQuoteDataForPdf(),
+    //      兩處都要供應這個鍵。漏掉任一處的失效模式是【PDF 靜默印 —】,
+    //      斷點在來源端而不在 pdf-builder —— F-40 訂單 note 踩過同一個坑。
+    sales_name:    _salesName || null,
     // F-40:訂單層級 note 送進 PDF(pdf-builder 的 _drawOrderNote 取用)。
     //   冷熱兩入口皆供應:熱路徑為 sessionStorage quoteStep1,冷路徑為
     //   cb53BuildStep1FromQuote() 的 notes: q.notes || ''。
