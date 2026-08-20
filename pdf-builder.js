@@ -98,16 +98,21 @@
   // ----------------------------------------
   // 常數
   // ----------------------------------------
-  const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ACCESSORIES', 'OTHER', 'MODIFICATION'];
+  // CB-72:加入 'ROLL OUT TRAY',與 new-quote-step3.html / quote-detail.html 同步。
+  //   本檔內 TYPE_ORDER 僅用於 _drawAssembledSummary 的排序(_groupAndSort 只被
+  //   export、無內部呼叫端),故此改動不影響 Order List 表格分組 —— 那走的是
+  //   FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22),兩者勿混(D-3)。
+  const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ROLL OUT TRAY', 'ACCESSORIES', 'OTHER', 'MODIFICATION'];
 
   // F-COL-ABBREVIATIONS (2026-05-21)
   const TYPE_SHORT_MAP = {
-    'BASE':         'BAS',
-    'WALL':         'WAL',
-    'TALL':         'TAL',
-    'ACCESSORIES':  'ACC',
-    'OTHER':        'OTH',
-    'MODIFICATION': 'MOD',
+    'BASE':           'BAS',
+    'WALL':           'WAL',
+    'TALL':           'TAL',
+    'ROLL OUT TRAY':  'ROT',   // CB-72:三檔同步縮寫表,step3 / quote-detail / pdf-builder 三份必須一致
+    'ACCESSORIES':    'ACC',
+    'OTHER':          'OTH',
+    'MODIFICATION':   'MOD',
   };
   const STATUS_SHORT_MAP = {
     'ASSEMBLED': 'ASM',
@@ -274,13 +279,31 @@
 
   // 改動 15: 統計 Assembled 類型數量(不需 assemble_fee),給 Packing List summary 用。
   //   只算 assemble_status === 'Assembled'(大小寫不敏感),RTA / Unassembled 不算。
+  // CB-72(Q-10): 納入 mapping SKU(bundle 子項)的數量。
+  //   Packing List 的品項表已將子項 Assembled 欄顯示為 Yes;若本摘要不計入,
+  //   同一份工廠文件會出現「表格說要組裝、摘要數量沒算到」的矛盾。
+  //   分組標籤取 mapping SKU 自身的 type(caller 已於 enrichSubGroupsForPdf
+  //   把 mapping_type 掛進 mod entry;PDF 無 DB,不自行反查)。
+  //   ⚠ 原本的早退 return 已改為 if 區塊 —— 早退會讓 RTA 品項連帶跳過 mapping 段。
   function _calcAssembledQtyByType(items) {
     const byType = {};
     (items || []).forEach(function (item) {
       const status = item.assemble_status || item.type || '';
-      if (String(status).toLowerCase() !== 'assembled') return;
-      const t = (item.sku_type || item.skuType || 'OTHER').toUpperCase();
-      byType[t] = (byType[t] || 0) + (parseInt(item.quantity, 10) || 0);
+      if (String(status).toLowerCase() === 'assembled') {
+        const t = (item.sku_type || item.skuType || 'OTHER').toUpperCase();
+        byType[t] = (byType[t] || 0) + (parseInt(item.quantity, 10) || 0);
+      }
+      // ── CB-72: mapping SKU 子項數量 ──
+      _getNormalizedSubGroups(item).forEach(function (sub) {
+        const subQty = parseInt(sub.qty, 10) || 0;
+        const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+        mods.forEach(function (m) {
+          const mq = parseInt(m && m.mapping_qty, 10) || 0;
+          if (!(m && m.mapping_sku) || !(mq > 0)) return;
+          const mt = (m.mapping_type || 'OTHER').toUpperCase();
+          byType[mt] = (byType[mt] || 0) + (mq * subQty);
+        });
+      });
     });
     return byType;
   }
@@ -335,6 +358,47 @@
         return s + (isNaN(c) ? 0 : c) + (isNaN(mt) ? 0 : mt);
       }, 0);
     }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-72: mapping SKU(bundle 子項)的組裝費。
+  //
+  // 【資料來源】modifications[].mapping_asm_fee —— 由 new-quote-modifications.html
+  //   於 handleMfSave 落庫(Q-1 = A 寫入端)。本檔【只讀不算】。
+  //
+  // 🔴 CB-45 關聯:_calcAssembleTotal() 的結果直接進 live grand,而 Receipt 會拿
+  //   live grand 與 payment.base_amount 比對(容差 1 分),不符即 fail-loud 擋下
+  //   出證。舊單的 modifications[] 無 mapping_asm_fee → parseFloat(undefined) =
+  //   NaN → 回 0 → live grand 與付款當時完全一致 → 斷言不觸發。
+  //   ⚠ 這是 Q-1 選 A(寫入端)而非 B(顯示端)的機制基礎:此處【絕不可】改成
+  //     即時查 dealer 重算,否則所有已付款的舊 ROT 單 Receipt 會印不出來。
+  //
+  // 【取整】本檔既有金額運算一律不取整(顯示時才 toFixed),此處沿用,
+  //   不新增第三份 round2 複製(F-66)。asm_fee 為 2 位小數 × 整數 qty,結果精確。
+  // ─────────────────────────────────────────────────────────────────────────
+  function _calcPerSubMappingAsmFee(sub) {
+    const mods = Array.isArray(sub.modifications) ? sub.modifications : [];
+    return mods.reduce(function (s, m) {
+      const mq = parseInt(m && m.mapping_qty, 10) || 0;
+      const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+      if (!hasMapping) return s;
+      const f = parseFloat(m && m.mapping_asm_fee);
+      return s + (isNaN(f) ? 0 : f);
+    }, 0);
+  }
+
+  // CB-72: 整單 Assemble Fee 總額 = 櫃體組裝費 + mapping SKU 組裝費。
+  //   取代原本 _drawTotals 內 inline 的 items.reduce —— 唯一責任點。
+  function _calcAssembleTotal(items) {
+    let total = 0;
+    (items || []).forEach(function (item) {
+      total += (item.assemble_fee || 0) * item.quantity;
+      _getNormalizedSubGroups(item).forEach(function (sub) {
+        const subQty = parseInt(sub.qty, 10) || 0;
+        total += _calcPerSubMappingAsmFee(sub) * subQty;
+      });
+    });
+    return total;
+  }
 
   function _calcTotalModsCost(items) {
     let total = 0;
@@ -899,6 +963,9 @@ return total;
                 parentPerSubModCost += (isNaN(c) ? 0 : c);
                 if (hasMapping) {
                   const matPerSub = isNaN(mt) ? 0 : mt;
+                  // CB-72: 每 sub-unit 組裝費(只讀落庫值)。舊單無此 key → 0。
+                  const _asmRaw   = parseFloat(m && m.mapping_asm_fee);
+                  const asmPerSub = isNaN(_asmRaw) ? 0 : _asmRaw;
                   mappingList.push({
                     code:  m.mapping_sku,
                     type:  (m.mapping_type || ''),          // CB-25: caller 帶入(PDF 無 DB)
@@ -906,7 +973,8 @@ return total;
                     tag:   (m.mapping_tag || ''),
                     qty:   mq * subQty,
                     unit:  matPerSub / mq,
-                    total: matPerSub * subQty,
+                    asm:   asmPerSub * subQty,                          // CB-72
+                    total: (matPerSub * subQty) + (asmPerSub * subQty), // CB-72:材料 + 組裝
                   });
                 } else {
                   parentPerSubModCost += (isNaN(mt) ? 0 : mt);  // 無 mapping 的 material 留父 row
@@ -952,12 +1020,16 @@ return total;
                 const mapPrefix = (item.style_code && !mapSkip) ? item.style_code + '-' : '';
                 const mapSku = `${mapPrefix}${map.code}`;
                 const mapNum = `${parentNum}.${k + 1}`;
+                // CB-72: Assembled 改為 Yes(bundle 子項隨父櫃體一併組裝);
+                //   Assemble Fee 沿用父 row 慣例 > 0 ? '+$X' : '—'(Q-3)。
+                //   PDF 內文字一律英文硬編碼,不掛 i18n(CB-62 Q-56)。
+                const mapAsmCell = map.asm > 0 ? `+$${map.asm.toFixed(2)}` : '—';
                 if (isPacking) {
-                  body.push([mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), '—']);
+                  body.push([mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), 'Yes']);
                 } else {
                   body.push([
-                    mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), '—',
-                    `$${map.unit.toFixed(2)}`, '—', '—', `$${map.total.toFixed(2)}`,
+                    mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), 'Yes',
+                    `$${map.unit.toFixed(2)}`, '—', mapAsmCell, `$${map.total.toFixed(2)}`,
                   ]);
                 }
                 rowFills.push(fill);
@@ -1617,9 +1689,7 @@ return total;
                              ? quoteData.applied_discount_rules : [];
     const showDiscount   = discountLineTotal > 0.005;
 
-    const assembleTotal = items.reduce(
-      (s, i) => s + (i.assemble_fee || 0) * i.quantity, 0
-    );
+    const assembleTotal = _calcAssembleTotal(items);   // CB-72(含 mapping SKU 組裝費)
 
     let modsTotal;
     if (typeof quoteData.modifications_total === 'number') {
