@@ -549,7 +549,7 @@ return total;
   //   - date / jobName 1.5x(7→10.5)
   function _drawHeader(doc, context) {
     const { pageW, margin, headerH } = LAYOUT;
-    const { logoImg, poNumber, numberLabel, jobName, date, documentTitle } = context;
+    const { logoImg, poNumber, numberLabel, jobName, salesName, date, documentTitle } = context;
 
     doc.setFillColor(...COLORS.white);
     doc.rect(0, 0, pageW, headerH, 'F');
@@ -614,6 +614,17 @@ return total;
     doc.setTextColor(40, 40, 40);
     // CB-31 改動D:PDF Job Name 加前綴「Job Name: 」(空值顯示 Job Name: —)
     doc.text('Job Name: ' + (jobName || '—'), pageW - margin, 41, { align: 'right' });
+
+    // CB-74:Sales 名稱,緊接 Job Name 下方,同字級同靠右。
+    //   字重刻意用 normal(Job Name 為 bold)—— 保留 Job Name 的主層級。
+    //   y=47:Job Name 在 41,行距 6;headerH=52,故底部尚餘 5mm,
+    //     【不需要動 headerH】,Bill/Ship 起點(headerH + 10)不受影響。
+    //   🔴 PDF 不進 i18n(CB-62 Q-56):標籤英文硬編碼,不掛 i18n 標記
+    //      (F-25 死標記同類)。step3 / quote-detail 的畫面端則【有】掛
+    //      nq3.field.sales —— 三檔此處刻意不同,勿對齊。
+    //   空值顯示 'Sales: —'(PM Q-1);未指派與讀不到共用同一顯示。
+    doc.setFont('helvetica', 'normal');
+    doc.text('Sales: ' + (salesName || '—'), pageW - margin, 47, { align: 'right' });
   }
 
   // 改動 11: Bill To / Ship To 區塊字體 1.5x(7.5→11),行距加大。
@@ -1609,6 +1620,9 @@ return total;
       // CB-31 改動C:PDF 顯示 SO#（賣方視角 Sales Order）;DB 欄位 po_number 不動,Draft Quote 仍顯 Draft ID
       numberLabel:   isDraftQuote ? 'Draft ID' : 'SO#',
       jobName:       quoteData.job_name  || '—',
+      // CB-74:兩個 buildQuoteDataForPdf()(step3 / quote-detail)須各自傳入
+      //   quoteData.sales_name,否則本檔收不到值 —— 斷點在來源端,不在此。
+      salesName:     quoteData.sales_name || null,
       date,
       documentTitle: documentTitle,
     };
