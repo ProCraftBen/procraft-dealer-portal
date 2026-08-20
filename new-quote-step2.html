@@ -1226,6 +1226,10 @@
             <button type="button" class="custom-construction-btn" data-value="frameless"
               onclick="setCustomConstruction('frameless')">Frameless</button>
           </div>
+          <!-- F-66 Q-7=B: shown only when editing a custom item whose
+               construction_type could not be restored (see openCustomModal). -->
+          <div id="customConstructionNotice" style="display:none;margin-top:6px;font-size:12px;line-height:1.5;color:var(--muted);"
+               data-i18n="nq2.field.construction_notice">Construction type is not stored with custom items, so it cannot be restored. Please select it again — it also sets the assemble fee. Cabinet Type must be re-selected as well.</div>
         </div>
 
         <div class="custom-form-row">
@@ -1748,18 +1752,52 @@ async function loadDraftItems() {
   const skuAll = allSkusFramed.concat(allSkusFrameless);
   const groupsByKey = new Map();
 
+  // ═══════════════════════════════════════════════════════════════════
+  // F-66 — null-safe ordering + key build (PM 2026-08-20: Q-1=A / Q-2=C /
+  // Q-3=A / Q-8=A)
+  //
+  // WHY: quote_items.style_code is NULL for EVERY custom item. All three
+  // Custom Item modal types write null (see L2569 Cabinet / L2624 Accessory
+  // / L2631 Other). This is a PERMANENT LEGAL VALUE, ratified by the owner
+  // on 2026-08-20 — not a data anomaly. The guard below is long-term
+  // design, not a temporary workaround. Do not remove it if the current
+  // production rows happen to be clean.
+  //
+  // GUARD STYLE (Q-1=A): `|| ''` is a VALUE COERCION, not a type check.
+  // Chosen to match the three already-shipped files verbatim:
+  //   new-quote-step3.html L1951 / quote-detail.html L1238 / pdf-builder.js L245
+  // If a non-string, non-null type ever reaches these fields this guard is
+  // NOT sufficient — revisit all four files together, not just this one.
+  //
+  // ORDERING (Q-3=A): null → '' → sorts FIRST, so custom items lead the
+  // cart. Identical to the three files above.
+  //
+  // ⚠ Q-8=A DELIBERATE DIVERGENCE — do NOT "align this away":
+  //   step3 L1961 guards ONLY style_code in its key build. Here all three
+  //   string fields are guarded, which is STRICTER. That is intentional:
+  //   sku_code is schema-nullable too. The step3 gap is tracked as F-69
+  //   (currently unreachable — no code path produces a null sku_code).
+  //   If the two are ever aligned, THREE places must change together:
+  //   here, new-quote-modifications.html, and step3 L1961. Never one alone.
+  // ═══════════════════════════════════════════════════════════════════
   // Sort by sub_index ASC so sub_groups end up in correct order
   const sorted = items.slice().sort(function (a, b) {
-    if (a.style_code !== b.style_code) return a.style_code.localeCompare(b.style_code);
-    if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
-    if (a.assemble_status !== b.assemble_status) {
-      return a.assemble_status.localeCompare(b.assemble_status);
-    }
+    const sa = a.style_code || '', sb = b.style_code || '';
+    if (sa !== sb) return sa.localeCompare(sb);
+    const ka = a.sku_code || '', kb = b.sku_code || '';
+    if (ka !== kb) return ka.localeCompare(kb);
+    const ta = a.assemble_status || '', tb = b.assemble_status || '';
+    if (ta !== tb) return ta.localeCompare(tb);
     return (a.sub_index || 1) - (b.sub_index || 1);
   });
 
   sorted.forEach(function (row) {
-    const key = row.style_code + '-' + row.sku_code + '-' + row.assemble_status;
+    // F-66 Q-2=C: guard the key build too. Unguarded, a null style_code is
+    // concatenated as the literal string "null" → key "null-BP4896.25-RTA".
+    // Sorting would stop throwing but the key would still be wrong —
+    // "looks fixed, isn't".
+    const key = (row.style_code || '') + '-' + (row.sku_code || '') + '-' +
+                (row.assemble_status || '');
 
     if (!groupsByKey.has(key)) {
       const style = allStyles.find(function (s) { return s.style_code === row.style_code; });
@@ -1767,9 +1805,19 @@ async function loadDraftItems() {
       groupsByKey.set(key, {
         key:          key,
         style_code:   row.style_code,
-        style_name:   style ? style.style_name : row.style_code,
+        // F-66 Q-5: custom items are not in the catalog, so `style` / `sku`
+        // lookups always miss and the old fallbacks resolved to null (style)
+        // and the bare SKU code (desc) — both then written straight back to
+        // the DB by step3 buildItemsPayload L3056 / L3058, silently wiping
+        // what the admin typed. Extra fallback layer reads the row snapshot.
+        // NOTE: the catalog value deliberately stays FIRST here. step3 L1974
+        // /L1976 puts the row snapshot first instead; that difference is
+        // intentional (step3 L1909 "三份行為刻意不同,勿盲目對齊"). Putting
+        // the snapshot first here would change catalog-item behaviour from
+        // "live door_styles name" to "stored snapshot" — out of scope.
+        style_name:   style ? style.style_name : (row.style_name || row.style_code),
         sku_code:     row.sku_code,
-        sku_desc:     sku ? sku.description : row.sku_code,
+        sku_desc:     sku ? sku.description : (row.sku_desc || row.sku_code),
         skuType:      row.sku_type || '',
         category:     sku ? (sku.category    || '') : '',
         subcategory:  sku ? (sku.subcategory || '') : '',
@@ -1777,6 +1825,13 @@ async function loadDraftItems() {
         construction_type: style ? (style.construction_type || null) : null,
         is_stock:          style ? style.is_stock : null,
         needs_confirmation: sku ? !!sku.needs_confirmation : false,  // CB-29
+        // F-66 Q-5: carry is_custom back from the DB. Without it the flag is
+        // undefined here, step3 buildItemsPayload L3078 writes !!undefined =
+        // false, and the custom marker is permanently lost on the next save.
+        // Restoring it also re-enables the CUSTOM badge (L2900), the edit
+        // pencil (L2906) and the Custom Items list (L2693) — code paths that
+        // had never actually executed before. See also Q-7 guard below.
+        is_custom:    !!row.is_custom,
         type:         row.assemble_status,
         quantity:     0,
         unit_price:   parseFloat(row.unit_price),
@@ -2387,6 +2442,9 @@ function openCustomModal(editKey) {
   document.getElementById('customCabinetSection').style.display    = 'none';
   document.getElementById('customAccessorySection').style.display  = 'none';
   document.getElementById('customOtherSection').style.display      = 'none';
+  // F-66 Q-7=B: hide the construction notice on every modal open
+  const _ccNotice = document.getElementById('customConstructionNotice');
+  if (_ccNotice) _ccNotice.style.display = 'none';
   document.getElementById('customCommonFieldsRow1').style.display  = 'none';
   document.getElementById('customCommonFieldsRow2').style.display  = 'none';
   document.getElementById('customCommonFieldsRow3').style.display  = 'none';
@@ -2434,15 +2492,49 @@ function openCustomModal(editKey) {
     document.getElementById('customUnitPrice').value = (item.unit_price || 0).toFixed(2);
 
     if (inferredType === 'Cabinet') {
-      const ctype = (item.construction_type || 'framed').toLowerCase();
-      setCustomConstruction(ctype);
-      document.getElementById('customDoorStyleCabinet').value = item.style_name || '';
-      // Cabinet type — wait for populate to finish then set
-      const sel = document.getElementById('customCabinetTypeSelect');
-      if (item.skuType && sel) {
-        sel.value = item.skuType;
-        customModalState.cabinetType = item.skuType;
+      // ═══════════════════════════════════════════════════════════════
+      // F-66 Q-7=B — fail-closed on unrestorable construction type.
+      //
+      // quote_items has NO construction_type column; the value is derived
+      // by joining door_styles on style_code. Custom items have
+      // style_code = NULL, so the join ALWAYS misses and
+      // construction_type is ALWAYS null after a reload.
+      //
+      // The old default `|| 'framed'` silently rewrote a frameless cabinet
+      // to framed and recomputed the assemble fee from it — a
+      // money-affecting change with zero visible signal. That path only
+      // became reachable when F-66 restored is_custom above (the edit
+      // pencil was hidden before, so nobody could ever get here).
+      //
+      // Positive identification (F-35): prefill ONLY when the value IS a
+      // non-empty string. Otherwise prefill nothing, explain why, and let
+      // the existing required-field check (L2557 region) block the save.
+      // Root cause — the missing column — is tracked as F-68.
+      // ═══════════════════════════════════════════════════════════════
+      const ctypeRaw = item.construction_type;
+      const hasCtype = (typeof ctypeRaw === 'string' && ctypeRaw.trim() !== '');
+      const ccNotice = document.getElementById('customConstructionNotice');
+
+      if (hasCtype) {
+        setCustomConstruction(ctypeRaw.toLowerCase());
+        // Cabinet type — wait for populate to finish then set
+        const sel = document.getElementById('customCabinetTypeSelect');
+        if (item.skuType && sel) {
+          sel.value = item.skuType;
+          customModalState.cabinetType = item.skuType;
+        }
+      } else {
+        // Leave construction / cabinetType null — openCustomModal already
+        // reset both the state and the buttons. Cabinet Type stays empty
+        // because its <option> list is only built by
+        // setCustomConstruction(); re-picking construction repopulates it.
+        if (ccNotice) ccNotice.style.display = 'block';
+        console.warn('[F-66] custom item has no construction_type — ' +
+                     'prefill suppressed, admin must re-select (key=' +
+                     item.key + ')');
       }
+
+      document.getElementById('customDoorStyleCabinet').value = item.style_name || '';
       setCustomAsmStatus(item.type || 'RTA');
       recomputeCustomAsmFee();
     } else if (inferredType === 'Other') {
