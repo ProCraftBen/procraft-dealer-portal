@@ -650,6 +650,7 @@
   "nq3.btn.edit": "Edit ✎",
   "nq3.field.po_number": "PO Number",
   "nq3.field.job_name": "Job Name",
+  "nq3.field.sales": "Sales",
   "nq3.field.dealer": "Dealer",
   "nq3.field.contact": "Contact",
   "nq3.sec.shipping_address": "Shipping Address",
