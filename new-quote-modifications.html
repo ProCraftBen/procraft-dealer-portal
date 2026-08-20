@@ -1809,7 +1809,148 @@ function renderBundleMaterialLine(row, mat) {
     '<span class="bm-sep">·</span><span class="bm-qty">Qty ' + mat.mapping_qty + '</span>' +
     '<span class="bm-sep">·</span><span class="bm-mat">Material $' + (mat.material_cost || 0).toFixed(2) + '</span>';
 }
+// ═══════════════════════════════════════════════════════════════════
+// CB-72: 金額取整 helper —— round2()
+//
+// 【來源】new-quote-step3.html 的 round2()(CB-46 定版)。本檔為逐字複製。
+// 【複製份數 N = 2,完整清單】
+//     ① new-quote-step3.html          (原始定義,CB-46)
+//     ② new-quote-modifications.html  (本處,CB-72)
+//   ⚠ 任何一份修改,必須同步上列全部 2 份,並重新以 SHA256 比對確認逐字元相同。
+//   ⚠ 這是平行實作,不是共用函式 —— 改一份而另一份沒跟上不會報錯,
+//     失效模式與 F-35(MF07 誤入 MF03 分支)同型:潛伏且肉眼不可辨。
+//   📌 收斂評估登記於 F-66(不修)。
+//
+// toPrecision(15) 用於削除 x*100 的浮點尾差後再 Math.round。
+// ═══════════════════════════════════════════════════════════════════
+function round2(x) {
+  const n = Number(x) || 0;
+  const s = n < 0 ? -1 : 1;
+  return s * Math.round(Number((Math.abs(n) * 100).toPrecision(15))) / 100;
+}
 
+// ═══════════════════════════════════════════════════════════════════
+// CB-72: Roll Out Tray 計價修正(寫入端)
+//   問題一:base cost 未隨 qty_selector 的 qty 變動(少收最高 5 倍)
+//   問題二:bundle SKU 未計 assemble fee(全額少收)
+//
+// 【rotQty 的唯一責任點】
+//   rotQty 一律經 bundleMappingQty() 取得,與 computeBundleMaterial() 同一來源。
+//   本檔內乘 rotQty 的地方只有下列兩個函式,呼叫端絕不可再乘一次 ——
+//   乘兩次會使金額變成 qty²,且不報錯。
+//   (Q-6 = A2:mf03-pure-toggle.js 的 calculateCost() 維持 flat,本票不動該檔。)
+//
+// 【落庫結構】僅新增 key `mapping_asm_fee`,不修改任何既有 key 的型別與語意
+//   (「顯示 ≠ 值」)。舊單無此 key → 下游讀取回 0,live grand 不變 →
+//   CB-45 Receipt 對帳斷言不觸發(Q-1 = A 的機制基礎)。
+// ═══════════════════════════════════════════════════════════════════
+
+// mapping SKU 的 type → dealers 組裝費欄位後綴。
+// ⚠ key 為【空格版】'ROLL OUT TRAY' —— 與 skus_framed / skus_frameless 的 type
+//   實值一致(Stage 0 已驗證:兩表共 16 列全數為此值)。
+//   本檔 getAssembleFeeForItem() / itemSupportsAssembled() 內另有一份底線版
+//   'ROLL_OUT_TRAY',其 key 與 skus_*.type 永不匹配(D-1 死債,本票記錄不修)。
+//   此處絕不得沿用該 map。
+const CB72_MAPPING_ASM_FEE_SUFFIX = {
+  'ROLL OUT TRAY': 'roll_out_tray',
+};
+
+// CB-72 問題一:labor(base cost)× rotQty。
+//
+// 【正向判斷 | F-35 定版】三道門檻全部為「確認它是什麼」,非「排除它不是什麼」:
+//     ① isBundleEligible()  —— 限 MF03 Roll Out Tray / MF01 Skin
+//     ② value 為物件且同時具備 enabled + qty 兩個 key
+//        (= mf03-pure-toggle.js 的 qty_selector 分支唯一產出的形狀)
+//     ③ enabled === true
+//   不符合任一道 → 原樣回傳 flat cost。失效模式為「漏掉」(金額停在舊值,
+//   可由驗證項的線性檢查直接辨識),而非「誤吃」到別的 MF。
+//   MF01 Skin 的 value 為字串('both'/'left'/'right')→ 過不了門檻② → 不受影響。
+//   MF03 純 toggle(boolean)與 required 模式('yes'/'no')同理不受影響。
+//
+// 【範圍】僅涵蓋 bundle-eligible 的 mod。將來若新增「有 qty_selector 但無 bundle」
+//   的 mod,其 base cost 仍會漏乘 qty —— 記於 D-4,本票不擴大範圍。
+function resolveModLaborCost(mfCode, displayLabel, value, flatCost) {
+  const base = (typeof flatCost === 'number' && isFinite(flatCost)) ? flatCost : 0;
+  if (!isBundleEligible(mfCode, displayLabel)) return round2(base);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return round2(base);
+  if (!('enabled' in value) || !('qty' in value)) return round2(base);
+  if (value.enabled !== true) return 0;
+
+  const qty = bundleMappingQty(mfCode, value);   // rotQty 唯一來源
+  if (!(qty > 0)) return 0;
+  return round2(base * qty);                     // CB-46 SOP:pre-round 再累加
+}
+
+// CB-72 問題二:bundle SKU(子項)的 assemble fee。
+//
+// 取值路徑(全程正向識別,任一步驟對不上 → 回 0 並於 console 留痕):
+//   item.style_code → door_styles.construction_type → framed / frameless
+//   → modification_bundles.mapping_sku(依 source_sku 尺寸,共 8 種 ROT SKU)
+//   → skus_{ctype}.type(= 'ROLL OUT TRAY')
+//   → dealers.asm_fee_{ctype}_roll_out_tray
+//
+// 【正向門檻】item.type === 'Assembled' 才計費。RTA 品項本就不會有 mod
+//   (getItemOverallStatus 直接回 'skipped'),此門檻為防禦性:若將來流程變更
+//   使 RTA 也能帶 mod,失效模式為「漏掉(不收費)」而非「誤收」。
+//
+// 【asm_fee = 0】為合法值(該 dealer 不收組裝費),回傳 0 而非視為錯誤;
+//   顯示層依 Q-3 沿用父 row 慣例(> 0 ? '+$X' : '—')。
+//   欄位不存在 / 非數值 → console.warn 並回 0(fail-visible,不靜默吐 NaN)。
+function computeBundleAssembleFee(item, mfCode, displayLabel, value) {
+  const EMPTY = { asm_fee_per_unit: 0, asm_fee: 0, mapping_sku: null, mapping_qty: 0 };
+  if (!item || !dealer) return EMPTY;
+  if (item.type !== 'Assembled') return EMPTY;
+  if (!isBundleEligible(mfCode, displayLabel)) return EMPTY;
+
+  const qty = bundleMappingQty(mfCode, value);   // rotQty 唯一來源
+  if (!(qty > 0)) return EMPTY;
+
+  const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+  if (!styleRow) return EMPTY;
+
+  const ctype = (styleRow.construction_type || '').toLowerCase();
+  if (ctype !== 'framed' && ctype !== 'frameless') return EMPTY;
+
+  const bundle = modificationBundles.find(function (b) {
+    return b && (b.type || '').toLowerCase() === ctype
+        && b.source_sku === item.sku_code
+        && b.mf_code === mfCode;
+  });
+  if (!bundle) return EMPTY;
+
+  const skuMaster  = (ctype === 'frameless') ? allSkusFrameless : allSkusFramed;
+  const mappingRow = skuMaster.find(function (s) { return s.sku_code === bundle.mapping_sku; });
+  if (!mappingRow) {
+    console.error('[CB-72] Mapping SKU "' + bundle.mapping_sku + '" not found in skus_' + ctype +
+                  ' (source=' + item.sku_code + ', ' + mfCode + ') — assemble fee = 0');
+    return { asm_fee_per_unit: 0, asm_fee: 0, mapping_sku: bundle.mapping_sku, mapping_qty: qty };
+  }
+
+  const mType  = (mappingRow.type || '').toUpperCase();
+  const suffix = CB72_MAPPING_ASM_FEE_SUFFIX[mType];
+  if (!suffix) {
+    console.warn('[CB-72] Mapping SKU "' + bundle.mapping_sku + '" has type "' + mType +
+                 '" with no assemble-fee column mapping — assemble fee = 0');
+    return { asm_fee_per_unit: 0, asm_fee: 0, mapping_sku: bundle.mapping_sku, mapping_qty: qty };
+  }
+
+  const col = 'asm_fee_' + ctype + '_' + suffix;
+  const raw = parseFloat(dealer[col]);
+  if (!isFinite(raw)) {
+    console.warn('[CB-72] dealers.' + col + ' missing or non-numeric (value=' +
+                 JSON.stringify(dealer[col]) + ') — assemble fee = 0');
+    return { asm_fee_per_unit: 0, asm_fee: 0, mapping_sku: bundle.mapping_sku, mapping_qty: qty };
+  }
+
+  const perUnit = round2(raw);                   // CB-46 SOP:pre-round 再累加
+  return {
+    asm_fee_per_unit: perUnit,
+    asm_fee:          round2(perUnit * qty),
+    mapping_sku:      bundle.mapping_sku,
+    mapping_qty:      qty,
+  };
+}
+  
 const ZOOM_ICON_SVG = '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
 const ADMIN_LOCK_SVG = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>';
 const TRASH_SVG = '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
@@ -3248,12 +3389,16 @@ function renderMfElements(rules, savedByIdx, subRef) {
   try {
       const initVal  = (typeof instance.getValue === 'function') ? instance.getValue() : null;
       const initCost = (typeof instance.calculateCost === 'function') ? instance.calculateCost() : 0;
-      const safeCost = (typeof initCost === 'number' && isFinite(initCost)) ? initCost : 0;
+      const rawCost  = (typeof initCost === 'number' && isFinite(initCost)) ? initCost : 0;
       const _bItem = cartItems.find(function (i) { return i.key === activeMfModalKey; });
-      const _bMat  = computeBundleMaterial(_bItem, mfCode, rule.display_label || mfCode, initVal);
+      const _bLbl  = rule.display_label || mfCode;
+      const safeCost = resolveModLaborCost(mfCode, _bLbl, initVal, rawCost);      // CB-72
+      const _bMat  = computeBundleMaterial(_bItem, mfCode, _bLbl, initVal);
+      const _bAsm  = computeBundleAssembleFee(_bItem, mfCode, _bLbl, initVal);    // CB-72
       subRef.liveValues[idx] = {
         value: initVal, cost: safeCost,
-        material: _bMat.material_cost, mapping_sku: _bMat.mapping_sku, mapping_qty: _bMat.mapping_qty
+        material: _bMat.material_cost, mapping_sku: _bMat.mapping_sku, mapping_qty: _bMat.mapping_qty,
+        mapping_asm_fee: _bAsm.asm_fee                                            // CB-72
       };
       renderBundleMaterialLine(row, _bMat);
     } catch (err) {
@@ -3350,9 +3495,11 @@ function refreshDependentLiveValue(subRef, dep) {
     const safeCost = (typeof c === 'number' && isFinite(c)) ? c : 0;
     const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
     const mat = computeBundleMaterial(item, dep.mf_code, dep.display_label, v);
+    const asm = computeBundleAssembleFee(item, dep.mf_code, dep.display_label, v);        // CB-72
     subRef.liveValues[dep.rule_idx] = {
-      value: v, cost: safeCost,
-      material: mat.material_cost, mapping_sku: mat.mapping_sku, mapping_qty: mat.mapping_qty
+      value: v, cost: resolveModLaborCost(dep.mf_code, dep.display_label, v, safeCost),   // CB-72
+      material: mat.material_cost, mapping_sku: mat.mapping_sku, mapping_qty: mat.mapping_qty,
+      mapping_asm_fee: asm.asm_fee                                                        // CB-72
     };
     if (dep.row) renderBundleMaterialLine(dep.row, mat);
   } catch (e) {
@@ -3462,10 +3609,14 @@ function freezeActiveSub() {
     }
     if (typeof cost !== 'number' || !isFinite(cost)) cost = 0;
     const _bMatF = computeBundleMaterial(_bItemF, rec.mf_code, rec.display_label, val);
+    const _bAsmF = computeBundleAssembleFee(_bItemF, rec.mf_code, rec.display_label, val);   // CB-72
+    cost = resolveModLaborCost(rec.mf_code, rec.display_label, val, cost);                   // CB-72
     snapshot.push({
       rule_idx: rec.rule_idx, mf_code: rec.mf_code,
       display_label: rec.display_label, value: val, cost: cost,
-      material_cost: _bMatF.material_cost, mapping_sku: _bMatF.mapping_sku, mapping_qty: _bMatF.mapping_qty, no_label: rec.no_label || null,   // CB-12
+      material_cost: _bMatF.material_cost, mapping_sku: _bMatF.mapping_sku, mapping_qty: _bMatF.mapping_qty,
+      mapping_asm_fee: _bAsmF.asm_fee,   // CB-72
+      no_label: rec.no_label || null,   // CB-12
       binding_hidden: rec.binding_hidden || false,   // F-BINDING-GROUP: 帶進 frozen,讓非作用中分頁 validate 跳過
     });
   });
@@ -4159,6 +4310,8 @@ function handleMfSave() {
       const taxStatus = resolveTaxStatusForEntry(entry);
       const laborCost    = (typeof entry.cost === 'number' && isFinite(entry.cost)) ? entry.cost : 0;
       const materialCost = (typeof entry.material_cost === 'number' && isFinite(entry.material_cost)) ? entry.material_cost : 0;
+      // CB-72: bundle SKU 的組裝費。舊單無此 key → 0(既往不咎天然成立)。
+      const mappingAsmFee = (typeof entry.mapping_asm_fee === 'number' && isFinite(entry.mapping_asm_fee)) ? entry.mapping_asm_fee : 0;
       return {
         rule_idx:      entry.rule_idx,
         mf_code:       entry.mf_code,
@@ -4168,6 +4321,9 @@ function handleMfSave() {
         material_cost: materialCost,
         mapping_sku:   entry.mapping_sku || null,
         mapping_qty:   entry.mapping_qty || 0,
+        mapping_asm_fee: mappingAsmFee,   // CB-72
+        // CB-72 範圍紀律:total_cost 全庫無任何讀取端(D-6 死欄位,記錄不修),
+        //   故不併入 mapping_asm_fee,維持原語意。
         total_cost:    laborCost + materialCost,
         tax_status:    taxStatus,
         no_label:      entry.no_label || null,   // CB-12
