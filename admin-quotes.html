@@ -536,7 +536,21 @@ const SUPABASE_ANON = window.SB_KEY;
 const { createClient } = window.supabase;
 const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','MODIFICATION'];
+// CB-72:加入 'ROLL OUT TRAY'。本常數是下方 asmBreakdownHtml 的白名單 ——
+//   `TYPE_ORDER.filter(t => byType[t])` 會把不在清單內的分組【靜默丟棄】,不報錯。
+//   若漏加,Assemble Fee 總額含 ROT 但明細不含,兩者差額無解釋。
+const TYPE_ORDER = ['BASE','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','MODIFICATION'];
+
+// CB-72: mapping SKU(bundle 子項)組裝費的分組標籤。
+//   本頁無 skus_framed / skus_frameless 快取,無法反查 mapping SKU 的 type,
+//   故用固定標籤。依據的跨檔不變式:
+//     new-quote-modifications.html 的 CB72_MAPPING_ASM_FEE_SUFFIX 是「是否產生
+//     組裝費」的唯一決定點,目前只有 'ROLL OUT TRAY' 一個 key ——
+//     故 mapping_asm_fee > 0 ⇒ 該 mapping SKU 的 type 必為 ROLL OUT TRAY。
+//   ⚠ 若將來往該 map 新增第二個 key,本頁的分組標籤會顯示錯誤類型。
+//     失效模式為「標籤寫錯(肉眼可見)」而非「金額算錯」,金額仍正確。
+//     記於 D-7。
+const CB72_MAPPING_ASM_TYPE_LABEL = 'ROLL OUT TRAY';
 const statusClass = {
   Draft:'draft',
   'Stock Review':'stock-review',
@@ -901,15 +915,39 @@ function renderTable() {
     });
 
     // ── Assemble breakdown ──
+    // CB-72: 納入 mapping SKU(bundle 子項)的組裝費。
+    //   本頁的 assembleTotal 是 live 由 quote_items 重算(非讀 quotes.assemble_total
+    //   快照),若不納入,同一張單在 admin-quotes 與 quote-detail 會顯示兩個不同的
+    //   Assemble Fee —— 這是本票製造的新分岔,故納入(Q-9)。
+    //   quote_items 每一列即一個 sub-group,故 i.quantity 就是 subQty。
+    //   ⚠ 原本的早退 return 已改為 if 區塊 —— 早退會讓 RTA 或無櫃體組裝費的品項
+    //     連帶跳過下方 mapping 段,使 ROT 組裝費漏計。
     const byType = {};
+    let mappingAsmTotal = 0;
     items.forEach(function(i) {
-      if ((i.assemble_status || '').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
-      const t = (i.sku_type || 'OTHER').toUpperCase();
-      if (!byType[t]) byType[t] = { qty: 0, total: 0 };
-      byType[t].qty   += i.quantity;
-      byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+      if ((i.assemble_status || '').toLowerCase() === 'assembled' && i.assemble_fee) {
+        const t = (i.sku_type || 'OTHER').toUpperCase();
+        if (!byType[t]) byType[t] = { qty: 0, total: 0 };
+        byType[t].qty   += i.quantity;
+        byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+      }
+      // ── CB-72: mapping SKU 組裝費 ──
+      const _subQty = parseInt(i.quantity, 10) || 0;
+      const _mods   = Array.isArray(i.modifications) ? i.modifications : [];
+      _mods.forEach(function(m) {
+        const mq = parseInt(m && m.mapping_qty, 10) || 0;
+        if (!(m && m.mapping_sku) || !(mq > 0)) return;
+        const fee = parseFloat(m && m.mapping_asm_fee);
+        if (!isFinite(fee) || !(fee > 0)) return;
+        const t2 = CB72_MAPPING_ASM_TYPE_LABEL;
+        if (!byType[t2]) byType[t2] = { qty: 0, total: 0 };
+        byType[t2].qty   += mq * _subQty;
+        byType[t2].total += fee * _subQty;
+        mappingAsmTotal  += fee * _subQty;
+      });
     });
-    const assembleTotal = items.reduce(function(s, i) { return s + parseFloat(i.assemble_fee || 0) * i.quantity; }, 0);
+    const assembleTotal = items.reduce(function(s, i) { return s + parseFloat(i.assemble_fee || 0) * i.quantity; }, 0)
+                        + mappingAsmTotal;   // CB-72
 
     let asmBreakdownHtml = '';
     if (assembleTotal > 0) {
