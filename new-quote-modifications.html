@@ -3535,9 +3535,11 @@ function onMfChangeDelegated(e) {
     ? activeMfModalRules[parseInt(ruleIdx, 10)] : null;
   const _bLabel = (_bRule && _bRule.display_label) || mfCode;
   const _bMat = computeBundleMaterial(_bItem, mfCode, _bLabel, value);
+  const _bAsm = computeBundleAssembleFee(_bItem, mfCode, _bLabel, value);          // CB-72
   activeSub.liveValues[ruleIdx] = {
-    value: value, cost: cost,
-    material: _bMat.material_cost, mapping_sku: _bMat.mapping_sku, mapping_qty: _bMat.mapping_qty
+    value: value, cost: resolveModLaborCost(mfCode, _bLabel, value, cost),         // CB-72
+    material: _bMat.material_cost, mapping_sku: _bMat.mapping_sku, mapping_qty: _bMat.mapping_qty,
+    mapping_asm_fee: _bAsm.asm_fee                                                 // CB-72
   };
   renderBundleMaterialLine(row, _bMat);
 
