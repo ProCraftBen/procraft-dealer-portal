@@ -640,7 +640,12 @@ const _supabase = createClient(
 // F-CUSTOM (Phase 5): Added 'OTHER' between ACCESSORIES and MODIFICATION,
 // aligned with new-quote-step3.html. Custom Other items get sku_type='OTHER'
 // and need a defined sort rank.
-const TYPE_ORDER = ['BASE','WALL','TALL','ACCESSORIES','OTHER','MODIFICATION'];
+// CB-72:加入 'ROLL OUT TRAY'。本常數是下方 asmBreakdownHtml 的白名單 ——
+//   `TYPE_ORDER.filter(t=>byType[t])` 會把不在清單內的分組【靜默丟棄】,不報錯。
+//   若漏加,Assemble Fee 總額含 ROT 但明細不含,兩者差額無解釋。
+//   ⚠ 與同檔的 FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22)語意重疊但內容
+//     不同,勿誤改(D-3)。
+const TYPE_ORDER = ['BASE','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
 const statusClass = {
   Draft:'draft',
   'Stock Review':'stock-review',
@@ -701,12 +706,13 @@ const FULFILL_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48
 // shortStatus.
 // ─────────────────────────────────────────────────────────────────────────
 const TYPE_SHORT_MAP = {
-  'BASE':         'BAS',
-  'WALL':         'WAL',
-  'TALL':         'TAL',
-  'ACCESSORIES':  'ACC',
-  'OTHER':        'OTH',
-  'MODIFICATION': 'MOD',
+  'BASE':           'BAS',
+  'WALL':           'WAL',
+  'TALL':           'TAL',
+  'ROLL OUT TRAY':  'ROT',   // CB-72:三檔同步縮寫表,step3 / quote-detail / pdf-builder 三份必須一致
+  'ACCESSORIES':    'ACC',
+  'OTHER':          'OTH',
+  'MODIFICATION':   'MOD',
 };
 const STATUS_SHORT_MAP = {
   'ASSEMBLED': 'ASM',
@@ -1432,11 +1438,17 @@ function buildItemRowsHtml(groupedItems) {
               parentPerSubModCost += (isNaN(c) ? 0 : c);
               if (hasMapping) {
                 const matPerSub = isNaN(mt) ? 0 : mt;   // 每 sub-unit 材料費
+                // CB-72: 每 sub-unit 組裝費。本檔【只讀快照,不重算】——
+                //   值由 new-quote-modifications.html 於 handleMfSave 落庫。
+                //   舊單無此 key → parseFloat(undefined) = NaN → 0,金額不變。
+                const _asmRaw   = parseFloat(m && m.mapping_asm_fee);
+                const asmPerSub = isNaN(_asmRaw) ? 0 : _asmRaw;
                 mappingList.push({
                   code:  m.mapping_sku,
                   qty:   mq * subQty,
                   unit:  mq > 0 ? (matPerSub / mq) : 0,
-                  total: matPerSub * subQty,
+                  asm:   asmPerSub * subQty,                          // CB-72
+                  total: (matPerSub * subQty) + (asmPerSub * subQty), // CB-72:材料 + 組裝
                 });
               } else {
                 parentPerSubModCost += (isNaN(mt) ? 0 : mt);  // 防呆:無 mapping 的 material 留父 row
@@ -1507,6 +1519,13 @@ function buildItemRowsHtml(groupedItems) {
               const mapSkuCell  = `${mapPrefix}${escapeHtml(map.code)}`;
               const mapDescCell = info.description ? `<div class="desc-main">${escapeHtml(info.description)}</div>` : '';
 
+              // CB-72: Assembled 改為 Yes(bundle 子項隨父櫃體一併組裝);
+              //   Assemble Fee 沿用父 row 慣例 > 0 ? '+$X' : '—'(Q-3,0 為合法值)。
+              //   兩者皆硬編碼英文,與父 row 一致,不掛 i18n key(CB-62 Q-5)。
+              const mapAsmCellHtml = map.asm > 0
+                ? `<span style="color:var(--muted);">+$${map.asm.toFixed(2)}</span>`
+                : '<span style="color:var(--muted);">—</span>';
+
               rows.push(`
                 <tr class="mapping-row">
                   <td>#${parentNum}.${k + 1}</td>
@@ -1514,10 +1533,10 @@ function buildItemRowsHtml(groupedItems) {
                   <td class="td-right">${map.qty}</td>
                   <td class="td-sku">${mapSkuCell}</td>
                   <td class="td-desc">${mapDescCell}</td>
-                  <td style="font-size:12px;color:var(--muted);">—</td>
+                  <td style="font-size:12px;">Yes</td>
                   <td class="td-right">$${map.unit.toFixed(2)}</td>
                   <td class="td-right"><span style="color:var(--muted);">—</span></td>
-                  <td class="td-right"><span style="color:var(--muted);">—</span></td>
+                  <td class="td-right">${mapAsmCellHtml}</td>
                   <td class="td-right td-total">$${map.total.toFixed(2)}</td>
                 </tr>`);
             });
@@ -1893,13 +1912,37 @@ function renderQuote(quote, dealer, addr) {
   // ─────────────────────────────────────────────────────────────────────
 
   // Assemble breakdown by type
+  // CB-72: 加入 mapping SKU(bundle 子項)的組裝費分組。
+  //   分組標籤取 mapping SKU【自身】的 type(= 'ROLL OUT TRAY'),不取父櫃體的
+  //   BASE / TALL —— 與組裝費欄位的取值依據一致。查不到 → OTHER(在 TYPE_ORDER
+  //   內,會顯示出來),失效模式為「跑錯分組(可見)」而非「整列消失(不可見)」。
+  //   ⚠ 原本的早退 return 已改為 if 區塊 —— 早退會讓 RTA 或無櫃體組裝費的品項
+  //     連帶跳過下方 mapping 段,使 ROT 組裝費漏計。
+  //   quote_items 每一列即一個 sub-group,故 i.quantity 就是 subQty。
+  //   總額 assembleTotal 讀 quotes.assemble_total 快照:新單已含 ROT,舊單不含
+  //   且 mapping_asm_fee 亦不存在 → 明細與總額兩邊天然一致。
   const byType = {};
   (quote.quote_items || []).forEach(i => {
-    if ((i.assemble_status || '').toLowerCase() !== 'assembled' || !i.assemble_fee) return;
-    const t = (i.sku_type || 'OTHER').toUpperCase();
-    if (!byType[t]) byType[t] = { qty: 0, total: 0 };
-    byType[t].qty   += i.quantity;
-    byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+    if ((i.assemble_status || '').toLowerCase() === 'assembled' && i.assemble_fee) {
+      const t = (i.sku_type || 'OTHER').toUpperCase();
+      if (!byType[t]) byType[t] = { qty: 0, total: 0 };
+      byType[t].qty   += i.quantity;
+      byType[t].total += parseFloat(i.assemble_fee) * i.quantity;
+    }
+    // ── CB-72: mapping SKU 組裝費 ──
+    const _subQty = parseInt(i.quantity, 10) || 0;
+    const _mods   = Array.isArray(i.modifications) ? i.modifications : [];
+    _mods.forEach(function (m) {
+      const mq = parseInt(m && m.mapping_qty, 10) || 0;
+      if (!(m && m.mapping_sku) || !(mq > 0)) return;
+      const fee = parseFloat(m && m.mapping_asm_fee);
+      if (!isFinite(fee) || !(fee > 0)) return;
+      const info = getMappingSkuInfo(m.mapping_sku, _ct);
+      const mt2  = (info.type || 'OTHER').toUpperCase();
+      if (!byType[mt2]) byType[mt2] = { qty: 0, total: 0 };
+      byType[mt2].qty   += mq * _subQty;
+      byType[mt2].total += fee * _subQty;
+    });
   });
   const assembleTotal = parseFloat(quote.assemble_total || 0);
   // F-COL-ABBREVIATIONS: use shortType() for the by-type breakdown labels
