@@ -472,6 +472,7 @@
   "nq2.section.accessory_details": "Detalles del accesorio",
   "nq2.section.other_details": "Otros detalles",
   "nq2.field.construction": "Tipo de construcción",
+  "nq2.field.construction_notice": "El tipo de construcción no se guarda con los artículos personalizados, por lo que no se puede restaurar. Selecciónelo de nuevo: también determina la tarifa de ensamblaje. El tipo de gabinete también debe seleccionarse de nuevo.",
   "nq2.field.door_style": "Estilo de puerta",
   "nq2.field.door_style_optional": "Estilo de puerta (opcional)",
   "nq2.ph.door_style": "Escriba el nombre del estilo (ej. Nogal personalizado)",
