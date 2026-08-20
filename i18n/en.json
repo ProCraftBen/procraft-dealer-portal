@@ -472,6 +472,7 @@
   "nq2.section.accessory_details": "Accessory Details",
   "nq2.section.other_details": "Other Details",
   "nq2.field.construction": "Construction Type",
+  "nq2.field.construction_notice": "Construction type is not stored with custom items, so it cannot be restored. Please select it again — it also sets the assemble fee. Cabinet Type must be re-selected as well.",
   "nq2.field.door_style": "Door Style",
   "nq2.field.door_style_optional": "Door Style (optional)",
   "nq2.ph.door_style": "Type door style name (e.g. Custom Walnut)",
