@@ -1809,6 +1809,43 @@ function renderBundleMaterialLine(row, mat) {
     '<span class="bm-sep">·</span><span class="bm-qty">Qty ' + mat.mapping_qty + '</span>' +
     '<span class="bm-sep">·</span><span class="bm-mat">Material $' + (mat.material_cost || 0).toFixed(2) + '</span>';
 }
+      '<span class="bm-sep">·</span><span class="bm-mat">Material $' + (mat.material_cost || 0).toFixed(2) + '</span>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-72 Q-11:row 標籤右上的「Base cost: +$X」隨 qty 動態更新。
+//
+// 【語意】本行顯示的是【該 mod 的 labor 小計】(= base cost × rotQty),
+//   與下方藍條「BOX-ROT30 · Qty 2 · Material $144.00」的小計語意一致。
+//   元件內緊貼 toggle 的「+$10.00」維持【單價】不變(Q-11b = B1,
+//   mf03-pure-toggle.js 不動,Q-6 = A2 的前提保持成立)。
+//
+// 【正向判斷】只更新一般的 cost span:
+//   • span 不存在  → hasUnitMultiplier(Glass 雙門)本來就沒有這一格,直接返回
+//   • admin-only   → 顯示 "Admin Only",不是金額,不動
+//   • shown 為 0   → "Included" 的 row,維持原文字
+//   失效模式為「沒更新(數字停在原值,可由 [+] 測試直接看出)」,
+//   而非「更新到不該更新的 row」。
+//
+// 【i18n】label key `nqm.ro.base_cost` 未變,只有數字變 → 不新增 key
+//   (CB-62 764 keys 平價基線不動,Q-5 的核心理由保留)。
+//   用 textContent 而非 innerHTML,無需 esc()。
+//
+// 【不涵蓋】refreshDependentLiveValue 的 dependent row 不呼叫本函式 ——
+//   GLASS 群組的 dependent(Prep For Glass / Matching Interior)非
+//   bundle-eligible,labor 恆等於 flat cost,更新後文字不變。範圍紀律。
+// ═══════════════════════════════════════════════════════════════════
+function renderBaseCostLine(row, cost, flatCost) {
+  if (!row) return;
+  const span = row.querySelector('.mf-row-label-cost');
+  if (!span) return;
+  if (span.classList.contains('admin-only')) return;
+  const shown = (typeof cost === 'number' && isFinite(cost) && cost > 0)
+    ? cost
+    : ((typeof flatCost === 'number' && isFinite(flatCost)) ? flatCost : 0);
+  if (!(shown > 0)) return;
+  span.textContent = pcTxt('nqm.ro.base_cost', 'Base cost:') + ' +$' + shown.toFixed(2);
+}
 // ═══════════════════════════════════════════════════════════════════
 // CB-72: 金額取整 helper —— round2()
 //
@@ -3401,6 +3438,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
         mapping_asm_fee: _bAsm.asm_fee                                            // CB-72
       };
       renderBundleMaterialLine(row, _bMat);
+      renderBaseCostLine(row, safeCost, baseCost);   // CB-72 Q-11:resume 舊草稿時直接顯示小計
     } catch (err) {
       console.warn('[E4.7] Failed to seed live value for ' + mfCode, err);
     }
@@ -3536,12 +3574,15 @@ function onMfChangeDelegated(e) {
   const _bLabel = (_bRule && _bRule.display_label) || mfCode;
   const _bMat = computeBundleMaterial(_bItem, mfCode, _bLabel, value);
   const _bAsm = computeBundleAssembleFee(_bItem, mfCode, _bLabel, value);          // CB-72
+  const _bLabor = resolveModLaborCost(mfCode, _bLabel, value, cost);               // CB-72
   activeSub.liveValues[ruleIdx] = {
-    value: value, cost: resolveModLaborCost(mfCode, _bLabel, value, cost),         // CB-72
+    value: value, cost: _bLabor,                                                   // CB-72
     material: _bMat.material_cost, mapping_sku: _bMat.mapping_sku, mapping_qty: _bMat.mapping_qty,
     mapping_asm_fee: _bAsm.asm_fee                                                 // CB-72
   };
   renderBundleMaterialLine(row, _bMat);
+  // CB-72 Q-11:未勾選時 _bLabor = 0,退回顯示 rule 的單價(與改動前一致)
+  renderBaseCostLine(row, _bLabor, parseFloat(_bRule && _bRule.cost) || 0);
 
   console.log('[E4.5] Sub ' + (activeSub.sub_index || (activeSubGroupIdx + 1)) +
               ' · ' + mfCode + ' (rule_idx=' + ruleIdx + ') → value:',
