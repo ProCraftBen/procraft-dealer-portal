@@ -2216,18 +2216,53 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
   const skuAll = allSkusFramed.concat(allSkusFrameless);
   const groupsByKey = new Map();
 
+  // ═══════════════════════════════════════════════════════════════════
+  // F-66 — null-safe ordering + key build (PM 2026-08-20: Q-1=A / Q-2=C /
+  // Q-3=A / Q-4=A / Q-8=A)
+  //
+  // ⚠ THIS BLOCK IS THE TWIN OF new-quote-step2.html loadDraftItems().
+  //   Both were byte-identical before F-66 and must be changed together.
+  //
+  // WHY: quote_items.style_code is NULL for EVERY custom item. All three
+  // Custom Item modal types write null (new-quote-step2.html L2569 Cabinet
+  // / L2624 Accessory / L2631 Other). This is a PERMANENT LEGAL VALUE,
+  // ratified by the owner on 2026-08-20 — not a data anomaly. The guard
+  // below is long-term design, not a temporary workaround. Do not remove it
+  // just because the current production rows happen to be clean.
+  //
+  // GUARD STYLE (Q-1=A): `|| ''` is a VALUE COERCION, not a type check.
+  // Chosen to match the three already-shipped files verbatim:
+  //   new-quote-step3.html L1951 / quote-detail.html L1238 / pdf-builder.js L245
+  // If a non-string, non-null type ever reaches these fields this guard is
+  // NOT sufficient — revisit all files together, not just this one.
+  //
+  // ORDERING (Q-3=A): null → '' → sorts FIRST. Identical to the files above.
+  //
+  // ⚠ Q-8=A DELIBERATE DIVERGENCE — do NOT "align this away":
+  //   step3 L1961 guards ONLY style_code in its key build. Here all three
+  //   string fields are guarded, which is STRICTER. That is intentional:
+  //   sku_code is schema-nullable too. The step3 gap is tracked as F-69
+  //   (currently unreachable — no code path produces a null sku_code).
+  //   If the two are ever aligned, THREE places must change together:
+  //   here, new-quote-step2.html, and step3 L1961. Never one alone.
+  // ═══════════════════════════════════════════════════════════════════
   const sorted = items.slice().sort(function (a, b) {
-    if (a.style_code !== b.style_code) return a.style_code.localeCompare(b.style_code);
-    if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
-    if (a.assemble_status !== b.assemble_status) {
-      return a.assemble_status.localeCompare(b.assemble_status);
-    }
+    const sa = a.style_code || '', sb = b.style_code || '';
+    if (sa !== sb) return sa.localeCompare(sb);
+    const ka = a.sku_code || '', kb = b.sku_code || '';
+    if (ka !== kb) return ka.localeCompare(kb);
+    const ta = a.assemble_status || '', tb = b.assemble_status || '';
+    if (ta !== tb) return ta.localeCompare(tb);
     return (a.sub_index || 1) - (b.sub_index || 1);
   });
 
   sorted.forEach(function (row) {
-    const key = row.sku_code + '_' + row.assemble_status;
-    const groupKey = row.style_code + '|' + key;
+    // F-66 Q-2=C: guard BOTH key levels. Unguarded, a null style_code is
+    // concatenated as the literal string "null" → groupKey "null|F66TEST_RTA".
+    // Sorting would stop throwing but the key would still be wrong —
+    // "looks fixed, isn't".
+    const key = (row.sku_code || '') + '_' + (row.assemble_status || '');
+    const groupKey = (row.style_code || '') + '|' + key;
 
     if (!groupsByKey.has(groupKey)) {
       const style = allDoorStyles.find(function (s) { return s.style_code === row.style_code; });
@@ -2235,12 +2270,29 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
       groupsByKey.set(groupKey, {
         key:           key,
         style_code:    row.style_code,
-        style_name:    style ? style.style_name : row.style_code,
+        // F-66 Q-5: custom items are not in the catalog, so `style` / `sku`
+        // lookups always miss and the old fallbacks resolved to null (style)
+        // and the bare SKU code (desc) — both then written straight back to
+        // the DB by step3 buildItemsPayload L3056 / L3058, silently wiping
+        // what the admin typed. Extra fallback layer reads the row snapshot.
+        // NOTE: the catalog value deliberately stays FIRST here, matching
+        // new-quote-step2.html. step3 L1974/L1976 puts the row snapshot
+        // first instead; that difference is intentional (step3 L1909
+        // "三份行為刻意不同,勿盲目對齊").
+        style_name:    style ? style.style_name : (row.style_name || row.style_code),
         sku_code:      row.sku_code,
-        sku_desc:      sku ? sku.description : row.sku_code,
+        sku_desc:      sku ? sku.description : (row.sku_desc || row.sku_code),
         skuType:       row.sku_type || '',
         category:      sku ? (sku.category    || '') : '',
         subcategory:   sku ? (sku.subcategory || '') : '',
+        // F-66 Q-5: carry is_custom back from the DB. Without it the flag is
+        // undefined here, step3 buildItemsPayload L3078 writes !!undefined =
+        // false, and the custom marker is permanently lost on the next save.
+        // Restoring it also activates this page's custom-aware rendering,
+        // which had never actually executed on the cold-entry path:
+        // L2315 isCustomGroup / L2469 customStyleTag / L2513 swap-button
+        // suppression / L2081 / L2603 / L2634 / L2658 / L2734 / L3921.
+        is_custom:     !!row.is_custom,
         type:          row.assemble_status,
         quantity:      0,
         unit_price:    parseFloat(row.unit_price),
