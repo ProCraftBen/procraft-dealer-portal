@@ -593,6 +593,12 @@ color: var(--green-dark);
           <div class="info-label" data-i18n="nq3.field.job_name">Job Name</div>
           <div class="info-value" id="reviewJobName">—</div>
         </div>
+        <!-- CB-74:Sales 名稱。畫面端【掛 i18n】(nq3.field.sales),
+             PDF 端則英文硬編碼且不掛標記(CB-62 Q-56)——兩者刻意不同,勿對齊。 -->
+        <div class="info-item">
+          <div class="info-label" data-i18n="nq3.field.sales">Sales</div>
+          <div class="info-value" id="reviewSalesName">—</div>
+        </div>
         <div class="info-item">
           <div class="info-label" data-i18n="nq3.field.dealer">Dealer</div>
           <div class="info-value" id="reviewDealer">—</div>
@@ -953,6 +959,7 @@ const _supabase = createClient(
 );
 
 let dealer    = null;
+let _salesName = null;   // CB-74: dealer 對應的業務姓名(RPC 取得;null → 顯示 —)
 let _meStamp  = null;   // CB-50: 當下登入者（download stamp 用；step3 admin-draft 時 dealer≠登入者）
 let step1Data = null;
 let step2Data = null;
@@ -1906,7 +1913,11 @@ const CB53_DEALER_EDITABLE_STATUSES = ['Draft', 'Returned'];
 //    ——不報錯,金額直接算錯。
 //
 // ⚠️ 三處同步:本函式 / new-quote-step2.html / new-quote-modifications.html。
-//    三份行為【刻意不同】:只有本函式保留 is_custom(B-12),勿盲目對齊。
+//    三份行為【刻意不同】,勿盲目對齊。現行的刻意差異是 style_name / sku_desc
+//    的取值順序:step2 與 modifications 以 catalog 值優先,本函式以 row 快照
+//    優先(F-66 正是靠這條註解才沒有把三者「對齊」掉)。
+//    F-70:原本這裡舉的例子是 is_custom,該例已失效 —— F-66 Q-5 之後三份都
+//    保留 is_custom 了。原則不變,只換舉例。
 // ─────────────────────────────────────────────────────────────────────────────
 
 // U0/V-1: 逐鍵對齊 new-quote.html:1436-1445 的 quoteData(11 鍵)。
@@ -1934,10 +1945,12 @@ function cb53BuildStep1FromQuote(q) {
 //       (new-quote-step2.html 2547-2567 三分支有兩支給 null),
 //       原版 a.style_code.localeCompare() 會拋 TypeError 讓整個 init 中斷。
 //       而 custom item 只出現在 admin 經手的單 = 本票的主要母體,必修。
-//   (b) B-12 is_custom —— 兩份既有 loadDraftItems 都沒把 quote_items.is_custom
-//       讀回 cart,submit 時 buildItemsPayload 以 !!undefined 寫回 false,
-//       永久蓋掉旗標。step3 是唯一會寫 DB 的一支,在這裡守住即可讓冷入口
-//       完全乾淨;暖入口仍有此問題,留獨立票一次修三處。
+//   (b) B-12 is_custom —— 本函式把 quote_items.is_custom 讀回 cart,避免 submit
+//       時 buildItemsPayload 以 !!undefined 寫回 false 而永久蓋掉旗標。
+//       F-70:原註解寫「兩份既有 loadDraftItems 都沒讀回、暖入口仍有此問題」,
+//       該敘述已失效 —— F-66 Q-5 已在 new-quote-step2.html 與
+//       new-quote-modifications.html 補上同樣的讀回,三處現已一致,
+//       冷熱入口皆乾淨。此處保留不刪:它仍是 step3 寫 DB 前的最後一道。
 async function cb53BuildCartFromDb(quoteId) {
   const { data: items, error } = await _supabase
     .from('quote_items').select('*').eq('quote_id', quoteId);
@@ -2160,6 +2173,23 @@ let dealerIdToLoad = session.user.id;
   }
   dealer = d;
 
+  // ── CB-74:取 dealer 對應的業務姓名 ───────────────────────────────────────
+  //   🔴 不可改成直接查 dealers。該表 SELECT policy 聯集為
+  //      `id = auth.uid() OR is_admin()`,而 sales 姓名位於 role=admin 的
+  //      【另一列】—— dealer 身分讀取結果為 null 且【不報錯】,四種 PDF 的
+  //      Sales 欄會全數靜默落回 '—'。故走 SECURITY DEFINER RPC(CB-74 M1),
+  //      其回傳面僅 contact_name 單欄,不外洩 admin 列的多層定價欄位。
+  //   admin 代建時 dealerIdToLoad 已是【被代建 dealer】的 id,RPC 內以
+  //      is_admin() 分支放行,兩種身分皆正確。
+  //   ⚠ fail-open:RPC 失敗只 warn,不阻擋報價流程(顯示 '—')。
+  //   ⚠ 未指派 sales 與讀不到共用同一個 '—'(PM Q-1 定版)。
+  {
+    const { data: _sn, error: _snErr } = await _supabase
+      .rpc('get_assigned_sales_name', { p_dealer_id: dealerIdToLoad });
+    if (_snErr) console.warn('[CB-74] get_assigned_sales_name failed:', _snErr);
+    _salesName = _sn || null;
+  }
+
   // CB-5 需求1/2: 載入 door_styles(整單 lead time + non-stock 判斷)
   // CB-9: 同時載入 skus_framed / skus_frameless 的 tag(Order List Tag 欄查表用)。
   //       不加 active 篩選,避免已下架但仍在舊報價裡的 SKU 查不到 tag。
@@ -2315,7 +2345,13 @@ if (draftId) {
 //   不報錯。若漏加,Assemble Fee 總額含 ROT 但明細不含,兩者差額無解釋。
 //   ⚠ 本常數與同檔的 FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22,Order List
 //     表格分組用)語意重疊但內容不同,兩者都在本檔內,勿誤改(D-3)。
-const TYPE_ORDER = ['BASE','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
+// CB-74:補上 'VANITY'(插在 BASE 之後,對齊 FRAMELESS_TYPE_ORDER 的既有順序)。
+//   徵狀:Assemble Fee 總額 $270 正確,明細卻只印 BASE ×3 +$180,VANITY ×1
+//   +$90 那一行被白名單靜默丟棄。此為【Assemble Fee 分組】,與 CB-75 的
+//   Modification 分組無關,勿混淆。
+//   ⚠ ACCESSORIES / MOLDINGS / PANELS 不在清單內是【設計正確】——它們沒有
+//     組裝版本,dealers 表亦無對應 asm_fee_* 欄位。勿一併補上。
+const TYPE_ORDER = ['BASE','VANITY','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
 
 function typeRank(type) {
   const idx = TYPE_ORDER.indexOf((type||'').toUpperCase());
@@ -2959,6 +2995,7 @@ function renderReview() {
   const poDisplay = _existingPoNumber || _existingDraftNumber || '—';  // 雙編號制: 有 P 顯 P,否則顯 Draft ID
   document.getElementById('reviewPO').textContent       = poDisplay;
   document.getElementById('reviewJobName').textContent  = step1Data.jobName  || '—';
+  document.getElementById('reviewSalesName').textContent = _salesName || '—';   // CB-74
   document.getElementById('reviewDealer').textContent   = dealer?.company_name || '—';
   document.getElementById('reviewContact').textContent  = dealer?.contact_name || '—';
 
@@ -3152,6 +3189,11 @@ function buildQuoteDataForPdf(opts) {
     po_number:     _existingPoNumber || null,           // submit 後才有
     draft_number:  _existingDraftNumber || null,         // 雙編號制: Draft Quote PDF 用(實際 D/P 切換在階段 6 pdf-builder)
     job_name:      step1Data?.jobName || null,
+    // CB-74:業務姓名送進 PDF(pdf-builder 的 _drawHeader 取用)。
+    //   🔴 本檔與 quote-detail.html 各有一份 buildQuoteDataForPdf(),
+    //      兩處都要供應這個鍵。漏掉任一處的失效模式是【PDF 靜默印 —】,
+    //      斷點在來源端而不在 pdf-builder —— F-40 訂單 note 踩過同一個坑。
+    sales_name:    _salesName || null,
     // F-40:訂單層級 note 送進 PDF(pdf-builder 的 _drawOrderNote 取用)。
     //   冷熱兩入口皆供應:熱路徑為 sessionStorage quoteStep1,冷路徑為
     //   cb53BuildStep1FromQuote() 的 notes: q.notes || ''。
