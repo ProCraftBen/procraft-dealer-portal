@@ -645,7 +645,12 @@ const _supabase = createClient(
 //   若漏加,Assemble Fee 總額含 ROT 但明細不含,兩者差額無解釋。
 //   ⚠ 與同檔的 FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22)語意重疊但內容
 //     不同,勿誤改(D-3)。
-const TYPE_ORDER = ['BASE','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
+// CB-74:補上 'VANITY'(插在 BASE 之後,對齊 FRAMELESS_TYPE_ORDER 的既有順序)。
+//   徵狀:Assemble Fee 總額正確,明細少一行 VANITY —— 白名單靜默丟棄。
+//   此為【Assemble Fee 分組】,與 CB-75 的 Modification 分組無關。
+//   ⚠ ACCESSORIES / MOLDINGS / PANELS 不在清單內是【設計正確】(無組裝版本,
+//     dealers 表無對應 asm_fee_* 欄位),勿一併補上。
+const TYPE_ORDER = ['BASE','VANITY','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
 const statusClass = {
   Draft:'draft',
   'Stock Review':'stock-review',
