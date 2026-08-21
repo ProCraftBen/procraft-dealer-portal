@@ -645,7 +645,12 @@ const _supabase = createClient(
 //   若漏加,Assemble Fee 總額含 ROT 但明細不含,兩者差額無解釋。
 //   ⚠ 與同檔的 FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22)語意重疊但內容
 //     不同,勿誤改(D-3)。
-const TYPE_ORDER = ['BASE','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
+// CB-74:補上 'VANITY'(插在 BASE 之後,對齊 FRAMELESS_TYPE_ORDER 的既有順序)。
+//   徵狀:Assemble Fee 總額正確,明細少一行 VANITY —— 白名單靜默丟棄。
+//   此為【Assemble Fee 分組】,與 CB-75 的 Modification 分組無關。
+//   ⚠ ACCESSORIES / MOLDINGS / PANELS 不在清單內是【設計正確】(無組裝版本,
+//     dealers 表無對應 asm_fee_* 欄位),勿一併補上。
+const TYPE_ORDER = ['BASE','VANITY','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','OTHER','MODIFICATION'];
 const statusClass = {
   Draft:'draft',
   'Stock Review':'stock-review',
@@ -881,6 +886,7 @@ const NOTES_TABLE_FALLBACK_LENGTH = 40;
 
 // Store for PDF generation
 let _quote = null, _dealer = null, _addr = null, _isAdmin = false, _me = null;
+let _salesName = null;   // CB-74: dealer 對應的業務姓名(RPC 取得;null → 顯示 —)
 
 // CB-62 Q-57:語言切換重繪用。§4.3 —— 條件問「載入過了嗎」,不是「現在有資料嗎」。
 let _loadState = 'loading';          // 'loading' | 'ready' | 'error'
@@ -1593,6 +1599,20 @@ async function init() {
   }
 
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', quote.dealer_id).single();
+
+  // ── CB-74:取 dealer 對應的業務姓名 ───────────────────────────────────────
+  //   🔴 不可改成直接查 dealers(或 embed assigned_sales_id)。該表 SELECT
+  //      policy 聯集為 `id = auth.uid() OR is_admin()`,sales 姓名在 role=admin
+  //      的【另一列】—— dealer 身分讀取結果為 null 且【不報錯】。走 SECURITY
+  //      DEFINER RPC(CB-74 M1),回傳面僅 contact_name 單欄。
+  //   ⚠ fail-open:RPC 失敗只 warn,不阻擋頁面渲染與 PDF 下載(顯示 '—')。
+  //   ⚠ 未指派 sales 與讀不到共用同一個 '—'(PM Q-1 定版)。
+  {
+    const { data: _sn, error: _snErr } = await _supabase
+      .rpc('get_assigned_sales_name', { p_dealer_id: quote.dealer_id });
+    if (_snErr) console.warn('[CB-74] get_assigned_sales_name failed:', _snErr);
+    _salesName = _sn || null;
+  }
   let shippingAddr = null;
   if (quote.shipping_address_id) {
     const { data: addr } = await _supabase.from('addresses').select('*').eq('id', quote.shipping_address_id).single();
@@ -2188,6 +2208,8 @@ function renderQuote(quote, dealer, addr) {
         <div class="info-grid">
           <div><div class="info-label">${escapeHtml(quote.po_number ? pcTxt('nq3.field.po_number', 'PO Number') : pcTxt('nq1.field.draft_id', 'Draft ID'))}</div><div class="info-value">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div></div>
           <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.job_name', 'Job Name'))}</div><div class="info-value">${escapeHtml(quote.job_name||'—')}</div></div>
+          <!-- CB-74:畫面端掛 i18n(nq3.field.sales);PDF 端英文硬編碼不掛標記(CB-62 Q-56),兩者刻意不同 -->
+          <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.sales', 'Sales'))}</div><div class="info-value">${escapeHtml(_salesName||'—')}</div></div>
           <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.dealer', 'Dealer'))}</div><div class="info-value">${escapeHtml(dealer?.company_name||'—')}</div></div>
           <div><div class="info-label">${escapeHtml(pcTxt('nq3.field.contact', 'Contact'))}</div><div class="info-value">${escapeHtml(dealer?.contact_name||'—')}</div></div>
           <div><div class="info-label">${escapeHtml(pcTxt('qd.field.logistic', 'Logistic'))}</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
@@ -2494,6 +2516,11 @@ function buildQuoteDataForPdf() {
     po_number:     _quote.po_number || null,
     draft_number:  _quote.draft_number || null,   // 雙編號制: Draft Quote PDF 用(D/P 切換在階段 6)
     job_name:      _quote.job_name || null,
+    // CB-74:業務姓名送進 PDF(pdf-builder 的 _drawHeader 取用)。
+    //   🔴 本檔與 new-quote-step3.html 各有一份 buildQuoteDataForPdf(),
+    //      兩處都要供應這個鍵。漏掉任一處的失效模式是【PDF 靜默印 —】,
+    //      斷點在來源端而不在 pdf-builder —— F-40 訂單 note 踩過同一個坑。
+    sales_name:    _salesName || null,
     // F-40:訂單層級 note 送進 PDF(pdf-builder 的 _drawOrderNote 取用)。
     //   PDF 沒印出來時,先確認這一行還在 —— 斷點一直在來源端,不在 pdf-builder。
     notes:         _quote.notes || null,
