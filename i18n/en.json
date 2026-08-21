@@ -670,6 +670,8 @@
   "nq3.sum.total_discount": "Total Discount",
   "nq3.sum.subtotal_after_discount": "Subtotal After Discount",
   "nq3.sum.modifications": "Modifications",
+  "nq3.sum.mods_other": "Other Modifications",
+  "nq3.sum.mods_labor_suffix": " (labor)",
   "nq3.sum.shipping": "Shipping",
   "nq3.sum.set_fee": "Set fee $",
   "nq3.sum.tax": "Tax",
