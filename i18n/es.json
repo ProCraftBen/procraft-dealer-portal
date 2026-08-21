@@ -670,6 +670,8 @@
   "nq3.sum.total_discount": "Descuento total",
   "nq3.sum.subtotal_after_discount": "Subtotal después del descuento",
   "nq3.sum.modifications": "Modificaciones",
+  "nq3.sum.mods_other": "Otras modificaciones",
+  "nq3.sum.mods_labor_suffix": " (mano de obra)",
   "nq3.sum.shipping": "Envío",
   "nq3.sum.set_fee": "Fijar cargo $",
   "nq3.sum.tax": "Impuesto",
