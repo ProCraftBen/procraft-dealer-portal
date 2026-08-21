@@ -32,4 +32,38 @@
 --
 -- NULL 的三種來源(前端一律顯示 '—',CB-74 Q-1):
 --   ① assigned_sales_id IS NULL —— 未指派,production 確定存在此類 dealer
---      (F-30
+--      (F-30 為此新增了 Unassigned 篩選選項)
+--   ② 呼叫者既非本人也非 admin —— 不應發生
+--   ③ assigned_sales_id 指向已刪除帳號 —— FK 為 ON DELETE SET NULL,
+--      實際會先變成 ①
+-- ============================================================================
+
+BEGIN;
+
+SELECT _ops.assert_env('production');
+
+CREATE OR REPLACE FUNCTION public.get_assigned_sales_name(p_dealer_id uuid)
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+  SELECT s.contact_name
+  FROM public.dealers AS d
+  JOIN public.dealers AS s ON s.id = d.assigned_sales_id
+  WHERE d.id = p_dealer_id
+    AND (p_dealer_id = auth.uid() OR public.is_admin());
+$fn$;
+
+COMMENT ON FUNCTION public.get_assigned_sales_name(uuid) IS
+  'CB-74: returns the contact_name of the dealer''s assigned sales rep. '
+  'SECURITY DEFINER with minimal return surface (single text column). '
+  'Authorization mirrors the dealers SELECT policies: own row or is_admin().';
+
+-- CREATE OR REPLACE 會把 EXECUTE 預設授予 PUBLIC,必須事後收回。
+REVOKE ALL ON FUNCTION public.get_assigned_sales_name(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_assigned_sales_name(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.get_assigned_sales_name(uuid) TO authenticated;
+
+COMMIT;
