@@ -904,6 +904,7 @@ return total;
     const C_SECTION = [62, 90, 66];     // Tier1 section divider(深綠,白字)— CB-74 起未使用
     const C_STYLE   = [216, 196, 133];  // Tier2 style divider(金褐)— 一直未使用
     const C_TYPE    = [188, 208, 191];  // Tier3 type divider(中綠)— 一直未使用
+    const C_ZEBRA   = [220, 220, 214];  // 隔一個 item 上色(白 item 不上色)
 
     const head = isPacking
       ? [['#', 'Type', 'Qty', 'SKU', 'Description', 'Asm?']]
@@ -1282,6 +1283,58 @@ return total;
 
   // ----------------------------------------
   // F-40: 訂單層級 Note(quotes.notes)
+  // ----------------------------------------
+  //
+  // 【為什麼在這裡,而不是表格下方】(PM Q-1=A)
+  //   這是 dealer 填的特殊指示(交期 / 安裝 / 特殊處理),生產端以 PDF 為
+  //   作業依據。放在 Bill/Ship 下方可保證落在第 1 頁;放在表格之後,長單時
+  //   會被推到第 2、3 頁。系統收下了指示卻沒傳遞到,責任在系統側。
+  //
+  // 【為什麼用 autoTable 而不是 rect + text】
+  //   quotes.notes 目前無 maxlength(前端補 maxlength 為 F-44),長度不可控。
+  //   PM Q-2=A 裁示不截斷 —— 截斷生產指示的風險高於多印一頁。
+  //   autoTable 自帶跨頁切割與換頁重畫 header,手刻 rect 做不到這件事。
+  //
+  // 【四種 PDF 皆輸出】Packing List 是生產端唯一會看的文件,更不能少。
+  //
+  // ⚠ quoteData.notes 由兩個 buildQuoteDataForPdf() 傳入。若 PDF 上沒出現,
+  //   先查來源端有沒有帶這個 key,而不是查這支函式。
+  function _drawOrderNote(doc, context) {
+    const { margin, headerH } = LAYOUT;
+    const { notes, startY, headerContext } = context;
+
+    const text = (notes == null) ? '' : String(notes).trim();
+    if (!text) return startY;   // 無 note → 版面與改動前完全一致
+
+    doc.autoTable({
+      startY: startY,
+      head: [['ORDER NOTES']],   // PDF 不進 i18n(CB-62 Q-56):英文硬編碼
+      body: [[text]],
+      margin: { left: margin, right: margin, top: headerH + 4, bottom: 22 },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        textColor: [30, 30, 30],
+        overflow: 'linebreak',
+        valign: 'top',
+      },
+      headStyles: {
+        fillColor: [255, 235, 215],
+        textColor: COLORS.note,
+        fontStyle: 'bold',
+        fontSize: 8,
+      },
+      bodyStyles: { fillColor: [255, 247, 235] },
+      didDrawPage: (data) => {
+        if (data.pageNumber > 1 && headerContext) _drawHeader(doc, headerContext);
+      },
+    });
+
+    return doc.lastAutoTable.finalY + 4;
+  }
+
+  // ----------------------------------------
+  // F4.2: Notes Table
   // ----------------------------------------
   //
   // ⚠ CB-69 起本函式已無呼叫端 —— 自由文字類 mod 改在 SKU 欄內直接印全文,
