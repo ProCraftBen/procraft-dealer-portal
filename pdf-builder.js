@@ -212,7 +212,7 @@
   //   直接毀版面。實測 production 單張最多 5 個 label,此上限不會觸發。
   //   ⚠ 若為了驗證合併邏輯而暫時調小此值,驗畢【務必改回 12】——
   //     12 與 2 的差別在正常資料下不會顯現。
-  const MODS_MAX_ROWS   = 2;
+  const MODS_MAX_ROWS   = 12;
   const MODS_OTHER_LABEL = 'Other Modifications';   // PDF 不進 i18n(CB-62 Q-56)
   const MODS_LABOR_SUFFIX = ' (labor)';             // 同上,英文硬編碼不掛標記
 
