@@ -102,6 +102,18 @@
   //   本檔內 TYPE_ORDER 僅用於 _drawAssembledSummary 的排序(_groupAndSort 只被
   //   export、無內部呼叫端),故此改動不影響 Order List 表格分組 —— 那走的是
   //   FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22),兩者勿混(D-3)。
+  //
+  // 🔴 CB-74【刻意不加 'VANITY'】—— 與 step3 / quote-detail / admin-quotes 的
+  //    同名常數不同步,是正確的,請勿「順手補齊」:
+  //    (1) 那三個檔案的 TYPE_ORDER 是【白名單】:`TYPE_ORDER.filter(t => byType[t])`
+  //        會把不在清單內的分組靜默丟棄,漏一項就少一行明細。
+  //    (2) 本檔的 TYPE_ORDER 只用於 _drawAssembledSummary 的【排序】,且該處以
+  //        `indexOf === -1 → 99` 作 fallback —— 不在清單內的 type 會排到最後,
+  //        【不會被丟棄】。
+  //    (3) PDF 本來就沒有 Assemble Fee by-type 明細區塊(改動 14 已移除),
+  //        因此本檔不存在那條失效路徑。
+  //    結論:比對三檔時看到這裡少了 VANITY 屬正確,加上去只會改變 Packing List
+  //    的 Assembled summary 排序,不修正任何缺陷。
   const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ROLL OUT TRAY', 'ACCESSORIES', 'OTHER', 'MODIFICATION'];
 
   // F-COL-ABBREVIATIONS (2026-05-21)
@@ -149,6 +161,15 @@
     margin:   10,
     headerH:  52,
   };
+
+  // ── CB-74:PDF 版面線寬 ────────────────────────────────────────────────────
+  //   DIVIDER_LW_* — 2.1 的 divider 外框(粗細承載層級,顏色不再承載)。
+  //   GROUP_FRAME_LW — 2.2 的同組品項外框。
+  //   ⚠ 三者皆為【疊加繪製或 cell 級樣式】,不參與 autotable 的欄寬 / 列高
+  //     計算,故 CB-69 的 190mm 欄寬預算與列高完全不受影響。
+  const DIVIDER_LW_STYLE = 0.8;   // Tier2 Door Style
+  const DIVIDER_LW_TYPE  = 0.4;   // Tier3 Type
+  const GROUP_FRAME_LW   = 0.2;   // 同組品項外框(PM Q-9)
 
   const MF_USE_NOTES_TABLE = ['MF06', 'MF07'];
   
@@ -549,7 +570,7 @@ return total;
   //   - date / jobName 1.5x(7→10.5)
   function _drawHeader(doc, context) {
     const { pageW, margin, headerH } = LAYOUT;
-    const { logoImg, poNumber, numberLabel, jobName, date, documentTitle } = context;
+    const { logoImg, poNumber, numberLabel, jobName, salesName, date, documentTitle } = context;
 
     doc.setFillColor(...COLORS.white);
     doc.rect(0, 0, pageW, headerH, 'F');
@@ -614,6 +635,17 @@ return total;
     doc.setTextColor(40, 40, 40);
     // CB-31 改動D:PDF Job Name 加前綴「Job Name: 」(空值顯示 Job Name: —)
     doc.text('Job Name: ' + (jobName || '—'), pageW - margin, 41, { align: 'right' });
+
+    // CB-74:Sales 名稱,緊接 Job Name 下方,同字級同靠右。
+    //   字重刻意用 normal(Job Name 為 bold)—— 保留 Job Name 的主層級。
+    //   y=47:Job Name 在 41,行距 6;headerH=52,故底部尚餘 5mm,
+    //     【不需要動 headerH】,Bill/Ship 起點(headerH + 10)不受影響。
+    //   🔴 PDF 不進 i18n(CB-62 Q-56):標籤英文硬編碼,不掛 i18n 標記
+    //      (F-25 死標記同類)。step3 / quote-detail 的畫面端則【有】掛
+    //      nq3.field.sales —— 三檔此處刻意不同,勿對齊。
+    //   空值顯示 'Sales: —'(PM Q-1);未指派與讀不到共用同一顯示。
+    doc.setFont('helvetica', 'normal');
+    doc.text('Sales: ' + (salesName || '—'), pageW - margin, 47, { align: 'right' });
   }
 
   // 改動 11: Bill To / Ship To 區塊字體 1.5x(7.5→11),行距加大。
@@ -727,8 +759,20 @@ return total;
     );
   }
 
+  // CB-74 (Q-19 B'):頁碼由 header 右下(headerH − 3 = 49)移到頁尾空白帶。
+  //   🔴 原位置與本票新增的 Sales 行(y=47)只差 2mm 且同為靠右,兩者相黏。
+  //   🔴 為什麼不畫進頁尾綠條:_drawFooterBar() 是【單次呼叫、無 setPage 迴圈】
+  //      (見 _finalizeWithTotals / _finalizePackingListWithTcAndNotes),
+  //      綠條只存在於最後一頁。若把頁碼改成白字放進綠條位置,第 1..n−1 頁
+  //      會變成白字畫在白底 —— 頁碼靜默消失。故維持 muted 灰、畫在綠條【上方】
+  //      的空白帶,不依賴綠條是否存在。(綠條只畫最後一頁登記為 F-81,不修。)
+  //   y = 285.5 的依據(CB-69 已把四處底部基準統一到 275):
+  //      275 = item table / totals / T&C / notes 共同底線
+  //      281 = 下載戳記(靠【左】,8pt,下緣約 282.5)
+  //      285.5 = 頁碼(靠【右】)—— 與戳記不同基線且左右分離
+  //      287 = 頁尾綠條上緣(僅最後一頁)
   function _addPageNumbers(doc) {
-    const { pageW, margin, headerH } = LAYOUT;
+    const { pageW, margin } = LAYOUT;
     const totalPages = doc.getNumberOfPages();
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
@@ -738,7 +782,7 @@ return total;
       doc.text(
         `Page ${p} / ${totalPages}`,
         pageW - margin,
-        headerH - 3,
+        285.5,
         { align: 'right' }
       );
     }
@@ -866,9 +910,12 @@ return total;
     const headFs     = isPacking ? bodyFs : 8;
 
     // CB-25 三層分組底色 + per-item 斑馬(列印取向;皆比 header[14,31,22] 淺)
-    const C_SECTION = [62, 90, 66];     // Tier1 section divider(深綠,白字)
-    const C_STYLE   = [216, 196, 133];  // Tier2 style divider(金褐)
-    const C_TYPE    = [188, 208, 191];  // Tier3 type divider(中綠,比舊[235,240,236]深)
+    // ⚠ CB-74:divider 已改為白底黑字 + 外框(PM Q-5/Q-6),以下三個底色【不再套用】。
+    //   保留不刪:CB-31 改動A 隱藏的 Tier1 divider 若日後 unhide,以及未來若要
+    //   回復色塊分層,這是原始配色的唯一紀錄。C_ZEBRA 仍在使用中。
+    const C_SECTION = [62, 90, 66];     // Tier1 section divider(深綠,白字)— CB-74 起未使用
+    const C_STYLE   = [216, 196, 133];  // Tier2 style divider(金褐)— 一直未使用
+    const C_TYPE    = [188, 208, 191];  // Tier3 type divider(中綠)— 一直未使用
     const C_ZEBRA   = [220, 220, 214];  // 隔一個 item 上色(白 item 不上色)
 
     const head = isPacking
@@ -878,18 +925,51 @@ return total;
 
     const body = [];
     const rowFills = [];        // 與 body 等長;per-item 斑馬底色([r,g,b] 或 null)
+
+    // ── CB-74 (2.2):同組品項外框的組別追蹤 ──────────────────────────────────
+    //   【組的定義(PM Q-7=A)】父列(整數編號)+ 其 mapping SKU 子列(小數編號)。
+    //     例:#14 + #14.1 一框;#15 + #15.1 + #15.2 一框。
+    //     split item 的 Sub 1 of 2 / Sub 2 of 2 各自成組(兩者是不同整數編號)。
+    //
+    //   🔴 判定發生在【建表期】,不解析編號字串、不用 sub_index、不在渲染期反推。
+    //      依據是資料事實而非顯示產物:小數列的唯一產生點是下方 mappingList 的
+    //      迴圈,而 mappingList 的唯一 push 條件是 mapping_sku 且 mapping_qty > 0
+    //      (CB-72 bundle 關係)。故「小數列 ⟺ bundle 子項」為雙向恆等。
+    //      ⚠ 若日後新增第二種產生小數編號的路徑(非 bundle),本恆等即破,
+    //        外框邏輯須同步檢視 —— 斷點在編號產生端,不在繪製端。
+    //
+    //   🔴 為什麼以 body row 陣列【物件本身】為 key,而不是 row index:
+    //      autotable 3.8.2 在單列高度超過剩餘頁面時會 modifyRowToFit() 切列,
+    //      續接的那半列是 new Row(row.raw, -1, ...) —— 【index 為 -1】。
+    //      若以 index 當 key,被切開的下半頁會查不到組別而漏畫外框。
+    //      row.raw 在切列時原樣沿用,故以物件識別最穩。
+    const groupOfRawRow = new Map();   // body row 陣列 → groupId(divider 不入表)
+    const frameSegs     = new Map();   // `${groupId}|${absPage}` → 外框幾何
+    let   groupSeq      = 0;
     let itemNum = 0;
     let itemColorIdx = 0;       // 每個 item +1,決定斑馬輪替
     const notes = [];
     const notesIndex = { counter: 0 };
 
-    function pushDivider(text, fill, textColor) {
+    // CB-74 (2.1):divider 改為【粗外框 + 白底 + 黑字】。
+    //   PM Q-6 原裁示兩層都移除 ========== 符號;2026-08-21 看過實際輸出後修訂為
+    //   【Door Style 保留符號、Type 不保留】—— 符號因此成為層級訊號之一,
+    //   而不是兩層都有的裝飾。符號由【呼叫端】組進 text,本函式不介入。
+    //   兩層的區分訊號(PM Q-5),顏色不再承載層級資訊:
+    //     Door Style → DIVIDER_LW_STYLE / 字級 +1 / 有 ========== 符號
+    //     Type       → DIVIDER_LW_TYPE  / 字級不變 / 無符號
+    //   ⚠ 這裡用的是 autotable 的 cell 級 lineWidth —— 由 autotable 自己繪出該格
+    //     四邊,colSpan 使其成為整列寬的框。【不需要 hook】,也不影響列高。
+    //   ⚠ 本表格 body 的其餘 cell 未指定 lineWidth,autotable 預設為 0 →
+    //     全表無內部格線,divider 的框不會與既有線條打架。
+    function pushDivider(text, lineWidth, fontSize) {
       body.push([{
         content: text, colSpan: colCount,
-        styles: { halign: 'center', fontStyle: 'bold', fontSize: bodyFs,
-                  fillColor: fill, textColor: textColor },
+        styles: { halign: 'center', fontStyle: 'bold', fontSize: fontSize,
+                  fillColor: [255, 255, 255], textColor: [0, 0, 0],
+                  lineWidth: lineWidth, lineColor: [0, 0, 0] },
       }]);
-      rowFills.push(null);     // divider 自帶底色,不參與斑馬
+      rowFills.push(null);     // divider 不參與斑馬,亦不屬任何品項組
     }
 
     // Tier1: Assembled → Unassembled(Assembled 在上)
@@ -901,7 +981,8 @@ return total;
     sections.forEach(function (section) {
       if (!section.items.length) return;
       // CB-31 改動A:隱藏 Assembled/Unassembled divider（保留程式,日後移除註解即可 unhide）
-      // pushDivider('========== ' + section.label + ' ==========', C_SECTION, [255, 255, 255]);
+      // CB-74:簽名已改為 (text, lineWidth, fontSize),下行同步更新以免 unhide 時失效。
+      // pushDivider('========== ' + section.label + ' ==========', DIVIDER_LW_STYLE, bodyFs + 1);
 
       // Tier2: style_code 字母序
       const byStyle = {};
@@ -914,11 +995,14 @@ return total;
         const styleItems = byStyle[styleKey];
         if (!styleItems.length) return;
         // CB-31 改動B:Door Style divider 顯示 style_name 全名,空值 fallback style_code
-        pushDivider('========== ' + (styleItems[0].style_name || styleItems[0].style_code || '—') + ' ==========', C_SECTION, [255, 255, 255]);
+        // CB-74 修訂:Door Style 這一層【保留】========== 強調符號(業主 2026-08-21
+        //   看過實際輸出後決定),Type 層維持純文字 —— 兩層的差異因此由三個訊號
+        //   共同承載:框線粗細(0.8 vs 0.4)、字級(+1 vs 不變)、符號(有 vs 無)。
+        pushDivider('========== ' + (styleItems[0].style_name || styleItems[0].style_code || '—') + ' ==========', DIVIDER_LW_STYLE, bodyFs + 1);
 
         // Tier3: CB-22 type 分組
         _groupByTypeOrdered(styleItems, constructionType).forEach(function (group) {
-          pushDivider('========== ' + group.type + ' ==========', C_SECTION, [255, 255, 255]);
+          pushDivider(group.type, DIVIDER_LW_TYPE, bodyFs);
 
           group.items.forEach(function (item) {
             const fill = (itemColorIdx % 2 === 1) ? C_ZEBRA : [255, 255, 255];   // CB-FIX: 白底改顯式白,壓過 autotable striped 預設(divider 仍推 null)
@@ -994,22 +1078,28 @@ return total;
 
               const assembledCell = (assembleStatus === 'RTA' ? 'No' : 'Yes');
 
+              // CB-74:每個父列開一組;其 mapping 子列共用同一個 groupId。
+              const groupId = ++groupSeq;
+
+              let parentRow;
               if (isPacking) {
-                body.push([String(parentNum), tagCell, subQty, skuCellText, skuDesc, assembledCell]);
+                parentRow = [String(parentNum), tagCell, subQty, skuCellText, skuDesc, assembledCell];
               } else {
                 const modFeeTotal = parentPerSubModCost * subQty;
                 const asmFeeTotal = (item.assemble_fee || 0) * subQty;
                 // CB-25 改動 C:Total 折前(用 markedUnitPrice,不套促銷折扣)
                 const lineTotal   = (markedUnitPrice * subQty) + modFeeTotal + asmFeeTotal;
-                body.push([
+                parentRow = [
                   String(parentNum), tagCell, subQty, skuCellText, skuDesc, assembledCell,
                   `$${markedUnitPrice.toFixed(2)}`,
                   modFeeTotal > 0 ? `+$${modFeeTotal.toFixed(2)}` : '—',
                   asmFeeTotal > 0 ? `+$${asmFeeTotal.toFixed(2)}` : '—',
                   `$${lineTotal.toFixed(2)}`,
-                ]);
+                ];
               }
+              body.push(parentRow);
               rowFills.push(fill);
+              groupOfRawRow.set(parentRow, groupId);   // CB-74
 
             
 
@@ -1024,15 +1114,18 @@ return total;
                 //   Assemble Fee 沿用父 row 慣例 > 0 ? '+$X' : '—'(Q-3)。
                 //   PDF 內文字一律英文硬編碼,不掛 i18n(CB-62 Q-56)。
                 const mapAsmCell = map.asm > 0 ? `+$${map.asm.toFixed(2)}` : '—';
+                let mapRow;
                 if (isPacking) {
-                  body.push([mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), 'Yes']);
+                  mapRow = [mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), 'Yes'];
                 } else {
-                  body.push([
+                  mapRow = [
                     mapNum, (map.tag || ''), map.qty, mapSku, (map.desc || ''), 'Yes',
                     `$${map.unit.toFixed(2)}`, '—', mapAsmCell, `$${map.total.toFixed(2)}`,
-                  ]);
+                  ];
                 }
+                body.push(mapRow);
                 rowFills.push(fill);
+                groupOfRawRow.set(mapRow, groupId);   // CB-74:與父列同組
               });
             });
           });
@@ -1097,10 +1190,47 @@ return total;
     };
 
     // CB-25: per-item 斑馬 — 依 body row index 從 rowFills 上色(取代 alternateRowStyles)
+    //   ⚠ didParseCell 在版面計算【之前】觸發,此時尚未切列,row.index 必為正常值,
+    //     不受 CB-74 註記的 index = -1 影響。兩個 hook 的 key 策略刻意不同。
     const onParseCell = (data) => {
       if (data.section !== 'body') return;
       const f = rowFills[data.row.index];
       if (f) data.cell.styles.fillColor = f;
+    };
+
+    // ── CB-74 (2.2):didDrawCell 只【記錄幾何】,不畫線 ──────────────────────
+    //   🔴 為什麼不在 hook 內直接畫:外框的底邊需要知道「下一列是否同組、是否
+    //      同頁」,而 didDrawCell 觸發當下下一列尚未渲染。即時繪製必須靠「延後
+    //      一列」的狀態機,並為表尾 / 頁尾 / 被切開的單列各補特例。改為記錄後
+    //      統一掃描,則是純資料判斷,無時序依賴。(PM Q-17)
+    //   🔴 頁碼一律取【絕對頁碼】doc.internal.getCurrentPageInfo().pageNumber,
+    //      不用 data.pageNumber —— 後者是【表格相對】頁碼(HookData 取自
+    //      table.pageNumber,自 1 起算),只有在表格恰好起於文件第 1 頁時兩者
+    //      才相等。目前 item table 確實起於第 1 頁,但 F-40 的訂單 note 若長到
+    //      把表格推到第 2 頁,相對頁碼就會失準。
+    //   跨頁(PM Q-8=A):幾何以 `groupId|絕對頁碼` 分段累積,同一組落在兩頁
+    //      自然形成兩段 → 上半頁自成一框、下半頁重開一框,不需額外分支。
+    //      單列本身被切開(rowPageBreak 預設 'auto')亦適用同一規則。
+    const lastColIdx = colCount - 1;
+    const onDrawCell = (data) => {
+      if (data.section !== 'body') return;
+      const gid = groupOfRawRow.get(data.row.raw);
+      if (gid === undefined) return;   // 正向判斷:有 groupId 才畫(divider 無)
+      const ci = data.column.index;
+      if (ci !== 0 && ci !== lastColIdx) return;   // 只需左右兩端定水平範圍
+
+      const absPage = data.doc.internal.getCurrentPageInfo().pageNumber;
+      const key     = gid + '|' + absPage;
+      let seg = frameSegs.get(key);
+      if (!seg) {
+        seg = { page: absPage, x0: null, x1: null, yTop: Infinity, yBottom: -Infinity };
+        frameSegs.set(key, seg);
+      }
+      if (ci === 0)          seg.x0 = data.cell.x;
+      if (ci === lastColIdx) seg.x1 = data.cell.x + data.cell.width;
+      if (data.cell.y < seg.yTop) seg.yTop = data.cell.y;
+      const bottom = data.cell.y + data.cell.height;
+      if (bottom > seg.yBottom) seg.yBottom = bottom;
     };
 
     doc.autoTable({
@@ -1119,10 +1249,53 @@ return total;
       headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: headFs },
       columnStyles: columnStyles,
       didParseCell: onParseCell,
+      didDrawCell:  onDrawCell,    // CB-74:只記錄幾何
       didDrawPage: onDrawPage,
     });
 
+    _drawItemGroupFrames(doc, frameSegs);   // CB-74:表格繪製完成後統一補畫外框
+
     return { tableEndY: doc.lastAutoTable.finalY, notes: notes };
+  }
+
+  // ----------------------------------------
+  // CB-74 (2.2): 同組品項外框 — 後置掃描繪製
+  // ----------------------------------------
+  //
+  // 【為什麼可以事後回頭畫在前面幾頁】
+  //   jsPDF 的頁面在 output() 之前全部保留,doc.setPage(n) 可自由切換。
+  //   本檔既有的 _addPageNumbers() 與 _drawStamp() 都是同一手法(逐頁 setPage
+  //   補畫、最後還原);autotable 自身換頁也是走 doc.setPage(current + 1)。
+  //
+  // 【為什麼疊加繪製不影響版面】
+  //   本函式在 autoTable 回傳【之後】才畫,純粹疊在已完成的儲存格之上,
+  //   不進入 autotable 的欄寬 / 列高計算。CB-69 的成果(時間戳記基準 275、
+  //   Mod Fee 17.5mm、Asm Fee 16、Total 17.5、mod note 於 SKU 欄內縮排、
+  //   190mm 欄寬預算)全部不受影響。
+  //
+  // 🔴 lineWidth 必須還原:_drawTotals 內有兩處(小計分隔線)只設 setDrawColor
+  //    而【不設】setLineWidth,沿用當下的線寬。不還原會讓那兩條線變成 0.2mm。
+  //    setDrawColor 不需還原 —— 本檔其餘 doc.line / doc.rect 呼叫前都各自設色。
+  function _drawItemGroupFrames(doc, frameSegs) {
+    if (!frameSegs || frameSegs.size === 0) return;
+
+    const restorePage = doc.internal.getCurrentPageInfo().pageNumber;
+    const prevLineW   = doc.getLineWidth();
+
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(GROUP_FRAME_LW);
+
+    frameSegs.forEach(function (seg) {
+      // 正向判斷:左右端都取到才畫(F-35 定版原則)。
+      //   缺任一端 → 整框不畫(可見的漏),而非以預設值硬湊出一個位置錯誤的框。
+      if (seg.x0 === null || seg.x1 === null) return;
+      if (!(seg.yBottom > seg.yTop)) return;
+      doc.setPage(seg.page);
+      doc.rect(seg.x0, seg.yTop, seg.x1 - seg.x0, seg.yBottom - seg.yTop, 'S');
+    });
+
+    doc.setLineWidth(prevLineW);
+    doc.setPage(restorePage);
   }
 
   // ----------------------------------------
@@ -1609,6 +1782,9 @@ return total;
       // CB-31 改動C:PDF 顯示 SO#（賣方視角 Sales Order）;DB 欄位 po_number 不動,Draft Quote 仍顯 Draft ID
       numberLabel:   isDraftQuote ? 'Draft ID' : 'SO#',
       jobName:       quoteData.job_name  || '—',
+      // CB-74:兩個 buildQuoteDataForPdf()(step3 / quote-detail)須各自傳入
+      //   quoteData.sales_name,否則本檔收不到值 —— 斷點在來源端,不在此。
+      salesName:     quoteData.sales_name || null,
       date,
       documentTitle: documentTitle,
     };
