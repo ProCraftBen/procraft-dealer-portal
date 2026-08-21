@@ -3738,7 +3738,16 @@ async function submitQuote() {
         quote_number:    quoteNum,
         revision_number: nextRevisionNumber,
         return_reason:   null,
-      }, { count: 'exact' }).eq('id', draftId);
+      }, { count: 'exact' })
+        .eq('id', draftId)
+        // ── F-34 (CB-76): 明確前態守衛 ────────────────────────────────────
+        //   🔴 只有 count 是不夠的:admin 走 admin_update_all_quotes
+        //      (USING/WITH CHECK 只查 role),count 永遠不為 0 → 對 admin 路徑
+        //      等於零前態保護。RLS 只約束 dealer,admin 的唯一防線在此。
+        //   本分支為 Returned 重送,合法前態僅 'Returned'。
+        //   🔴 檢查必須在 quote_items delete【之前】—— 順序顛倒會產生
+        //      「items 已清空但 quotes UPDATE 失敗」的空殼報價,不可逆。
+        .in('status', ['Returned']);
       if (updateError) throw updateError;
       if (updateCount === 0) {
         throw new Error(pcTxt('nq3.err.status_changed_resubmit',
@@ -3770,7 +3779,16 @@ async function submitQuote() {
           po_number:    poNumber,
           status:       'Stock Review',
           quote_number: quoteNum,
-        }, { count: 'exact' }).eq('id', draftId);
+        }, { count: 'exact' })
+          .eq('id', draftId)
+          // ── F-34 (CB-76): 明確前態守衛(理由同分支1)──────────────────────
+          //   合法前態為 'Stock Review' / 'Returned'。
+          //   🔴 'Pending' 刻意排除 —— 對齊 CB-66 Q-7A:Pending 單必有
+          //      po_number,寫回 'Stock Review' 會把「已放行、dealer 可付款」
+          //      的單拉回待審,dealer 端付款入口靜默消失。Pending 的唯一
+          //      出口是 Request Revision。
+          //   🔴 檢查必須在 quote_items delete【之前】。
+          .in('status', ['Stock Review', 'Returned']);
         if (updateError) throw updateError;
         if (updateCount === 0) {
           throw new Error(pcTxt('nq3.err.status_changed_submit',
@@ -3790,13 +3808,30 @@ async function submitQuote() {
         quoteNum = numData;
       }
 
-      const { error: updateError } = await _supabase.from('quotes').update({
+      const { error: updateError, count: updateCount } = await _supabase.from('quotes').update({
         ...baseFields,
         quote_number: quoteNum,
         // po_number + status 由 submit_purchase_order RPC 設定
         // CB-43 T14-3(M2): RPC 現在寫 'Stock Review'(原為 'Pending')
-      }).eq('id', draftId);
+      }, { count: 'exact' })
+        .eq('id', draftId)
+        // ── F-34 (CB-76): 本分支原為【裸 .eq('id')】—— count 與前態皆無 ──────
+        //   本次 UPDATE 不改 status(status 由下方 submit_purchase_order RPC 設),
+        //   但仍必須守衛:無守衛時,對一張已非 Draft 的單按 Submit 會照樣覆寫
+        //   金額與品項,再由 RPC 配一個【新的】PO#,造成同一張單兩個號。
+        //   合法前態僅 'Draft' —— RPC 的前置值,亦與 A-mode INSERT 一致。
+        //   🔴 檢查必須在 quote_items delete【之前】。本分支的順序為
+        //      UPDATE → DELETE → RPC,三者是【三次獨立的 PostgREST 請求】=
+        //      三個 transaction。前兩者一旦 commit,RPC 失敗不會回滾它們。
+        //      這也是 CB-76 的 trial 攔截必須在【前端】先擋的原因(見 submitQuote
+        //      開頭的硬檔):只靠 DB trigger,例外會在 delete 之後才拋出,
+        //      每次都留下不可逆的空殼 draft。
+        .in('status', ['Draft']);
       if (updateError) throw updateError;
+      if (updateCount === 0) {
+        throw new Error(pcTxt('nq3.err.status_changed_submit',
+          "Couldn't submit this order — it may have been removed or its status changed. Please refresh the page and try again."));
+      }
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
 
