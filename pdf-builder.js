@@ -102,6 +102,18 @@
   //   本檔內 TYPE_ORDER 僅用於 _drawAssembledSummary 的排序(_groupAndSort 只被
   //   export、無內部呼叫端),故此改動不影響 Order List 表格分組 —— 那走的是
   //   FRAMED_TYPE_ORDER / FRAMELESS_TYPE_ORDER(CB-22),兩者勿混(D-3)。
+  //
+  // 🔴 CB-74【刻意不加 'VANITY'】—— 與 step3 / quote-detail / admin-quotes 的
+  //    同名常數不同步,是正確的,請勿「順手補齊」:
+  //    (1) 那三個檔案的 TYPE_ORDER 是【白名單】:`TYPE_ORDER.filter(t => byType[t])`
+  //        會把不在清單內的分組靜默丟棄,漏一項就少一行明細。
+  //    (2) 本檔的 TYPE_ORDER 只用於 _drawAssembledSummary 的【排序】,且該處以
+  //        `indexOf === -1 → 99` 作 fallback —— 不在清單內的 type 會排到最後,
+  //        【不會被丟棄】。
+  //    (3) PDF 本來就沒有 Assemble Fee by-type 明細區塊(改動 14 已移除),
+  //        因此本檔不存在那條失效路徑。
+  //    結論:比對三檔時看到這裡少了 VANITY 屬正確,加上去只會改變 Packing List
+  //    的 Assembled summary 排序,不修正任何缺陷。
   const TYPE_ORDER = ['BASE', 'WALL', 'TALL', 'ROLL OUT TRAY', 'ACCESSORIES', 'OTHER', 'MODIFICATION'];
 
   // F-COL-ABBREVIATIONS (2026-05-21)
