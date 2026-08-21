@@ -3554,6 +3554,12 @@ async function saveDraft() {
                 created_at:   _savedCreatedAt || _nowIso,
               },
               dealer: {
+                // CB-76 (Q-14): dealer.id 供 send-quote-email 以 PK 查 account_type
+                //   判斷 Location 停信。🔴 send-quote-email 不重撈 quote/dealer,
+                //   識別鍵只能由此帶入。🔴 部署順序:本檔 promote 並驗證 payload
+                //   確實含 id 之後,才可部署 Edge Function —— 反序會使 EF 走
+                //   fallback(當作非 Location 照常寄信),Location 停信在空窗期失效。
+                id:                      dealer.id,
                 company_name:            dealer.company_name,
                 contact_name:            dealer.contact_name,
                 email:                   dealer.email,
@@ -3913,6 +3919,9 @@ async function submitQuote() {
             estimated_lead_time:         calculateLeadTime(step2Data, allDoorStyles),  // email 顯示交期(NEW)
           },
           dealer: {
+            // CB-76 (Q-14): dealer.id 供 send-quote-email 判斷 Location 停信。
+            //   說明見 saveDraft 內同名欄位的註解(本檔共三處,契約一致)。
+            id:                     dealer.id,
             company_name:           dealer.company_name,
             contact_name:           dealer.contact_name,
             email:                  dealer.email,
@@ -4207,6 +4216,9 @@ async function requestRevision(note) {
             revision_note:               note,
           },
           dealer: {
+            // CB-76 (Q-14): dealer.id 供 send-quote-email 判斷 Location 停信。
+            //   說明見 saveDraft 內同名欄位的註解(本檔共三處,契約一致)。
+            id:                      dealer.id,
             company_name:            dealer.company_name,
             contact_name:            dealer.contact_name,
             email:                   dealer.email,
