@@ -951,11 +951,13 @@ return total;
     const notes = [];
     const notesIndex = { counter: 0 };
 
-    // CB-74 (2.1):divider 改為【粗外框 + 白底 + 黑字】,並移除 ========== 符號
-    //   (PM Q-6:有外框後符號屬過度裝飾)。
-    //   兩層以【線寬 + 字級】區分(PM Q-5),顏色不再承載層級資訊:
-    //     Door Style → DIVIDER_LW_STYLE / 字級 +1
-    //     Type       → DIVIDER_LW_TYPE  / 字級不變
+    // CB-74 (2.1):divider 改為【粗外框 + 白底 + 黑字】。
+    //   PM Q-6 原裁示兩層都移除 ========== 符號;2026-08-21 看過實際輸出後修訂為
+    //   【Door Style 保留符號、Type 不保留】—— 符號因此成為層級訊號之一,
+    //   而不是兩層都有的裝飾。符號由【呼叫端】組進 text,本函式不介入。
+    //   兩層的區分訊號(PM Q-5),顏色不再承載層級資訊:
+    //     Door Style → DIVIDER_LW_STYLE / 字級 +1 / 有 ========== 符號
+    //     Type       → DIVIDER_LW_TYPE  / 字級不變 / 無符號
     //   ⚠ 這裡用的是 autotable 的 cell 級 lineWidth —— 由 autotable 自己繪出該格
     //     四邊,colSpan 使其成為整列寬的框。【不需要 hook】,也不影響列高。
     //   ⚠ 本表格 body 的其餘 cell 未指定 lineWidth,autotable 預設為 0 →
@@ -980,7 +982,7 @@ return total;
       if (!section.items.length) return;
       // CB-31 改動A:隱藏 Assembled/Unassembled divider（保留程式,日後移除註解即可 unhide）
       // CB-74:簽名已改為 (text, lineWidth, fontSize),下行同步更新以免 unhide 時失效。
-      // pushDivider(section.label, DIVIDER_LW_STYLE, bodyFs + 1);
+      // pushDivider('========== ' + section.label + ' ==========', DIVIDER_LW_STYLE, bodyFs + 1);
 
       // Tier2: style_code 字母序
       const byStyle = {};
@@ -993,7 +995,10 @@ return total;
         const styleItems = byStyle[styleKey];
         if (!styleItems.length) return;
         // CB-31 改動B:Door Style divider 顯示 style_name 全名,空值 fallback style_code
-        pushDivider((styleItems[0].style_name || styleItems[0].style_code || '—'), DIVIDER_LW_STYLE, bodyFs + 1);
+        // CB-74 修訂:Door Style 這一層【保留】========== 強調符號(業主 2026-08-21
+        //   看過實際輸出後決定),Type 層維持純文字 —— 兩層的差異因此由三個訊號
+        //   共同承載:框線粗細(0.8 vs 0.4)、字級(+1 vs 不變)、符號(有 vs 無)。
+        pushDivider('========== ' + (styleItems[0].style_name || styleItems[0].style_code || '—') + ' ==========', DIVIDER_LW_STYLE, bodyFs + 1);
 
         // Tier3: CB-22 type 分組
         _groupByTypeOrdered(styleItems, constructionType).forEach(function (group) {
