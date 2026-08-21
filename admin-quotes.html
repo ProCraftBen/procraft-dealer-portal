@@ -539,7 +539,15 @@ const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 // CB-72:加入 'ROLL OUT TRAY'。本常數是下方 asmBreakdownHtml 的白名單 ——
 //   `TYPE_ORDER.filter(t => byType[t])` 會把不在清單內的分組【靜默丟棄】,不報錯。
 //   若漏加,Assemble Fee 總額含 ROT 但明細不含,兩者差額無解釋。
-const TYPE_ORDER = ['BASE','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','MODIFICATION'];
+// CB-74:補上 'VANITY'(插在 BASE 之後,與 new-quote-step3.html /
+//   quote-detail.html 同步)。此為【Assemble Fee 分組】,與 CB-75 無關。
+//   ⚠ 本檔的 TYPE_ORDER 除了白名單之外,還【實際用於】展開列內品項的排序
+//     (見下方 renderRow 的 grouped[k].sort)。加入 VANITY 會讓 VANITY 品項
+//     由「排在最後」改為緊接 BASE 之後 —— 這是預期中的可見變化,非缺陷。
+//     step3 / quote-detail 的同名常數其排序函式已無呼叫端(F-80),故無此副作用。
+//   ⚠ 本檔清單缺 'OTHER'(F-80 相鄰的 F-78),Custom Other 品項的組裝費明細
+//     在本頁同樣會被靜默丟棄。屬既有債,CB-74 範圍內不修。
+const TYPE_ORDER = ['BASE','VANITY','WALL','TALL','ROLL OUT TRAY','ACCESSORIES','MODIFICATION'];
 
 // CB-72: mapping SKU(bundle 子項)組裝費的分組標籤。
 //   本頁無 skus_framed / skus_frameless 快取,無法反查 mapping SKU 的 type,
