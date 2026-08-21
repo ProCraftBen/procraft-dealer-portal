@@ -206,6 +206,16 @@
         || code
         || 'Modification';
   }
+  // ── CB-75:Modification summary 的顯示常數 ────────────────────────────────
+  //   MODS_MAX_ROWS 為【防呆】而非美化:_drawTotals 逐行 y += 4,若列數過多
+  //   會靜默畫過 275 底線,壓在下載戳記(281)與頁尾綠條(287)上,不報錯、
+  //   直接毀版面。實測 production 單張最多 5 個 label,此上限不會觸發。
+  //   ⚠ 若為了驗證合併邏輯而暫時調小此值,驗畢【務必改回 12】——
+  //     12 與 2 的差別在正常資料下不會顯現。
+  const MODS_MAX_ROWS   = 12;
+  const MODS_OTHER_LABEL = 'Other Modifications';   // PDF 不進 i18n(CB-62 Q-56)
+  const MODS_LABOR_SUFFIX = ' (labor)';             // 同上,英文硬編碼不掛標記
+
   const NOTES_TABLE_FALLBACK_LENGTH = 40;
   const CUSTOM_SUFFIX = ' [CUSTOM]';
 
@@ -448,6 +458,11 @@ return total;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // ⚠ CB-75 起【已無呼叫端】—— Modification 明細改依項目(display label)聚合,
+  //   見下方 _calcModByLabel()。本函式依 PM Q-9 保留不刪:它是 CB-27 分桶推導
+  //   (modsDisplayTotal / mappingMaterialTotal 兩桶如何切開)的唯一完整紀錄,
+  //   刪掉等於刪掉文件。清理另開 F-82。請勿因「看起來沒人用」而移除。
+  // ─────────────────────────────────────────────────────────────────────────
   // CB-27: Modifications 按 type 分組(方案 B 明細用)。
   //   ⚠ 三檔逐字同步:pdf-builder.js / new-quote-step3.html / quote-detail.html
   //   • parentPerSubModCost = Σ(cost + 非mapping material) —— 與 _drawItemTable
@@ -492,6 +507,113 @@ return total;
     if (byType[OTHER_GROUP_LABEL]) ordered.push(OTHER_GROUP_LABEL);
     return { byType: byType, ordered: ordered, modsDisplayTotal: modsDisplayTotal };
   }
+  // ─────────────────────────────────────────────────────────────────────────
+  // CB-75: Modifications 依【項目】聚合(取代 CB-27 的 by-type 分組)。
+  //   ⚠ 三檔逐字同步:pdf-builder.js / new-quote-step3.html / quote-detail.html
+  //
+  // 【聚合 key】_displayModLabel(m) —— 即 PDF 上實際印出的字串。
+  //   🔴 不可改用 m.display_label 原值:CB-69 對 MF06/MF07 採【顯示層覆寫】
+  //     (Modification Note → Note、Admin Modification → Admin Note),DB 值未動。
+  //     用 DB 值聚合會使品項區印 'Admin Note'、summary 卻聚成
+  //     'Admin Modification' —— 兩個名字指同一件事,且不報錯。
+  //   📌 附帶好處:display_label 參與 new-quote-modifications.html 的
+  //     mf_code + '|' + display_label 重配對(CB-62 B4-1b2 標記的脆弱結構),
+  //     用顯示層值聚合完全不碰那個 key。
+  //
+  // 【gate 位置(PM Q-10)】`modFee > 0` 的判斷【留在 sub 層,逐字沿用 CB-27】,
+  //   label 累加寫在 gate 內部。因此 modsDisplayTotal 的納入母體與 CB-27
+  //   完全相同 —— 不需要證明新舊等價,因為本就是同一個母體。
+  //   ⚠ 這也表示:若未來出現負值 mod,行為與今日一致,不會悄悄改變。
+  //
+  // 【取整(PM Q-14=A)】本檔沿用既有政策:金額運算一律不取整,顯示時才 toFixed。
+  //   🔴 不新增 round2 複製(F-66;step3 有 round2、本檔與 quote-detail 沒有,
+  //     三檔取整政策本就不同,強行統一會製造第三份平行實作)。
+  //   為什麼這裡不需要 pre-round:每列 = (cost + material_cost) × subQty,
+  //   幣值(2 位小數)× 整數,十進位下精確到分,不產生半分。
+  //   已查證 production:cost 最多 1 位小數;material_cost 有 3 筆浮點尾數,
+  //   但【全為 mapping 項】,其材料費依 CB-25 歸在 Subtotal 桶,不進本聚合。
+  //   故 Σ(各列 toFixed) === Total toFixed,紙面不會出現「加不起來」。
+  //
+  // 【(labor) 後綴(PM Q-11=A)】只在該 label 確有材料被排到 Subtotal 桶時加。
+  //   正向識別:hasMapping && material_cost > 0(F-35 原則)。
+  //   一律加會在無材料項目(其金額本就是全部成本)上製造反向誤解。
+  //   📌 若日後需看「含材料的總成本」,須跨桶彙總,屬另一張票。
+  //
+  // 【排序(PM Q-7)】金額大到小;同額以 label 字母序 tiebreak。
+  //   🔴 tiebreak 為必要條件:無它則同額項目的順序取決於物件插入歷史,
+  //     同一張單在 PDF 與畫面可能不同序。
+  //
+  // 【上限(PM Q-5)】超過 MODS_MAX_ROWS 時,尾端合併為 MODS_OTHER_LABEL 一列,
+  //   採【加總而非丟棄】—— 丟棄會使明細之和 ≠ Total,正是要避免的事。
+  //
+  //   回傳 { rows: [{label, fee, hasExcludedMaterial}], modsDisplayTotal }。
+  // ─────────────────────────────────────────────────────────────────────────
+  function _calcModByLabel(items) {
+    const byLabel = {};
+    let modsDisplayTotal = 0;
+
+    (items || []).forEach(function (item) {
+      const subs = _getNormalizedSubGroups(item);
+      subs.forEach(function (sub) {
+        const subQty = parseInt(sub.qty, 10) || 0;
+        const mods   = Array.isArray(sub.modifications) ? sub.modifications : [];
+
+        // ① sub 層總額 —— 與 CB-27 _calcModByType 逐字相同
+        let parentPerSubModCost = 0;
+        mods.forEach(function (m) {
+          const c  = parseFloat(m && m.cost);
+          const mt = parseFloat(m && m.material_cost);
+          const mq = parseInt(m && m.mapping_qty, 10) || 0;
+          const hasMapping = !!(m && m.mapping_sku) && mq > 0;
+          parentPerSubModCost += (isNaN(c) ? 0 : c);
+          if (!hasMapping) parentPerSubModCost += (isNaN(mt) ? 0 : mt);
+        });
+        const modFee = parentPerSubModCost * subQty;
+        if (modFee <= 0) return;          // gate 與 CB-27 相同
+        modsDisplayTotal += modFee;
+
+        // ② gate 內再逐 mod 分攤到 label
+        mods.forEach(function (m) {
+          const c  = parseFloat(m && m.cost);
+          const mt = parseFloat(m && m.material_cost);
+          const mq = parseInt(m && m.mapping_qty, 10) || 0;
+          const hasMapping  = !!(m && m.mapping_sku) && mq > 0;
+          const matIncluded = hasMapping ? 0 : (isNaN(mt) ? 0 : mt);
+          const perMod = ((isNaN(c) ? 0 : c) + matIncluded) * subQty;
+          if (!(perMod > 0)) return;      // 票面第 3 點:fee > 0 才列
+
+          const label = _displayModLabel(m);
+          if (!byLabel[label]) byLabel[label] = { fee: 0, hasExcludedMaterial: false };
+          byLabel[label].fee += perMod;
+          if (hasMapping && !isNaN(mt) && mt > 0) byLabel[label].hasExcludedMaterial = true;
+        });
+      });
+    });
+
+    const sortedLabels = Object.keys(byLabel).sort(function (a, b) {
+      const d = byLabel[b].fee - byLabel[a].fee;
+      if (d !== 0) return d;
+      return a.localeCompare(b);          // 同額 tiebreak
+    });
+
+    let rows;
+    if (sortedLabels.length <= MODS_MAX_ROWS) {
+      rows = sortedLabels.map(function (l) {
+        return { label: l, fee: byLabel[l].fee, hasExcludedMaterial: byLabel[l].hasExcludedMaterial };
+      });
+    } else {
+      rows = sortedLabels.slice(0, MODS_MAX_ROWS - 1).map(function (l) {
+        return { label: l, fee: byLabel[l].fee, hasExcludedMaterial: byLabel[l].hasExcludedMaterial };
+      });
+      const restFee = sortedLabels.slice(MODS_MAX_ROWS - 1).reduce(function (sum, l) {
+        return sum + byLabel[l].fee;
+      }, 0);
+      rows.push({ label: MODS_OTHER_LABEL, fee: restFee, hasExcludedMaterial: false });
+    }
+
+    return { rows: rows, modsDisplayTotal: modsDisplayTotal };
+  }
+
 
   function _formatModValue(v) {
     if (v == null) return '';
@@ -744,19 +866,31 @@ return total;
     return addrY;
   }
 
+  // F-81(CB-75 順手項):頁尾綠條原本【只畫當前頁】—— 本函式為單次呼叫,
+  //   多頁文件的第 1..n−1 頁沒有綠條,只有最後一頁有,看起來像排版故障。
+  //   改為逐頁補畫,比照同檔 _addPageNumbers() / _drawStamp() 的既有手法。
+  //   呼叫端(_finalizeWithTotals / _finalizePackingListWithTcAndNotes)不需改動,
+  //   迴圈封裝在函式內部。
+  //   ⚠ 與 CB-74 的頁碼(y=285.5,7pt,下緣約 286.2)相距約 0.8mm,不重疊,
+  //     但餘裕很小 —— 日後若調整任一方的 y,兩者須一併檢視。
   function _drawFooterBar(doc) {
     const { pageW } = LAYOUT;
-    doc.setFillColor(...COLORS.darkGreen);
-    doc.rect(0, 287, pageW, 10, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.text(
-      'ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com',
-      pageW / 2,
-      293,
-      { align: 'center' }
-    );
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFillColor(...COLORS.darkGreen);
+      doc.rect(0, 287, pageW, 10, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        'ProCraft Cabinetry DC  ·  dc.procraftcabinetry.com',
+        pageW / 2,
+        293,
+        { align: 'center' }
+      );
+    }
+    doc.setPage(totalPages);
   }
 
   // CB-74 (Q-19 B'):頁碼由 header 右下(headerH − 3 = 49)移到頁尾空白帶。
@@ -1540,7 +1674,7 @@ return total;
       y += 6;
     }
 
-    // ── Modifications (CB-27 改動 B: 按 type 分組明細 + Total) ──
+    // ── Modifications (CB-75: 依【項目】聚合明細 + Total;取代 CB-27 的 by-type) ──
     if (showPrices && totals.modsDisplayTotal > 0) {
       // 標題行(無金額)
       doc.setFontSize(8);
@@ -1548,14 +1682,18 @@ return total;
       doc.setTextColor(...COLORS.muted);
       doc.text('Modifications', totalsX, y);
       y += 5;
-      // 逐 type 明細(縮排)
+      // 逐項目明細(縮排)
+      //   🔴 不再印 ×qty:聚合維度改為項目後,同一 label 可能橫跨多個櫃體、
+      //     各自 qty 不同,加總出來的數字沒有可解釋的語意
+      //     (「Skin ×5」會被讀成五片,實際可能是 3 櫃各 1 + 1 櫃 2)。
+      //   標籤寬度:totalsX+4 = 134 起,金額右對齊於 200,可用約 51mm /
+      //     7pt 約 30 字元。實測最長 label 18 字元 + ' (labor)' 8 = 26,仍在容量內。
       doc.setFontSize(7);
-      (totals.modByTypeOrdered || []).forEach(function (t) {
-        const row = totals.modByType[t];
+      (totals.modRows || []).forEach(function (r) {
         doc.setTextColor(...COLORS.muted);
-        doc.text(`${_shortType(t)} ×${row.qty}`, totalsX + 4, y);
+        doc.text(r.label + (r.hasExcludedMaterial ? MODS_LABOR_SUFFIX : ''), totalsX + 4, y);
         doc.setTextColor(140, 100, 20);
-        doc.text(`+$${row.modFee.toFixed(2)}`, valX, y, { align: 'right' });
+        doc.text(`+$${r.fee.toFixed(2)}`, valX, y, { align: 'right' });
         y += 4;
       });
       // Total 行
@@ -1879,8 +2017,11 @@ return total;
     // ── CB-27: Modifications by-type 明細 + Subtotal/Mods 顯示分桶對齊 CB-25 ──
     //   只改「顯示」:把 mapping material 從 Modifications 搬到 Subtotal 顯示,
     //   兩顯示值之和 = 原(subtotal + modsTotal)不變 → tax/billing/grand 全不動。
-    const modByType            = _calcModByType(items, quoteData.construction_type);
-    const modsDisplayTotal     = modByType.modsDisplayTotal;            // 工本費 Σ(顯示用 Mods 總額)
+    // CB-75:改依項目聚合(原 _calcModByType 保留但已無呼叫端,見該函式標頭)。
+    //   modsDisplayTotal 的算法未變 → mappingMaterialTotal 的反推不受影響,
+    //   兩顯示桶之和仍恆等於 modsTotal,grand / tax 完全不動。
+    const modByLabel           = _calcModByLabel(items);
+    const modsDisplayTotal     = modByLabel.modsDisplayTotal;           // 工本費 Σ(顯示用 Mods 總額)
     const mappingMaterialTotal = modsTotal - modsDisplayTotal;          // 併入 Subtotal 顯示
 
     let taxableModsTotal;
@@ -1962,8 +2103,7 @@ return total;
       subtotal:          markedSubtotal,     // 顯示時併入 assembleTotal,見 _drawTotals
       modsTotal:         modsTotal,
       modsDisplayTotal:     modsDisplayTotal,      // CB-27: 顯示用 Mods 總額(工本費 Σ)
-      modByType:            modByType.byType,       // CB-27: by-type 明細
-      modByTypeOrdered:     modByType.ordered,      // CB-27: 顯示順序(CB-22)
+      modRows:              modByLabel.rows,        // CB-75: 依項目聚合的明細列(已排序、已套上限)
       mappingMaterialTotal: mappingMaterialTotal,   // CB-27: 併入 Subtotal 顯示
       // ── CB-47 顯示用 ──
       subtotalGross:     markedSubtotalGross,
@@ -1991,7 +2131,9 @@ return total;
     let y = yAfterNotes + 8;
     const TC_BLOCK_H = 7 * 9 + 16;
     // CB-27: Modifications 變多行(標題 + N type + Total)、Assemble Fee 獨立一行
-    const MODS_H     = modsDisplayTotal > 0 ? (5 + modByType.ordered.length * 4 + 6) : 0;
+    // CB-75:列數已於 _calcModByLabel 套上 MODS_MAX_ROWS 上限,故本式有硬上界
+    //   (12 列時 MODS_H = 59),溢出頁尾在數學上不再可能。
+    const MODS_H     = modsDisplayTotal > 0 ? (5 + modByLabel.rows.length * 4 + 6) : 0;
     const ASM_H      = assembleTotal > 0 ? 6 : 0;
     // CB-47:每 rule 一行 4mm + Total Discount 6mm + Subtotal After Discount 6mm
     const DISC_H     = showDiscount ? (_appliedRules.length * 4 + 12) : 0;
