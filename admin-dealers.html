@@ -987,9 +987,6 @@ const LIST_COLSPAN = 6;
 //      「信寄出去了但 toast 說沒寄」,方向與現在相反,同樣是假訊息。
 const EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI = ['location'];
 
-// 🟢 通用(判斷依據):error / 無資料 / 無符合 三態的【區分邏輯】通用,
-//    文案為參數。合併任兩態即製造靜默失敗 ——「查無符合條件」顯示成
-//    「還沒有 dealer」,admin 會以為資料不存在而去重建。
 // ── CB-76: account_type badge ────────────────────────────────────────────
 //   🔴 正向識別(F-35):以三種例外查表命中才渲染。
 //      【不】寫 account_type !== 'dealer' —— 負向判斷在值意外為 null /
@@ -1015,6 +1012,9 @@ function renderAccountTypeBadge(accountType) {
   return '<div><span class="badge-acct acct-unknown">⚠ ' + raw.replace(/[<>&"]/g, '') + '</span></div>';
 }
 
+// 🟢 通用(判斷依據):error / 無資料 / 無符合 三態的【區分邏輯】通用,
+//    文案為參數。合併任兩態即製造靜默失敗 ——「查無符合條件」顯示成
+//    「還沒有 dealer」,admin 會以為資料不存在而去重建。
 function hasActiveFilter() {
   return !!(_listState.q || _listState.salesId || _listState.status);
 }
@@ -1092,8 +1092,8 @@ async function loadDealers() {
 
   tbody.innerHTML = rows.map(d => `
     <tr>
-            <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div>${renderAccountTypeBadge(d.account_type)}</td>
-      <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
+      <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div>${renderAccountTypeBadge(d.account_type)}</td>
+            <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
       <td>${d.email || '—'}</td>
       <td>${renderSalesCell(d.assigned_sales_id)}</td>
       <td>${d.is_active ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
