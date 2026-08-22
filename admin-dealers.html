@@ -52,6 +52,12 @@
     .td-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .badge-active { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(22,163,74,0.1); color: #16A34A; }
     .badge-inactive { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(107,114,128,0.1); color: #6B7280; }
+    /* CB-76: account_type badge。僅非 dealer 的三種類別顯示(見 ACCOUNT_TYPE_BADGE)。 */
+    .badge-acct { display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
+    .badge-acct.acct-internal_account { background: rgba(107,114,128,0.12); color: #4B5563; }
+    .badge-acct.acct-location         { background: rgba(201,168,76,0.16);  color: #8B6914; }
+    .badge-acct.acct-trial            { background: rgba(224,123,57,0.14);  color: #C2410C; }
+    .badge-acct.acct-unknown          { background: rgba(192,57,43,0.12);   color: #C0392B; }
     .btn-edit { font-size: 11px; color: var(--gold); background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; margin-right: 6px; }
     .btn-edit:hover { opacity: 0.7; }
     .btn-toggle { font-size: 11px; background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; color: var(--muted); }
@@ -974,9 +980,41 @@ function renderPager() {
 //    機制通用;6 這個值特定於本頁。
 const LIST_COLSPAN = 6;
 
+// ── CB-76: 與四支 Edge Function 的 EMAIL_SUPPRESSED_ACCOUNT_TYPES 對應 ──────
+//   🔴 這是【第五份】副本,且是唯一在前端的一份。它不決定寄不寄信 ——
+//      停信的真相來源永遠是 EF 內的那四份。本常數只決定 toast 說什麼。
+//   🔴 未來開放 Location portal 時,五處必須一起改;漏掉這一處的症狀是
+//      「信寄出去了但 toast 說沒寄」,方向與現在相反,同樣是假訊息。
+const EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI = ['location'];
+
 // 🟢 通用(判斷依據):error / 無資料 / 無符合 三態的【區分邏輯】通用,
 //    文案為參數。合併任兩態即製造靜默失敗 ——「查無符合條件」顯示成
 //    「還沒有 dealer」,admin 會以為資料不存在而去重建。
+// ── CB-76: account_type badge ────────────────────────────────────────────
+//   🔴 正向識別(F-35):以三種例外查表命中才渲染。
+//      【不】寫 account_type !== 'dealer' —— 負向判斷在值意外為 null /
+//      空字串 / 未來新增第五種類別時,會渲染出一個沒有樣式與文案的 badge,
+//      或反過來把該顯示的漏掉,而且不報錯。
+//   'dealer' 刻意不在表中 → 自然不顯示(佔全表近 100%,顯示等於雜訊)。
+//   查無對應 → 以 acct-unknown 印出【DB 原值】,壞掉看得見。
+const ACCOUNT_TYPE_BADGE = {
+  internal_account: 'Internal Account',
+  location:         'Location',
+  trial:            'Trial',
+};
+
+function renderAccountTypeBadge(accountType) {
+  if (accountType === 'dealer') return '';
+  const label = ACCOUNT_TYPE_BADGE[accountType];
+  if (label) {
+    return '<div><span class="badge-acct acct-' + accountType + '">' + label + '</span></div>';
+  }
+  // 未知值(含 null / '')—— 不靜默略過,印出來讓人看到資料有問題。
+  const raw = (accountType === null || accountType === undefined || accountType === '')
+    ? '(none)' : String(accountType);
+  return '<div><span class="badge-acct acct-unknown">⚠ ' + raw.replace(/[<>&"]/g, '') + '</span></div>';
+}
+
 function hasActiveFilter() {
   return !!(_listState.q || _listState.salesId || _listState.status);
 }
@@ -1054,7 +1092,7 @@ async function loadDealers() {
 
   tbody.innerHTML = rows.map(d => `
     <tr>
-      <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div></td>
+            <td><div class="td-company">${d.company_name}</div><div class="td-sub">${d.contact_name}</div>${renderAccountTypeBadge(d.account_type)}</td>
       <td>${d.city || '—'}, ${d.state || ''} ${d.zip_code || ''}</td>
       <td>${d.email || '—'}</td>
       <td>${renderSalesCell(d.assigned_sales_id)}</td>
@@ -1975,6 +2013,53 @@ async function saveDealer() {
     return;
   }
 
+  // ── CB-76: 誤設 account_type 的確認(Q-19 / Q-37)────────────────────────
+  //   僅 Edit 路徑、僅「改成」trial / location 時才查。Add 為新帳號,無單可影響。
+  //
+  //   🔴 兩種類別的風險【性質不同】,故文案分開、條件寬嚴不同:
+  //     → trial    :訂單狀態推進會被 DB trigger 拒絕。🟢 會報錯,admin 立刻知道。
+  //                  條件較嚴:只有【非 Draft】的單會被影響。
+  //     → location :該 dealer 所有 email 靜默停止。🔴 零症狀 ——
+  //                  偵測路徑是「客戶打電話說沒收到信」。
+  //                  條件較寬:【任何】quote 都算,不限狀態,因為停的是所有信。
+  //   Q-37 = A:PM 追認範圍擴張。只保護 trial 等於把會報錯的保護起來、
+  //   把靜默的放生,方向反了。
+  //
+  //   採原生 confirm()(Q-36 = A):本項是【提醒不阻擋】。既有的 confirmOverlay
+  //   綁死刪除流程的打字確認,那是刪除的最後防線 —— 為一個提醒去改它,
+  //   是拿最高風險的東西換最低價值的一致性。
+  if (editingDealerId
+      && (fields.account_type === 'trial' || fields.account_type === 'location')) {
+    let _q = _supabase.from('quotes')
+      .select('id', { count: 'exact', head: true })
+      .eq('dealer_id', editingDealerId);
+    if (fields.account_type === 'trial') _q = _q.neq('status', 'Draft');
+
+    const { count: _affected, error: _cntErr } = await _q;
+
+    if (_cntErr) {
+      errEl.textContent = 'Could not check this dealer\u2019s existing orders. Please try again.';
+      errEl.classList.add('show');
+      return;
+    }
+
+    if (_affected > 0) {
+      const _msg = (fields.account_type === 'trial')
+        ? 'This dealer has ' + _affected + ' order(s) that are not Drafts.\n\n'
+          + 'Setting the account type to Trial will BLOCK all status changes on those '
+          + 'orders \u2014 including changes made by admins. Payment, release and '
+          + 'completion will all fail until the account type is changed back.\n\n'
+          + 'Continue?'
+        : 'This dealer has ' + _affected + ' order(s).\n\n'
+          + 'Setting the account type to Location will STOP ALL EMAIL for this dealer, '
+          + 'including order confirmations, payment notifications and completion notices. '
+          + 'This happens silently \u2014 the dealer will simply stop receiving mail, '
+          + 'and nothing in the admin screens will indicate it.\n\n'
+          + 'Continue?';
+      if (!confirm(_msg)) return;
+    }
+  }
+
   btn.disabled = true;
   btn.textContent = editingDealerId ? 'Saving...' : 'Creating...';
 
@@ -2056,7 +2141,19 @@ async function saveDealer() {
         _existingRules = [];          // 新 dealer 無既有 rules → 全部走 INSERT
         await persistRules(result.dealer_id);
       }
-      showToast('Dealer created. Welcome email sent.');
+      // ── CB-76 (Q-15): toast 依 account_type 分流 ─────────────────────────
+      //   🔴 Location 帳號的 welcome 信已由 create-dealer 停用(批 2),
+      //      而【隨機密碼只存在於那封信的 HTML】—— EF 的 console.log 不含密碼
+      //      (刻意的:log 是永久的,密碼重設後舊密碼仍留在 log 裡)。
+      //      停信 = 該密碼無人知曉、無處可查。
+      //   若沿用原文案「Welcome email sent」,對 Location 是【假訊息】,
+      //   而且是在 admin 最需要正確資訊的那一秒 —— 剛建完帳號、人還在畫面前。
+      //   DOC-1 記載救不了這個時機:沒人會在建帳號當下去翻文件。
+      if (EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI.includes(fields.account_type)) {
+        showToast('Dealer created. No welcome email sent (Location account) \u2014 set the password via Supabase Dashboard.');
+      } else {
+        showToast('Dealer created. Welcome email sent.');
+      }
     }
     closeModal();
     await loadDealers();
