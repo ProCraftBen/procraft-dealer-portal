@@ -782,6 +782,7 @@
   "nq3.err.status_changed_resubmit": "No se pudo enviar este pedido: es posible que su estado haya cambiado. Actualice la página e inténtelo de nuevo.",
   "nq3.err.status_changed_submit": "No se pudo enviar este pedido: es posible que se haya eliminado o que su estado haya cambiado. Actualice la página e inténtelo de nuevo.",
   "nq3.err.status_changed_save": "No se pudieron guardar los cambios: es posible que el estado de este pedido haya cambiado. Actualice la página e inténtelo de nuevo.",
+  "nq3.err.trial_submit_blocked": "Las cuentas de prueba no pueden enviar pedidos. Comuníquese con ProCraft para activar su cuenta.",
   "mf.opt.placeholder": "-- Seleccione --",
   "mf.err.select_option": "Seleccione una opción.",
   "mf.err.enter_value": "Ingrese un valor.",
