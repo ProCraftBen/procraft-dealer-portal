@@ -299,7 +299,23 @@
             <select class="form-select is-empty" id="f_assigned_sales_id" onchange="onSalesSelectChange()">
               <option value="">Select an admin…</option>
             </select>
-            <span class="form-hint">The admin responsible for this dealer.</span>
+                        <span class="form-hint">The admin responsible for this dealer.</span>
+          </div>
+
+          <!-- CB-76: Dealer 帳號類別。role 的子分類,不取代 role。 -->
+          <!-- 🔴 非必填、預設 Dealer(CB-76 Q-35 = A):本欄有 DB DEFAULT 'dealer',
+               與上方 Assigned Sales(無 DEFAULT,故必須逼選)情況不同。
+               三層一致:UI 送 'dealer' → create-dealer 驗過 → DB DEFAULT 為最後保險。
+               🔴 不加 is-empty class、不進 REQUIRED_FIELD_LABELS。 -->
+          <div class="form-group full">
+            <label class="form-label">Account Type</label>
+            <select class="form-select" id="f_account_type">
+              <option value="dealer">Dealer</option>
+              <option value="internal_account">Internal Account</option>
+              <option value="location">Location</option>
+              <option value="trial">Trial</option>
+            </select>
+            <span class="form-hint">Dealer = normal. Internal Account = internal marker only. Location = all emails suppressed. Trial = cannot submit orders.</span>
           </div>
         </div>
       </div>
@@ -1083,6 +1099,10 @@ async function openEditDealer(dealerId) {
   ensureSalesOption(d.assigned_sales_id);
   document.getElementById('f_assigned_sales_id').value      = d.assigned_sales_id || '';
   onSalesSelectChange();
+  // CB-76: account_type。d 由上方 select('*') 取回,零額外查詢。
+  //   || 'dealer' 是保險:CB-76 migration 前建立的列理論上已回填,
+  //   但若欄位值意外為空,退回 Dealer 而非留空白 option。
+  document.getElementById('f_account_type').value           = d.account_type || 'dealer';
   document.getElementById('f_slug').value                  = d.slug || '';
   document.getElementById('f_address_line1').value         = d.address_line1 || '';
   document.getElementById('f_address_line2').value         = d.address_line2 || '';
@@ -1137,6 +1157,11 @@ function clearForm() {
   document.getElementById('f_assigned_sales_id').value = '';
   document.getElementById('f_assigned_sales_id').disabled = false;
   onSalesSelectChange();
+  // 🔴 CB-76: 重置為 'dealer' 而非 ''(Q-35 = A)。
+  //    留空會讓 Add 表單出現一個沒有對應 option 的空白選項,
+  //    且送出時 fields.account_type 為 '' → create-dealer 走「缺席」分支。
+  //    行為上仍會落到 DB DEFAULT,但 UI 顯示空白會讓 admin 以為漏填。
+  document.getElementById('f_account_type').value = 'dealer';
   document.getElementById('uid_group').style.display = 'none';
   resetRuleSection();   // CB-47
   document.getElementById('formError').classList.remove('show');
@@ -1906,6 +1931,9 @@ async function saveDealer() {
     phone:                   document.getElementById('f_phone').value.trim(),
     business_phone:          document.getElementById('f_business_phone').value.trim() || null,
     assigned_sales_id:       document.getElementById('f_assigned_sales_id').value || null,
+    // CB-76: Add 走 create-dealer 的 ...fields 展開,加進本物件即自動傳出;
+    //   Edit 走下方的 .update(),需另外列入(見同一函式的 update payload)。
+    account_type:            document.getElementById('f_account_type').value || 'dealer',
     slug:                    document.getElementById('f_slug').value.trim(),
     address_line1:           document.getElementById('f_address_line1').value.trim(),
     address_line2:           document.getElementById('f_address_line2').value.trim(),
@@ -1958,6 +1986,10 @@ async function saveDealer() {
         phone:                   fields.phone,
         business_phone:          fields.business_phone,
         assigned_sales_id:       fields.assigned_sales_id,
+        // CB-76: Edit 路徑走 RLS 直接 UPDATE(不經 create-dealer),
+        //   故服務端的四值驗證在此【不適用】—— 最後一道是 DB 的
+        //   dealers_account_type_check。前端只能送出 option 內的四個值。
+        account_type:            fields.account_type,
         slug:                    fields.slug || null,
         address_line1:           fields.address_line1,
         address_line2:           fields.address_line2 || null,
