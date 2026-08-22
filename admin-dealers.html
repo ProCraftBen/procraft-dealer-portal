@@ -55,7 +55,10 @@
     /* CB-76: account_type badge。僅非 dealer 的三種類別顯示(見 ACCOUNT_TYPE_BADGE)。 */
     .badge-acct { display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
     .badge-acct.acct-internal_account { background: rgba(107,114,128,0.12); color: #4B5563; }
-    .badge-acct.acct-location         { background: rgba(201,168,76,0.16);  color: #8B6914; }
+        /* Location 用藍綠(#0F766E,沿用 send-followup-email 的 BRAND.completed),
+       與 trial 的橘色明確分開 —— 兩者原本都是暖色,並排時難以分辨。
+       語意:Location = 資訊性/內部工具;Trial = 暫時性/需注意。 */
+    .badge-acct.acct-location         { background: rgba(15,118,110,0.12);  color: #0F766E; }
     .badge-acct.acct-trial            { background: rgba(224,123,57,0.14);  color: #C2410C; }
     .badge-acct.acct-unknown          { background: rgba(192,57,43,0.12);   color: #C0392B; }
     .btn-edit { font-size: 11px; color: var(--gold); background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; margin-right: 6px; }
@@ -2150,7 +2153,18 @@ async function saveDealer() {
       //   而且是在 admin 最需要正確資訊的那一秒 —— 剛建完帳號、人還在畫面前。
       //   DOC-1 記載救不了這個時機:沒人會在建帳號當下去翻文件。
       if (EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI.includes(fields.account_type)) {
-        showToast('Dealer created. No welcome email sent (Location account) \u2014 set the password via Supabase Dashboard.');
+        // 🔴 用 alert 而非 showToast:toast 在右下角、3 秒即消,而這則訊息
+        //    是 admin【唯一】會被告知「密碼拿不到」的時機 —— 剛建完帳號、
+        //    人還在畫面前。錯過就再也不會被提醒,而密碼是真的找不回來:
+        //    它只存在於被停掉的那封 welcome 信的 HTML 裡,create-dealer 的
+        //    console.log 刻意不含密碼(log 是永久的,密碼重設後舊值仍在)。
+        //    alert 會擋住直到按確認 —— 這正是此訊息需要的重量。
+        //    與 Q-36 的 confirm() 同一家族,零新增 DOM。
+        alert('Dealer created \u2014 Location account.\n\n'
+            + 'No welcome email was sent, so the generated password was never '
+            + 'delivered and is NOT recoverable.\n\n'
+            + 'To let anyone sign in to this account, reset the password via\n'
+            + 'Supabase Dashboard \u203a Authentication \u203a Users.');
       } else {
         showToast('Dealer created. Welcome email sent.');
       }
