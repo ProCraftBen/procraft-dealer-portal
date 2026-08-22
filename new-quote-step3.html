@@ -2337,6 +2337,27 @@ if (draftId) {
       const termsRow = document.getElementById('termsAgreeRow');
       if (termsRow) termsRow.style.display = 'flex';
     }
+
+    // ── CB-76: Trial 帳號擋送出(前端層)────────────────────────────────────
+    //   三層防護的第一層。DB trigger 是最終防線,本段是「事前告知」。
+    //   🔴 對所有 viewMode 生效 —— 業主拍板:admin 亦不可代 Trial 下單。
+    //      dealer 物件來自被代建 dealer 的資料列,故 admin mode 一併涵蓋。
+    //   🔴 termsAgreeRow 隱藏(Q-26):勾了也送不出的核取方塊是誤導。
+    //   ⚠️ 本段必須在 refreshAdminSubmitGate() 之前執行,且該函式已改為
+    //      trial-aware —— 否則它會把 btnAdminSubmit 重新開啟。
+    if (isTrialDealer()) {
+      const tSubmit = document.getElementById('btnSubmit');
+      const tAdmin  = document.getElementById('btnAdminSubmit');
+      const tTerms  = document.getElementById('termsAgreeRow');
+      if (tSubmit) tSubmit.disabled = true;
+      if (tAdmin)  tAdmin.disabled  = true;
+      if (tTerms)  tTerms.style.display = 'none';
+      if (elSubmitNote) {
+        elSubmitNote.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
+        elSubmitNote.textContent = pcTxt('nq3.err.trial_submit_blocked',
+          'Trial accounts cannot submit orders. Contact ProCraft to activate your account.');
+      }
+    }
   
     // CB-33: admin shipping fee 輸入框(僅 admin mode + logistic=shipping)
     setupAdminShippingInput();
@@ -3615,6 +3636,27 @@ async function submitQuote() {
     alert(pcTxt('nq3.alert.shipping_required', 'Please enter a shipping fee before submitting, or use Save Draft.'));
     return;
   }
+
+  // ── CB-76: Trial 硬檔 ────────────────────────────────────────────────────
+  //   🔴 位置不可移動:CB-33 shipping gate 之後、任何 DB 操作之前。
+  //      分支 3(Draft→Submit)的順序是 UPDATE → quote_items DELETE → RPC,
+  //      三者是三次獨立的 PostgREST 請求 = 三個 transaction。若讓流程走到
+  //      RPC 才被 DB trigger 擋下,前兩次已 commit → 每一次 trial 送出都留下
+  //      一張沒有品項的空殼 draft,不可逆。這不是機率問題,是必然。
+  //   正常情況下不會走到這裡(A-1 已 disable 兩顆按鈕);本段接的是
+  //   繞過 URL、bfcache 還原、DevTools 解除 disabled 等路徑。
+  //   errorMsg 於下方才宣告,故此處自行取節點(Q-27:走 errMsg,不用 alert)。
+  if (isTrialDealer()) {
+    const tErr = document.getElementById('errorMsg');
+    if (tErr) {
+      tErr.textContent = pcTxt('nq3.err.trial_submit_blocked',
+        'Trial accounts cannot submit orders. Contact ProCraft to activate your account.');
+      tErr.classList.add('show');
+      tErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+
   const _isAdminSubmit = (viewMode === 'admin-draft' || viewMode === 'admin-edit');  // CB-32
   const btn     = document.getElementById(_isAdminSubmit ? 'btnAdminSubmit' : 'btnSubmit');
   const errMsg  = document.getElementById('errorMsg');
@@ -4381,10 +4423,32 @@ function confirmSubmitFromModal() {
 }
 
 // Terms gate: dealer 必須先勾同意才能送出 / 重送 PO
+// ── CB-76: Trial 帳號判斷(共用)──────────────────────────────────────────
+//   dealer 物件由 init 以 select('*') 取回,故 account_type 自動可用,
+//   不需額外查詢。dealer 為【被報價的 dealer】,admin 代建時亦然。
+//
+//   🔴 刻意 fail-open,且【不得】改為 fail-closed ——
+//      讀不到 account_type(migration 未上 / GitHub Pages 快取舊頁 /
+//      dealer 尚未載入)時本函式回 false = 放行。
+//      接住的是 DB 層:quotes 的 trg_block_trial_status_change /
+//      _on_insert 為 SECURITY DEFINER + RAISE EXCEPTION,fail-closed。
+//      分層方向是【前端 fail-open + DB fail-closed】：
+//        反過來(前端 fail-closed)會在欄位讀不到時擋掉【所有】dealer,
+//        把一個顯示問題升級成全站送單中斷。
+//      詳見 CB-76 Q-4 / Q-14 的同源論證。
+//
+//   🔴 正向識別(F-35):以 === 'trial' 命中,而非排除其他值。
+function isTrialDealer() {
+  return !!(dealer && dealer.account_type === 'trial');
+}
+
 function onAgreeTermsChange() {
   const cb  = document.getElementById('agreeTerms');
   const btn = document.getElementById('btnSubmit');
   if (!cb || !btn) return;
+  // 🔴 CB-76: 沒有這道條件,勾 terms 會把 A-1 設下的 disabled 直接打開 ——
+  //    現象是「載入時按鈕是灰的、勾一下就亮了」,只測載入狀態會誤判通過。
+  if (isTrialDealer()) { btn.disabled = true; return; }
   btn.disabled = !cb.checked;
 }
 
@@ -4429,6 +4493,14 @@ function refreshAdminSubmitGate() {
   const btn  = document.getElementById('btnAdminSubmit');
   const hint = document.getElementById('adminShippingHint');
   if (!btn) return;
+  // 🔴 CB-76: trial 優先於 shipping 判斷。本函式的 else 分支會無條件
+  //    btn.disabled = false —— 沒有這道 early return,A-1 設下的 disabled
+  //    會在 init 尾端被本函式立刻打開(A-1 執行後緊接著就呼叫本函式)。
+  if (isTrialDealer()) {
+    btn.disabled = true;
+    if (hint) hint.style.display = 'none';
+    return;
+  }
   if (isAdminShippingMode() && getAdminShippingOverride() === null) {
     btn.disabled = true;
     if (hint) hint.style.display = 'block';
