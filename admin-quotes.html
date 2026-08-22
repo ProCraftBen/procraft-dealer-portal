@@ -629,6 +629,16 @@ function escapeHtml(s) {
 // 組 dealer payload (給 Edge Function 用) — 含 email 通知設定
 function buildDealerPayload(dealer) {
   return {
+    // CB-76 (Q-14): dealer.id 供 send-quote-email 以 PK 查 account_type
+    //   判斷 Location 停信。🔴 send-quote-email 不重撈 quote/dealer,
+    //   識別鍵只能由 payload 帶入。
+    //   🔴 不以 email 比對:dealers_email_key 只保證同一時刻不重複,
+    //      不保證跨時間穩定 —— DOC-1 有換 dealer 登入 email 的 SOP,
+    //      2026-08-18 已實際執行過一次。
+    //   🔴 部署順序:本檔 promote 並驗證 payload 確實含 id 之後,才可部署
+    //      Edge Function。反序會使 EF 走 fallback(當作非 Location 照常
+    //      寄信),Location 停信在空窗期失效。
+    id:                       dealer.id,
     email:                    dealer.email,
     contact_name:             dealer.contact_name,
     company_name:             dealer.company_name,
