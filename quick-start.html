@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="robots" content="noindex"/>
+  <title data-i18n="quickstart.meta.title">ProCraft DC Dealer Portal — Quick Start</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --gold-light: #E2C97E;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --bg:         #F5F2EC;
+      --white:      #FFFFFF;
+      /* 狀態色:與 dashboard.html / quotes.html 同一組 token,不新增、不改值 */
+      --status-draft:           #9B59B6;
+      --status-pending:         #C9A84C;
+      --status-stock-review:    #0891B2;
+      --status-payment:         #64748B;
+      --status-complete:        #16A34A;
+      --status-order-completed: #0F766E;
+      --status-returned:        #E07B39;
+      --status-closed:          #6B7280;
+      --status-cancelled:       #B91C1C;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── 頁首:本頁不引用 navigator.js,返回路徑自建(CB-79 Q-5)── */
+    .qs-top { border-bottom: 1px solid var(--border); background: var(--white); }
+    .qs-top-inner { max-width: 860px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .qs-back { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); text-decoration: none; transition: color 0.2s; min-height: 44px; display: inline-flex; align-items: center; }
+    .qs-back:hover { color: var(--green-dark); }
+    .qs-brand { font-family: 'Cormorant Garamond', serif; font-size: 15px; color: var(--green-dark); letter-spacing: 0.04em; }
+
+    .qs-wrap { max-width: 860px; margin: 0 auto; padding: 0 20px 72px; }
+
+    /* ── Hero ── */
+    .qs-hero { padding: 56px 0 44px; border-bottom: 1px solid var(--border); }
+    .qs-hero h1 { font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 400; color: var(--green-dark); line-height: 1.25; }
+    @media (min-width: 700px) { .qs-hero h1 { font-size: 42px; } }
+    .qs-hero p { margin-top: 16px; font-size: 15px; line-height: 1.75; color: var(--text); max-width: 62ch; }
+    .qs-cta-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 26px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 13px 22px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; text-decoration: none; min-height: 44px; transition: background 0.2s; }
+    .qs-cta-btn:hover { background: var(--green-mid); }
+
+    /* ── 步驟區塊 ── */
+    .qs-step { padding: 44px 0; border-bottom: 1px solid var(--border); }
+    .qs-step-num { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+    .qs-step h2 { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); }
+    .qs-step > p { margin-top: 12px; font-size: 14px; line-height: 1.8; color: var(--text); max-width: 62ch; }
+    .qs-list { margin-top: 18px; padding-left: 0; list-style: none; max-width: 62ch; }
+    .qs-list li { position: relative; padding-left: 22px; margin-bottom: 10px; font-size: 14px; line-height: 1.7; }
+    .qs-list li::before { content: ''; position: absolute; left: 4px; top: 10px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+    .qs-note { margin-top: 16px; padding: 12px 14px; border-left: 2px solid var(--border); background: var(--white); font-size: 13px; line-height: 1.7; color: var(--muted); max-width: 62ch; }
+    .qs-outro { margin-top: 16px; font-size: 14px; line-height: 1.8; max-width: 62ch; }
+
+    /* ── 影片版位 ──
+       Stage 2 第二段才插入 <video>。此處先以固定比例佔位,
+       確保錄影期間可以先確認版面,且影片插入後不會造成版面跳動。 */
+    .qs-video { margin-top: 24px; }
+    .qs-video-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .qs-video-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .qs-video-ph { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--border); }
+    .qs-video-cap { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+    /* ── 折疊補充(Part 3.1 / 3.2)── */
+    .qs-fold { margin-top: 18px; border: 1px solid var(--border); border-radius: 4px; background: var(--white); }
+    .qs-fold + .qs-fold { margin-top: 10px; }
+    .qs-fold > summary { cursor: pointer; padding: 15px 18px; font-size: 13px; font-weight: 500; color: var(--green-dark); list-style: none; display: flex; align-items: center; gap: 10px; min-height: 44px; }
+    .qs-fold > summary::-webkit-details-marker { display: none; }
+    .qs-fold > summary::before { content: '+'; flex: 0 0 auto; width: 18px; height: 18px; border: 1px solid var(--border); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; line-height: 1; color: var(--gold); }
+    .qs-fold[open] > summary::before { content: '−'; }
+    .qs-fold-body { padding: 0 18px 18px; }
+    .qs-fold-body p { font-size: 14px; line-height: 1.8; max-width: 62ch; }
+
+    /* ── 狀態說明區 ── */
+    .qs-status { padding: 44px 0; }
+    .qs-status h2 { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); }
+    .qs-status > p { margin-top: 12px; font-size: 14px; line-height: 1.8; max-width: 62ch; }
+
+    .qs-flow { margin-top: 26px; display: flex; flex-direction: column; gap: 6px; }
+    @media (min-width: 760px) { .qs-flow { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; } }
+    .qs-chip { display: inline-flex; align-items: center; padding: 8px 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--white); font-size: 12px; font-weight: 500; white-space: nowrap; }
+    .qs-chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; margin-right: 8px; background: var(--muted); flex: 0 0 auto; }
+    .qs-chip[data-tone="draft"]::before      { background: var(--status-draft); }
+    .qs-chip[data-tone="stock"]::before      { background: var(--status-stock-review); }
+    .qs-chip[data-tone="pending"]::before    { background: var(--status-pending); }
+    .qs-chip[data-tone="payproc"]::before    { background: var(--status-payment); }
+    .qs-chip[data-tone="ordproc"]::before    { background: var(--status-complete); }
+    .qs-chip[data-tone="done"]::before       { background: var(--status-order-completed); }
+    .qs-chip[data-tone="returned"]::before   { background: var(--status-returned); }
+    .qs-arrow { color: var(--border); font-size: 13px; text-align: center; line-height: 1; }
+    @media (min-width: 760px) { .qs-arrow { transform: none; } }
+
+    .qs-branch { margin-top: 14px; padding: 13px 15px; border: 1px dashed var(--status-returned); border-radius: 4px; background: rgba(224,123,57,0.05); }
+    .qs-branch-head { display: flex; align-items: center; gap: 10px; }
+    .qs-branch p { margin-top: 8px; font-size: 13px; line-height: 1.75; max-width: 62ch; }
+
+    .qs-st-list { margin-top: 30px; display: flex; flex-direction: column; gap: 2px; }
+    .qs-st { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; }
+    .qs-st + .qs-st { margin-top: 10px; }
+    .qs-st-name { font-size: 13px; font-weight: 500; color: var(--green-dark); letter-spacing: 0.03em; }
+    .qs-st-row { margin-top: 10px; display: grid; grid-template-columns: 1fr; gap: 4px; }
+    @media (min-width: 640px) { .qs-st-row { grid-template-columns: 92px 1fr; gap: 4px 14px; align-items: start; } }
+    .qs-st-key { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+    .qs-st-val { font-size: 13.5px; line-height: 1.7; }
+
+    .qs-terminal { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); }
+    .qs-terminal h3 { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+    .qs-terminal p { margin-top: 10px; font-size: 13.5px; line-height: 1.75; max-width: 62ch; }
+
+    /* ── 頁尾 CTA ── */
+    .qs-end { margin-top: 20px; padding: 34px 24px; background: var(--white); border: 1px solid var(--border); border-radius: 4px; text-align: center; }
+    .qs-end h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 400; color: var(--green-dark); }
+    .qs-end p { margin-top: 10px; font-size: 14px; line-height: 1.75; color: var(--muted); max-width: 52ch; margin-left: auto; margin-right: auto; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="qs-top">
+  <div class="qs-top-inner">
+    <a href="dashboard.html" class="qs-back" data-i18n="quickstart.nav.back">← Back to Dashboard</a>
+    <span class="qs-brand">ProCraft Cabinetry · DC</span>
+  </div>
+</header>
+
+<div class="qs-wrap">
+
+  <!-- ══ Hero ══════════════════════════════════════════════════════ -->
+  <section class="qs-hero">
+    <h1 data-i18n="quickstart.hero.title">How to create your first quote and order</h1>
+    <p data-i18n="quickstart.hero.body">Thanks for using the ProCraft DC Dealer Portal. Here you can build your own quote and submit an order once everything looks right. The whole process is about four steps — this page walks you through them. Ready? Let's go!</p>
+  </section>
+
+  <!-- ══ Part 1 ════════════════════════════════════════════════════ -->
+  <section class="qs-step" id="part1" data-quickstart-section="part1">
+    <div class="qs-step-num">01</div>
+    <h2 data-i18n="quickstart.p1.title">Step 1: Start a new estimate</h2>
+    <p data-i18n="quickstart.p1.intro">Start from the dashboard by clicking New Estimate. This page covers the basics for the order — what the project is called, how it ships, where it goes, and who gets billed.</p>
+    <ul class="qs-list">
+      <li data-i18n="quickstart.p1.li1">Enter a Job Name so you can find this order later, and put anything we should know in Notes (Optional)</li>
+      <li data-i18n="quickstart.p1.li2">Choose your Logistic method</li>
+      <li data-i18n="quickstart.p1.li3">Confirm the Shipping / Delivery Address</li>
+      <li data-i18n="quickstart.p1.li4">Confirm the Billing Address</li>
+    </ul>
+    <p class="qs-outro" data-i18n="quickstart.p1.outro">Once everything looks right, click Next: Select Products → to continue.</p>
+
+    <div class="qs-video">
+      <div class="qs-video-frame" data-quickstart-video="01">
+        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-01-order-info.mp4 -->
+        <span class="qs-video-ph">Video 01</span>
+      </div>
+      <div class="qs-video-cap" data-i18n="quickstart.p1.vcap">Video: starting a new estimate and filling in the order information</div>
+    </div>
+  </section>
+
+  <!-- ══ Part 2 ════════════════════════════════════════════════════ -->
+  <section class="qs-step" id="part2" data-quickstart-section="part2">
+    <div class="qs-step-num">02</div>
+    <h2 data-i18n="quickstart.p2.title">Step 2: Choose door styles and SKUs</h2>
+    <p data-i18n="quickstart.p2.intro">This page is where you pick your door style and cabinets. Every price you see already has your own multiplier applied — there's nothing for you to calculate.</p>
+    <ul class="qs-list">
+      <li data-i18n="quickstart.p2.li1">Pick a style from Door Styles at the top</li>
+      <li data-i18n="quickstart.p2.li2">Search for the SKU Code you need below and enter a quantity</li>
+      <li data-i18n="quickstart.p2.li3">Click Assembled or Unassembled — the item is added to your cart automatically</li>
+      <li data-i18n="quickstart.p2.li4">Repeat until everything is in. You can open Quote Items at any time to check</li>
+      <li data-i18n="quickstart.p2.li5">When it looks right, click Continue →</li>
+    </ul>
+
+    <div class="qs-video">
+      <div class="qs-video-frame" data-quickstart-video="02">
+        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-02-door-style-sku.mp4 -->
+        <span class="qs-video-ph">Video 02</span>
+      </div>
+      <div class="qs-video-cap" data-i18n="quickstart.p2.vcap">Video: choosing a door style, adding cabinets, and checking selected items</div>
+    </div>
+  </section>
+
+  <!-- ══ Part 3 ════════════════════════════════════════════════════ -->
+  <section class="qs-step" id="part3" data-quickstart-section="part3">
+    <div class="qs-step-num">03</div>
+    <h2 data-i18n="quickstart.p3.title">Step 3: Set up modifications</h2>
+    <p data-i18n="quickstart.p3.intro">This page is where you adjust cabinet details — hinge direction, depth, glass doors and so on. If the order needs no adjustments at all, click Review → to skip it.</p>
+    <ul class="qs-list">
+      <li data-i18n="quickstart.p3.li1">Click any Assembled item to open its setup window</li>
+      <li data-i18n="quickstart.p3.li2">The modifications available for that item are listed in the window — set them as needed</li>
+      <li data-i18n="quickstart.p3.li3">Click Save when you're done to close the window</li>
+    </ul>
+    <div class="qs-note" data-i18n="quickstart.p3.note_hasnote">Anything not on the list that we should know about can go in Modification Note.</div>
+    <div class="qs-note" data-i18n="quickstart.p3.note_none">If an item has no options to set, the window will show only Modification Note.</div>
+    <p class="qs-outro" data-i18n="quickstart.p3.outro">Once every item is handled, click Review → for the final step.</p>
+
+    <div class="qs-video">
+      <div class="qs-video-frame" data-quickstart-video="03">
+        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-03-modification.mp4 -->
+        <span class="qs-video-ph">Video 03</span>
+      </div>
+      <div class="qs-video-cap" data-i18n="quickstart.p3.vcap">Video: opening the setup window, configuring a modification, and saving</div>
+    </div>
+
+    <!-- ── Part 3.1(折疊)── -->
+    <details class="qs-fold" data-quickstart-section="part3-1">
+      <summary data-i18n="quickstart.p31.summary">Same SKU, but each one needs different modifications?</summary>
+      <div class="qs-fold-body">
+        <p data-i18n="quickstart.p31.body">In the setup window, use Split this SKU to divide the quantity into groups and set each group separately. For example, three of the same B30 can be set to left, right, and both. After you save, the Review → page lists the three groups separately.</p>
+        <div class="qs-video">
+          <div class="qs-video-frame" data-quickstart-video="04">
+            <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-04-split-sku.mp4 -->
+            <span class="qs-video-ph">Video 04</span>
+          </div>
+          <div class="qs-video-cap" data-i18n="quickstart.p31.vcap">Video: using Split this SKU to divide one item into three separate groups</div>
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Part 3.2(折疊)── -->
+    <details class="qs-fold" data-quickstart-section="part3-2">
+      <summary data-i18n="quickstart.p32.summary">Want to change the door style on the whole order?</summary>
+      <div class="qs-fold-body">
+        <p data-i18n="quickstart.p32.body">On the modification page, click Swap Style to change them all at once. The system shows the price difference first; it only takes effect after you click Confirm Swap and then Confirm Change. The Modifications Total: at the bottom right updates at the same time.</p>
+        <div class="qs-note" data-i18n="quickstart.p32.warn">Note: you can only swap within the same construction type. Framed can only be swapped for Framed, and Frameless for Frameless.</div>
+        <div class="qs-video">
+          <div class="qs-video-frame" data-quickstart-video="05">
+            <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-05-swap-style.mp4 -->
+            <span class="qs-video-ph">Video 05</span>
+          </div>
+          <div class="qs-video-cap" data-i18n="quickstart.p32.vcap">Video: using Swap Style to change the door style and confirm the price change</div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ══ Part 4 ════════════════════════════════════════════════════ -->
+  <section class="qs-step" id="part4" data-quickstart-section="part4">
+    <div class="qs-step-num">04</div>
+    <h2 data-i18n="quickstart.p4.title">Step 4: Review and submit</h2>
+    <p data-i18n="quickstart.p4.intro">The last page shows the complete order — order information, delivery address, every item and every amount. Please read it through before submitting. Once it looks right, you have two options:</p>
+
+    <div class="qs-st" style="margin-top:18px;">
+      <div class="qs-st-name" data-i18n="quickstart.p4.opt1_label">Save Draft</div>
+      <div class="qs-st-val" style="margin-top:8px;" data-i18n="quickstart.p4.opt1_body">Saves it without submitting. You can find it again under My Orders and keep editing. Good for when you're still working things out with your customer.</div>
+    </div>
+    <div class="qs-st">
+      <div class="qs-st-name" data-i18n="quickstart.p4.opt2_label">Submit Purchase Order</div>
+      <div class="qs-st-val" style="margin-top:8px;" data-i18n="quickstart.p4.opt2_body">Submits the order for real. A PO number is generated, and the order can no longer be edited by you.</div>
+    </div>
+
+    <p class="qs-outro" data-i18n="quickstart.p4.outro">After you submit, our team takes over. You can check progress any time under My Orders.</p>
+
+    <div class="qs-video">
+      <div class="qs-video-frame" data-quickstart-video="06">
+        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-06-submit-po.mp4 -->
+        <span class="qs-video-ph">Video 06</span>
+      </div>
+      <div class="qs-video-cap" data-i18n="quickstart.p4.vcap">Video: reviewing the order and submitting the purchase order</div>
+    </div>
+  </section>
+
+  <!-- ══ Part 5(無影片)═══════════════════════════════════════════ -->
+  <section class="qs-step" id="part5" data-quickstart-section="part5">
+    <div class="qs-step-num">05</div>
+    <h2 data-i18n="quickstart.p5.title">What happens after you submit</h2>
+    <p data-i18n="quickstart.p5.intro">Once your purchase order is in, our team handles it from there. It generally goes through these stages:</p>
+    <ul class="qs-list">
+      <li data-i18n="quickstart.p5.li1">Stock confirmation — we check that everything you ordered can be supplied</li>
+      <li data-i18n="quickstart.p5.li2">Payment opens — once confirmed, you can complete payment on the order page</li>
+      <li data-i18n="quickstart.p5.li3">Order processing — after payment clears, we begin preparation and production</li>
+      <li data-i18n="quickstart.p5.li4">Delivery complete — the order ships and is closed out</li>
+    </ul>
+  </section>
+
+  <!-- ══ 訂單狀態說明 ══════════════════════════════════════════════
+       🔴 節點所有權:所有狀態「名稱」節點只掛 data-pc-status-label,
+          由 status-label.js 水合;絕不在同一節點加 data-i18n。
+          說明文字才用 data-i18n。兩者永遠是不同的節點。
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="qs-status" id="status" data-quickstart-status-block>
+    <h2 data-i18n="quickstart.status.title">Understanding order statuses</h2>
+    <p data-i18n="quickstart.status.intro">Every order shows its current status under My Orders. Below is what each one means and whether it needs anything from you.</p>
+
+    <div class="qs-flow" role="img"
+         data-i18n-aria-label="quickstart.status.flow_caption"
+         aria-label="Order status flow: Draft → Stock Review → Waiting for Payment → Payment Processing → Order Processing → Order Completed">
+      <span class="qs-chip" data-tone="draft"><span data-pc-status-label="Draft">Draft</span></span>
+      <span class="qs-arrow" aria-hidden="true">→</span>
+      <span class="qs-chip" data-tone="stock"><span data-pc-status-label="Stock Review">Stock Review</span></span>
+      <span class="qs-arrow" aria-hidden="true">→</span>
+      <span class="qs-chip" data-tone="pending"><span data-pc-status-label="Pending">Waiting for Payment</span></span>
+      <span class="qs-arrow" aria-hidden="true">→</span>
+      <span class="qs-chip" data-tone="payproc"><span data-pc-status-label="Payment Processing">Payment Processing</span></span>
+      <span class="qs-arrow" aria-hidden="true">→</span>
+      <span class="qs-chip" data-tone="ordproc"><span data-pc-status-label="Order Processing">Order Processing</span></span>
+      <span class="qs-arrow" aria-hidden="true">→</span>
+      <span class="qs-chip" data-tone="done"><span data-pc-status-label="Order Completed">Order Completed</span></span>
+    </div>
+
+    <div class="qs-branch">
+      <div class="qs-branch-head">
+        <span class="qs-chip" data-tone="returned"><span data-pc-status-label="Returned">Revising</span></span>
+      </div>
+      <p data-i18n="quickstart.status.returned.branch_note">Revising is not a stage in the flow — it means the ball is back in your court. It can appear after Stock Review or after Waiting for Payment. The order is flagged ⚠ Action Required and moves to the top of My Orders. When you see it, we're waiting on you; once you handle it, the order rejoins the normal flow.</p>
+    </div>
+
+    <div class="qs-st-list">
+
+      <div class="qs-st">
+        <div class="qs-st-name" data-pc-status-label="Draft">Draft</div>
+        <div class="qs-st-row">
+          <div class="qs-st-key">Means</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.draft.means">The order is saved but not submitted. Only you can see it.</div>
+          <div class="qs-st-key">You do</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.draft.action">Come back and edit it any time. When you're ready, open it and click Submit Purchase Order.</div>
+        </div>
+      </div>
+
+      <div class="qs-st">
+        <div class="qs-st-name" data-pc-status-label="Stock Review">Stock Review</div>
+        <div class="qs-st-row">
+          <div class="qs-st-key">Means</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.stock_review.means">You've submitted, and we're confirming stock and availability for your items.</div>
+          <div class="qs-st-key">You do</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.stock_review.action">Nothing needed from you at this stage — just wait for us. If anything needs adjusting, we'll send the order back to you.</div>
+        </div>
+      </div>
+
+      <div class="qs-st">
+        <div class="qs-st-name" data-pc-status-label="Pending">Waiting for Payment</div>
+        <div class="qs-st-row">
+          <div class="qs-st-key">Means</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.pending.means">Stock is confirmed and the order is ready for payment.</div>
+          <div class="qs-st-key">You do</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.pending.action">Open the order, click Pay Now, and choose a payment method to complete it.</div>
+        </div>
+      </div>
+
+      <div class="qs-st">
+        <div class="qs-st-name" data-pc-status-label="Returned">Revising</div>
+        <div class="qs-st-row">
+          <div class="qs-st-key">Means</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.returned.means">We've looked at the order and something needs your confirmation or a change.</div>
+          <div class="qs-st-key">You do</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.returned.action">Open the order and read the note we left, click Review &amp; Resubmit, make your changes, then submit again with Request Review &amp; Resubmit on the final page.</div>
+        </div>
+      </div>
+
+      <div class="qs-st">
+        <div class="qs-st-name" data-pc-status-label="Payment Processing">Payment Processing</div>
+        <div class="qs-st-row">
+          <div class="qs-st-key">Means</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.payment_processing.means">We've received your payment instruction and are confirming the funds.</div>
+          <div class="qs-st-key">You do</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.payment_processing.action">Nothing needed. You can no longer change the payment method yourself at this point — contact us if you need to switch.</div>
+        </div>
+      </div>
+
+      <div class="qs-st">
+        <div class="qs-st-name" data-pc-status-label="Order Processing">Order Processing</div>
+        <div class="qs-st-row">
+          <div class="qs-st-key">Means</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.order_processing.means">Payment is confirmed and the order has moved into preparation and production.</div>
+          <div class="qs-st-key">You do</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.order_processing.action">Nothing needed — wait for our shipping notice.</div>
+        </div>
+      </div>
+
+      <div class="qs-st">
+        <div class="qs-st-name" data-pc-status-label="Order Completed">Order Completed</div>
+        <div class="qs-st-row">
+          <div class="qs-st-key">Means</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.order_completed.means">The order has been delivered, and a Fulfillment Date is shown on it.</div>
+          <div class="qs-st-key">You do</div>
+          <div class="qs-st-val" data-i18n="quickstart.status.order_completed.action">This order is finished. To order again, start a new estimate.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="qs-terminal">
+      <h3 data-i18n="quickstart.status.terminal.title">Two ending statuses</h3>
+      <p data-i18n="quickstart.status.closed.body">Closed — the order is closed out and will not move forward.</p>
+      <p data-i18n="quickstart.status.cancelled.body">Cancelled — the order was cancelled. If you're not sure why, please contact us.</p>
+    </div>
+  </section>
+
+  <!-- ══ 頁尾 CTA ══════════════════════════════════════════════════ -->
+  <section class="qs-end">
+    <h2 data-i18n="quickstart.cta.title">Ready to start?</h2>
+    <p data-i18n="quickstart.cta.body">One read-through is enough — it's simpler in practice than it looks. If you get stuck anywhere, reach out to your sales contact any time.</p>
+    <a href="new-quote.html" class="qs-cta-btn" data-i18n="quickstart.cta.btn">Create my first estimate</a>
+  </section>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     載入順序(對齊 status-label.js 檔頭規定):
+       supabase CDN → config.js → status-label.js → i18n.js → 頁面 script
+     🔴 本頁【不引用】navigator.js / footer.js / lang-switch.js —— 沿用
+        new-quote flow 四頁的既有架構先例(CB-62 Q-32)。返回路徑與版面
+        由本頁自建,語言沿用 localStorage 既有設定。
+     ══════════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/status-label.js?v=1.1"></script>
+<script src="components/i18n.js?v=cb79"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ── 登入守衛(CB-79 Q-6)──────────────────────────────────────────
+  // 守衛寫在本頁,與其他 dealer 頁同模式 —— navigator.js 不負責導向。
+  var _supabase = window.supabase.createClient(window.SB_URL, window.SB_KEY);
+
+  _supabase.auth.getSession().then(function (res) {
+    var session = res && res.data ? res.data.session : null;
+    if (!session) { window.location.href = 'login.html'; }
+  }).catch(function () {
+    // 取不到 session 一律視為未登入,不讓未授權者停留在本頁。
+    window.location.href = 'login.html';
+  });
+
+  // ── 折疊區塊:展開時捲到定位 ─────────────────────────────────────
+  // 影片控制器於 Stage 2 第二段加入,屆時 toggle 事件同時負責播放/暫停。
+  var folds = document.querySelectorAll('.qs-fold');
+  for (var i = 0; i < folds.length; i++) {
+    folds[i].addEventListener('toggle', function () {
+      if (!this.open) return;
+      var el = this;
+      window.setTimeout(function () {
+        var rect = el.getBoundingClientRect();
+        if (rect.top < 0) { el.scrollIntoView({ block: 'start' }); }
+      }, 0);
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
