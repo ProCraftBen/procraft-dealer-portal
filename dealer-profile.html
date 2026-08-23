@@ -90,6 +90,16 @@
     .confirmed-icon { width: 16px; height: 16px; fill: var(--success); flex-shrink: 0; }
     .confirmed-text { font-size: 12px; color: var(--muted); }
     .confirmed-value { font-size: 13px; color: var(--text); font-weight: 500; }
+
+    /* CB-76: Trial 帳號擋頁面板(與 change-password.html 同一份規則) */
+    /* 🔴 中性資訊色(金色系),刻意【不用】紅色 —— 這不是錯誤,是帳號狀態說明。
+       (CB-76 Q-30 = A) */
+    .trial-block { display: none; background: rgba(201,168,76,0.07); border: 1px solid rgba(201,168,76,0.3); border-left: 3px solid var(--gold, #C9A84C); border-radius: 3px; padding: 24px; text-align: center; }
+    .trial-block.show { display: block; }
+    .trial-block .tb-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: var(--green-dark); margin-bottom: 10px; }
+    .trial-block .tb-body { font-size: 13px; line-height: 1.7; color: var(--text); margin-bottom: 18px; }
+    .trial-block .tb-back { display: inline-block; font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--green-dark); text-decoration: none; border-bottom: 1px solid var(--green-dark); padding-bottom: 2px; }
+    .trial-block .tb-back:hover { color: var(--green-mid); border-color: var(--green-mid); }
   </style>
 </head>
 <body>
@@ -106,6 +116,14 @@
 
   <div class="error-msg" id="errorMsg"></div>
   <div class="success-msg" id="successMsg" data-i18n="profile.saved">✓ Profile saved successfully!</div>
+
+  <!-- CB-76: Trial 帳號擋頁面板。預設隱藏,由 showTrialBlock() 開啟。
+       入口(navigator / dashboard)刻意不隱藏。 -->
+  <div class="trial-block" id="trialBlock">
+    <div class="tb-title" data-i18n="trial.block.title">Trial Account</div>
+    <div class="tb-body"  data-i18n="trial.block.body">Trial accounts cannot modify account settings. Contact ProCraft to activate your account.</div>
+    <a class="tb-back" href="dashboard.html" data-i18n="trial.block.back">Back to Dashboard</a>
+  </div>
 
   <!-- Contact Info -->
   <div class="card">
@@ -493,6 +511,28 @@ function clearUploadError() {
 }
 
 // ── Init ───────────────────────────────────────────
+// ── CB-76: 隱藏表單、顯示說明面板 ────────────────────────────────────────
+//   🔴 本檔與 change-password.html 的實作不同(CB-76 Q-29 = A):
+//      change-password 的表單全在單一 #formContent 內,藏一個節點即可;
+//      本檔的表單是 .page 下【6 個平行的 .card】,且 Save 按鈕在 .card
+//      之外、firstTimeBanner 在 .page 之外 —— 共 8 個節點要藏。
+//   🔴 選擇器必須是 '.page > .card' 而非 '.card':
+//      無層級約束的 querySelectorAll('.card') 會在日後頁面於 modal 或其他
+//      容器加入卡片時,把不該藏的一併藏掉。
+//   不重排 DOM 去包一層 wrapper —— 那要動 6 處縮排與兩個 </div> 配對,
+//   diff 面積大一個數量級,收益只是「兩頁寫法一致」,不成比例。
+function showTrialBlock() {
+  document.querySelectorAll('.page > .card').forEach(function (el) {
+    el.style.display = 'none';
+  });
+  const btn    = document.getElementById('btnSubmit');
+  const banner = document.getElementById('firstTimeBanner');
+  const block  = document.getElementById('trialBlock');
+  if (btn)    btn.style.display = 'none';
+  if (banner) banner.classList.remove('show');
+  if (block)  block.classList.add('show');
+}
+
 async function init() {
   const { data: { session } } = await _supabase.auth.getSession();
   if (!session) { window.location.href = 'login.html'; return; }
@@ -500,6 +540,24 @@ async function init() {
   const { data: dealer } = await _supabase.from('dealers').select('*').eq('id', session.user.id).single();
   if (!dealer) { window.location.href = 'login.html'; return; }
   currentUser = dealer;
+
+  // ── CB-76: Trial 帳號擋頁 ──────────────────────────────────────────────
+  //   🔴 位置不可下移:必須在 isFirstTime / firstTimeBanner 之前 ——
+  //      否則 trial 會同時看到「請完成你的 profile」與「你不能改 profile」
+  //      兩則互斥訊息。
+  //   🔴 dealer 已由上方 select('*') 取回,account_type 自動可用,零額外查詢。
+  //      (change-password.html 的 init 原本只 select('role'),需另加欄位;
+  //       本檔不需要。)
+  //   🔴 刻意 fail-open,且【此處與 new-quote-step3.html 不同:沒有 DB 層兜底】
+  //      —— step3 的送出攔截後面接著 quotes 的 trg_block_trial_status_change;
+  //      本頁沒有對應的 trigger。這是刻意的(CB-76 Q-31 = A):改 profile 對
+  //      trial 不是危險動作,不產生 PO 號、不污染任何編號池。Q-9 已定調此處是
+  //      【UX 訊號而非安全邊界】。🔴 請勿順手補上 DB 層。
+  //   正向識別(F-35):=== 'trial' 命中,而非排除其他值。
+  if (dealer.account_type === 'trial') {
+    showTrialBlock();
+    return;
+  }
 
   isFirstTime = !dealer.profile_completed;
   if (isFirstTime) {
