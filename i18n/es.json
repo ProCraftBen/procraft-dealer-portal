@@ -143,7 +143,7 @@
   "res.hero.title": "Recursos",
   "res.hero.body": "Referencias de producto y herramientas que puede usar mientras arma una cotización. Se irán agregando más con el tiempo.",
   "res.spec.title": "Catálogos de especificaciones (Spec Books)",
-  "res.spec.intro": "Especificaciones completas del producto: dimensiones, detalles de construcción y acabados disponibles. Estos archivos son de libre distribución: envíe el enlace a quien quiera, no hace falta iniciar sesión.",
+  "res.spec.intro": "Especificaciones completas del producto: dimensiones, detalles de construcción y acabados disponibles.",
   "res.spec.procraft.name": "ProCraft — Con marco (Framed)",
   "res.spec.procraft.desc": "Todos los estilos de puerta con marco, con dimensiones de gabinete y opciones de modificación.",
   "res.spec.milania.name": "Milania",
