@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="robots" content="noindex"/>
+  <title data-i18n="res.meta.title">ProCraft DC Dealer Portal — Resources</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --gold-light: #E2C97E;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --bg:         #F5F2EC;
+      --white:      #FFFFFF;
+      /* 🔴 本頁無狀態顯示,刻意【不】帶 --status-* token,也不載入
+             status-label.js。與 quick-start.html 的差異僅此一項。 */
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+
+    /* ── 頁首:本頁不引用 navigator.js,返回路徑自建(沿用 CB-79 Q-5)── */
+    .res-top { border-bottom: 1px solid var(--border); background: var(--white); }
+    .res-top-inner { max-width: 860px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .res-back { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); text-decoration: none; transition: color 0.2s; min-height: 44px; display: inline-flex; align-items: center; }
+    .res-back:hover { color: var(--green-dark); }
+    .res-brand { font-family: 'Cormorant Garamond', serif; font-size: 15px; color: var(--green-dark); letter-spacing: 0.04em; }
+
+    .res-wrap { max-width: 860px; margin: 0 auto; padding: 0 20px 72px; }
+
+    /* ── Hero ── */
+    .res-hero { padding: 56px 0 44px; border-bottom: 1px solid var(--border); }
+    .res-hero h1 { font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 400; color: var(--green-dark); line-height: 1.25; }
+    @media (min-width: 700px) { .res-hero h1 { font-size: 42px; } }
+    .res-hero p { margin-top: 16px; font-size: 15px; line-height: 1.75; color: var(--text); max-width: 62ch; }
+
+    /* ── 區塊 ── */
+    .res-sec { padding: 44px 0; }
+    .res-sec + .res-sec { border-top: 1px solid var(--border); }
+    .res-sec h2 { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--green-dark); }
+    .res-sec > p { margin-top: 12px; font-size: 14px; line-height: 1.8; color: var(--text); max-width: 62ch; }
+
+    /* ── 下載卡片 ── */
+    .res-cards { margin-top: 26px; display: flex; flex-direction: column; gap: 12px; }
+    .res-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 18px 20px; }
+    .res-card-name { font-size: 14px; font-weight: 500; color: var(--green-dark); letter-spacing: 0.03em; }
+    .res-card-desc { margin-top: 8px; font-size: 13.5px; line-height: 1.7; color: var(--text); max-width: 62ch; }
+    .res-card-meta { margin-top: 10px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .res-card-actions { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .res-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 3px; padding: 11px 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; text-decoration: none; min-height: 44px; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+    .res-btn-primary { background: var(--green-dark); color: #fff; border: 1px solid var(--green-dark); }
+    .res-btn-primary:hover { background: var(--green-mid); border-color: var(--green-mid); }
+    .res-btn-ghost { background: transparent; color: var(--green-dark); border: 1px solid var(--border); }
+    .res-btn-ghost:hover { border-color: var(--green-dark); }
+
+    /* ── Coming Soon 卡片(佔位,非連結)── */
+    .res-soon { margin-top: 26px; background: var(--white); border: 1px dashed var(--border); border-radius: 4px; padding: 20px; }
+    .res-soon-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .res-soon-name { font-size: 14px; font-weight: 500; color: var(--green-dark); letter-spacing: 0.03em; }
+    .res-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--gold); background: rgba(201,168,76,0.10); font-size: 10px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #8B6914; white-space: nowrap; }
+    .res-soon p { margin-top: 10px; font-size: 13.5px; line-height: 1.7; color: var(--muted); max-width: 62ch; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="res-top">
+  <div class="res-top-inner">
+    <a href="dashboard.html" class="res-back" data-i18n="res.nav.back">← Back to Dashboard</a>
+    <span class="res-brand">ProCraft Cabinetry · DC</span>
+  </div>
+</header>
+
+<div class="res-wrap">
+
+  <!-- ══ Hero ══════════════════════════════════════════════════════ -->
+  <section class="res-hero">
+    <h1 data-i18n="res.hero.title">Resources</h1>
+    <p data-i18n="res.hero.body">Product references and tools you can use while building a quote. More will be added here over time.</p>
+  </section>
+
+  <!-- ══ Spec Books ════════════════════════════════════════════════
+       🔴 PDF 為公開檔案,刻意不加任何存取控制(CB-80 已拍板)。
+          登入牆擋的是本頁,不是 assets/ 底下的檔案。
+       🔴 檔名固定不帶版本號 —— 換版直接覆蓋,已分享出去的連結永遠有效。
+          改檔名會讓業務寄給客戶的舊連結 404。
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="res-sec" data-resources-section="spec-books">
+    <h2 data-i18n="res.spec.title">Spec Books</h2>
+    <p data-i18n="res.spec.intro">Full product specifications — dimensions, construction details and available finishes.</p>
+
+    <div class="res-cards">
+
+      <div class="res-card">
+        <div class="res-card-name" data-i18n="res.spec.procraft.name">ProCraft — Framed</div>
+        <p class="res-card-desc" data-i18n="res.spec.procraft.desc">Every framed door style, with cabinet dimensions and modification options.</p>
+        <div class="res-card-meta" data-i18n="res.meta.line" data-i18n-params='{"size":"21.1 MB"}'>PDF · 21.1 MB</div>
+        <div class="res-card-actions">
+          <a class="res-btn res-btn-primary" href="assets/specbook-procraft.pdf" target="_blank" rel="noopener" data-i18n="res.spec.view">View</a>
+          <a class="res-btn res-btn-ghost" href="assets/specbook-procraft.pdf" download data-resources-download="procraft" data-i18n="res.spec.download">Download</a>
+        </div>
+      </div>
+
+      <div class="res-card">
+        <div class="res-card-name" data-i18n="res.spec.milania.name">Milania</div>
+        <p class="res-card-desc" data-i18n="res.spec.milania.desc">Milania door styles and cabinet specifications.</p>
+        <div class="res-card-meta" data-i18n="res.meta.line" data-i18n-params='{"size":"4.7 MB"}'>PDF · 4.7 MB</div>
+        <div class="res-card-actions">
+          <a class="res-btn res-btn-primary" href="assets/specbook-milania.pdf" target="_blank" rel="noopener" data-i18n="res.spec.view">View</a>
+          <a class="res-btn res-btn-ghost" href="assets/specbook-milania.pdf" download data-resources-download="milania" data-i18n="res.spec.download">Download</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══ AI Visualizer ═════════════════════════════════════════════
+       🔴 本票僅放 Coming Soon 佔位卡片,【不整合、不連結】。
+          業主已有現成 HTML 版本置於官網,未來獨立一頁,不在本票範圍。
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="res-sec" data-resources-section="ai-visualizer">
+    <h2 data-i18n="res.viz.title">AI Visualizer</h2>
+    <div class="res-soon">
+      <div class="res-soon-head">
+        <span class="res-soon-name" data-i18n="res.viz.title">AI Visualizer</span>
+        <span class="res-badge" data-i18n="res.viz.badge">Coming Soon</span>
+      </div>
+      <p data-i18n="res.viz.body">See a kitchen rendered in any door style before you order. Coming to the portal soon.</p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     載入順序(對齊 i18n.js 檔頭規定):
+       supabase CDN → config.js → i18n.js → 頁面 script
+     🔴 本頁【不引用】navigator.js / footer.js / lang-switch.js /
+        feedback-widget.js —— 沿用 CB-79 quick-start.html 的先例。
+        返回路徑與版面由本頁自建,語言沿用 localStorage 既有設定。
+     🔴 本頁【不載入】status-label.js —— 全頁無 data-pc-status-label 節點。
+        quick-start.html 有載是因為它有 15 個狀態節點,本頁沒有。
+     🔴 ?v= 目前為 cb79a(= PC_I18N_VER 現值)。依 DOC-1 §4,
+        promote 前才與 dashboard.html / new-quote-step2.html
+        及 i18n.js 內的 PC_I18N_VER 一起 bump 到 cb80。
+        staging 測試一律【無痕視窗】,這是延後 bump 得以安全的前提。
+     ══════════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/i18n.js?v=cb79a"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ── 登入守衛(沿用 CB-79 Q-6)────────────────────────────────────
+  // 守衛寫在本頁,與其他 dealer 頁同模式 —— navigator.js 不負責導向。
+  // ⚠️ 本守衛擋的是【本頁】。assets/ 底下的 PDF 是公開檔案,
+  //    業主明確要求無需登入即可下載 —— 不得在此加任何檔案層存取控制。
+  var _supabase = window.supabase.createClient(window.SB_URL, window.SB_KEY);
+
+  _supabase.auth.getSession().then(function (res) {
+    var session = res && res.data ? res.data.session : null;
+    if (!session) { window.location.href = 'login.html'; }
+  }).catch(function () {
+    // 取不到 session 一律視為未登入,不讓未授權者停留在本頁。
+    window.location.href = 'login.html';
+  });
+})();
+</script>
+
+</body>
+</html>
