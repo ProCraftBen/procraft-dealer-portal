@@ -150,7 +150,7 @@
   "res.spec.milania.desc": "Milania door styles and cabinet specifications.",
   "res.spec.view": "View",
   "res.spec.download": "Download",
-  "res.meta.line": "PDF · {size} · Updated {date}",
+  "res.meta.line": "PDF · {size}",
   "res.viz.title": "AI Visualizer",
   "res.viz.body": "See a kitchen rendered in any door style before you order. Coming to the portal soon.",
   "res.viz.badge": "Coming Soon",
