@@ -29,6 +29,9 @@
       --status-returned:        #E07B39;
       --status-closed:          #6B7280;
       --status-cancelled:       #B91C1C;
+
+      /* 🔴 影片破欄寬度|1100px = 破欄(預設)、820px = 關閉 */
+      --qs-video-w: 1100px;
     }
     html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
 
@@ -60,13 +63,20 @@
     .qs-note { margin-top: 16px; padding: 12px 14px; border-left: 2px solid var(--border); background: var(--white); font-size: 13px; line-height: 1.7; color: var(--muted); max-width: 62ch; }
     .qs-outro { margin-top: 16px; font-size: 14px; line-height: 1.8; max-width: 62ch; }
 
-    /* ── 影片版位 ──
-       Stage 2 第二段才插入 <video>。此處先以固定比例佔位,
-       確保錄影期間可以先確認版面,且影片插入後不會造成版面跳動。 */
+    /* ── 影片版位 ──────────────────────────────────────────────────
+       🔴 破欄寬度只有這一個開關:--qs-video-w
+          1100px = 影片撐出文字欄(預設,表格類畫面較好讀)
+           820px = 與文字欄同寬(關閉破欄)
+       只在視窗 ≥ 1180px 時生效;窄螢幕一律滿版,不會產生橫向捲軸。 */
     .qs-video { margin-top: 24px; }
+    @media (min-width: 1180px) {
+      .qs-video {
+        margin-left:  calc((var(--qs-video-w) - 820px) / -2);
+        margin-right: calc((var(--qs-video-w) - 820px) / -2);
+      }
+    }
     .qs-video-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    .qs-video-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .qs-video-ph { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--border); }
+    .qs-video-frame video { width: 100%; height: 100%; object-fit: cover; display: block; background: var(--white); }
     .qs-video-cap { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.6; }
 
     /* ── 折疊補充(Part 3.1 / 3.2)── */
@@ -157,10 +167,12 @@
 
     <div class="qs-video">
       <div class="qs-video-frame" data-quickstart-video="01">
-        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-01-order-info.mp4 -->
-        <span class="qs-video-ph">Video 01</span>
+        <video autoplay loop muted playsinline preload="none"
+               data-qs-video aria-labelledby="qs-cap-01">
+          <source data-src="assets/quickstart-01-order-info.mp4" type="video/mp4">
+        </video>
       </div>
-      <div class="qs-video-cap" data-i18n="quickstart.p1.vcap">Video: starting a new estimate and filling in the order information</div>
+      <div class="qs-video-cap" id="qs-cap-01" data-i18n="quickstart.p1.vcap">Video: starting a new estimate and filling in the order information</div>
     </div>
   </section>
 
@@ -179,10 +191,12 @@
 
     <div class="qs-video">
       <div class="qs-video-frame" data-quickstart-video="02">
-        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-02-door-style-sku.mp4 -->
-        <span class="qs-video-ph">Video 02</span>
+        <video autoplay loop muted playsinline preload="none"
+               data-qs-video aria-labelledby="qs-cap-02">
+          <source data-src="assets/quickstart-02-door-style-sku.mp4" type="video/mp4">
+        </video>
       </div>
-      <div class="qs-video-cap" data-i18n="quickstart.p2.vcap">Video: choosing a door style, adding cabinets, and checking selected items</div>
+      <div class="qs-video-cap" id="qs-cap-02" data-i18n="quickstart.p2.vcap">Video: choosing a door style, adding cabinets, and checking selected items</div>
     </div>
   </section>
 
@@ -202,10 +216,12 @@
 
     <div class="qs-video">
       <div class="qs-video-frame" data-quickstart-video="03">
-        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-03-modification.mp4 -->
-        <span class="qs-video-ph">Video 03</span>
+        <video autoplay loop muted playsinline preload="none"
+               data-qs-video aria-labelledby="qs-cap-03">
+          <source data-src="assets/quickstart-03-modification.mp4" type="video/mp4">
+        </video>
       </div>
-      <div class="qs-video-cap" data-i18n="quickstart.p3.vcap">Video: opening the setup window, configuring a modification, and saving</div>
+      <div class="qs-video-cap" id="qs-cap-03" data-i18n="quickstart.p3.vcap">Video: opening the setup window, configuring a modification, and saving</div>
     </div>
 
     <!-- ── Part 3.1(折疊)── -->
@@ -215,10 +231,12 @@
         <p data-i18n="quickstart.p31.body">In the setup window, use Split this SKU to divide the quantity into groups and set each group separately. For example, three of the same B30 can be set to left, right, and both. After you save, the Review → page lists the three groups separately.</p>
         <div class="qs-video">
           <div class="qs-video-frame" data-quickstart-video="04">
-            <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-04-split-sku.mp4 -->
-            <span class="qs-video-ph">Video 04</span>
+            <video autoplay loop muted playsinline preload="none"
+                   data-qs-video aria-labelledby="qs-cap-04">
+              <source data-src="assets/quickstart-04-split-sku.mp4" type="video/mp4">
+            </video>
           </div>
-          <div class="qs-video-cap" data-i18n="quickstart.p31.vcap">Video: using Split this SKU to divide one item into three separate groups</div>
+          <div class="qs-video-cap" id="qs-cap-04" data-i18n="quickstart.p31.vcap">Video: using Split this SKU to divide one item into three separate groups</div>
         </div>
       </div>
     </details>
@@ -231,10 +249,12 @@
         <div class="qs-note" data-i18n="quickstart.p32.warn">Note: you can only swap within the same construction type. Framed can only be swapped for Framed, and Frameless for Frameless.</div>
         <div class="qs-video">
           <div class="qs-video-frame" data-quickstart-video="05">
-            <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-05-swap-style.mp4 -->
-            <span class="qs-video-ph">Video 05</span>
+            <video autoplay loop muted playsinline preload="none"
+                   data-qs-video aria-labelledby="qs-cap-05">
+              <source data-src="assets/quickstart-05-swap-style.mp4" type="video/mp4">
+            </video>
           </div>
-          <div class="qs-video-cap" data-i18n="quickstart.p32.vcap">Video: using Swap Style to change the door style and confirm the price change</div>
+          <div class="qs-video-cap" id="qs-cap-05" data-i18n="quickstart.p32.vcap">Video: using Swap Style to change the door style and confirm the price change</div>
         </div>
       </div>
     </details>
@@ -259,10 +279,12 @@
 
     <div class="qs-video">
       <div class="qs-video-frame" data-quickstart-video="06">
-        <!-- CB-79 Stage 2 第二段:此處插入 <video>,檔案 assets/quickstart-06-submit-po.mp4 -->
-        <span class="qs-video-ph">Video 06</span>
+        <video autoplay loop muted playsinline preload="none"
+               data-qs-video aria-labelledby="qs-cap-06">
+          <source data-src="assets/quickstart-06-submit-po.mp4" type="video/mp4">
+        </video>
       </div>
-      <div class="qs-video-cap" data-i18n="quickstart.p4.vcap">Video: reviewing the order and submitting the purchase order</div>
+      <div class="qs-video-cap" id="qs-cap-06" data-i18n="quickstart.p4.vcap">Video: reviewing the order and submitting the purchase order</div>
     </div>
   </section>
 
@@ -428,19 +450,89 @@
     window.location.href = 'login.html';
   });
 
-  // ── 折疊區塊:展開時捲到定位 ─────────────────────────────────────
-  // 影片控制器於 Stage 2 第二段加入,屆時 toggle 事件同時負責播放/暫停。
+  // ══════════════════════════════════════════════════════════════════
+  // 影片控制器(CB-79 Q-11 雙軌)
+  // ------------------------------------------------------------------
+  // 🔴 <source> 用 data-src 而非 src,這是「未進入視窗不預載」唯一可靠
+  //    的作法 —— autoplay 與 preload="none" 並存時瀏覽器會無視 preload
+  //    直接抓檔,沒有 src 才是真的不抓。
+  //
+  // 雙軌:
+  //   · 主線四支(01/02/03/06)→ IntersectionObserver,捲入才播、捲出暫停
+  //   · 折疊兩支(04/05)      → 只由 <details> 的 toggle 控制,不註冊 IO,
+  //                             避免展開瞬間兩個來源搶播
+  //
+  // Fallback(無 IntersectionObserver):一次換上全部 src,交還原生
+  // autoplay。此時會多路同時解碼,但僅限缺 IO 的舊瀏覽器,畫面功能正常
+  // —— 對齊全站 fail-open 原則。
+  // ══════════════════════════════════════════════════════════════════
+
+  function qsActivate(v) {
+    if (!v) return;
+    var src = v.querySelector('source[data-src]');
+    if (src) {
+      src.setAttribute('src', src.getAttribute('data-src'));
+      src.removeAttribute('data-src');
+      try { v.load(); } catch (e) { /* 舊瀏覽器 no-op */ }
+    }
+    var p = v.play();
+    // play() 被瀏覽器拒絕(節能模式 / 使用者設定)一律吞掉,不顯示任何 UI。
+    if (p && typeof p.catch === 'function') { p.catch(function () {}); }
+  }
+
+  function qsPause(v, rewind) {
+    if (!v) return;
+    try { v.pause(); } catch (e) { /* no-op */ }
+    if (rewind) { try { v.currentTime = 0; } catch (e) { /* no-op */ } }
+  }
+
+  function qsInFold(v) {
+    return !!(v.closest && v.closest('.qs-fold'));
+  }
+
+  var vids  = document.querySelectorAll('video[data-qs-video]');
+  var hasIO = (typeof window.IntersectionObserver === 'function');
+  var io    = null;
+
+  if (hasIO) {
+    io = new window.IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (e.isIntersecting) { qsActivate(e.target); }
+        else                  { qsPause(e.target, false); }
+      }
+    }, { threshold: 0.35 });
+  }
+
+  for (var i = 0; i < vids.length; i++) {
+    var v = vids[i];
+    if (qsInFold(v)) continue;              // 折疊內的交給 toggle
+    if (io) { io.observe(v); } else { qsActivate(v); }
+  }
+
+  // ── 折疊區塊:toggle 同時負責播放與捲動定位 ─────────────────────
   var folds = document.querySelectorAll('.qs-fold');
-  for (var i = 0; i < folds.length; i++) {
-    folds[i].addEventListener('toggle', function () {
-      if (!this.open) return;
-      var el = this;
-      window.setTimeout(function () {
-        var rect = el.getBoundingClientRect();
-        if (rect.top < 0) { el.scrollIntoView({ block: 'start' }); }
-      }, 0);
+  for (var j = 0; j < folds.length; j++) {
+    folds[j].addEventListener('toggle', function () {
+      var v = this.querySelector('video[data-qs-video]');
+      if (this.open) {
+        qsActivate(v);
+        var el = this;
+        window.setTimeout(function () {
+          var rect = el.getBoundingClientRect();
+          if (rect.top < 0) { el.scrollIntoView({ block: 'start' }); }
+        }, 0);
+      } else {
+        qsPause(v, true);
+      }
     });
   }
+
+  // ── 分頁切到背景時全部暫停,回來時交還 IO / toggle ──
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) return;
+    for (var k = 0; k < vids.length; k++) { qsPause(vids[k], false); }
+  });
 })();
 </script>
 
