@@ -74,8 +74,8 @@
   // ═══════════════════════════════════════════════════════════════════
 
   // 🔴 語言檔 fetch 的版本參數。改語言檔時必須連同各頁 HTML 的
-  //    <script src="components/i18n.js?v=..."> 一起 bump,兩者保持一致。
-  var PC_I18N_VER = 'cb62c';
+  //    <script src="components/i18n.js?v=...">
+  var PC_I18N_VER = 'cb79';
 
   var BASE_LANG   = 'en';                 // fallback 基準,永遠載入
   var SUPPORTED   = ['en', 'es'];         // 加語言時在此加一筆
