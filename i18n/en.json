@@ -143,7 +143,7 @@
   "res.hero.title": "Resources",
   "res.hero.body": "Product references and tools you can use while building a quote. More will be added here over time.",
   "res.spec.title": "Spec Books",
-  "res.spec.intro": "Full product specifications — dimensions, construction details and available finishes. These files are open to share: send the link to anyone, no sign-in needed.",
+  "res.spec.intro": "Full product specifications — dimensions, construction details and available finishes.",
   "res.spec.procraft.name": "ProCraft — Framed",
   "res.spec.procraft.desc": "Every framed door style, with cabinet dimensions and modification options.",
   "res.spec.milania.name": "Milania",
