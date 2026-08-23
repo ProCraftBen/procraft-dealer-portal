@@ -125,10 +125,9 @@
         返回路徑與版面由本頁自建,語言沿用 localStorage 既有設定。
      🔴 本頁【不載入】status-label.js —— 全頁無 data-pc-status-label 節點。
         quick-start.html 有載是因為它有 15 個狀態節點,本頁沒有。
-     🔴 ?v= 目前為 cb79a(= PC_I18N_VER 現值)。依 DOC-1 §4,
-        promote 前才與 dashboard.html / new-quote-step2.html
-        及 i18n.js 內的 PC_I18N_VER 一起 bump 到 cb80。
-        staging 測試一律【無痕視窗】,這是延後 bump 得以安全的前提。
+     🔴 ?v= 為 cb80,與 i18n.js 內的 PC_I18N_VER 成對(DOC-1 §4)。
+        只改其中一邊會使改動完全隱形(F-24 / B-7 同型)。
+        動到 i18n/ 底下任何檔案,兩處一起 bump,值保持一致。
      ══════════════════════════════════════════════════════════════════ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
