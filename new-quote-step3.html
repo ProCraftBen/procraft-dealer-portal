@@ -2337,6 +2337,27 @@ if (draftId) {
       const termsRow = document.getElementById('termsAgreeRow');
       if (termsRow) termsRow.style.display = 'flex';
     }
+
+    // ── CB-76: Trial 帳號擋送出(前端層)────────────────────────────────────
+    //   三層防護的第一層。DB trigger 是最終防線,本段是「事前告知」。
+    //   🔴 對所有 viewMode 生效 —— 業主拍板:admin 亦不可代 Trial 下單。
+    //      dealer 物件來自被代建 dealer 的資料列,故 admin mode 一併涵蓋。
+    //   🔴 termsAgreeRow 隱藏(Q-26):勾了也送不出的核取方塊是誤導。
+    //   ⚠️ 本段必須在 refreshAdminSubmitGate() 之前執行,且該函式已改為
+    //      trial-aware —— 否則它會把 btnAdminSubmit 重新開啟。
+    if (isTrialDealer()) {
+      const tSubmit = document.getElementById('btnSubmit');
+      const tAdmin  = document.getElementById('btnAdminSubmit');
+      const tTerms  = document.getElementById('termsAgreeRow');
+      if (tSubmit) tSubmit.disabled = true;
+      if (tAdmin)  tAdmin.disabled  = true;
+      if (tTerms)  tTerms.style.display = 'none';
+      if (elSubmitNote) {
+        elSubmitNote.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
+        elSubmitNote.textContent = pcTxt('nq3.err.trial_submit_blocked',
+          'Trial accounts cannot submit orders. Contact ProCraft to activate your account.');
+      }
+    }
   
     // CB-33: admin shipping fee 輸入框(僅 admin mode + logistic=shipping)
     setupAdminShippingInput();
@@ -3554,6 +3575,12 @@ async function saveDraft() {
                 created_at:   _savedCreatedAt || _nowIso,
               },
               dealer: {
+                // CB-76 (Q-14): dealer.id 供 send-quote-email 以 PK 查 account_type
+                //   判斷 Location 停信。🔴 send-quote-email 不重撈 quote/dealer,
+                //   識別鍵只能由此帶入。🔴 部署順序:本檔 promote 並驗證 payload
+                //   確實含 id 之後,才可部署 Edge Function —— 反序會使 EF 走
+                //   fallback(當作非 Location 照常寄信),Location 停信在空窗期失效。
+                id:                      dealer.id,
                 company_name:            dealer.company_name,
                 contact_name:            dealer.contact_name,
                 email:                   dealer.email,
@@ -3609,6 +3636,27 @@ async function submitQuote() {
     alert(pcTxt('nq3.alert.shipping_required', 'Please enter a shipping fee before submitting, or use Save Draft.'));
     return;
   }
+
+  // ── CB-76: Trial 硬檔 ────────────────────────────────────────────────────
+  //   🔴 位置不可移動:CB-33 shipping gate 之後、任何 DB 操作之前。
+  //      分支 3(Draft→Submit)的順序是 UPDATE → quote_items DELETE → RPC,
+  //      三者是三次獨立的 PostgREST 請求 = 三個 transaction。若讓流程走到
+  //      RPC 才被 DB trigger 擋下,前兩次已 commit → 每一次 trial 送出都留下
+  //      一張沒有品項的空殼 draft,不可逆。這不是機率問題,是必然。
+  //   正常情況下不會走到這裡(A-1 已 disable 兩顆按鈕);本段接的是
+  //   繞過 URL、bfcache 還原、DevTools 解除 disabled 等路徑。
+  //   errorMsg 於下方才宣告,故此處自行取節點(Q-27:走 errMsg,不用 alert)。
+  if (isTrialDealer()) {
+    const tErr = document.getElementById('errorMsg');
+    if (tErr) {
+      tErr.textContent = pcTxt('nq3.err.trial_submit_blocked',
+        'Trial accounts cannot submit orders. Contact ProCraft to activate your account.');
+      tErr.classList.add('show');
+      tErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+
   const _isAdminSubmit = (viewMode === 'admin-draft' || viewMode === 'admin-edit');  // CB-32
   const btn     = document.getElementById(_isAdminSubmit ? 'btnAdminSubmit' : 'btnSubmit');
   const errMsg  = document.getElementById('errorMsg');
@@ -3732,7 +3780,16 @@ async function submitQuote() {
         quote_number:    quoteNum,
         revision_number: nextRevisionNumber,
         return_reason:   null,
-      }, { count: 'exact' }).eq('id', draftId);
+      }, { count: 'exact' })
+        .eq('id', draftId)
+        // ── F-34 (CB-76): 明確前態守衛 ────────────────────────────────────
+        //   🔴 只有 count 是不夠的:admin 走 admin_update_all_quotes
+        //      (USING/WITH CHECK 只查 role),count 永遠不為 0 → 對 admin 路徑
+        //      等於零前態保護。RLS 只約束 dealer,admin 的唯一防線在此。
+        //   本分支為 Returned 重送,合法前態僅 'Returned'。
+        //   🔴 檢查必須在 quote_items delete【之前】—— 順序顛倒會產生
+        //      「items 已清空但 quotes UPDATE 失敗」的空殼報價,不可逆。
+        .in('status', ['Returned']);
       if (updateError) throw updateError;
       if (updateCount === 0) {
         throw new Error(pcTxt('nq3.err.status_changed_resubmit',
@@ -3764,7 +3821,16 @@ async function submitQuote() {
           po_number:    poNumber,
           status:       'Stock Review',
           quote_number: quoteNum,
-        }, { count: 'exact' }).eq('id', draftId);
+        }, { count: 'exact' })
+          .eq('id', draftId)
+          // ── F-34 (CB-76): 明確前態守衛(理由同分支1)──────────────────────
+          //   合法前態為 'Stock Review' / 'Returned'。
+          //   🔴 'Pending' 刻意排除 —— 對齊 CB-66 Q-7A:Pending 單必有
+          //      po_number,寫回 'Stock Review' 會把「已放行、dealer 可付款」
+          //      的單拉回待審,dealer 端付款入口靜默消失。Pending 的唯一
+          //      出口是 Request Revision。
+          //   🔴 檢查必須在 quote_items delete【之前】。
+          .in('status', ['Stock Review', 'Returned']);
         if (updateError) throw updateError;
         if (updateCount === 0) {
           throw new Error(pcTxt('nq3.err.status_changed_submit',
@@ -3784,13 +3850,30 @@ async function submitQuote() {
         quoteNum = numData;
       }
 
-      const { error: updateError } = await _supabase.from('quotes').update({
+      const { error: updateError, count: updateCount } = await _supabase.from('quotes').update({
         ...baseFields,
         quote_number: quoteNum,
         // po_number + status 由 submit_purchase_order RPC 設定
         // CB-43 T14-3(M2): RPC 現在寫 'Stock Review'(原為 'Pending')
-      }).eq('id', draftId);
+      }, { count: 'exact' })
+        .eq('id', draftId)
+        // ── F-34 (CB-76): 本分支原為【裸 .eq('id')】—— count 與前態皆無 ──────
+        //   本次 UPDATE 不改 status(status 由下方 submit_purchase_order RPC 設),
+        //   但仍必須守衛:無守衛時,對一張已非 Draft 的單按 Submit 會照樣覆寫
+        //   金額與品項,再由 RPC 配一個【新的】PO#,造成同一張單兩個號。
+        //   合法前態僅 'Draft' —— RPC 的前置值,亦與 A-mode INSERT 一致。
+        //   🔴 檢查必須在 quote_items delete【之前】。本分支的順序為
+        //      UPDATE → DELETE → RPC,三者是【三次獨立的 PostgREST 請求】=
+        //      三個 transaction。前兩者一旦 commit,RPC 失敗不會回滾它們。
+        //      這也是 CB-76 的 trial 攔截必須在【前端】先擋的原因(見 submitQuote
+        //      開頭的硬檔):只靠 DB trigger,例外會在 delete 之後才拋出,
+        //      每次都留下不可逆的空殼 draft。
+        .in('status', ['Draft']);
       if (updateError) throw updateError;
+      if (updateCount === 0) {
+        throw new Error(pcTxt('nq3.err.status_changed_submit',
+          "Couldn't submit this order — it may have been removed or its status changed. Please refresh the page and try again."));
+      }
       await _supabase.from('quote_items').delete().eq('quote_id', draftId);
       quoteId = draftId;
 
@@ -3913,6 +3996,9 @@ async function submitQuote() {
             estimated_lead_time:         calculateLeadTime(step2Data, allDoorStyles),  // email 顯示交期(NEW)
           },
           dealer: {
+            // CB-76 (Q-14): dealer.id 供 send-quote-email 判斷 Location 停信。
+            //   說明見 saveDraft 內同名欄位的註解(本檔共三處,契約一致)。
+            id:                     dealer.id,
             company_name:           dealer.company_name,
             contact_name:           dealer.contact_name,
             email:                  dealer.email,
@@ -4207,6 +4293,9 @@ async function requestRevision(note) {
             revision_note:               note,
           },
           dealer: {
+            // CB-76 (Q-14): dealer.id 供 send-quote-email 判斷 Location 停信。
+            //   說明見 saveDraft 內同名欄位的註解(本檔共三處,契約一致)。
+            id:                      dealer.id,
             company_name:            dealer.company_name,
             contact_name:            dealer.contact_name,
             email:                   dealer.email,
@@ -4334,10 +4423,32 @@ function confirmSubmitFromModal() {
 }
 
 // Terms gate: dealer 必須先勾同意才能送出 / 重送 PO
+// ── CB-76: Trial 帳號判斷(共用)──────────────────────────────────────────
+//   dealer 物件由 init 以 select('*') 取回,故 account_type 自動可用,
+//   不需額外查詢。dealer 為【被報價的 dealer】,admin 代建時亦然。
+//
+//   🔴 刻意 fail-open,且【不得】改為 fail-closed ——
+//      讀不到 account_type(migration 未上 / GitHub Pages 快取舊頁 /
+//      dealer 尚未載入)時本函式回 false = 放行。
+//      接住的是 DB 層:quotes 的 trg_block_trial_status_change /
+//      _on_insert 為 SECURITY DEFINER + RAISE EXCEPTION,fail-closed。
+//      分層方向是【前端 fail-open + DB fail-closed】：
+//        反過來(前端 fail-closed)會在欄位讀不到時擋掉【所有】dealer,
+//        把一個顯示問題升級成全站送單中斷。
+//      詳見 CB-76 Q-4 / Q-14 的同源論證。
+//
+//   🔴 正向識別(F-35):以 === 'trial' 命中,而非排除其他值。
+function isTrialDealer() {
+  return !!(dealer && dealer.account_type === 'trial');
+}
+
 function onAgreeTermsChange() {
   const cb  = document.getElementById('agreeTerms');
   const btn = document.getElementById('btnSubmit');
   if (!cb || !btn) return;
+  // 🔴 CB-76: 沒有這道條件,勾 terms 會把 A-1 設下的 disabled 直接打開 ——
+  //    現象是「載入時按鈕是灰的、勾一下就亮了」,只測載入狀態會誤判通過。
+  if (isTrialDealer()) { btn.disabled = true; return; }
   btn.disabled = !cb.checked;
 }
 
@@ -4382,6 +4493,14 @@ function refreshAdminSubmitGate() {
   const btn  = document.getElementById('btnAdminSubmit');
   const hint = document.getElementById('adminShippingHint');
   if (!btn) return;
+  // 🔴 CB-76: trial 優先於 shipping 判斷。本函式的 else 分支會無條件
+  //    btn.disabled = false —— 沒有這道 early return,A-1 設下的 disabled
+  //    會在 init 尾端被本函式立刻打開(A-1 執行後緊接著就呼叫本函式)。
+  if (isTrialDealer()) {
+    btn.disabled = true;
+    if (hint) hint.style.display = 'none';
+    return;
+  }
   if (isAdminShippingMode() && getAdminShippingOverride() === null) {
     btn.disabled = true;
     if (hint) hint.style.display = 'block';
