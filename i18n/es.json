@@ -150,7 +150,7 @@
   "res.spec.milania.desc": "Estilos de puerta y especificaciones de gabinete de Milania.",
   "res.spec.view": "Ver",
   "res.spec.download": "Descargar",
-  "res.meta.line": "PDF · {size} · Actualizado {date}",
+  "res.meta.line": "PDF · {size}",
   "res.viz.title": "AI Visualizer",
   "res.viz.body": "Vea una cocina renderizada en cualquier estilo de puerta antes de pedir. Próximamente en el portal.",
   "res.viz.badge": "Próximamente",
