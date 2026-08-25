@@ -341,6 +341,14 @@
         </div>
       </div>
 
+      <!-- 🔴 CB-81:本區為【帳單地址】(dealers.address_*)——
+           印在每一張 PO 與 PDF 上,並作為開單時 Billing 面板的來源。
+           🔴 【不是】Dealer Locator 上對消費者顯示的地址。對外地址存於
+              dealers.business_address_* ,由 dealer 自行於 dealer-profile.html
+              的 Dealer Locator Listing 區塊維護。
+           🔴 本表單刻意【不提供】business_* 欄位(CB-81 Q-9)——
+              理由不只是版面,見 saveDealer() 內 fields 物件與 update payload
+              旁的兩段警語。 -->
       <div class="form-section">
         <div class="form-section-title">Address</div>
         <div class="form-grid">
@@ -1974,6 +1982,21 @@ async function saveDealer() {
     assigned_sales_id:       document.getElementById('f_assigned_sales_id').value || null,
     // CB-76: Add 走 create-dealer 的 ...fields 展開,加進本物件即自動傳出;
     //   Edit 走下方的 .update(),需另外列入(見同一函式的 update payload)。
+    //
+    // ── 🔴 CB-81:business_* 九欄刻意【不在本物件中】。請勿加入。 ──────────
+    //   後果(不是理論風險,是這段程式碼的既定行為):
+    //   本物件經 ...fields 展開送入 create-dealer,任何加進來的鍵【自動】
+    //   傳出到 Edge Function —— 不需要有人記得去改 payload。
+    //
+    //   而 DB 端的 trg_copy_business_address_on_insert 的設計是
+    //   【尊重呼叫端自帶的 business_* 值】(目標為 NULL 才填)。
+    //   兩者相加的結果:admin 在此填的值會成為該 dealer 的【對外地址】,
+    //   而 trigger 不會覆蓋它,dealer 也不會被告知。
+    //
+    //   🔴 admin 通常並不知道 dealer 願意對消費者公開哪個地址、哪支電話。
+    //      讓建立流程自動複製內部地址、再由 dealer 自行修改,是刻意的設計,
+    //      不是省略。這正是 CB-81 整票的目的。
+    // ────────────────────────────────────────────────────────────────────
     account_type:            document.getElementById('f_account_type').value || 'dealer',
     slug:                    document.getElementById('f_slug').value.trim(),
     address_line1:           document.getElementById('f_address_line1').value.trim(),
@@ -2068,6 +2091,20 @@ async function saveDealer() {
 
   try {
     if (editingDealerId) {
+      // ── 🔴 CB-81:business_* 九欄刻意【不在本 payload 中】。請勿加入。 ────
+      //   後果:admin 每次按下 Save,dealer 自行設定的對外地址就會被
+      //   內部地址【靜默覆蓋】—— 不會報錯、不會有提示、dealer 不會收到通知。
+      //   他只會在某天發現 Dealer Locator 上的地址變回了倉庫或住家地址,
+      //   而且無從得知是何時、因為什麼變的。
+      //
+      //   🔴 DB 端沒有第二道防線:trg_copy_business_address_on_insert
+      //      只掛 BEFORE INSERT,【不掛 UPDATE】(這是刻意的,見該 trigger
+      //      的 COMMENT)。本 payload 就是唯一的防線。
+      //
+      //   欄位分家的【全部目的】就是防止這件事。若日後需要讓 admin 代為
+      //   修改對外地址,那是一張新票,要先想清楚如何讓 dealer 知情,
+      //   不是在此加九行。
+      // ──────────────────────────────────────────────────────────────────
       const { error } = await _supabase.from('dealers').update({
         company_name:            fields.company_name,
         contact_name:            fields.contact_name,
