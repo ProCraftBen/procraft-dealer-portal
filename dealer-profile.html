@@ -152,16 +152,10 @@
         <label class="form-label"><span data-i18n="profile.field.contact_phone">Contact Phone</span> <span class="required">*</span></label>
         <input class="form-input" id="f_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
       </div>
-      <div class="form-group">
-        <label class="form-label"><span data-i18n="profile.field.business_phone">Business Phone</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
-        <input class="form-input" id="f_business_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
-        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.business_phone">This will be displayed on the dealer locator page (public website).</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label"><span data-i18n="profile.field.gmb">Google My Business</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
-        <input class="form-input" id="f_gmb_url" type="url" placeholder="https://g.page/your-business"/>
-        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.gmb">Link to your Google Business profile so customers can find reviews and directions.</span>
-      </div>
+      <!-- 🔴 CB-81 Q-13 / Q-25:business_phone 與 google_my_business_url 已移至
+           下方 Dealer Locator Listing 區塊。兩者都是【對外】欄位 ——
+           留在本區(內部聯絡資訊)會讓 dealer 無從分辨哪些資料會被客人看到。
+           🔴 請勿搬回本區。 -->
       <div class="form-group">
         <label class="form-label"><span data-i18n="profile.field.optional_email_1">Optional Email 1</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
         <input class="form-input" id="f_secondary_email" type="email" placeholder="backup@yourcompany.com"/>
@@ -189,9 +183,15 @@
 
   <!-- Address -->
   <div class="card">
-    <div class="card-header"><span class="card-title"><span data-i18n="profile.address.title">Store Address</span> <span class="required">*</span></span></div>
+    <div class="card-header"><span class="card-title"><span data-i18n="profile.address.title">Billing Address</span> <span class="required">*</span></span></div>
     <div class="card-body">
-      <p class="section-desc">Your address is used to show your location on the ProCraft Dealer Locator map. Start typing to use Google address search for accurate results.</p>
+      <!-- 🔴 CB-81:本區為【帳單地址】—— 印在每一張 PO 與 PDF 上
+           (pdf-builder.js),並作為開單時 Billing 面板的來源(new-quote.html)。
+           🔴 【不是】Dealer Locator 上顯示的地址。對外地址在下方
+           Dealer Locator Listing 區塊的 business_* 欄位。
+           🔴 F-103:原說明文為硬編碼英文(西語 dealer 看到英文),
+           本票改寫該節點時一併掛上 data-i18n。 -->
+      <p class="section-desc" data-i18n="profile.address.desc">Printed on your purchase orders. This is not the address shown on the public dealer map.</p>
       <div class="form-group">
         <label class="form-label"><span data-i18n="profile.field.address1">Address Line 1</span> <span class="required">*</span></label>
         <input class="form-input" id="f_address_line1" type="text" placeholder="Start typing address..." data-i18n-placeholder="profile.ph.address1" autocomplete="off"/>
@@ -229,11 +229,77 @@
     </div>
   </div>
 
-  <!-- Store Presentation -->
+  <!-- Dealer Locator Listing (CB-81;原 Store Presentation) -->
+  <!-- 🔴 本區【全部欄位都是對外的】—— 會顯示在公開的 ProCraft Dealer Locator 上。
+       CB-81 Q-13 / Q-25 將 business_phone 與 google_my_business_url 自
+       Contact Information 移入本區,目的就是讓 dealer 一眼看出
+       「哪些資料會被客人看到」。🔴 請勿把任何欄位搬回 Contact 區。
+       🔴 badge 由 Recommended 改為必填標記:本區現含必填的對外地址
+          (Q-14),掛著「建議填寫」會與必填欄位互相矛盾。
+          個別選填欄位仍各自保留 Optional badge。 -->
   <div class="card">
-    <div class="card-header"><span class="card-title"><span data-i18n="profile.presentation.title">Store Presentation</span> <span class="badge-optional" data-i18n="common.badge.recommended">Recommended</span></span></div>
+    <div class="card-header"><span class="card-title"><span data-i18n="profile.presentation.title">Dealer Locator Listing</span> <span class="required">*</span></span></div>
     <div class="card-body">
-      <p class="section-desc">This text appears on your public dealer page. If left blank, those sections will not be shown. We recommend filling these in to attract more customers.</p>
+      <!-- 🔴 F-103:原說明文為硬編碼英文(西語 dealer 看到英文),
+           本票改寫該節點時一併掛上 data-i18n。
+           原文「留白則該區段不顯示」在加入必填地址後已不成立,故一併改寫。 -->
+      <p class="section-desc" data-i18n="profile.presentation.desc">This is what customers see on the public ProCraft Dealer Locator. The address here is shown on the dealer map — it is separate from your billing address above.</p>
+
+      <!-- 🔴 CB-81 Q-16:Google 地址搜尋服務未載入時的提示。
+           預設隱藏,由 pcMapsUnavailable() 開啟。
+           🔴 與下方 bizAddrWarn 互斥:服務不可用時不應叫 dealer
+              「從建議清單選取」—— 那個清單根本不存在。 -->
+      <div id="mapsWarn" style="display:none;margin:0 0 16px;padding:10px 12px;border-left:3px solid var(--gold);background:#FDFBF4;font-size:12.5px;line-height:1.6;color:var(--text);" data-i18n="profile.warn.maps_unavailable">Address search is temporarily unavailable. You can still type your address, but your map location will not be updated.</div>
+
+      <div class="form-group">
+        <label class="form-label"><span data-i18n="profile.field.address1">Address Line 1</span> <span class="required">*</span></label>
+        <input class="form-input" id="f_business_address_line1" type="text" placeholder="Start typing address..." data-i18n-placeholder="profile.ph.address1" autocomplete="off" oninput="pcBizAddressEdited()"/>
+        <!-- 🔴 CB-81 Q-15 = D:地址被手動編輯後座標即失效,此處提示重新選取。
+             預設隱藏,由 pcBizAddressEdited() 開啟。 -->
+        <div id="bizAddrWarn" style="display:none;margin-top:6px;padding:8px 10px;border-left:3px solid var(--gold);background:#FDFBF4;font-size:12.5px;line-height:1.6;color:var(--text);" data-i18n="profile.warn.address_changed">Address changed — please re-select it from the suggestion list to update your map location.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="profile.field.address2">Address Line 2</label>
+        <input class="form-input" id="f_business_address_line2" type="text" placeholder="Suite 100"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div class="form-group">
+          <label class="form-label"><span data-i18n="profile.field.city">City</span> <span class="required">*</span></label>
+          <input class="form-input" id="f_business_city" type="text" placeholder="Washington" oninput="pcBizAddressEdited()"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span data-i18n="profile.field.state">State</span> <span class="required">*</span></label>
+          <input class="form-input" id="f_business_state" type="text" placeholder="DC" oninput="pcBizAddressEdited()"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><span data-i18n="profile.field.zip">Zip Code</span> <span class="required">*</span></label>
+          <input class="form-input" id="f_business_zip_code" type="text" placeholder="20001" oninput="pcBizAddressEdited()"/>
+        </div>
+      </div>
+      <input type="hidden" id="f_business_lat"/>
+      <input type="hidden" id="f_business_lng"/>
+      <input type="hidden" id="f_business_address_formatted"/>
+
+      <div class="form-group">
+        <label class="form-label"><span data-i18n="profile.field.business_email">Business Email</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
+        <input class="form-input" id="f_business_email" type="email" placeholder="showroom@yourcompany.com"/>
+        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.business_email">Shown publicly on the dealer map. Leave blank to hide it.</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label"><span data-i18n="profile.field.business_phone">Business Phone</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
+        <input class="form-input" id="f_business_phone" type="tel" placeholder="2025550100" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"/>
+        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.business_phone">This will be displayed on the dealer locator page (public website).</span>
+      </div>
+      <!-- 🔴 google_my_business_url 沒有 business_ 前綴,但它【一直】是對外欄位
+           (顯示於 Dealer Locator,供客人查評論與路線),只是名稱看不出來。
+           🔴 請勿為了命名一致而「順手改名」—— 欄位改名會直接斷開
+              locator / n8n 的讀取,而那不會報錯,只會讓連結消失。 -->
+      <div class="form-group">
+        <label class="form-label"><span data-i18n="profile.field.gmb">Google My Business</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
+        <input class="form-input" id="f_gmb_url" type="url" placeholder="https://g.page/your-business"/>
+        <span class="form-hint" style="margin-top:4px;display:block;" data-i18n="profile.hint.gmb">Link to your Google Business profile so customers can find reviews and directions.</span>
+      </div>
+
       <div class="form-group">
         <label class="form-label"><span data-i18n="profile.field.heading">Store Heading</span> <span class="badge-optional" data-i18n="common.badge.optional">Optional</span></label>
         <input class="form-input" id="f_heading" type="text" maxlength="30" placeholder="e.g. Maryland's Premier Cabinet Showroom" data-i18n-placeholder="profile.ph.heading" oninput="updateCount('f_heading','count_heading',30); updatePreview();"/>
@@ -354,6 +420,45 @@ function pcDayLabel(day) {
 let currentUser = null;
 let images = []; // { url, path, featured }
 let isFirstTime = false;
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 CB-81|Dealer Locator 地址的座標狀態
+// -------------------------------------------------------------------
+// pcMapsReady:Google Places 是否成功載入。initMaps() 為 API 的 callback,
+//   只有 API 真的到位才會執行 → 由它翻轉本旗標。正向識別(F-35):
+//   確認「服務可用」,而非排除「服務不可用」。
+//
+// 🔴 為何 oninput 能區分「人手動打字」與「Autocomplete 回填」:
+//    Autocomplete 命中後是由 JS 設定 .value,而 JS 賦值【不觸發】input 事件;
+//    人打字才觸發。順序因此天然正確:
+//      打字 → pcBizAddressEdited() 清空座標
+//      → 從清單選取 → place_changed 重新填回座標
+// ═══════════════════════════════════════════════════════════════════
+let pcMapsReady = false;
+
+// 地址被手動編輯 → 座標即失效,清空並提示重新選取(Q-15 = D)。
+// 🔴 保留舊座標【比清空更糟】:圖釘會穩穩插在錯誤位置,畫面完全正常,
+//    消費者導航到錯的地方。清空至少讓錯誤看得見(fail-closed)。
+function pcBizAddressEdited() {
+  document.getElementById('f_business_lat').value = '';
+  document.getElementById('f_business_lng').value = '';
+  document.getElementById('f_business_address_formatted').value = '';
+  // 🔴 Q-16 互斥:服務不可用時不顯示「請從建議清單選取」——
+  //    那份清單不存在,叫人去點一個不存在的東西只會製造困惑。
+  const w = document.getElementById('bizAddrWarn');
+  if (w) w.style.display = pcMapsReady ? 'block' : 'none';
+}
+
+function pcHideBizAddrWarn() {
+  const w = document.getElementById('bizAddrWarn');
+  if (w) w.style.display = 'none';
+}
+
+// Google 服務未載入 → 顯示區塊層級提示(Q-16 = C 的第一半)。
+function pcShowMapsWarn() {
+  const w = document.getElementById('mapsWarn');
+  if (w) w.style.display = 'block';
+}
 
 function updateCount(inputId, countId, max) {
   const val = document.getElementById(inputId).value.length;
@@ -569,8 +674,6 @@ async function init() {
   document.getElementById('display_email').textContent        = dealer.email || '—';
   document.getElementById('f_contact_name').value = dealer.contact_name || '';
   document.getElementById('f_phone').value         = dealer.phone || '';
-  document.getElementById('f_business_phone').value = dealer.business_phone || '';
-  document.getElementById('f_gmb_url').value       = dealer.google_my_business_url || '';
   document.getElementById('f_secondary_email').value          = dealer.secondary_email || '';
   document.getElementById('f_secondary_email_notify').checked = dealer.secondary_email_notify || false;
   document.getElementById('f_optional_email_2').value          = dealer.optional_email_2 || '';
@@ -588,6 +691,23 @@ async function init() {
   document.getElementById('f_lat').value           = dealer.lat || '';
   document.getElementById('f_lng').value           = dealer.lng || '';
   document.getElementById('f_address_formatted').value = dealer.address_formatted || '';
+
+  // ── CB-81:Dealer Locator Listing(對外)──────────────────────────────
+  //   🔴 這一組與上面的 address_* 是【不同的地址】,不可互相取代:
+  //      address_*          → 帳單地址,印在 PO / PDF
+  //      business_address_* → 對外地址,顯示於公開的 Dealer Locator 地圖
+  //   business_phone 與 google_my_business_url 亦屬本區(Q-13 / Q-25)。
+  document.getElementById('f_business_address_line1').value = dealer.business_address_line1 || '';
+  document.getElementById('f_business_address_line2').value = dealer.business_address_line2 || '';
+  document.getElementById('f_business_city').value          = dealer.business_city || '';
+  document.getElementById('f_business_state').value         = dealer.business_state || '';
+  document.getElementById('f_business_zip_code').value      = dealer.business_zip_code || '';
+  document.getElementById('f_business_lat').value           = dealer.business_lat || '';
+  document.getElementById('f_business_lng').value           = dealer.business_lng || '';
+  document.getElementById('f_business_address_formatted').value = dealer.business_address_formatted || '';
+  document.getElementById('f_business_email').value = dealer.business_email || '';
+  document.getElementById('f_business_phone').value = dealer.business_phone || '';
+  document.getElementById('f_gmb_url').value        = dealer.google_my_business_url || '';
 
   // Populate store info
   if (dealer.heading)     { document.getElementById('f_heading').value     = dealer.heading;     updateCount('f_heading','count_heading',30); }
@@ -630,10 +750,40 @@ async function saveProfile() {
   const lat             = document.getElementById('f_lat').value;
   const lng             = document.getElementById('f_lng').value;
   const address_formatted = document.getElementById('f_address_formatted').value;
+  // ── CB-81:Dealer Locator Listing(對外)────────────────────────────────
+  const business_email              = document.getElementById('f_business_email').value.trim();
+  const business_address_line1      = document.getElementById('f_business_address_line1').value.trim();
+  const business_address_line2      = document.getElementById('f_business_address_line2').value.trim();
+  const business_city               = document.getElementById('f_business_city').value.trim();
+  const business_state              = document.getElementById('f_business_state').value.trim();
+  const business_zip_code           = document.getElementById('f_business_zip_code').value.trim();
+  const business_lat                = document.getElementById('f_business_lat').value;
+  const business_lng                = document.getElementById('f_business_lng').value;
+  const business_address_formatted  = document.getElementById('f_business_address_formatted').value;
 
   if (!contact_name) { showError(pcTxt('profile.err.contact_name', 'Please enter a contact name.')); return; }
   if (!phone)        { showError(pcTxt('profile.err.phone', 'Please enter a phone number.')); return; }
-  if (!address_line1 || !city || !state || !zip_code) { showError(pcTxt('profile.err.address', 'Please fill in your store address.')); return; }
+  if (!address_line1 || !city || !state || !zip_code) { showError(pcTxt('profile.err.address', 'Please fill in your billing address.')); return; }
+
+  // ── 🔴 CB-81 Q-14:Dealer Locator 地址為必填 ─────────────────────────────
+  if (!business_address_line1 || !business_city || !business_state || !business_zip_code) {
+    showError(pcTxt('profile.err.business_address', 'Please fill in your Dealer Locator address.'));
+    return;
+  }
+  // ── 🔴 CB-81 Q-23 = B:座標為空即擋下存檔 ────────────────────────────────
+  //   必填擋的是「文字欄不空」,而地圖需要的是「座標不空」—— 兩者不是同一件事。
+  //   只擋文字會讓 dealer 存檔成功、看到綠色訊息、然後從地圖上消失而不自知。
+  //
+  //   🔴 降級路徑(Q-23 的必要條件,不是選配):
+  //      Google 服務未載入時【不擋】—— API 掛掉不是 dealer 的錯,
+  //      硬擋會讓整頁不可用,包含只想換一張照片的人。
+  //      改由存檔成功訊息告知「地圖位置本次未更新」(Q-16 = C 的第二半)。
+  const bizCoordsMissing = !business_lat || !business_lng;
+  if (bizCoordsMissing && pcMapsReady) {
+    showError(pcTxt('profile.err.business_coords',
+      'Please select your Dealer Locator address from the suggestion list so we can place you on the map.'));
+    return;
+  }
   if (heading.length > 30) { showError(pcTxt('profile.err.heading_len', 'Heading must be 30 characters or less.')); return; }
   if (description.length > 200) { showError(pcTxt('profile.err.description_len', 'Description must be 200 characters or less.')); return; }
   if (!images.length) { showError(pcTxt('profile.err.no_photo', 'Please upload at least one store photo.')); return; }
@@ -696,6 +846,17 @@ async function saveProfile() {
       lat:               lat ? parseFloat(lat) : null,
       lng:               lng ? parseFloat(lng) : null,
       address_formatted: address_formatted || null,
+      // ── CB-81:Dealer Locator Listing(對外)────────────────────────────
+      //   🔴 與上方 address_* 是不同的地址,兩組必須各自寫入,不可共用。
+      business_email:              business_email || null,
+      business_address_line1,
+      business_address_line2:      business_address_line2 || null,
+      business_city,
+      business_state,
+      business_zip_code,
+      business_lat:                business_lat ? parseFloat(business_lat) : null,
+      business_lng:                business_lng ? parseFloat(business_lng) : null,
+      business_address_formatted:  business_address_formatted || null,
       heading,
       description,
       website:           website || null,
@@ -706,6 +867,13 @@ async function saveProfile() {
 
     if (error) throw error;
 
+    // 🔴 CB-81 Q-16 = C:走了降級路徑(服務不可用 + 座標為空)時,
+    //    成功訊息必須說明「有件事沒完成」,否則綠色勾勾會蓋掉一切,
+    //    dealer 以為做完了,不會回頭處理,也不會回報。
+    sucEl.textContent = bizCoordsMissing
+      ? pcTxt('profile.saved.no_coords',
+          '✓ Profile saved — but your map location was not updated. Please re-save your Dealer Locator address once address search is available.')
+      : pcTxt('profile.saved', '✓ Profile saved successfully!');
     sucEl.classList.add('show');
     window.scrollTo(0, 0);
 
@@ -738,14 +906,33 @@ function updatePreview() {
   document.getElementById('previewDesc').textContent    = desc || '';
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Google Places Autocomplete — 兩個【各自獨立】的實例
+// -------------------------------------------------------------------
+// 🔴 兩段 handler 刻意【不共用】一段程式碼再以參數切換欄位。
+//    一個 handler 服務兩組欄位時,參數一旦傳錯就是
+//    「改 Locator 地址結果寫進 Billing 地址」—— 而那【不會報錯】,
+//    只會讓 PO 上印出錯的地址。各自寫死自己的欄位 id,重複幾行換來
+//    這類錯誤在結構上不可能發生。
+//
+// 🔴 initMaps 是 Google API 的 callback:它被呼叫 = 服務確實到位。
+//    以此翻轉 pcMapsReady(正向識別 F-35 —— 確認服務可用,
+//    而非排除不可用)。API 載入失敗時本函式永不執行,旗標維持 false,
+//    由下方 setTimeout 顯示提示。
+// ═══════════════════════════════════════════════════════════════════
 function initMaps() {
-  const input = document.getElementById('f_address_line1');
-  const autocomplete = new google.maps.places.Autocomplete(input, {
+  pcMapsReady = true;
+
+  // ── ① Billing Address(內部,印在 PO / PDF)────────────────────────────
+  //    ⚠️ F-105(既有債,本票不修):本組地址被手動編輯時【不會】清空
+  //       f_lat / f_lng。與下方 ② 的處理刻意不同,不是遺漏。
+  const billingInput = document.getElementById('f_address_line1');
+  const billingAuto  = new google.maps.places.Autocomplete(billingInput, {
     types: ['address'],
     componentRestrictions: { country: 'us' },
   });
-  autocomplete.addListener('place_changed', () => {
-    const place = autocomplete.getPlace();
+  billingAuto.addListener('place_changed', () => {
+    const place = billingAuto.getPlace();
     if (!place.geometry) return;
     let streetNumber = '', route = '', city = '', state = '', zip = '';
     for (const component of place.address_components) {
@@ -756,15 +943,52 @@ function initMaps() {
       if (type === 'administrative_area_level_1') state = component.short_name;
       if (type === 'postal_code')   zip          = component.long_name;
     }
-    document.getElementById('f_address_line1').value    = `${streetNumber} ${route}`.trim();
-    document.getElementById('f_city').value              = city;
-    document.getElementById('f_state').value             = state;
-    document.getElementById('f_zip_code').value          = zip;
-    document.getElementById('f_lat').value               = place.geometry.location.lat();
-    document.getElementById('f_lng').value               = place.geometry.location.lng();
-    document.getElementById('f_address_formatted').value = place.formatted_address;
+    document.getElementById('f_address_line1').value      = `${streetNumber} ${route}`.trim();
+    document.getElementById('f_city').value               = city;
+    document.getElementById('f_state').value              = state;
+    document.getElementById('f_zip_code').value           = zip;
+    document.getElementById('f_lat').value                = place.geometry.location.lat();
+    document.getElementById('f_lng').value                = place.geometry.location.lng();
+    document.getElementById('f_address_formatted').value  = place.formatted_address;
+  });
+
+  // ── ② Dealer Locator Address(對外,顯示於公開地圖)────────────────────
+  const bizInput = document.getElementById('f_business_address_line1');
+  const bizAuto  = new google.maps.places.Autocomplete(bizInput, {
+    types: ['address'],
+    componentRestrictions: { country: 'us' },
+  });
+  bizAuto.addListener('place_changed', () => {
+    const place = bizAuto.getPlace();
+    if (!place.geometry) return;
+    let streetNumber = '', route = '', city = '', state = '', zip = '';
+    for (const component of place.address_components) {
+      const type = component.types[0];
+      if (type === 'street_number') streetNumber = component.long_name;
+      if (type === 'route')         route        = component.long_name;
+      if (type === 'locality')      city         = component.long_name;
+      if (type === 'administrative_area_level_1') state = component.short_name;
+      if (type === 'postal_code')   zip          = component.long_name;
+    }
+    document.getElementById('f_business_address_line1').value      = `${streetNumber} ${route}`.trim();
+    document.getElementById('f_business_city').value               = city;
+    document.getElementById('f_business_state').value              = state;
+    document.getElementById('f_business_zip_code').value           = zip;
+    document.getElementById('f_business_lat').value                = place.geometry.location.lat();
+    document.getElementById('f_business_lng').value                = place.geometry.location.lng();
+    document.getElementById('f_business_address_formatted').value  = place.formatted_address;
+    // 座標已重新取得 → 收起「請重新選取」提示。
+    pcHideBizAddrWarn();
   });
 }
+
+// 🔴 CB-81 Q-16:Google API 為 async defer,載入失敗時 initMaps 永不執行,
+//    畫面上【不會有任何異狀】—— dealer 只會發現下拉建議沒出現,
+//    多半以為是自己打錯或網路慢,反覆重試後手打存檔。
+//    給它一段寬裕的等待,逾時仍未就緒才提示。
+setTimeout(function () {
+  if (!pcMapsReady) pcShowMapsWarn();
+}, 8000);
 
 // ═══════════════════════════════════════════════════════════════════
 // 🔴 CB-62 B2|語言切換重繪
