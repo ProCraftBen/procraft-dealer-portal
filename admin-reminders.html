@@ -62,7 +62,20 @@
     .td-nowrap { white-space: nowrap; }
     .td-muted { color: var(--muted); }
     .td-subject { font-weight: 500; color: var(--green-dark); }
-    .td-desc { max-width: 260px; color: var(--muted); line-height: 1.5; }
+    /* Description 不佔欄位,改為點列展開的詳情列。
+       🔴 只有【有 description】的列才可展開(正向識別)—— 無內容的列
+          不掛 onclick、不加 cursor、不顯示箭頭,否則點下去什麼都沒有,
+          使用者會以為壞了。 */
+    tr.row-expandable { cursor: pointer; }
+    tr.row-expandable:hover { background: #FAFAF8; }
+    .expand-icon { font-size: 8px; color: var(--muted); margin-left: 5px; display: inline-block; transition: transform 0.15s; }
+    .expand-icon.open { transform: rotate(180deg); }
+    tr.detail-row { display: none; }
+    tr.detail-row.show { display: table-row; }
+    .detail-cell { background: #FAFAF8; }
+    .detail-label { font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    /* pre-wrap 保留 textarea 輸入的換行;overflow-wrap 讓超長無空白字串不撐破版面 */
+    .detail-text { font-size: 12px; line-height: 1.6; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 900px; }
     .td-po { font-weight: 500; }
     .td-po-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
@@ -163,14 +176,13 @@
             <th>Company</th>
             <th>Date</th>
             <th>Subject</th>
-            <th>Description</th>
             <th>Status</th>
             <th>Solved Date</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="remindersBody">
-          <tr><td colspan="11"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="10"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -230,8 +242,8 @@ const SEARCH_MAX_LEN = 100;
 // 🟡 半通用(判斷依據):colspan 必須與 <th> 數量一致,否則 empty-state
 //    只佔第一欄,版面歪掉【但不報錯】。用常數而非字面值,是為了讓
 //    「改欄位數」與「改 colspan」無法脫鉤 —— 兩者分開寫必然漂移。
-//    機制通用;11 這個值特定於本頁。
-const LIST_COLSPAN = 11;
+//    機制通用;10 這個值特定於本頁。
+const LIST_COLSPAN = 10;
 
 // ── 顯示 map(display != value)────────────────────────────────────────
 // 🔴 DB 值為小寫(P-1 = B)。顯示文字只存在於這裡,DB 值永不為顯示改動。
@@ -565,7 +577,12 @@ function renderPoCell(row) {
 }
 
 function renderRows(rows) {
-  return rows.map(function (r) {
+  // 🔴 搜尋詞非空時全列預設展開。SEARCH_COLUMNS 含 description ——
+  //    若不展開,只命中 description 的列會「被撈出來但看不到命中的字在哪」,
+  //    使用者會誤判為系統撈錯。那是靜默失敗的一種。
+  const expandAll = !!_listState.q;
+
+  return rows.map(function (r, idx) {
     // 🔴 正向識別:Solve 按鈕只在 status === 'marked' 時渲染。
     //    【不】寫 status !== 'solved' —— 未來若新增第三種狀態,負向判斷
     //    會讓那些列也長出 Solve 按鈕。
@@ -573,24 +590,53 @@ function renderRows(rows) {
     const solveBtn = canSolve
       ? '<button class="btn-solve" id="solve-' + r.id + '" onclick="solveReminder(\'' + r.id + '\')">Solve</button>'
       : '';
+
+    // 🔴 正向識別:有實際內容才可展開。空白字串與 null 一律視為無內容。
+    const hasDesc  = !!(r.description && String(r.description).trim());
+    const rowAttrs = hasDesc
+      ? ' class="row-expandable" onclick="toggleDetail(' + idx + ')"'
+      : '';
+    const icon = hasDesc
+      ? '<span class="expand-icon' + (expandAll ? ' open' : '') + '" id="rmicon-' + idx + '">&#9660;</span>'
+      : '';
+    const detailRow = hasDesc
+      ? '<tr class="detail-row' + (expandAll ? ' show' : '') + '" id="rmdetail-' + idx + '">' +
+          '<td colspan="' + LIST_COLSPAN + '" class="detail-cell">' +
+            '<div class="detail-label">Description</div>' +
+            '<div class="detail-text">' + escapeHtml(r.description) + '</div>' +
+          '</td>' +
+        '</tr>'
+      : '';
+
     return '' +
-      '<tr>' +
+      '<tr' + rowAttrs + '>' +
         '<td class="td-nowrap td-muted">' + escapeHtml(formatDateTime(r.created_at)) + '</td>' +
         '<td class="td-nowrap">' + renderCreatedBy(r.created_by) + '</td>' +
         '<td>' + renderTypeBadge(r.type) + '</td>' +
         '<td class="td-nowrap">' + renderPoCell(r) + '</td>' +
         '<td>' + escapeHtml(r.company_name || '—') + '</td>' +
         '<td class="td-nowrap td-muted">' + escapeHtml(prettyDate(r.reminder_date)) + '</td>' +
-        '<td class="td-subject">' + escapeHtml(r.subject || '—') + '</td>' +
-        '<td class="td-desc">' + escapeHtml(r.description || '') + '</td>' +
+        '<td class="td-subject">' + escapeHtml(r.subject || '—') + icon + '</td>' +
         '<td>' + renderStatusBadge(r.status) + '</td>' +
         '<td class="td-nowrap td-muted">' + escapeHtml(prettyDate(r.solved_date)) + '</td>' +
-        '<td class="td-nowrap">' +
+        // ⚠️ B-5(admin-quotes 同型陷阱):整列掛了展開 onclick,操作欄
+        //    必須 stopPropagation,否則按 Solve 會同時展開/收合該列。
+        '<td class="td-nowrap" onclick="event.stopPropagation()">' +
           solveBtn +
           '<a class="link-view" href="quote-detail.html?id=' + encodeURIComponent(r.quote_id) + '">View Order &rarr;</a>' +
         '</td>' +
-      '</tr>';
+      '</tr>' + detailRow;
   }).join('');
+}
+
+// 展開狀態刻意【不】跨頁保留 —— 翻頁或改篩選後 renderRows 產生全新字串,
+// 一律回到收合(搜尋詞非空時除外)。保留狀態需要另一份 state,不值得。
+function toggleDetail(idx) {
+  const row  = document.getElementById('rmdetail-' + idx);
+  const icon = document.getElementById('rmicon-' + idx);
+  if (!row) return;
+  const open = row.classList.toggle('show');
+  if (icon) icon.classList.toggle('open', open);
 }
 
 // ── 唯一查詢出口 ──────────────────────────────────────────────────────
