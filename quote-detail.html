@@ -1790,6 +1790,13 @@ async function init() {
   // Store for PDF
   _quote = quote; _dealer = dealer; _addr = shippingAddr;
   _loadState = 'ready';
+
+  // 🔴 CB-82：必須在 _quote / _isAdmin 都已就位之後才呼叫——
+  //    該函式兩者都要讀。且必須 await：若不等，admin 在旗標回來前
+  //    按下 Mark as Fulfilled 會拿到初值。初值為 fail-closed（提醒「無法
+  //    確認」），故最壞的情況是多一句提醒，不是静默放行。
+  await loadReminderFlag();
+
   renderQuote(quote, dealer, shippingAddr);
 }
 
@@ -2589,6 +2596,9 @@ async function fulfillOrder() {
     quote:    _quote,
     isAdmin:  _isAdmin,
     buttonEl: document.getElementById('fulfillOrderBtn'),
+    // ── CB-82：兩個旗標必須同時傳（與 admin-quotes.html 鍵像）───────
+    hasOpenReminder:     _rmOpenCount > 0,
+    reminderCheckFailed: _rmCheckFailed,
     onDone:   function () { window.location.reload(); }
   });
 }
@@ -2624,6 +2634,40 @@ const PCRM_DESC_MAX    = 500;
 //    正向識別(F-35):列出「需要日期」的型別,不寫 type !== 'other' ——
 //    未來新增第四種型別時,負向判斷會把它一併當成必填,且不報錯。
 const PCRM_DATE_REQUIRED_TYPES = ['backorder', 'payment'];
+
+/* ── CB-82: Fulfilled 攬截所需的兩個旗標 ───────────────────────
+ * 🔴 order-complete.js 【不自行查 DB】，旗標由呼叫端傳入。兩個呼叫端
+ *    （本頁與 admin-quotes.html）必須一起改、一起驗 —— 漏改任一邊的
+ *    症狀是「該警告時沒警告」，不會報錯。
+ * 🔴 _rmCheckFailed 初值為 true（fail-closed）—— 若 loadReminderFlag()
+ *    因任何原因未執行完成，攬截會跳「無法確認」而非静默放行。
+ *    初值 false 的話，「還沒查到」會被當成「確定沒有」。 */
+let _rmOpenCount   = 0;
+let _rmCheckFailed = true;
+
+// 🔴 讀 base table，只取 count（head:true，不拉資料）。
+//    本頁不顯示 reminder 內容 —— 需求未列，且 dealer 可達頁面不該載入任何
+//    reminder 資料（縱使 DB 已擋，不發請求才是最少暴露面）。
+async function loadReminderFlag() {
+  if (!_isAdmin || !_quote || !_quote.id) { _rmCheckFailed = false; _rmOpenCount = 0; return; }
+
+  const { count, error } = await _supabase
+    .from('quote_reminders')
+    .select('id', { count: 'exact', head: true })
+    .eq('quote_id', _quote.id)
+    .eq('status', 'marked');
+
+  if (error) {
+    // 🔴 不吞掉。失敗時維持 fail-closed，攬截會提醒「無法確認」。
+    console.error('[CB-82] reminder flag unavailable:', error);
+    _rmCheckFailed = true;
+    _rmOpenCount   = 0;
+    return;
+  }
+
+  _rmCheckFailed = false;
+  _rmOpenCount   = (count == null ? 0 : count);
+}
 
 function pcrmInjectStyles() {
   if (document.getElementById(PCRM_STYLE_ID)) return;
@@ -2832,6 +2876,11 @@ async function openAddReminder() {
       + 'Please refresh the page and try again.');
     return;
   }
+
+  // 🔴 同步旗標 —— 否則 admin 剛新增一筆就按 Mark as Fulfilled 時，
+  //    攬截會拿到過時的 0 而静默放行。不重查 DB，寫入已確認成功。
+  _rmOpenCount   = _rmOpenCount + 1;
+  _rmCheckFailed = false;
 
   window.alert('Reminder added. You can review it on the Reminders page.');
 }
