@@ -781,6 +781,27 @@ async function init() {
     });
   }
 
+  // ── 10b: 接受 ?po=<單號> 預先篩選 ───────────────────────────
+  // admin-quotes 的 ! / ✓ 標示點下去就帶著單號跳到這裡。
+  // 🔴 同樣走 sanitizeSearchTerm —— URL 參數是外部輸入，不因為“是我們自己
+  //    產生的連結”就跳過淨化。使用者可以手改網址列。
+  // 🔴 淨化後若有改寫，poAltered 會讓提示列現身 —— 不靜默改寫搜尋詞。
+  try {
+    const rawPo = new URLSearchParams(window.location.search).get('po');
+    if (rawPo) {
+      const r = sanitizeSearchTerm(rawPo);
+      if (r.term) {
+        _listState.po        = r.term;
+        _listState.poAltered = r.altered;
+        const el = document.getElementById('rmPo');
+        if (el) el.value = r.term;
+      }
+    }
+  } catch (e) {
+    // 網址解析失敗不該擋住整頁 —— 退化為不篩選，與直接進本頁相同。
+    console.warn('[CB-82] could not read ?po= parameter:', e);
+  }
+
   await loadReminders();
 }
 
