@@ -47,15 +47,23 @@
 
     /* Table */
     .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
-    /* CB-82: reminder 標示。插在既有 PO# 儲存格內部，【不新增 <td>】——
-       免動 colspan="8" 兩處與 <thead>，與 CB-60a 零重疊。 */
-    /* 🔴 9a：標示改插在 Fulfillment Date 儲存格的【前方】—— 視覺位置
-       落在 Status 與 Fulfillment Date 之間，但仍【不新增 <td>】。
-       🔴 不插在 Status 格：該格有 9 個狀態分支各自組字串，要在每個
-          分支尾端插入太散，而且漏一個不會報錯。
-       圓底 badge 而非純文字：表格內文 12px，純文字驚嘆號易被掃過。
-       尺寸要再調只需改 width / height / font-size 這三個值。 */
-    .rm-flag { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 50%; font-weight: 700; font-size: 14px; line-height: 1; vertical-align: middle; }
+    /* CB-82: reminder 標示。10b 起【獨立成一欄】,位於 Status 與
+       Fulfillment Date 之間 —— 原本擠在 Fulfillment Date 前方,視覺上
+       像是日期的附屬物,sales 看不出那是獨立資訊。
+       🔴 新增欄位連帶動到 <thead> 與三處 colspan。colspan 已改為
+          LIST_COLSPAN 常數(見下方),避免日後改欄位數時漏改 ——
+          colspan 與 <th> 數量不一致只會讓版面歪掉,【不報錯】。
+       🔴 不插在 Status 格:該格有 9 個狀態分支各自組字串,要在每個
+          分支尾端插入太散,而且漏一個不會報錯。
+       ⚠️ 與 CB-60a 的重疊面因此由零變成「同樣會動 <thead>」。
+          CB-60a 尚未開工,屆時看到的是 9 欄 + 具名常數的乾淨狀態。 */
+    .td-rm { width: 1%; white-space: nowrap; text-align: center; }
+    /* 🔴 標示為 <a>，點下去帶單號跳到 admin-reminders —— sales 不必問人
+       就知道這個圓圈是幹什麼的。欄頭寫 Reminder，hover 有 title 提示，
+       三者一起才算可發現。
+       text-decoration:none 必須寫 —— <a> 預設底線在圓底 badge 上很醜。 */
+    .rm-flag { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-weight: 700; font-size: 14px; line-height: 1; vertical-align: middle; text-decoration: none; cursor: pointer; transition: opacity 0.15s; }
+    .rm-flag:hover { opacity: 0.72; }
     .rm-flag.open  { color: #C0392B; background: rgba(192,57,43,0.14); }
     .rm-flag.clear { color: #16A34A; background: rgba(22,163,74,0.12); }
     /* CB-82: 標示查詢降級橫幅。置於表格上方既有容器內，
@@ -412,12 +420,13 @@
             <th>Date</th>
             <th style="text-align:right">Total</th>
             <th>Status</th>
+            <th>Reminder</th>
             <th>Fulfillment Date</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="quotesBody">
-          <tr><td colspan="8"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="9"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -593,6 +602,12 @@ const statusClass = {
 //   ⚠️ 上方 statusClass 是 CSS class 對照表,與顯示名無關,維持不動。
 
 let allQuotes = [], allDealers = {};
+
+// 🔴 colspan 必須與 <th> 數量一致，否則 empty-state 與展開列只佔部分欄位，
+//    版面歪掉【但不報錯】。用常數而非字面值，是為了讓「改欄位數」與
+//    「改 colspan」無法脫鉤 —— 兩者分開寫必然漂移（沿用 F-30 LIST_COLSPAN 先例）。
+//    ⚠️ 上方 <thead> 的 skeleton 列是靜態 HTML，無法套常數，改欄位數時要一併手改。
+const LIST_COLSPAN = 9;
 
 // ── CB-82: reminder 標示的兩支【正向】集合 ─────────────────────
 // 🔴 F-35 正向識別：兩個集合各自來自一支 .eq() 查詢，判定時兩邊都是
@@ -813,9 +828,29 @@ async function loadReminderFlags() {
 
 // 🔴 正向識別（F-35）：兩支都是集合命中，沒有任何【排除】推導。
 //    降級時兩個集合已清空 → 此函式自然回空字串，不需額外判斷。
-function reminderFlagHtml(quoteId) {
-  if (_rmOpen.has(quoteId))  return '<span class="rm-flag open" title="Has unresolved reminders">!</span>';
-  if (_rmClear.has(quoteId)) return '<span class="rm-flag clear" title="All reminders solved">\u2713</span>';
+function reminderFlagHtml(quote) {
+  // 🔴 改收 quote 物件（非單一 id）—— 連結需要單號才能帶篩選。
+  const id = quote && quote.id;
+  if (!id) return '';
+
+  // 雙編號制：Draft 無 po_number。admin-reminders 的 PO# 篩選打的是
+  // display_number = COALESCE(po_number, draft_number)，兩邊取值規則一致。
+  const num = quote.po_number || quote.draft_number || '';
+  const href = 'admin-reminders.html' + (num ? '?po=' + encodeURIComponent(num) : '');
+
+  // 🔴 onclick 必須 stopPropagation —— 整列掛了 toggleDetail，
+  //    不擋冒泡的話點連結會同時展開/收合該列（B-5 同型陷阱）。
+  //    外層 <td> 也掛了一道，兩道都保留：點到圓圈外的空白處也不該展開。
+  const stop = ' onclick="event.stopPropagation()"';
+
+  if (_rmOpen.has(id)) {
+    return '<a class="rm-flag open" href="' + href + '"' + stop +
+           ' title="Has unresolved reminders \u2014 click to review">!</a>';
+  }
+  if (_rmClear.has(id)) {
+    return '<a class="rm-flag clear" href="' + href + '"' + stop +
+           ' title="All reminders solved \u2014 click to review">\u2713</a>';
+  }
   return '';
 }
 
@@ -972,7 +1007,7 @@ function renderTable() {
   const tbody = document.getElementById('quotesBody');
 
   if (!allQuotes.length) {
-    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="' + LIST_COLSPAN + '"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
     return;
   }
 
@@ -1269,11 +1304,12 @@ function renderTable() {
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
         statusCellHtml +
-        '<td class="td-date">' + reminderFlagHtml(q.id) + formatDateOnly(q.fulfillment_date) + '</td>' +
+        '<td class="td-rm" onclick="event.stopPropagation()">' + reminderFlagHtml(q) + '</td>' +
+        '<td class="td-date">' + formatDateOnly(q.fulfillment_date) + '</td>' +
         actionCellHtml +
       '</tr>' +
       '<tr class="detail-row" id="detail-' + idx + '">' +
-        '<td colspan="8" class="detail-cell">' +
+        '<td colspan="' + LIST_COLSPAN + '" class="detail-cell">' +
           '<div class="detail-inner">' +
             reasonBanner +
             '<div class="detail-grid">' +
