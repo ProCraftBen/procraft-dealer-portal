@@ -58,6 +58,14 @@
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
     .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--green-dark); }
     .btn-action.secondary:hover { background: var(--green-dark); color: #fff; }
+    /* CB-82: reminder 標示。與 admin-quotes.html 同一套視覺語言 ——
+       同樣的圓底 badge、同樣點下去進 Reminders 頁,兩處認知一致。
+       🔴 <a> 預設有底線,在圓底 badge 上很醜,必須明寫 text-decoration:none。
+       align-self:center 讓它在按鈕列裡與按鈕垂直置中(按鈕比它高)。 */
+    .rm-flag { display: inline-flex; align-items: center; justify-content: center; align-self: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 700; font-size: 15px; line-height: 1; text-decoration: none; cursor: pointer; transition: opacity 0.15s; }
+    .rm-flag:hover { opacity: 0.72; }
+    .rm-flag.open  { color: #C0392B; background: rgba(192,57,43,0.14); }
+    .rm-flag.clear { color: #16A34A; background: rgba(22,163,74,0.12); }
     .btn-action.review-resubmit { background: var(--status-returned); color: #fff; }
     .btn-action.review-resubmit:hover { background: #c66a30; }
     .btn-action.admin-edit { background: var(--gold); color: #fff; }
@@ -2340,6 +2348,7 @@ function renderQuote(quote, dealer, addr) {
         ${dealerDraftEditButtonHtml}
         ${releaseStockButtonHtml}
         ${fulfillOrderButtonHtml}
+        ${reminderFlagHtml()}
         ${addReminderButtonHtml}
         ${downloadButtonsHtml}
         ${receiptButtonHtml}
@@ -2631,30 +2640,64 @@ async function fulfillOrder() {
  *    因任何原因未執行完成，攬截會跳「無法確認」而非静默放行。
  *    初值 false 的話，「還沒查到」會被當成「確定沒有」。 */
 let _rmOpenCount   = 0;
+let _rmSolvedCount = 0;
 let _rmCheckFailed = true;
 
 // 🔴 讀 base table，只取 count（head:true，不拉資料）。
 //    本頁不顯示 reminder 內容 —— 需求未列，且 dealer 可達頁面不該載入任何
 //    reminder 資料（縱使 DB 已擋，不發請求才是最少暴露面）。
 async function loadReminderFlag() {
-  if (!_isAdmin || !_quote || !_quote.id) { _rmCheckFailed = false; _rmOpenCount = 0; return; }
+  if (!_isAdmin || !_quote || !_quote.id) {
+    _rmCheckFailed = false; _rmOpenCount = 0; _rmSolvedCount = 0; return;
+  }
 
-  const { count, error } = await _supabase
+  // 🔴 只取 status 一欄，不拉 subject / description —— 本頁 dealer 可達，
+  //    縱使 DB 已擋，不把內容拉進來才是最少暴露面。
+  //    原本只數 marked（head count），現在要區分紅 ! 與綠 ✓，故改取列。
+  //    單一訂單的 reminder 數量極小，無分頁疑慮。
+  const { data, error } = await _supabase
     .from('quote_reminders')
-    .select('id', { count: 'exact', head: true })
-    .eq('quote_id', _quote.id)
-    .eq('status', 'marked');
+    .select('status')
+    .eq('quote_id', _quote.id);
 
   if (error) {
     // 🔴 不吞掉。失敗時維持 fail-closed，攬截會提醒「無法確認」。
     console.error('[CB-82] reminder flag unavailable:', error);
-    _rmCheckFailed = true;
-    _rmOpenCount   = 0;
+    _rmCheckFailed  = true;
+    _rmOpenCount    = 0;
+    _rmSolvedCount  = 0;
     return;
   }
 
+  const rows = data || [];
+  // 🔴 正向識別（F-35）：兩邊都是命中。不寫 else 掃進某一邊 ——
+  //    未來若新增第三種狀態，else 會靜默歸錯邊。
+  _rmOpenCount   = rows.filter(function (r) { return r.status === 'marked'; }).length;
+  _rmSolvedCount = rows.filter(function (r) { return r.status === 'solved'; }).length;
   _rmCheckFailed = false;
-  _rmOpenCount   = (count == null ? 0 : count);
+}
+
+// 🔴 與 admin-quotes.html 的 reminderFlagHtml() 同一套規則：
+//    有未處理 → 紅 !；全部已處理 → 綠 ✓；都沒有 → 不顯示。
+//    ⚠️ 兩頁各一份實作，但判斷規則必須一致 —— 一邊改了另一邊沒改，
+//    會讓同一張單在兩頁顯示不同顏色，而且不報錯。
+// 🔴 降級時【不渲染】—— 不知道就不講，比講錯好。
+//    Fulfilled 攬截那邊會以「無法確認」提醒，不會無聲無息。
+function reminderFlagHtml() {
+  if (!_isAdmin || _rmCheckFailed || !_quote) return '';
+
+  const num  = _quote.po_number || _quote.draft_number || '';
+  const href = 'admin-reminders.html' + (num ? '?po=' + encodeURIComponent(num) : '');
+
+  if (_rmOpenCount > 0) {
+    return '<a class="rm-flag open" href="' + href +
+           '" title="Has unresolved reminders \u2014 click to review">!</a>';
+  }
+  if (_rmSolvedCount > 0) {
+    return '<a class="rm-flag clear" href="' + href +
+           '" title="All reminders solved \u2014 click to review">\u2713</a>';
+  }
+  return '';
 }
 
 async function openAddReminder() {
@@ -2718,6 +2761,11 @@ async function openAddReminder() {
   //    攬截會拿到過時的 0 而静默放行。不重查 DB，寫入已確認成功。
   _rmOpenCount   = _rmOpenCount + 1;
   _rmCheckFailed = false;
+
+  // 🔴 重繪以讓紅 ! 標示立即現身 —— 標示是在 renderQuote 時組字串的，
+  //    只更新計數器不會改變畫面。admin 存完一筆卻看不到任何變化，
+  //    會讓人以為沒存進去。不重查 DB，寫入已確認成功。
+  renderQuote(_quote, _dealer, _addr);
 
   window.alert('Reminder added. You can review it on the Reminders page.');
 }
