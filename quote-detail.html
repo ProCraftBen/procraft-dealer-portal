@@ -242,7 +242,11 @@
     .qsh-row:last-child { border-bottom: none; }
     .qsh-time { font-size: 11px; color: var(--muted); white-space: nowrap; flex: 0 0 auto; min-width: 150px; }
     .qsh-status { font-size: 13px; font-weight: 500; color: var(--text); flex: 1 1 auto; }
-    .qsh-by { font-size: 11px; color: var(--muted); text-align: right; flex: 0 0 auto; }
+    .qsh-by { font-size: 11px; color: var(--muted); text-align: right; flex: 0 0 auto; line-height: 1.45; }
+    /* 姓名為主、email 為次 —— 兩者都要,但視覺權重不同。
+       email 另起一行:右對齊欄位寬度有限,同行會擠成一團或撐開版面。 */
+    .qsh-name  { display: block; color: var(--text); }
+    .qsh-email { display: block; font-size: 10px; color: var(--muted); word-break: break-all; }
     .qsh-missing { font-style: italic; color: #B45309; }
     .qsh-foot { margin-top: 14px; font-size: 11px; color: var(--muted); font-style: italic; }
     @media (max-width: 640px) {
@@ -1966,7 +1970,17 @@ function statusHistoryActor(ev) {
 
   if (by) {
     const info = _userMap[by];
-    if (info) return escapeHtml(info.contact_name || info.email || 'Unknown admin');
+    if (info) {
+      // 姓名與 email 兩者都顯示 —— 姓名認人,email 認帳號。
+      // 🔴 正向組裝:有什麼印什麼,不做「有 A 就不印 B」的排除。
+      //    兩者皆缺時才回 Unknown admin(uuid 查得到但欄位是空的,
+      //    留白會被讀成「沒人動過」)。
+      const nm = info.contact_name ? String(info.contact_name).trim() : '';
+      const em = info.email        ? String(info.email).trim()        : '';
+      if (!nm && !em) return '<span class="qsh-missing">Unknown admin</span>';
+      return (nm ? '<span class="qsh-name">'  + escapeHtml(nm) + '</span>' : '') +
+             (em ? '<span class="qsh-email">' + escapeHtml(em) + '</span>' : '');
+    }
     // uuid 有值但查無 —— 帳號可能已刪除。印前 8 碼讓人還能追。
     return escapeHtml(String(by).slice(0, 8)) + ' <span class="qsh-missing">(' +
            escapeHtml(r || 'unknown') + ')</span>';
