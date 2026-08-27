@@ -58,6 +58,14 @@
     .btn-action svg { width: 14px; height: 14px; fill: currentColor; }
     .btn-action.secondary { background: transparent; color: var(--green-dark); border: 1px solid var(--green-dark); }
     .btn-action.secondary:hover { background: var(--green-dark); color: #fff; }
+    /* CB-82: reminder 標示。與 admin-quotes.html 同一套視覺語言 ——
+       同樣的圓底 badge、同樣點下去進 Reminders 頁,兩處認知一致。
+       🔴 <a> 預設有底線,在圓底 badge 上很醜,必須明寫 text-decoration:none。
+       align-self:center 讓它在按鈕列裡與按鈕垂直置中(按鈕比它高)。 */
+    .rm-flag { display: inline-flex; align-items: center; justify-content: center; align-self: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 700; font-size: 15px; line-height: 1; text-decoration: none; cursor: pointer; transition: opacity 0.15s; }
+    .rm-flag:hover { opacity: 0.72; }
+    .rm-flag.open  { color: #C0392B; background: rgba(192,57,43,0.14); }
+    .rm-flag.clear { color: #16A34A; background: rgba(22,163,74,0.12); }
     .btn-action.review-resubmit { background: var(--status-returned); color: #fff; }
     .btn-action.review-resubmit:hover { background: #c66a30; }
     .btn-action.admin-edit { background: var(--gold); color: #fff; }
@@ -584,6 +592,9 @@
 <script src="components/i18n.js?v=cb62c"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js?v=cb62c"></script>
+<!-- CB-82: Reminder 表單 modal(與 admin-reminders.html 共用同一份)。
+     新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
+<script src="components/reminder-modal.js"></script>
 <script src="components/footer.js?v=cb62c"></script>
 <!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
 <script src="components/order-complete.js"></script>
@@ -704,6 +715,10 @@ const RELEASE_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1
 // 故不需要像 RELEASE_BTN_INNER 那樣兩處共用。
 // CB-59:文字改為完整句式 "Mark as Fulfilled"(admin-quotes 列內為短版 "Fulfilled")。
 const FULFILL_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Mark as Fulfilled';
+
+// ── CB-82: Add Reminder 按鈕的 inner HTML ──
+// 與上方兩支同形：只用於建立按鈕，不負責還原。
+const REMINDER_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg> Add Reminder';
 // ─────────────────────────────────────────────────────────────────────────
 // F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
 // 7-/11-letter labels from wrapping in narrow table columns.
@@ -1786,6 +1801,13 @@ async function init() {
   // Store for PDF
   _quote = quote; _dealer = dealer; _addr = shippingAddr;
   _loadState = 'ready';
+
+  // 🔴 CB-82：必須在 _quote / _isAdmin 都已就位之後才呼叫——
+  //    該函式兩者都要讀。且必須 await：若不等，admin 在旗標回來前
+  //    按下 Mark as Fulfilled 會拿到初值。初值為 fail-closed（提醒「無法
+  //    確認」），故最壞的情況是多一句提醒，不是静默放行。
+  await loadReminderFlag();
+
   renderQuote(quote, dealer, shippingAddr);
 }
 
@@ -1922,6 +1944,17 @@ function renderQuote(quote, dealer, addr) {
   const canFulfillOrder = _isAdmin && quote.status === 'Order Processing';
   const fulfillOrderButtonHtml = canFulfillOrder
     ? `<button id="fulfillOrderBtn" class="btn-action order-fulfill" onclick="fulfillOrder()">${FULFILL_BTN_INNER}</button>`
+    : '';
+
+  // ── CB-82: Add Reminder 按鈕（admin 專屬）────────────────────
+  // 🔴 刻意【不限 status】—— Draft 可加，Order Completed 之後亦可加。
+  //    需求書已定版：reminder 是內部追蹤工具，與訂單生命週期無關。
+  // 🔴 dealer 絕對看不到—— 此處只決定「要不要渲染」；真正的邊界在 DB：
+  //    quote_reminders 對 dealer 零 policy，前端渲染條件不是安全邊界。
+  // 🔴 本頁雖載入 i18n.js（dealer/admin 共用），但 admin 專屬元素一律英文
+  //    硬編碼且不掛任何 i18n 標記（CB-62 Q-5 / CB-66 定版）。
+  const addReminderButtonHtml = _isAdmin
+    ? `<button type="button" id="addReminderBtn" class="btn-action secondary" onclick="openAddReminder()">${REMINDER_BTN_INNER}</button>`
     : '';
 
 // ── Ship To 區塊(5 檔鏡像同一份 resolver)──
@@ -2315,6 +2348,8 @@ function renderQuote(quote, dealer, addr) {
         ${dealerDraftEditButtonHtml}
         ${releaseStockButtonHtml}
         ${fulfillOrderButtonHtml}
+        ${reminderFlagHtml()}
+        ${addReminderButtonHtml}
         ${downloadButtonsHtml}
         ${receiptButtonHtml}
       </div>
@@ -2573,8 +2608,177 @@ async function fulfillOrder() {
     quote:    _quote,
     isAdmin:  _isAdmin,
     buttonEl: document.getElementById('fulfillOrderBtn'),
+    // ── CB-82：兩個旗標必須同時傳（與 admin-quotes.html 鍵像）───────
+    hasOpenReminder:     _rmOpenCount > 0,
+    reminderCheckFailed: _rmCheckFailed,
     onDone:   function () { window.location.reload(); }
   });
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * CB-82 — Reminder(admin 專屬)
+ *
+ * 🔴 表單 modal 已抽至 components/reminder-modal.js(單元 11 / Q-19 = B)——
+ *    admin-reminders.html 的 Edit 用的是【同一份表單】,各留一份必然漂移。
+ *    本頁只保留:旗標載入、Add 入口、INSERT 寫入。
+ *
+ * 🔴 dealer 看不到按鈕,且 quote_reminders 對 dealer 零 policy,
+ *    即使繞過前端也讀不到、寫不進(G-3 已實測)。
+ *
+ * 🔴 本頁載入 i18n.js,但 admin 專屬元素一律英文硬編碼、不掛 i18n 標記
+ *    (CB-62 Q-5 / CB-66)。未載入對應 key 的標記會成為死標記(F-25 同類)。
+ *
+ * 🔴 寫入走 base table public.quote_reminders,不走 view。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── CB-82: Fulfilled 攬截所需的兩個旗標 ───────────────────────
+ * 🔴 order-complete.js 【不自行查 DB】，旗標由呼叫端傳入。兩個呼叫端
+ *    （本頁與 admin-quotes.html）必須一起改、一起驗 —— 漏改任一邊的
+ *    症狀是「該警告時沒警告」，不會報錯。
+ * 🔴 _rmCheckFailed 初值為 true（fail-closed）—— 若 loadReminderFlag()
+ *    因任何原因未執行完成，攬截會跳「無法確認」而非静默放行。
+ *    初值 false 的話，「還沒查到」會被當成「確定沒有」。 */
+let _rmOpenCount   = 0;
+let _rmSolvedCount = 0;
+let _rmCheckFailed = true;
+
+// 🔴 讀 base table，只取 count（head:true，不拉資料）。
+//    本頁不顯示 reminder 內容 —— 需求未列，且 dealer 可達頁面不該載入任何
+//    reminder 資料（縱使 DB 已擋，不發請求才是最少暴露面）。
+async function loadReminderFlag() {
+  if (!_isAdmin || !_quote || !_quote.id) {
+    _rmCheckFailed = false; _rmOpenCount = 0; _rmSolvedCount = 0; return;
+  }
+
+  // 🔴 只取 status 一欄，不拉 subject / description —— 本頁 dealer 可達，
+  //    縱使 DB 已擋，不把內容拉進來才是最少暴露面。
+  //    原本只數 marked（head count），現在要區分紅 ! 與綠 ✓，故改取列。
+  //    單一訂單的 reminder 數量極小，無分頁疑慮。
+  const { data, error } = await _supabase
+    .from('quote_reminders')
+    .select('status')
+    .eq('quote_id', _quote.id);
+
+  if (error) {
+    // 🔴 不吞掉。失敗時維持 fail-closed，攬截會提醒「無法確認」。
+    console.error('[CB-82] reminder flag unavailable:', error);
+    _rmCheckFailed  = true;
+    _rmOpenCount    = 0;
+    _rmSolvedCount  = 0;
+    return;
+  }
+
+  const rows = data || [];
+  // 🔴 正向識別（F-35）：兩邊都是命中。不寫 else 掃進某一邊 ——
+  //    未來若新增第三種狀態，else 會靜默歸錯邊。
+  _rmOpenCount   = rows.filter(function (r) { return r.status === 'marked'; }).length;
+  _rmSolvedCount = rows.filter(function (r) { return r.status === 'solved'; }).length;
+  _rmCheckFailed = false;
+}
+
+// ══ F-118 同步單元:reminderFlagHtml() ═══════════════════════════════════
+//   本函式共有【兩份】平行實作,判斷規則必須逐字一致:
+//     ① admin-quotes.html   — 資料來源:_rmOpen / _rmClear 兩個 Set
+//     ② quote-detail.html   — 資料來源:_rmOpenCount / _rmSolvedCount 兩個計數
+//
+//   共同規則(改動任一份都必須同步另一份):
+//     有未處理 → 紅 ! ;否則有已處理 → 綠 ✓ ;都沒有 → 不顯示。
+//     降級(_rmDegraded / _rmCheckFailed)時一律【不渲染】。
+//     連結一律指向 admin-reminders.html?po=<po_number || draft_number>。
+//
+//   🔴 不一致的症狀:同一張單在兩頁顯示不同顏色,且【不報錯】。
+//   🔴 不抽成共用函式的理由:兩邊資料形態不同(Set vs 計數),抽出前得先
+//      統一形態,那會把 admin-quotes 的集合設計拖進來改。目前僅三行判斷,
+//      重複成本低於耦合成本。規則若變複雜,回頭抽(比照 F-66 round2 的判斷)。
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 降級時【不渲染】—— 不知道就不講，比講錯好。
+//    Fulfilled 攔截那邊會以「無法確認」提醒，不會無聲無息。
+function reminderFlagHtml() {
+  if (!_isAdmin || _rmCheckFailed || !_quote) return '';
+
+  const num  = _quote.po_number || _quote.draft_number || '';
+  const href = 'admin-reminders.html' + (num ? '?po=' + encodeURIComponent(num) : '');
+
+  if (_rmOpenCount > 0) {
+    return '<a class="rm-flag open" href="' + href +
+           '" title="Has unresolved reminders \u2014 click to review">!</a>';
+  }
+  if (_rmSolvedCount > 0) {
+    return '<a class="rm-flag clear" href="' + href +
+           '" title="All reminders solved \u2014 click to review">\u2713</a>';
+  }
+  return '';
+}
+
+async function openAddReminder() {
+  if (!_isAdmin || !_quote || !_quote.id) return;
+
+  const btn = document.getElementById('addReminderBtn');
+  if (btn && btn.disabled) return;          // mid-flight 防呆:連點只算一次
+
+  // 🔴 表單由 components/reminder-modal.js 提供（與 admin-reminders 共用）。
+  //    typeof 防護針對版本錯配（新 HTML + 載失敗的 component），
+  //    以明確錯誤報出，不静默當作取消。
+  if (!window.ProCraftReminderModal) {
+    console.error('[CB-82] reminder-modal.js not loaded');
+    window.alert('The reminder form could not be opened. Please refresh the page.');
+    return;
+  }
+
+  const payload = await window.ProCraftReminderModal.open({
+    title:    'Add Reminder',
+    subtitle: _quote.po_number || _quote.draft_number || 'This order',
+  });
+  if (!payload) return;                     // 取消 = 什麼都不做
+
+  const originalHtml = btn ? btn.innerHTML : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Saving…'; }
+
+  // created_by 由 DB 的 DEFAULT auth.uid() 填入,前端刻意不送 ——
+  // 前端送值等於讓呼叫端自稱身分,那不是身分驗證。
+  // status 亦由 DEFAULT 'marked' 填入。
+  const { data, error } = await _supabase
+    .from('quote_reminders')
+    .insert({
+      quote_id:      _quote.id,
+      type:          payload.type,
+      reminder_date: payload.reminder_date,
+      subject:       payload.subject,
+      description:   payload.description,
+    })
+    .select();
+
+  if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
+
+  if (error) {
+    console.error('[CB-82] insert reminder failed:', error);
+    window.alert('Could not save this reminder: '
+      + (error && error.message ? error.message : 'An unexpected error occurred.')
+      + '\n\nNothing was saved. Please try again.');
+    return;
+  }
+
+  // 🔴 RLS 擋住時回 200 + 空陣列 + error null,與「寫入成功」同形。
+  //    .select() 後以【有沒有回傳列】正向確認寫入,不靠 error 為 null 推論。
+  if (!data || !data.length) {
+    console.error('[CB-82] insert reminder returned no rows — likely blocked by RLS.');
+    window.alert('The reminder could not be saved. Nothing was changed.\n\n'
+      + 'Please refresh the page and try again.');
+    return;
+  }
+
+  // 🔴 同步旗標 —— 否則 admin 剛新增一筆就按 Mark as Fulfilled 時，
+  //    攬截會拿到過時的 0 而静默放行。不重查 DB，寫入已確認成功。
+  _rmOpenCount   = _rmOpenCount + 1;
+  _rmCheckFailed = false;
+
+  // 🔴 重繪以讓紅 ! 標示立即現身 —— 標示是在 renderQuote 時組字串的，
+  //    只更新計數器不會改變畫面。admin 存完一筆卻看不到任何變化，
+  //    會讓人以為沒存進去。不重查 DB，寫入已確認成功。
+  renderQuote(_quote, _dealer, _addr);
+
+  window.alert('Reminder added. You can review it on the Reminders page.');
 }
 
 // ─────────────────────────────────────────────────────────────────────────
