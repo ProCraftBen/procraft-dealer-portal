@@ -458,6 +458,55 @@
     bootHeadless();
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // CB-83｜登入事件記錄
+  // -------------------------------------------------------------------
+  // 🔴 刻意【不】掛在 init() / initHeadless() 內。兩者分屬不同進入點,且
+  //    都會因缺少容器或取不到 role 而提早 return —— 把稽核綁在導覽列渲染
+  //    的成敗上,是製造一個沒有理由存在的耦合。本函式自建 client、自取
+  //    session,與導覽列完全獨立。
+  //
+  // 🔴 M-10 可靠性邊界:登入已在 GoTrue 完成,沒有主操作可回滾。本函式
+  //    失敗一律吞掉並 console.error,【絕不阻擋頁面】—— 為一筆稽核紀錄
+  //    擋住使用者進入系統不成比例。故 login 事件為 best-effort,此邊界
+  //    已寫入 account_events 的 COMMENT ON TABLE。
+  //
+  // 去重兩層:sessionStorage 只是省掉同分頁內的重複請求;真正的正確性
+  //    來自 DB 端 uq_account_events_login_session 部分唯一索引 +
+  //    ON CONFLICT DO NOTHING。RPC 為零參數,身分與 session_id 皆由函式
+  //    自行從 JWT 取得,前端無法偽造任何欄位。
+  // ═══════════════════════════════════════════════════════════════════
+  recordLoginEvent();
+
+  async function recordLoginEvent() {
+    try {
+      if (!window.supabase || !window.supabase.createClient) return;
+
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+      const result  = await sb.auth.getSession();
+      const session = result && result.data ? result.data.session : null;
+      if (!session) return;
+
+      // sessionStorage 以 access_token 前 32 字元為鍵,避免把整個 token
+      // 寫進儲存空間。鍵不同即視為新 session,重複呼叫由 DB 端擋下。
+      const key = 'pcdLoginLogged:' + String(session.access_token || '').slice(0, 32);
+      try {
+        if (sessionStorage.getItem(key)) return;
+      } catch (_) { /* 隱私模式下 sessionStorage 不可用 —— 照常呼叫 */ }
+
+      const { error } = await sb.rpc('record_login_event');
+      if (error) {
+        console.error('[navigator][CB-83] record_login_event failed:', error);
+        return;
+      }
+
+      try { sessionStorage.setItem(key, '1'); } catch (_) { /* 同上 */ }
+    } catch (e) {
+      console.error('[navigator][CB-83] recordLoginEvent unexpected error:', e);
+    }
+  }
+
   // quote-flow-header.js appends this script only after its bar (and the
   // mount point) is in the DOM, so the mount is normally already there. The
   // DOMContentLoaded retry covers a page that adds a static <script> tag.
