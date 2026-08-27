@@ -204,6 +204,9 @@
 <script src="config.js"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <script src="components/footer.js?v=cb62c"></script>
+<!-- CB-82: Reminder 表單 modal(與 quote-detail.html 共用同一份)。
+     新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
+<script src="components/reminder-modal.js"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
  * CB-82  admin-reminders.html
@@ -254,6 +257,14 @@ const TYPE_LABEL   = { backorder: 'Backorder', payment: 'Payment', other: 'Other
 const STATUS_LABEL = { marked: 'Marked', solved: 'Solved' };
 
 let _adminMap  = {};   // uuid -> dealers 列(admin / super_admin),供 Created By 顯示
+
+// ── 當頁資料索引（Edit 用）────────────────────────────────
+// 🔴 Edit 需要帶入現值，而現值只存在於上一次查詢結果。
+//    【不】從 DOM 把文字讀回來 —— 畫面上的是顯示值（type/status 已經 map
+//    過、date 已經格式化），讀回來再寫回 DB 就是把顯示值當成值
+//    （display != value 的反例）。
+// 🔴 每次 loadReminders() 重建，不跨頁累積。
+let _rowsById = {};
 let _searchTimer = null;
 let _poTimer     = null;
 
@@ -591,6 +602,14 @@ function renderRows(rows) {
       ? '<button class="btn-solve" id="solve-' + r.id + '" onclick="solveReminder(\'' + r.id + '\')">Solve</button>'
       : '';
 
+    // 🔴 正向識別：Edit 只在 status === 'marked' 時渲染（與 Solve 同一條件）。
+    //    PM Q-20：進入 solve 就是拍板定案，不可再改。
+    //    前端不是安全邊界 —— DB 層已擋（admin_update_quote_reminders 的
+    //    USING 含 status = 'marked'，G-5 實測 solved 的 UPDATE 回 count 0）。
+    const editBtn = canSolve
+      ? '<button class="btn-solve" id="edit-' + r.id + '" onclick="editReminder(\'' + r.id + '\')">Edit</button>'
+      : '';
+
     // 🔴 正向識別:有實際內容才可展開。空白字串與 null 一律視為無內容。
     const hasDesc  = !!(r.description && String(r.description).trim());
     const rowAttrs = hasDesc
@@ -622,6 +641,7 @@ function renderRows(rows) {
         // ⚠️ B-5(admin-quotes 同型陷阱):整列掛了展開 onclick,操作欄
         //    必須 stopPropagation,否則按 Solve 會同時展開/收合該列。
         '<td class="td-nowrap" onclick="event.stopPropagation()">' +
+          editBtn +
           solveBtn +
           '<a class="link-view" href="quote-detail.html?id=' + encodeURIComponent(r.quote_id) + '">View Order &rarr;</a>' +
         '</td>' +
@@ -672,7 +692,95 @@ async function loadReminders() {
     return;
   }
 
+  _rowsById = {};
+  rows.forEach(function (r) { _rowsById[r.id] = r; });
+
   tbody.innerHTML = renderRows(rows);
+}
+
+// ── Edit ──────────────────────────────────────────────────────────────
+/* 🔴 只能編輯 marked 的 reminder（PM Q-20）。三層把關：
+ *    ① 前端不渲染 Edit 按鈕（renderRows 的 canSolve）
+ *    ② 本函式再檢一次 —— 按鈕可能來自過時的 DOM（他人已 solve）
+ *    ③ UPDATE 帶前態守衛 + DB policy 的 USING 含 status = 'marked'
+ *    前兩層是 UX，第三層才是邊界。
+ *
+ * 🔴 寫入走 base table quote_reminders，不走 view。
+ *    view 為 is_updatable=NO 且僅 GRANT SELECT，但仍明寫。
+ *
+ * ⚠️ 不記編輯痕跡（需求書已拍板）：無 updated_at、無編輯歷史。 */
+async function editReminder(id) {
+  const row = _rowsById[id];
+  if (!row) {
+    // 索引與畫面不同步 —— 不猜，重新載入。
+    console.error('[CB-82] editReminder: row not found in current page index', id);
+    await loadReminders();
+    return;
+  }
+
+  // ② 按鈕可能來自過時的 DOM。
+  if (row.status !== 'marked') {
+    showToast('This reminder has been solved and can no longer be edited.', true);
+    await loadReminders();
+    return;
+  }
+
+  if (!window.ProCraftReminderModal) {
+    console.error('[CB-82] reminder-modal.js not loaded');
+    showToast('The reminder form could not be opened. Please refresh the page.', true);
+    return;
+  }
+
+  const payload = await window.ProCraftReminderModal.open({
+    title:    'Edit Reminder',
+    subtitle: row.display_number || 'This order',
+    // 🔴 帶入的是 DB 原值，不是畫面上的顯示值。
+    values: {
+      type:          row.type,
+      reminder_date: row.reminder_date,
+      subject:       row.subject,
+      description:   row.description,
+    },
+  });
+  if (!payload) return;                     // 取消 = 什麼都不做
+
+  const btn = document.getElementById('edit-' + id);
+  if (btn && btn.disabled) return;
+  const originalText = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+
+  // 🔴 status 與 solved_date 刻意不在更新面 —— Edit 只改內容，
+  //    狀態轉換是 Solve 的職責。兩件事混在一次寫入會讓守衛失效。
+  const { error, count } = await _supabase
+    .from('quote_reminders')
+    .update({
+      type:          payload.type,
+      reminder_date: payload.reminder_date,
+      subject:       payload.subject,
+      description:   payload.description,
+    }, { count: 'exact' })
+    .eq('id', id)
+    .eq('status', 'marked');                // 🔴 前態守衛
+
+  if (error) {
+    console.error('[CB-82] editReminder failed:', error);
+    showToast('Could not update this reminder: ' + (error.message || 'Unexpected error') +
+              ' Nothing was changed.', true);
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    return;
+  }
+
+  // 🔴 count === 0 代表【什麼都沒寫入】—— 可能是他人已 solve，
+  //    也可能是 RLS 擋住。兩者同形，故文案不宣稱是哪一種。
+  if (count === 0) {
+    showToast('This reminder could not be updated \u2014 it may have been solved by someone else. ' +
+              'Nothing was changed. Refreshing now.', true);
+    await loadReminders();
+    return;
+  }
+
+  showToast('Reminder updated.');
+  await loadReminders();
 }
 
 // ── Solve ─────────────────────────────────────────────────────────────
