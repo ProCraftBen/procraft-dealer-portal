@@ -291,6 +291,43 @@
     // mid-flight 防呆:連點只算一次
     if (btn && btn.disabled) return;
 
+    // ── CB-82: 未處理 reminder 警告（前置、僅警告）────────────────
+    // 刻意不編入下方 ①②③④ 的步驟序列 —— 那四步是【寫入流程】，
+    // 本段是流程開始前的把關，且不寫入任何東西。編號會讓日後對照
+    // 注解與實際步驟數不一致。
+    //
+    // 🔴 本模組【不自行查 DB】—— 旗標由呼叫端傳入（PM 預設值 #9 = B）。
+    //    兩個呼叫端本來就已持有該資料：admin-quotes 有標示用的集合，
+    //    quote-detail 有該單的未處理數。模組自查等於多一次往返，
+    //    且讓本模組多一個對資料表的依賴。
+    //
+    // 🔴 兩種情境的文案刻意不同：
+    //      hasOpenReminder      —— 確知有未處理事項
+    //      reminderCheckFailed  —— 查詢失敗，【不知道】有沒有
+    //    合併成同一句等於把「查不到」講成「沒有」——
+    //    那正是本票要防的事。
+    //
+    // 🔴 呼叫端若【兩個旗標都沒傳】，實際效果是不警告、直接放行。
+    //    漏改呼叫端的症狀是「該警告時沒警告」，不會報錯 ——
+    //    故兩個呼叫端必須一起改、一起驗。
+    //
+    // 🔴 對齊 CB-76 Q-36：破壞性操作用重量級把關，提醒用輕量機制。
+    //    此處確實是提醒 —— 只跳 confirm()，按確定照常繼續，
+    //    【不擋、不碰狀態轉換】。
+    if (opts.reminderCheckFailed) {
+      if (!window.confirm(
+        'This order could not be checked for unresolved reminders.\n\n'
+        + 'There may be outstanding backorder or payment issues that are not shown.\n\n'
+        + 'Mark it as fulfilled anyway?'
+      )) return;
+    } else if (opts.hasOpenReminder) {
+      if (!window.confirm(
+        'This order still has unresolved reminders.\n\n'
+        + 'Open the Reminders page to review them before closing this order.\n\n'
+        + 'Mark it as fulfilled anyway?'
+      )) return;
+    }
+
     // ── ① fulfillment date(取消 = 什麼都不做)──────────────────────────
     var fulfillmentDate = await openDateModal(quote);
     if (!fulfillmentDate) return;
