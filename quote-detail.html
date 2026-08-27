@@ -210,6 +210,50 @@
       word-wrap: break-word;
     }
 
+    /* ══ CB-82b: 狀態歷程（admin only，唯讀）══════════════════
+       🔴 前綴 qsh- 完全獨立，【不】共用 .return-history 的 class。
+          共用會讓兩個區塊的樣式從此綁死，任一方改動波及另一方，
+          而那不會報錯。結構鏡像 .return-history，但是兩份。 */
+    .qsh-box { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 24px; overflow: hidden; }
+    .qsh-header { padding: 14px 20px; background: #FAFAF8; border-bottom: 1px solid transparent; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: background 0.15s; user-select: none; gap: 12px; }
+    .qsh-header:hover { background: #F5F3EF; }
+    .qsh-box.open .qsh-header { border-bottom-color: var(--border); }
+    .qsh-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .qsh-title svg { width: 14px; height: 14px; fill: var(--green-dark); flex: 0 0 auto; }
+    /* 🔴 徽章是【摺疊狀態下唯一看得到的資訊】—— Q-26 拍板預設摺疊，
+       若 C 類的警語只存在於展開後的列表上方，使用者永遠不會看到它。
+       三類各自配色，讓類別在不展開的情況下就成立。 */
+    .qsh-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.05em; white-space: nowrap; }
+    .qsh-badge.cls-a { background: rgba(122,140,130,0.16); color: var(--muted); }
+    .qsh-badge.cls-b { background: rgba(62,90,66,0.12);    color: var(--green-dark); }
+    .qsh-badge.cls-c { background: rgba(217,119,6,0.16);   color: #B45309; }
+    .qsh-toggle { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+    .qsh-toggle svg { width: 12px; height: 12px; fill: currentColor; transition: transform 0.2s; }
+    .qsh-box.open .qsh-toggle svg { transform: rotate(180deg); }
+    .qsh-body { display: none; padding: 16px 20px 20px; }
+    .qsh-box.open .qsh-body { display: block; }
+    /* C 類警語：置於列表【上方】，讀到資料前先看到。
+       遞增排序下列表第一筆就是眼睛第一個落點，誤讀就發生在那一行。 */
+    .qsh-warn { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 4px; padding: 11px 14px; margin-bottom: 14px; font-size: 12px; line-height: 1.6; color: #92400E; }
+    .qsh-warn strong { font-weight: 600; }
+    .qsh-note { font-size: 12px; line-height: 1.6; color: var(--muted); }
+    .qsh-list { display: flex; flex-direction: column; gap: 0; }
+    .qsh-row { display: flex; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--border); flex-wrap: wrap; }
+    .qsh-row:last-child { border-bottom: none; }
+    .qsh-time { font-size: 11px; color: var(--muted); white-space: nowrap; flex: 0 0 auto; min-width: 150px; }
+    .qsh-status { font-size: 13px; font-weight: 500; color: var(--text); flex: 1 1 auto; }
+    .qsh-by { font-size: 11px; color: var(--muted); text-align: right; flex: 0 0 auto; line-height: 1.45; }
+    /* 姓名為主、email 為次 —— 兩者都要,但視覺權重不同。
+       email 另起一行:右對齊欄位寬度有限,同行會擠成一團或撐開版面。 */
+    .qsh-name  { display: block; color: var(--text); }
+    .qsh-email { display: block; font-size: 10px; color: var(--muted); word-break: break-all; }
+    .qsh-missing { font-style: italic; color: #B45309; }
+    .qsh-foot { margin-top: 14px; font-size: 11px; color: var(--muted); font-style: italic; }
+    @media (max-width: 640px) {
+      .qsh-time { min-width: 0; flex: 1 1 100%; }
+      .qsh-by { text-align: left; flex: 1 1 100%; }
+    }
+
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
     .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
@@ -938,6 +982,9 @@ function pcPlural(baseKey, n, enOne, enOther) {
 // CB-59:Fulfilled 放寬給 admin + super_admin,直接沿用 _isAdmin,
 //   原本的 _isSuperAdmin 旗標已無使用者,一併移除不留死變數。
 let _returnHistory = [];
+// CB-82b: uuid -> dealers 列。與 Revision History 共用同一次 .in() 查詢的結果,
+//   不另發往返。查無的 uuid 不會進 map,由呼叫端走 fallback。
+let _userMap = {};
 let _groupedItems = null; // F4.1 v2: items reconstructed into per-SKU sub_groups
 let _allDoorStyles = [];  // CB-5 需求1: door_styles 快取(整單 lead time)
 let _allSkusFramed    = [];  // CB-9: tag 查表用(skus_framed)
@@ -1762,7 +1809,21 @@ async function init() {
     } else {
       _returnHistory = history || [];
 
-      const adminIds = [...new Set(_returnHistory.map(h => h.returned_by))];
+      // CB-82b: 取 Revision History 與 status_history 兩邊 uuid 的【聯集】,
+      //   合併為同一支 .in() —— 往返次數不變(仍為 1)。
+      //   🔴 filter(Boolean) 濾掉 by = null(SQL Editor 直接操作的情況);
+      //      null 不該進查詢,也不該進 map,由顯示端走 System fallback。
+      //   單張訂單的事件數十餘筆,去重後更少,無 F-65 的 URL 長度疑慮。
+      const historyIds = [];
+      if (Array.isArray(quote.status_history)) {
+        quote.status_history.forEach(e => {
+          if (e && e.by) historyIds.push(e.by);
+        });
+      }
+      const adminIds = [...new Set(
+        _returnHistory.map(h => h.returned_by).concat(historyIds).filter(Boolean)
+      )];
+
       if (adminIds.length > 0) {
         const { data: admins } = await _supabase
           .from('dealers')
@@ -1770,6 +1831,7 @@ async function init() {
           .in('id', adminIds);
         const adminMap = {};
         (admins || []).forEach(a => { adminMap[a.id] = a; });
+        _userMap = adminMap;
         _returnHistory.forEach(h => {
           h._returnedByInfo = adminMap[h.returned_by] || null;
         });
@@ -1855,6 +1917,179 @@ function buildReturnHistoryHtml() {
         ${eventsHtml}
       </div>
     </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * CB-82b — 狀態歷程區塊(admin only,純唯讀)
+ *
+ * 觸發事故:業務誤 close 一張單,以為是自己建的,實際是客戶建的 quote。
+ *   業務端需要在操作前知道這張單的來龍去脈 —— 誰建的、經歷過哪些狀態。
+ *   📌 這與 Reminder 是同一個需求的兩面:這張單發生過什麼。
+ *
+ * 🔴 資料源自 quotes.status_history(CB-77 已上線)。本區塊【不動】CB-77 的
+ *    任何 DB 物件,也【不發任何新查詢】—— init 的 select('*') 已含該欄。
+ *
+ * 🔴 CB-77 Q-8 三分類(Stage 3 發現二分法不成立後修正):
+ *      A  status_history IS NULL      上線前的舊單,無任何追蹤資料
+ *      B  第一筆 at 貼合 created_at    上線後建立,歷程完整可信
+ *      C  其餘(含空陣列、非陣列)      舊單於上線後才開始記錄,歷程不完整
+ *
+ * 🔴 為什麼 C 類的警語要做得這麼重(這是本區塊最核心的設計判斷):
+ *    實測 production 有歷程的單裡只有 7% 是 C 類(staging 是 62%,但那是
+ *    測試產物)。7% 比 62%【更危險】—— 62% 的話 admin 每看兩三張就遇到
+ *    一次警語,很快學會這個列表可能不全;7% 的話,前十幾張都完整可信,
+ *    第十四張的警語出現時,讀者已經被前面 93% 訓練成信任這個列表。
+ *    稀有的例外配上已建立的信任,就是誤判的完整條件 ——
+ *    而觸發本需求的事故正是「以為自己知道這張單的來龍去脈」,同一機制。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+// 🔴 正向識別(F-35):每一類由自己的條件成立而確定,不寫「不是 A 就是 B」。
+//    順序即優先序;任一條命中即返回。
+function classifyStatusHistory(quote) {
+  const h = quote ? quote.status_history : null;
+  if (h === null || h === undefined) return 'A';   // 欄位為 NULL → 上線前舊單
+  if (!Array.isArray(h))             return 'C';   // 結構非預期 → 有資料但不能信
+  if (h.length === 0)                return 'C';   // 🔴 空陣列歸 C 不歸 A(PM Q-24)
+                                                   //    [] 是「有欄位但沒記到東西」,
+                                                   //    那是不完整,不是「上線前」。
+  const at = Date.parse(h[0] && h[0].at);
+  const cr = Date.parse(quote.created_at);
+  if (!isNaN(at) && !isNaN(cr) && Math.abs(at - cr) <= 5000) return 'B';
+  return 'C';
+}
+
+/* 操作者顯示四態(PM Q-25 定版)。實測 r 僅兩種值:authenticated / postgres。
+ * 🔴 判斷用 r === 'postgres' 【正向命中】,不寫 r !== 'authenticated' ——
+ *    後者是負向排除,未來若出現第三種 role 會被靜默歸到專用文案。
+ * 🔴 第三態刻意翻成人話:對業務端而言 postgres 沒有意義,但「有人直接動了
+ *    資料庫」有意義,而那正是他們判斷「這張單發生過什麼」時該知道的。
+ * ⚠️ 任何情況下都不得印出 null / undefined。 */
+function statusHistoryActor(ev) {
+  const by = ev && ev.by;
+  const r  = (ev && ev.r) ? String(ev.r) : '';
+
+  if (by) {
+    const info = _userMap[by];
+    if (info) {
+      // 姓名與 email 兩者都顯示 —— 姓名認人,email 認帳號。
+      // 🔴 正向組裝:有什麼印什麼,不做「有 A 就不印 B」的排除。
+      //    兩者皆缺時才回 Unknown admin(uuid 查得到但欄位是空的,
+      //    留白會被讀成「沒人動過」)。
+      const nm = info.contact_name ? String(info.contact_name).trim() : '';
+      const em = info.email        ? String(info.email).trim()        : '';
+      if (!nm && !em) return '<span class="qsh-missing">Unknown admin</span>';
+      return (nm ? '<span class="qsh-name">'  + escapeHtml(nm) + '</span>' : '') +
+             (em ? '<span class="qsh-email">' + escapeHtml(em) + '</span>' : '');
+    }
+    // uuid 有值但查無 —— 帳號可能已刪除。印前 8 碼讓人還能追。
+    return escapeHtml(String(by).slice(0, 8)) + ' <span class="qsh-missing">(' +
+           escapeHtml(r || 'unknown') + ')</span>';
+  }
+
+  if (r === 'postgres') return '<span class="qsh-missing">System (direct database)</span>';
+  if (r)                return '<span class="qsh-missing">System (' + escapeHtml(r) + ')</span>';
+  return '<span class="qsh-missing">System (unknown)</span>';
+}
+
+// ── 狀態歷程區塊 HTML(admin only)──
+function buildStatusHistoryHtml() {
+  if (!_isAdmin || !_quote) return '';
+
+  const cls = classifyStatusHistory(_quote);
+  const raw = Array.isArray(_quote.status_history) ? _quote.status_history : [];
+  const n   = raw.length;
+
+  const icon = '<svg viewBox="0 0 24 24"><path d="M11 7v5.41l4.29 4.3 1.42-1.42L13 11.59V7h-2zm1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>';
+
+  let badge, body;
+
+  if (cls === 'A') {
+    // 🔴 PM Q-27:A 類仍渲染。整個區塊消失會被讀成「這張單沒東西可看」,
+    //    與「留白會被讀成從未變更」是同一種誤讀,只是發生在區塊層級。
+    //    摺疊狀態下,這顆徽章就把話講完了,不必展開。
+    badge = '<span class="qsh-badge cls-a">No history (pre-tracking)</span>';
+    body  = '<div class="qsh-note">This order was created before status tracking was introduced. ' +
+            'No history is available for it.</div>';
+  } else {
+    // 🔴 時序遞增,照陣列原序渲染(PM Q-28 = A)。
+    //    status_history 由 trigger 以 || 附加,天然遞增 —— 不做轉換就不會轉換錯。
+    //    本區塊回答「這張單的來龍去脈」,那是敘事線,從頭讀才成立。
+    //    (相鄰的 Revision History 用遞減,因為它回答「最近一次退回為什麼」,
+    //     答案在最新那筆 —— 兩個區塊問的問題不同,排序各自正確。)
+    const rows = raw.map(function (ev) {
+      // 🔴 損壞元素【不得靜默丟棄】—— 丟掉會讓事件數少一筆,而畫面上沒有
+      //    任何跡象。那正是本區塊要防的「以為那是全部」。缺什麼就標什麼。
+      const t = (ev && ev.at) ? formatDateTime(ev.at) : null;
+      const timeHtml = t && t !== 'Invalid Date'
+        ? escapeHtml(t)
+        : '<span class="qsh-missing">(unrecorded)</span>';
+
+      // 🔴 顯示名一律走 status-label.js(單一真相):
+      //      Pending  → Waiting for Payment
+      //      Returned → Revising
+      //    庫內無 Fulfilled 狀態 —— DB 值為 Order Completed,map 無該鍵,
+      //    fallback 回原值,正確。
+      //    🔴 不掛 data-pc-status-label:那是靜態 HTML 水合專用,在 JS 渲染
+      //       內容上掛它會製造死標記(F-25 同型)。
+      const statusHtml = (ev && ev.s)
+        ? escapeHtml(pcQuoteStatusLabel(ev.s))
+        : '<span class="qsh-missing">(unrecorded)</span>';
+
+      return '<div class="qsh-row">' +
+               '<span class="qsh-time">' + timeHtml + '</span>' +
+               '<span class="qsh-status">' + statusHtml + '</span>' +
+               '<span class="qsh-by">' + statusHistoryActor(ev) + '</span>' +
+             '</div>';
+    }).join('');
+
+    const listHtml = '<div class="qsh-list">' + rows + '</div>';
+
+    if (cls === 'C') {
+      badge = '<span class="qsh-badge cls-c">' + n + ' event' + (n !== 1 ? 's' : '') +
+              ' &middot; Incomplete</span>';
+      // 🔴 警語置於列表【上方】。遞增排序下,列表第一筆就是眼睛第一個落點 ——
+      //    admin 會把它直覺讀成這張單的起點。誤讀就發生在第一行,
+      //    所以警語必須擋在第一行【之前】。
+      //    最後一句是刻意的直述:陳述事實不會阻止誤讀,得直接說出那個誤讀。
+      body = '<div class="qsh-warn">' +
+               '\u26A0 <strong>Earlier history not recorded</strong> \u2014 this quote existed ' +
+               'before status tracking began. <strong>The first entry below is not the start.</strong>' +
+             '</div>' + listHtml;
+    } else {
+      badge = '<span class="qsh-badge cls-b">' + n + ' event' + (n !== 1 ? 's' : '') + '</span>';
+      body  = listHtml;
+    }
+  }
+
+  // 🔴 此句在 UI 層為真。資料層的實況見 F-119:dealer 的 payload 今天就已含
+  //    status_history(select('*'),CB-77 上線即存在)。本區塊是 UI 層隔離,
+  //    不是資料層隔離 —— 不誇大保證範圍。
+  const foot = '<div class="qsh-foot">Internal record \u2014 only visible to admins. ' +
+               'Dealers cannot see this section.</div>';
+
+  // 🔴 預設【摺疊】(PM Q-26),與相鄰的 Revision History 一致。
+  //    ⚠️ 已知代價:CB-82 單元 11a 在新增 reminder 後會呼叫 renderQuote() 整頁
+  //       重繪,摺疊狀態會被重設。內容唯讀且源自 _quote,重建後不變,
+  //       保留狀態需額外 state,不值得。
+  return '' +
+    '<div class="qsh-box" id="statusHistorySection">' +
+      '<div class="qsh-header" onclick="toggleStatusHistory()">' +
+        '<div class="qsh-title">' + icon + 'Status History ' + badge + '</div>' +
+        '<span class="qsh-toggle">' +
+          '<span id="statusHistoryToggleText">Show</span>' +
+          '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' +
+        '</span>' +
+      '</div>' +
+      '<div class="qsh-body">' + body + foot + '</div>' +
+    '</div>';
+}
+
+function toggleStatusHistory() {
+  const el = document.getElementById('statusHistorySection');
+  if (!el) return;
+  const isOpen = el.classList.toggle('open');
+  const txt = document.getElementById('statusHistoryToggleText');
+  if (txt) txt.textContent = isOpen ? 'Hide' : 'Show';
 }
 
 function toggleReturnHistory() {
@@ -2330,10 +2565,16 @@ function renderQuote(quote, dealer, addr) {
   // ── Return History（admin only）──
   const returnHistoryHtml = buildReturnHistoryHtml();
 
+  // ── CB-82b: 狀態歷程(admin only,純唯讀)──
+  //   置於 Revision History 之後、quote-header 之前 —— 兩個歷程區塊相鄰,
+  //   語意一致,且都在動作列上方,不與 CB-82 的按鈕爭空間。
+  const statusHistoryHtml = buildStatusHistoryHtml();
+
   document.getElementById('pageContent').innerHTML = `
     ${backLinkHtml}
     ${returnedBannerHtml}
     ${returnHistoryHtml}
+    ${statusHistoryHtml}
     <div class="quote-header">
       <div>
         <div class="quote-number">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div>
