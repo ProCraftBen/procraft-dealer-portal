@@ -86,7 +86,8 @@
  *
  * data-page values:
  *   dashboard | quotes | new-quote | dealer-profile |
- *   dealers | accounts | tags | change-password | (omit for none active)
+ *   dealers | accounts | tags | reminders | change-password |
+ *   (omit for none active)
  *
  * BEHAVIOR:
  *   - On script load: inject CSS + render skeleton (logo only) instantly
@@ -94,8 +95,8 @@
  *   - Dealer role → renders dealer nav (Dashboard / My Orders / New Estimate /
  *     Edit Profile / Change Password / Sign Out)
  *   - Admin / super_admin role → renders admin nav with [Admin] badge
- *     (Dashboard / Quotes / Dealers / Account / Tags / Change Password /
- *     Sign Out)
+ *     (Dashboard / Quotes / Reminders / Dealers / Account / Tags /
+ *     Change Password / Sign Out)
  *   - super_admin role → additionally sees the Payments item (F9)
  *   - Dealer with >= 1 discount rule → gold "MY DISCOUNT" pill injected
  *     ahead of the link group (desktop) and at the top of the hamburger
@@ -174,6 +175,10 @@
   const ADMIN_NAV = [
     { page: 'dashboard',       label: 'Dashboard',       href: 'admin.html' },
     { page: 'quotes',          label: 'Quotes',          href: 'admin-quotes.html' },
+    // CB-82: 訂單 Reminder。刻意置於 Quotes 之後 —— 與訂單工作流相鄰。
+    //   🔴 不加 superOnly:一般 admin 亦需記錄與追蹤 backorder / payment 狀況。
+    //   🔴 不加 key:ADMIN_NAV 全體無 i18n key,admin 頁不載 i18n.js,永遠英文。
+    { page: 'reminders',       label: 'Reminders',       href: 'admin-reminders.html' },
     // F9: super_admin only — regular admins never see this item.
     { page: 'payments',        label: 'Payments',        href: 'admin-payments.html', superOnly: true },
     { page: 'dealers',         label: 'Dealers',         href: 'admin-dealers.html' },
