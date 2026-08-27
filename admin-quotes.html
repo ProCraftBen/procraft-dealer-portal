@@ -47,6 +47,29 @@
 
     /* Table */
     .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    /* CB-82: reminder 標示。10b 起【獨立成一欄】,位於 Status 與
+       Fulfillment Date 之間 —— 原本擠在 Fulfillment Date 前方,視覺上
+       像是日期的附屬物,sales 看不出那是獨立資訊。
+       🔴 新增欄位連帶動到 <thead> 與三處 colspan。colspan 已改為
+          LIST_COLSPAN 常數(見下方),避免日後改欄位數時漏改 ——
+          colspan 與 <th> 數量不一致只會讓版面歪掉,【不報錯】。
+       🔴 不插在 Status 格:該格有 9 個狀態分支各自組字串,要在每個
+          分支尾端插入太散,而且漏一個不會報錯。
+       ⚠️ 與 CB-60a 的重疊面因此由零變成「同樣會動 <thead>」。
+          CB-60a 尚未開工,屆時看到的是 9 欄 + 具名常數的乾淨狀態。 */
+    .td-rm { width: 1%; white-space: nowrap; text-align: center; }
+    /* 🔴 標示為 <a>，點下去帶單號跳到 admin-reminders —— sales 不必問人
+       就知道這個圓圈是幹什麼的。欄頭寫 Reminder，hover 有 title 提示，
+       三者一起才算可發現。
+       text-decoration:none 必須寫 —— <a> 預設底線在圓底 badge 上很醜。 */
+    .rm-flag { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; font-weight: 700; font-size: 14px; line-height: 1; vertical-align: middle; text-decoration: none; cursor: pointer; transition: opacity 0.15s; }
+    .rm-flag:hover { opacity: 0.72; }
+    .rm-flag.open  { color: #C0392B; background: rgba(192,57,43,0.14); }
+    .rm-flag.clear { color: #16A34A; background: rgba(22,163,74,0.12); }
+    /* CB-82: 標示查詢降級橫幅。置於表格上方既有容器內，
+       不進 <thead>，避開 CB-60a 可能新增的分頁列。 */
+    .rm-degraded { display: none; padding: 10px 20px; border-bottom: 1px solid var(--border); background: #FFFBEB; color: #92400E; font-size: 12px; line-height: 1.5; }
+    .rm-degraded.show { display: block; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); }
@@ -386,6 +409,7 @@
       <span class="table-title">Quotes</span>
       <span class="table-count" id="tableCount"></span>
     </div>
+    <div class="rm-degraded" id="rmDegraded"></div>
     <div class="overflow-x">
       <table>
         <thead>
@@ -396,12 +420,13 @@
             <th>Date</th>
             <th style="text-align:right">Total</th>
             <th>Status</th>
+            <th>Reminder</th>
             <th>Fulfillment Date</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="quotesBody">
-          <tr><td colspan="8"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="9"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -578,6 +603,28 @@ const statusClass = {
 
 let allQuotes = [], allDealers = {};
 
+// 🔴 colspan 必須與 <th> 數量一致，否則 empty-state 與展開列只佔部分欄位，
+//    版面歪掉【但不報錯】。用常數而非字面值，是為了讓「改欄位數」與
+//    「改 colspan」無法脫鉤 —— 兩者分開寫必然漂移（沿用 F-30 LIST_COLSPAN 先例）。
+//    ⚠️ 上方 <thead> 的 skeleton 列是靜態 HTML，無法套常數，改欄位數時要一併手改。
+const LIST_COLSPAN = 9;
+
+// ── CB-82: reminder 標示的兩支【正向】集合 ─────────────────────
+// 🔴 F-35 正向識別：兩個集合各自來自一支 .eq() 查詢，判定時兩邊都是
+//    【命中】而非【排除】。不寫「B 減 A」—— 那是排除法，且在 A 查詢
+//    失敗時會把本該標紅的單標成綠。
+// 🔴 兩支查詢【不帶 quote id 條件】：
+//    (a) 避開 .in() 的 URL 長度上限（F-65 同型）—— admin-quotes 目前無分頁，
+//        帶 id 等於把全部 uuid 塞進 GET URL。
+//    (b) 與 CB-60a 交集為零 —— 不讀 quotes、不掛任何 quotes 的篩選條件。
+//        CB-60a 加上分頁後，本段碼一行都不用改。
+const _rmOpen  = new Set();   // status = 'marked'  → 紅 !
+const _rmClear = new Set();   // status = 'solved'  → 綠 ✓
+// 🔴 沉默的失敗最危險：標示查詢失敗不會報錯，只會讓【有問題的單看起來正常】。
+//    此旗標一旦為 true：① 顯示橫幅 ② 不渲染任何標示（不渲染比渲染錯的好）
+//    ③ Fulfilled 的 confirm 改為【無法確認】文案。
+let _rmDegraded = false;
+
 // ── CB-38 ─────────────────────────────────────────────────────────
 // currentUserId / currentUserRole:決定 Sales filter 的 default 值
 // salesList:role IN ('admin','super_admin'),用來建 Sales dropdown
@@ -699,7 +746,127 @@ async function init() {
     buildSalesFilter();
   }
 
+  // 🔴 刻意放在 init() 而非 loadQuotes()：兩支查詢與 quotes 的篩選、
+  //    排序、分頁完全無關，只需載入一次；renderTable() 每次重繪直接查
+  //    記憶體。這也讓 CB-60a 重構 loadQuotes() 時，本票的碼零改動。
+  //    ⚠️ 已知代價：他人在別頁新增 reminder 後，本頁需重新整理才會出現標示。
+  //       需求為「一眼看到哪張單有狀況」，接受。
+  await loadReminderFlags();
+
   await loadQuotes();
+}
+
+// ══ CB-82: reminder 標示載入 ═════════════════════════════
+// 🔴 9a 改走 RPC get_reminder_flags()。原先的三支直接查詢已廢除。
+//
+// 【為什麼】在純 PostgREST + RLS 之下,「被 policy 擋」與「真的沒資料」
+// 完全同形 —— 兩者都是 200 / [] / count 0 / error null,應用層分不出來。
+// 原本用「總數 > 0 但兩集合皆空」當 baseline,但那個總數也從同一張被擋的
+// 表取 —— policy 一擋也回 0,條件永遠不成立。用被擋的表去證明自己被擋,
+// 是循環依賴,該分支從寫下起就是死碼。
+// 實測(單元 8/9 驗證 C 組):ALTER POLICY ... USING (false) 後完全無降級
+// 跡象,Fulfilled 攔截靜默放行,一張有未處理 reminder 的單被標成 Order Completed。
+//
+// RPC 為 SECURITY DEFINER 且內部自行 is_admin() 檢查,非 admin 拋 42501
+// → 前端拿到的是真正的 error,第一態就接住,第三態【不再需要存在】。
+//
+// 剩下兩態(皆不產生錯誤訊息以外的跡象):
+//   ① error 非 null           → 無權限 / 網路 / 函式不存在
+//   ② count ≠ rows.length     → PostgREST max-rows 截斷
+//
+// 🔴 任一態成立 → _rmDegraded = true,橫幅現身、所有標示不渲染。
+//    【如何辨識它發生了】:看到黃色橫幅 = 機制正常運作中。
+//    若畫面既無標示也無橫幅,才是真的沒有 reminder。
+async function loadReminderFlags() {
+  _rmOpen.clear();
+  _rmClear.clear();
+  _rmDegraded = false;
+
+  const { data, error, count } = await _supabase
+    .rpc('get_reminder_flags', {}, { count: 'exact' });
+
+  const fail = function (why) {
+    _rmDegraded = true;
+    console.error('[CB-82] reminder flags unavailable:', why);
+  };
+
+  if (error) {
+    // 🔴 非 admin 會在函式內拿到 42501;網路失敗、函式不存在亦落入此分支。
+    //    重點是它【是一個 error】—— 不再與「沒資料」同形。
+    fail(error);
+  } else {
+    const rows = data || [];
+    // 截斷偵測:count 是全集筆數,rows.length 是實際回傳筆數。
+    // PostgREST 的 max-rows 截斷不報錯,只會讓後面的單沒標示。
+    if (count != null && count !== rows.length) {
+      fail('row count mismatch (max-rows truncation)');
+    } else {
+      // 🔴 正向識別(F-35):依 status 值分別放進對應集合,兩邊都是【命中】。
+      //    不寫 else 掃進某一邊 —— 未來若新增第三種狀態,else 會把它靜默
+      //    歸類到錯的那一邊,而且不報錯。
+      rows.forEach(function (r) {
+        if (r.status === 'marked')      _rmOpen.add(r.quote_id);
+        else if (r.status === 'solved') _rmClear.add(r.quote_id);
+      });
+    }
+  }
+
+  const bar = document.getElementById('rmDegraded');
+  if (bar) {
+    if (_rmDegraded) {
+      _rmOpen.clear();
+      _rmClear.clear();
+      bar.textContent = 'Reminder flags unavailable \u2014 this page cannot show which orders have '
+                      + 'unresolved reminders. Please refresh to retry.';
+      bar.classList.add('show');
+    } else {
+      bar.textContent = '';
+      bar.classList.remove('show');
+    }
+  }
+}
+
+// ══ F-118 同步單元:reminderFlagHtml() ═══════════════════════════════════
+//   本函式共有【兩份】平行實作,判斷規則必須逐字一致:
+//     ① admin-quotes.html   — 資料來源:_rmOpen / _rmClear 兩個 Set
+//     ② quote-detail.html   — 資料來源:_rmOpenCount / _rmSolvedCount 兩個計數
+//
+//   共同規則(改動任一份都必須同步另一份):
+//     有未處理 → 紅 ! ;否則有已處理 → 綠 ✓ ;都沒有 → 不顯示。
+//     降級(_rmDegraded / _rmCheckFailed)時一律【不渲染】。
+//     連結一律指向 admin-reminders.html?po=<po_number || draft_number>。
+//
+//   🔴 不一致的症狀:同一張單在兩頁顯示不同顏色,且【不報錯】。
+//   🔴 不抽成共用函式的理由:兩邊資料形態不同(Set vs 計數),抽出前得先
+//      統一形態,那會把 admin-quotes 的集合設計拖進來改。目前僅三行判斷,
+//      重複成本低於耦合成本。規則若變複雜,回頭抽(比照 F-66 round2 的判斷)。
+// ═══════════════════════════════════════════════════════════════════════
+// 🔴 正向識別（F-35）：兩支都是集合命中，沒有任何【排除】推導。
+//    降級時兩個集合已清空 → 此函式自然回空字串，不需額外判斷。
+function reminderFlagHtml(quote) {
+  // 🔴 改收 quote 物件（非單一 id）—— 連結需要單號才能帶篩選。
+  const id = quote && quote.id;
+  if (!id) return '';
+
+  // 雙編號制：Draft 無 po_number。admin-reminders 的 PO# 篩選打的是
+  // display_number = COALESCE(po_number, draft_number)，兩邊取值規則一致。
+  const num = quote.po_number || quote.draft_number || '';
+  const href = 'admin-reminders.html' + (num ? '?po=' + encodeURIComponent(num) : '');
+
+  // 🔴 onclick 必須 stopPropagation —— 整列掛了 toggleDetail，
+  //    不擋冒泡的話點連結會同時展開/收合該列（B-5 同型陷阱）。
+  //    外層 <td> 也掛了一道，兩道都保留：點到圓圈外的空白處也不該展開。
+  const stop = ' onclick="event.stopPropagation()"';
+
+  if (_rmOpen.has(id)) {
+    return '<a class="rm-flag open" href="' + href + '"' + stop +
+           ' title="Has unresolved reminders \u2014 click to review">!</a>';
+  }
+  if (_rmClear.has(id)) {
+    return '<a class="rm-flag clear" href="' + href + '"' + stop +
+           ' title="All reminders solved \u2014 click to review">\u2713</a>';
+  }
+  return '';
 }
 
 // ── CB-38: Sales filter ────────────────────────────────────────────
@@ -855,7 +1022,7 @@ function renderTable() {
   const tbody = document.getElementById('quotesBody');
 
   if (!allQuotes.length) {
-    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="' + LIST_COLSPAN + '"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>' + emptyStateMessage() + '</div></td></tr>';
     return;
   }
 
@@ -1152,11 +1319,12 @@ function renderTable() {
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
         statusCellHtml +
+        '<td class="td-rm" onclick="event.stopPropagation()">' + reminderFlagHtml(q) + '</td>' +
         '<td class="td-date">' + formatDateOnly(q.fulfillment_date) + '</td>' +
         actionCellHtml +
       '</tr>' +
       '<tr class="detail-row" id="detail-' + idx + '">' +
-        '<td colspan="8" class="detail-cell">' +
+        '<td colspan="' + LIST_COLSPAN + '" class="detail-cell">' +
           '<div class="detail-inner">' +
             reasonBanner +
             '<div class="detail-grid">' +
@@ -1277,6 +1445,12 @@ async function fulfillOrder(quoteId) {
     quote:    q,
     isAdmin:  (currentUserRole === 'admin' || currentUserRole === 'super_admin'),
     buttonEl: document.getElementById('fulfill-' + quoteId),
+    // ── CB-82 ────────────────────────────────────────
+    // 🔴 兩個旗標必須同時傳。只傳 hasOpenReminder 而漏傳
+    //    reminderCheckFailed 的症狀是：查詢失敗時集合為空 →
+    //    hasOpenReminder 為 false → 【静默放行】，正好是該警告時沒警告。
+    hasOpenReminder:     _rmOpen.has(q.id),
+    reminderCheckFailed: _rmDegraded,
     onDone:   function () { loadQuotes(); }
   });
 }
