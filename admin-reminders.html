@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Reminders</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    .page { max-width: 1400px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+
+    /* 🔴 需求書明列:不可刪除的邊界必須寫進 UI 說明。
+       兩句缺一不可 —— 只寫第一句,日後有人問「為什麼那筆 reminder 不見了」
+       會查不到;只寫第二句,會被誤以為有刪除入口。 */
+    .page-note { margin-bottom: 20px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+
+    .table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .table-count { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .table-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .tool-group { display: flex; align-items: center; gap: 6px; }
+    .tool-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+    .list-filter { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); max-width: 190px; }
+    .list-filter:focus { outline: none; border-color: var(--gold); }
+    .list-date { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .list-date:focus { outline: none; border-color: var(--gold); }
+    .list-search { height: 32px; width: 220px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .list-search:focus { outline: none; border-color: var(--gold); }
+    .list-po { height: 32px; width: 130px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .list-po:focus { outline: none; border-color: var(--gold); }
+
+    .search-note { display: none; padding: 8px 20px; border-bottom: 1px solid var(--border); background: #FDFBF6; font-size: 11px; color: var(--muted); }
+
+    .pager-bar { display: none; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--border); background: #FAFAF8; }
+    .pager-info { font-size: 11px; color: var(--muted); }
+    .pager-btn { min-height: 32px; padding: 0 14px; border: 1px solid var(--border); border-radius: 3px; background: var(--white); font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--green-dark); cursor: pointer; }
+    .pager-btn:hover:not(:disabled) { background: var(--cream); }
+    .pager-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .overflow-x { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 14px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 14px; font-size: 12px; vertical-align: top; }
+    .td-nowrap { white-space: nowrap; }
+    .td-muted { color: var(--muted); }
+    .td-subject { font-weight: 500; color: var(--green-dark); }
+    /* Description 不佔欄位,改為點列展開的詳情列。
+       🔴 只有【有 description】的列才可展開(正向識別)—— 無內容的列
+          不掛 onclick、不加 cursor、不顯示箭頭,否則點下去什麼都沒有,
+          使用者會以為壞了。 */
+    tr.row-expandable { cursor: pointer; }
+    tr.row-expandable:hover { background: #FAFAF8; }
+    .expand-icon { font-size: 8px; color: var(--muted); margin-left: 5px; display: inline-block; transition: transform 0.15s; }
+    .expand-icon.open { transform: rotate(180deg); }
+    tr.detail-row { display: none; }
+    tr.detail-row.show { display: table-row; }
+    .detail-cell { background: #FAFAF8; }
+    .detail-label { font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    /* pre-wrap 保留 textarea 輸入的換行;overflow-wrap 讓超長無空白字串不撐破版面 */
+    .detail-text { font-size: 12px; line-height: 1.6; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 900px; }
+    .td-po { font-weight: 500; }
+    .td-po-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* 🔴 顯示 map 的樣式端。DB 值為小寫(P-1 = B),顯示文字由 JS map 提供,
+       DB 值永不為顯示改動(display != value)。 */
+    .badge-type { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; white-space: nowrap; }
+    .badge-type.type-backorder { background: rgba(224,123,57,0.14); color: #C2410C; }
+    .badge-type.type-payment   { background: rgba(15,118,110,0.12); color: #0F766E; }
+    .badge-type.type-other     { background: rgba(107,114,128,0.12); color: #4B5563; }
+    .badge-type.type-unknown   { background: rgba(192,57,43,0.12);  color: #C0392B; }
+
+    .badge-status { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; white-space: nowrap; }
+    .badge-status.st-marked  { background: rgba(192,57,43,0.12);  color: #C0392B; }
+    .badge-status.st-solved  { background: rgba(22,163,74,0.10);  color: #16A34A; }
+    .badge-status.st-unknown { background: rgba(192,57,43,0.12);  color: #C0392B; }
+
+    .btn-solve { font-size: 11px; background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; color: var(--green-dark); font-family: 'DM Sans', sans-serif; margin-right: 6px; }
+    .btn-solve:hover:not(:disabled) { background: var(--cream); }
+    .btn-solve:disabled { opacity: 0.5; cursor: default; }
+    .link-view { font-size: 11px; color: var(--gold); text-decoration: none; white-space: nowrap; }
+    .link-view:hover { opacity: 0.7; }
+
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+    .empty-state svg { width: 36px; height: 36px; fill: var(--border); margin-bottom: 12px; }
+    .empty-state.err { color: var(--error); }
+    .loading-rows { padding: 20px; }
+    .loading-row { height: 16px; background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 3px; margin-bottom: 14px; }
+    .loading-row:nth-child(2) { width: 80%; }
+    .loading-row:nth-child(3) { width: 90%; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px; border-radius: 4px; font-size: 12px; z-index: 999; display: none; max-width: 380px; line-height: 1.5; }
+    .toast.show { display: block; }
+    .toast.err { background: var(--error); }
+  </style>
+</head>
+<body>
+
+<div id="pcd-nav" data-page="reminders"></div>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">Reminders</div>
+  </div>
+
+  <!-- 🔴 不可刪除的邊界說明(需求書明列)。
+       規則        範圍        —— 使用者不能刪(DB 層:無 DELETE policy)
+       母體消失    系統行為    —— draft 被硬刪時 FK CASCADE 連帶清除
+       兩者不衝突,但必須寫出來,否則日後查不到原因。 -->
+  <div class="page-note">
+    Reminders cannot be deleted. Reminders attached to a draft will be removed if the draft is deleted.
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">
+      <span class="table-title">All Reminders</span>
+      <div class="table-tools">
+        <input class="list-search" id="rmSearch" type="text" autocomplete="off"
+               placeholder="Search subject &amp; description…" oninput="onReminderSearch(this.value)"/>
+        <input class="list-po" id="rmPo" type="text" autocomplete="off"
+               placeholder="PO # / Draft ID" oninput="onReminderPo(this.value)"/>
+        <select class="list-filter" id="rmCompany" onchange="onReminderFilter()">
+          <option value="">All Companies</option>
+        </select>
+        <select class="list-filter" id="rmCreatedBy" onchange="onReminderFilter()">
+          <option value="">All Users</option>
+        </select>
+        <select class="list-filter" id="rmType" onchange="onReminderFilter()">
+          <option value="">All Types</option>
+          <option value="backorder">Backorder</option>
+          <option value="payment">Payment</option>
+          <option value="other">Other</option>
+        </select>
+        <select class="list-filter" id="rmStatus" onchange="onReminderFilter()">
+          <option value="">All Statuses</option>
+          <option value="marked">Marked</option>
+          <option value="solved">Solved</option>
+        </select>
+        <div class="tool-group">
+          <span class="tool-label">Recorded</span>
+          <input class="list-date" id="rmFrom" type="date" onchange="onReminderFilter()"/>
+          <input class="list-date" id="rmTo" type="date" onchange="onReminderFilter()"/>
+        </div>
+        <span class="table-count" id="tableCount"></span>
+      </div>
+    </div>
+
+    <div class="search-note" id="searchNote"></div>
+
+    <div class="overflow-x">
+      <table>
+        <thead>
+          <tr>
+            <th>Record Time</th>
+            <th>Created By</th>
+            <th>Type</th>
+            <th>PO #</th>
+            <th>Company</th>
+            <th>Date</th>
+            <th>Subject</th>
+            <th>Status</th>
+            <th>Solved Date</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="remindersBody">
+          <tr><td colspan="10"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pager-bar" id="pagerBar">
+      <span class="pager-info" id="pagerInfo"></span>
+      <button class="pager-btn" id="pagerPrev" onclick="goPage(-1)">Prev</button>
+      <button class="pager-btn" id="pagerNext" onclick="goPage(1)">Next</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Unified Footer -->
+<div id="pcd-footer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/navigator.js?v=cb62c"></script>
+<script src="components/footer.js?v=cb62c"></script>
+<!-- CB-82: Reminder 表單 modal(與 quote-detail.html 共用同一份)。
+     新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
+<script src="components/reminder-modal.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+ * CB-82  admin-reminders.html
+ *
+ * 🔴 本頁【不載入】components/i18n.js —— admin 頁一律英文硬編碼,
+ *    且不掛任何 i18n 標記(F-25 死標記同類)。
+ *
+ * 🔴 讀取走 quote_reminders_view(已攤平 Company / PO#,security_invoker=true);
+ *    寫入一律走 base table public.quote_reminders。
+ *    view 為 is_updatable=NO 且僅 GRANT SELECT,雙層擋住誤寫。
+ *
+ * 分頁 / 篩選 / 搜尋沿用 F-30 已驗證的 pattern:
+ *   🟢 通用 6 項:range+clamp、count:'exact'+error+baseline、輸入淨化、
+ *      debounce+reqSeq、三態 empty-state、篩選改變重置 page —— 逐字複用
+ *   🟡 半通用 2 項:tiebreaker【機制】複用但【欄位】重定為
+ *      created_at DESC, id DESC(Record Time 為主視覺欄);頁大小具名常數
+ *   🔴 此處特定 3 項:搜尋欄位清單、篩選項目、欄位精簡
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+const { createClient } = window.supabase;
+const _supabase = createClient(
+  window.SB_URL,
+  window.SB_KEY
+);
+
+// 🟡 半通用(判斷依據):分頁大小為【判斷值非計算值】—— 依 admin 單螢幕
+//    可掃視量而定,改動不需動邏輯。沿用 F-30 的 25。
+const REMINDERS_PAGE_SIZE = 25;
+
+// 🔴 此處特定:需求書指定「Subject & Description 搜尋」。
+//    PO# 是【獨立篩選欄】,不併入本清單 —— 併入會讓搜尋 "PDC" 同時命中
+//    subject 裡提到單號的 reminder,兩種語意混在一個輸入框。
+const SEARCH_COLUMNS = ['subject', 'description'];
+const SEARCH_MAX_LEN = 100;
+
+// 🟡 半通用(判斷依據):colspan 必須與 <th> 數量一致,否則 empty-state
+//    只佔第一欄,版面歪掉【但不報錯】。用常數而非字面值,是為了讓
+//    「改欄位數」與「改 colspan」無法脫鉤 —— 兩者分開寫必然漂移。
+//    機制通用;10 這個值特定於本頁。
+const LIST_COLSPAN = 10;
+
+// ── 顯示 map(display != value)────────────────────────────────────────
+// 🔴 DB 值為小寫(P-1 = B)。顯示文字只存在於這裡,DB 值永不為顯示改動。
+// 🔴 正向識別(F-35):查表命中才渲染既有樣式;查無 → 印出 DB 原值並標成
+//    unknown,壞掉看得見。【不】寫 type !== 'backorder' 這類負向排除 ——
+//    值意外為 null / '' / 未來新增第四種時,負向判斷會靜默渲染錯的東西。
+const TYPE_LABEL   = { backorder: 'Backorder', payment: 'Payment', other: 'Other' };
+const STATUS_LABEL = { marked: 'Marked', solved: 'Solved' };
+
+let _adminMap  = {};   // uuid -> dealers 列(admin / super_admin),供 Created By 顯示
+
+// ── 當頁資料索引（Edit 用）────────────────────────────────
+// 🔴 Edit 需要帶入現值，而現值只存在於上一次查詢結果。
+//    【不】從 DOM 把文字讀回來 —— 畫面上的是顯示值（type/status 已經 map
+//    過、date 已經格式化），讀回來再寫回 DB 就是把顯示值當成值
+//    （display != value 的反例）。
+// 🔴 每次 loadReminders() 重建，不跨頁累積。
+let _rowsById = {};
+let _searchTimer = null;
+let _poTimer     = null;
+
+const _listState = {
+  q: '', po: '', company: '', createdBy: '', type: '', status: '',
+  from: '', to: '',
+  page: 1, total: 0, reqSeq: 0,
+  searchAltered: false, poAltered: false,
+};
+
+// ── 小工具 ────────────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.add('show');
+  setTimeout(function () { t.classList.remove('show'); }, 3500);
+}
+
+// created_at 為 timestamptz —— 走 Date 物件無妨,本來就是時間點。
+function formatDateTime(str) {
+  if (!str) return '—';
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  });
+}
+
+/* 🔴 reminder_date / solved_date 為 DB 的 date 型別,PostgREST 收送皆為
+ *    "YYYY-MM-DD" 純字串。全程【不得】經過 Date 物件往返,否則會被當成
+ *    UTC 午夜解析,美東時區顯示時整整少一天。
+ *    以 local 分量建構,不走 UTC 解析。(沿用 order-complete.js 已定版作法) */
+function prettyDate(iso) {
+  const p = String(iso || '').split('-');
+  if (p.length !== 3) return '—';
+  const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// 今天(local)。刻意不用 new Date().toISOString().split('T')[0] ——
+// 那取的是 UTC 日期,美東 20:00 後 UTC 已跨日,會寫成「明天」。
+function todayLocalISO() {
+  const d = new Date();
+  const pad = function (n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+
+// ── 輸入淨化(F-30 已驗證方案,逐字複用)──────────────────────────────
+// 🔴 * 一併移除,不再嘗試跳脫。實測(F-30 S1-d1):% 與 _ 跳脫後可正確
+//    比對字面字元;但 * 不行 —— PostgREST 在跳脫【之前】就把 * 換成 %,
+//    使 \* 變成 \%,實際去比對「含字面 % 的值」。搜 Star* 回 0 筆並非
+//    無結果,而是比對了錯的東西 = 靜默的假陰性。
+// 🔴 雙引號 " 與反斜線 \ 的跳脫形式未經實測,錯誤即為結構逃逸 → 移除而非
+//    跳脫,並向使用者顯示提示。用未經測試的跳脫守安全關鍵路徑,是拿假設
+//    當事實(F-19)。
+// 🔴 不得靜默改寫搜尋詞 —— 改寫了就必須讓使用者看見(renderSearchNote)。
+// ⚠️ . - @ 不在移除清單內(單號含 - 的情境會用到)。
+function sanitizeSearchTerm(raw) {
+  let s = String(raw == null ? '' : raw);
+  s = s.replace(/[\u0000-\u001F\u007F]/g, '');
+  const stripped = s.replace(/["\\*]/g, '');
+  const altered  = (stripped !== s);
+  s = stripped.trim();
+  if (s.length > SEARCH_MAX_LEN) s = s.slice(0, SEARCH_MAX_LEN);
+  return { term: s, altered: altered };
+}
+
+// 三個萬用字元一律以【兩個反斜線】前綴 —— 這是 F-30 實測通過的形式。
+// 反斜線與雙引號已在 sanitize 移除,故此處不需處理。
+function escapeIlikeValue(s) {
+  return String(s).replace(/[%_]/g, '\\\\$&');
+}
+
+function buildSearchOr(term) {
+  const v = escapeIlikeValue(term);
+  return SEARCH_COLUMNS.map(function (c) {
+    return c + '.ilike."%' + v + '%"';
+  }).join(',');
+}
+
+// ── F-30 S3-d1: 查詢建構與執行分離 ────────────────────────────────────
+// 🔴 為什麼要分離(勿合回去):PostgREST 對超出範圍的 offset 回 416 /
+//    PGRST103【錯誤】,不是空陣列。若把 clamp 放在 error 分支【之後】,
+//    永遠執行不到 —— admin 會看到「Could not load」而非自動回到有效頁。
+//    修正方式:在此偵測 PGRST103 → 以 head 查詢取真實 count → clamp → 重跑。
+//    重跑上限一次,不會遞迴。
+function buildReminderQuery(countOnly) {
+  let qb = _supabase
+    .from('quote_reminders_view')
+    .select('*', countOnly ? { count: 'exact', head: true } : { count: 'exact' });
+
+  if (_listState.q)  qb = qb.or(buildSearchOr(_listState.q));
+
+  // PO# 與 Subject/Description 是兩個獨立輸入,共用同一支淨化函式
+  // (單一淨化出口),但打在不同欄位上。
+  // display_number = COALESCE(po_number, draft_number),兩種編號一次命中。
+  if (_listState.po) {
+    qb = qb.ilike('display_number', '%' + escapeIlikeValue(_listState.po) + '%');
+  }
+
+  // Company 為下拉精確比對,值來自 dealers.company_name,不需跳脫。
+  if (_listState.company)   qb = qb.eq('company_name', _listState.company);
+  if (_listState.createdBy) qb = qb.eq('created_by', _listState.createdBy);
+  if (_listState.type)      qb = qb.eq('type', _listState.type);
+  if (_listState.status)    qb = qb.eq('status', _listState.status);
+
+  // Record Time 區間。created_at 為 timestamptz,to 需補到當日 23:59:59,
+  // 否則選同一天會回 0 筆(gte 00:00 且 lte 00:00)。
+  if (_listState.from) qb = qb.gte('created_at', _listState.from);
+  if (_listState.to)   qb = qb.lte('created_at', _listState.to + 'T23:59:59');
+
+  // 🟡 tiebreaker【機制】通用 —— 唯一 tiebreaker 是分頁正確性的必要條件,
+  //    非排序偏好;缺少它 .range() 會跳號/重複且不報錯。
+  //    【欄位】本頁特定:Record Time 是主視覺欄,故 created_at DESC 為主鍵,
+  //    id DESC 保證唯一(dealers 用 company_name ASC 是因人工掃視以公司名為主)。
+  // 🔴 禁止先取一頁再 client 端 filter —— 那會讓 count 與內容不一致。
+  qb = qb.order('created_at', { ascending: false }).order('id', { ascending: false });
+
+  if (!countOnly) {
+    const from = (_listState.page - 1) * REMINDERS_PAGE_SIZE;
+    qb = qb.range(from, from + REMINDERS_PAGE_SIZE - 1);
+  }
+  return qb;
+}
+
+async function queryReminders() {
+  let r = await buildReminderQuery(false);
+
+  if (r.error && r.error.code === 'PGRST103') {
+    const probe = await buildReminderQuery(true);
+    if (!probe.error) {
+      _listState.total = (probe.count == null ? 0 : probe.count);
+      clampPage();
+      r = await buildReminderQuery(false);
+    }
+  }
+
+  return { rows: r.data || [], error: r.error || null, count: (r.count == null ? 0 : r.count) };
+}
+
+// ── 分頁控制(F-30 S3,純算術,逐字複用)─────────────────────────────
+function totalPages() {
+  const t = _listState.total;
+  return t > 0 ? Math.ceil(t / REMINDERS_PAGE_SIZE) : 1;
+}
+
+// 🔴 clamp 的存在理由:篩選後 total 縮小時,當前 page 可能已超出範圍。
+//    此時查詢會回空陣列 —— 不報錯,畫面空白,admin 會誤判為「查無資料」。
+//    這是分頁最典型的靜默失敗。
+function clampPage() {
+  const max = totalPages();
+  if (_listState.page > max) { _listState.page = max; return true; }
+  if (_listState.page < 1)   { _listState.page = 1;   return true; }
+  return false;
+}
+
+function goPage(delta) {
+  const max  = totalPages();
+  const next = _listState.page + delta;
+  if (next < 1 || next > max) return;   // 按鈕已 disabled,此為第二道
+  _listState.page = next;
+  loadReminders();
+}
+
+function renderPager() {
+  const bar = document.getElementById('pagerBar');
+  if (!bar) return;
+  if (_listState.total <= REMINDERS_PAGE_SIZE) { bar.style.display = 'none'; return; }
+  const max = totalPages();
+  bar.style.display = 'flex';
+  document.getElementById('pagerInfo').textContent = 'Page ' + _listState.page + ' of ' + max;
+  document.getElementById('pagerPrev').disabled = (_listState.page <= 1);
+  document.getElementById('pagerNext').disabled = (_listState.page >= max);
+}
+
+function renderCountLabel(shownCount) {
+  const el = document.getElementById('tableCount');
+  if (!el) return;
+  const total = _listState.total;
+  if (!total) { el.textContent = '0 reminders'; return; }
+  const from = (_listState.page - 1) * REMINDERS_PAGE_SIZE + 1;
+  const to   = from + shownCount - 1;
+  el.textContent = 'Showing ' + from + '\u2013' + to + ' of ' + total;
+}
+
+function renderSearchNote() {
+  const el = document.getElementById('searchNote');
+  if (!el) return;
+  if (_listState.searchAltered || _listState.poAltered) {
+    el.textContent = 'Quote, backslash and asterisk characters were removed from this search.';
+    el.style.display = 'block';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+}
+
+// ── 三態 empty-state ──────────────────────────────────────────────────
+// 🟢 通用:error / 無資料 / 無符合 三態必須分流。合併任兩態即製造靜默
+//    失敗 —— RLS 擋住時回 200 + 空陣列 + error null,與「真的沒資料」同形。
+//    (G-3 實測已親眼見過:dealer 查 view 得到 rows 0 / count 0 / error null)
+function hasActiveFilter() {
+  return !!(_listState.q || _listState.po || _listState.company ||
+            _listState.createdBy || _listState.type || _listState.status ||
+            _listState.from || _listState.to);
+}
+
+function emptyStateHtml(kind) {
+  const icon = '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>';
+  let body, cls = 'empty-state';
+  if (kind === 'error') {
+    cls  = 'empty-state err';
+    body = 'Could not load reminders. Please refresh.';
+  } else if (kind === 'filtered') {
+    body = icon + 'No reminders match your filters.'
+         + '<button type="button" class="pager-btn" style="margin-top:12px;" onclick="clearReminderFilters()">Clear filters</button>';
+  } else {
+    body = icon + 'No reminders yet.';
+  }
+  return '<tr><td colspan="' + LIST_COLSPAN + '"><div class="' + cls + '">' + body + '</div></td></tr>';
+}
+
+function clearReminderFilters() {
+  ['rmSearch', 'rmPo', 'rmCompany', 'rmCreatedBy', 'rmType', 'rmStatus', 'rmFrom', 'rmTo']
+    .forEach(function (id) { const e = document.getElementById(id); if (e) e.value = ''; });
+
+  // 🔴 必須清掉 pending 的 debounce timer —— 否則使用者按下 Clear 後
+  //    300ms 前的舊輸入仍會回寫 _listState,篩選被無聲還原。
+  if (_searchTimer) clearTimeout(_searchTimer);
+  if (_poTimer)     clearTimeout(_poTimer);
+
+  _listState.q = '';  _listState.po = '';  _listState.company = '';
+  _listState.createdBy = '';  _listState.type = '';  _listState.status = '';
+  _listState.from = '';  _listState.to = '';
+  _listState.searchAltered = false;
+  _listState.poAltered     = false;
+  _listState.page          = 1;
+  loadReminders();
+}
+
+// ── 輸入事件(debounce 300ms)─────────────────────────────────────────
+function onReminderSearch(v) {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(function () {
+    const r = sanitizeSearchTerm(v);
+    _listState.q             = r.term;
+    _listState.searchAltered = r.altered;
+    // 🟢 通用:篩選改變後 total 可能縮小,不重置會停在超出範圍的頁
+    //    → 畫面空白但無錯誤 = 靜默失敗。
+    _listState.page = 1;
+    loadReminders();
+  }, 300);
+}
+
+function onReminderPo(v) {
+  if (_poTimer) clearTimeout(_poTimer);
+  _poTimer = setTimeout(function () {
+    const r = sanitizeSearchTerm(v);
+    _listState.po        = r.term;
+    _listState.poAltered = r.altered;
+    _listState.page      = 1;
+    loadReminders();
+  }, 300);
+}
+
+function onReminderFilter() {
+  _listState.company   = document.getElementById('rmCompany').value;
+  _listState.createdBy = document.getElementById('rmCreatedBy').value;
+  _listState.type      = document.getElementById('rmType').value;
+  _listState.status    = document.getElementById('rmStatus').value;
+  _listState.from      = document.getElementById('rmFrom').value;
+  _listState.to        = document.getElementById('rmTo').value;
+  _listState.page      = 1;
+  loadReminders();
+}
+
+// ── 渲染 ──────────────────────────────────────────────────────────────
+// created_by 無 FK(避免 delete-dealer Edge Function 被擋),故以 client map
+// 反查。沿用 admin-quotes.html renderSalesCell() 的形態:查無回 (unknown),
+// 不靜默留白 —— 留白會讓「帳號已刪」與「資料壞了」看起來一樣。
+function renderCreatedBy(uid) {
+  if (!uid) return '<span class="td-muted">—</span>';
+  const r = _adminMap[uid];
+  if (!r) return '<span class="td-muted">(unknown)</span>';
+  return escapeHtml(r.contact_name || r.company_name || '(no name)');
+}
+
+function renderTypeBadge(type) {
+  const label = TYPE_LABEL[type];
+  if (label) return '<span class="badge-type type-' + type + '">' + label + '</span>';
+  const raw = (type === null || type === undefined || type === '') ? '(none)' : String(type);
+  return '<span class="badge-type type-unknown">\u26A0 ' + escapeHtml(raw) + '</span>';
+}
+
+function renderStatusBadge(status) {
+  const label = STATUS_LABEL[status];
+  if (label) {
+    const cls = (status === 'marked') ? 'st-marked' : 'st-solved';
+    return '<span class="badge-status ' + cls + '">' + label + '</span>';
+  }
+  const raw = (status === null || status === undefined || status === '') ? '(none)' : String(status);
+  return '<span class="badge-status st-unknown">\u26A0 ' + escapeHtml(raw) + '</span>';
+}
+
+function renderPoCell(row) {
+  const main = row.display_number ? escapeHtml(row.display_number) : '—';
+  // 兩個編號都有時,主顯示 PO#、副顯示 Draft ID(沿用 admin-quotes 的雙編號呈現)
+  const sub = (row.po_number && row.draft_number)
+    ? '<div class="td-po-sub">Draft ID: ' + escapeHtml(row.draft_number) + '</div>'
+    : '';
+  return '<div class="td-po">' + main + '</div>' + sub;
+}
+
+function renderRows(rows) {
+  // 🔴 搜尋詞非空時全列預設展開。SEARCH_COLUMNS 含 description ——
+  //    若不展開,只命中 description 的列會「被撈出來但看不到命中的字在哪」,
+  //    使用者會誤判為系統撈錯。那是靜默失敗的一種。
+  const expandAll = !!_listState.q;
+
+  return rows.map(function (r, idx) {
+    // 🔴 正向識別:Solve 按鈕只在 status === 'marked' 時渲染。
+    //    【不】寫 status !== 'solved' —— 未來若新增第三種狀態,負向判斷
+    //    會讓那些列也長出 Solve 按鈕。
+    const canSolve = (r.status === 'marked');
+    const solveBtn = canSolve
+      ? '<button class="btn-solve" id="solve-' + r.id + '" onclick="solveReminder(\'' + r.id + '\')">Solve</button>'
+      : '';
+
+    // 🔴 正向識別：Edit 只在 status === 'marked' 時渲染（與 Solve 同一條件）。
+    //    PM Q-20：進入 solve 就是拍板定案，不可再改。
+    //    前端不是安全邊界 —— DB 層已擋（admin_update_quote_reminders 的
+    //    USING 含 status = 'marked'，G-5 實測 solved 的 UPDATE 回 count 0）。
+    const editBtn = canSolve
+      ? '<button class="btn-solve" id="edit-' + r.id + '" onclick="editReminder(\'' + r.id + '\')">Edit</button>'
+      : '';
+
+    // 🔴 正向識別:有實際內容才可展開。空白字串與 null 一律視為無內容。
+    const hasDesc  = !!(r.description && String(r.description).trim());
+    const rowAttrs = hasDesc
+      ? ' class="row-expandable" onclick="toggleDetail(' + idx + ')"'
+      : '';
+    const icon = hasDesc
+      ? '<span class="expand-icon' + (expandAll ? ' open' : '') + '" id="rmicon-' + idx + '">&#9660;</span>'
+      : '';
+    const detailRow = hasDesc
+      ? '<tr class="detail-row' + (expandAll ? ' show' : '') + '" id="rmdetail-' + idx + '">' +
+          '<td colspan="' + LIST_COLSPAN + '" class="detail-cell">' +
+            '<div class="detail-label">Description</div>' +
+            '<div class="detail-text">' + escapeHtml(r.description) + '</div>' +
+          '</td>' +
+        '</tr>'
+      : '';
+
+    return '' +
+      '<tr' + rowAttrs + '>' +
+        '<td class="td-nowrap td-muted">' + escapeHtml(formatDateTime(r.created_at)) + '</td>' +
+        '<td class="td-nowrap">' + renderCreatedBy(r.created_by) + '</td>' +
+        '<td>' + renderTypeBadge(r.type) + '</td>' +
+        '<td class="td-nowrap">' + renderPoCell(r) + '</td>' +
+        '<td>' + escapeHtml(r.company_name || '—') + '</td>' +
+        '<td class="td-nowrap td-muted">' + escapeHtml(prettyDate(r.reminder_date)) + '</td>' +
+        '<td class="td-subject">' + escapeHtml(r.subject || '—') + icon + '</td>' +
+        '<td>' + renderStatusBadge(r.status) + '</td>' +
+        '<td class="td-nowrap td-muted">' + escapeHtml(prettyDate(r.solved_date)) + '</td>' +
+        // ⚠️ B-5(admin-quotes 同型陷阱):整列掛了展開 onclick,操作欄
+        //    必須 stopPropagation,否則按 Solve 會同時展開/收合該列。
+        '<td class="td-nowrap" onclick="event.stopPropagation()">' +
+          editBtn +
+          solveBtn +
+          '<a class="link-view" href="quote-detail.html?id=' + encodeURIComponent(r.quote_id) + '">View Order &rarr;</a>' +
+        '</td>' +
+      '</tr>' + detailRow;
+  }).join('');
+}
+
+// 展開狀態刻意【不】跨頁保留 —— 翻頁或改篩選後 renderRows 產生全新字串,
+// 一律回到收合(搜尋詞非空時除外)。保留狀態需要另一份 state,不值得。
+function toggleDetail(idx) {
+  const row  = document.getElementById('rmdetail-' + idx);
+  const icon = document.getElementById('rmicon-' + idx);
+  if (!row) return;
+  const open = row.classList.toggle('show');
+  if (icon) icon.classList.toggle('open', open);
+}
+
+// ── 唯一查詢出口 ──────────────────────────────────────────────────────
+async function loadReminders() {
+  const seq = ++_listState.reqSeq;
+  const { rows, error, count } = await queryReminders();
+  // 非同步回應可能亂序 —— 已有更新的請求送出則丟棄本次結果。
+  if (seq !== _listState.reqSeq) return;
+
+  const tbody = document.getElementById('remindersBody');
+  renderSearchNote();
+
+  if (error) {
+    _listState.total = 0;
+    renderCountLabel(0);
+    renderPager();
+    tbody.innerHTML = emptyStateHtml('error');
+    console.error('[CB-82] loadReminders failed:', error);
+    return;
+  }
+
+  _listState.total = count;
+
+  // F-30 S3-d2: 此處【不】加第二道 clamp —— 實測確認 PostgREST 對
+  // 「offset 超出實際列數」一律回 416/PGRST103,零筆時亦然。所有超界情形
+  // 都已在 queryReminders() 內被接住並修復,執行到這裡時 page 必定有效。
+  // 留著會是不可達的死碼,且帶一個永不觸發的遞迴重入。
+  renderCountLabel(rows.length);
+  renderPager();
+
+  if (!rows.length) {
+    tbody.innerHTML = emptyStateHtml(hasActiveFilter() ? 'filtered' : 'empty');
+    return;
+  }
+
+  _rowsById = {};
+  rows.forEach(function (r) { _rowsById[r.id] = r; });
+
+  tbody.innerHTML = renderRows(rows);
+}
+
+// ── Edit ──────────────────────────────────────────────────────────────
+/* 🔴 只能編輯 marked 的 reminder（PM Q-20）。三層把關：
+ *    ① 前端不渲染 Edit 按鈕（renderRows 的 canSolve）
+ *    ② 本函式再檢一次 —— 按鈕可能來自過時的 DOM（他人已 solve）
+ *    ③ UPDATE 帶前態守衛 + DB policy 的 USING 含 status = 'marked'
+ *    前兩層是 UX，第三層才是邊界。
+ *
+ * 🔴 寫入走 base table quote_reminders，不走 view。
+ *    view 為 is_updatable=NO 且僅 GRANT SELECT，但仍明寫。
+ *
+ * ⚠️ 不記編輯痕跡（需求書已拍板）：無 updated_at、無編輯歷史。 */
+async function editReminder(id) {
+  const row = _rowsById[id];
+  if (!row) {
+    // 索引與畫面不同步 —— 不猜，重新載入。
+    console.error('[CB-82] editReminder: row not found in current page index', id);
+    await loadReminders();
+    return;
+  }
+
+  // ② 按鈕可能來自過時的 DOM。
+  if (row.status !== 'marked') {
+    showToast('This reminder has been solved and can no longer be edited.', true);
+    await loadReminders();
+    return;
+  }
+
+  if (!window.ProCraftReminderModal) {
+    console.error('[CB-82] reminder-modal.js not loaded');
+    showToast('The reminder form could not be opened. Please refresh the page.', true);
+    return;
+  }
+
+  const payload = await window.ProCraftReminderModal.open({
+    title:    'Edit Reminder',
+    subtitle: row.display_number || 'This order',
+    // 🔴 帶入的是 DB 原值，不是畫面上的顯示值。
+    values: {
+      type:          row.type,
+      reminder_date: row.reminder_date,
+      subject:       row.subject,
+      description:   row.description,
+    },
+  });
+  if (!payload) return;                     // 取消 = 什麼都不做
+
+  const btn = document.getElementById('edit-' + id);
+  if (btn && btn.disabled) return;
+  const originalText = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+
+  // 🔴 status 與 solved_date 刻意不在更新面 —— Edit 只改內容，
+  //    狀態轉換是 Solve 的職責。兩件事混在一次寫入會讓守衛失效。
+  const { error, count } = await _supabase
+    .from('quote_reminders')
+    .update({
+      type:          payload.type,
+      reminder_date: payload.reminder_date,
+      subject:       payload.subject,
+      description:   payload.description,
+    }, { count: 'exact' })
+    .eq('id', id)
+    .eq('status', 'marked');                // 🔴 前態守衛
+
+  if (error) {
+    console.error('[CB-82] editReminder failed:', error);
+    showToast('Could not update this reminder: ' + (error.message || 'Unexpected error') +
+              ' Nothing was changed.', true);
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    return;
+  }
+
+  // 🔴 count === 0 代表【什麼都沒寫入】—— 可能是他人已 solve，
+  //    也可能是 RLS 擋住。兩者同形，故文案不宣稱是哪一種。
+  if (count === 0) {
+    showToast('This reminder could not be updated \u2014 it may have been solved by someone else. ' +
+              'Nothing was changed. Refreshing now.', true);
+    await loadReminders();
+    return;
+  }
+
+  showToast('Reminder updated.');
+  await loadReminders();
+}
+
+// ── Solve ─────────────────────────────────────────────────────────────
+/* 🔴 前態守衛 .eq('status','marked') 不可省略。沿用 order-complete.js 已驗證
+ *    的形態:count === 0 代表【什麼都沒寫入】,可能是他人已 solve、也可能是
+ *    RLS 擋住 —— 兩者同形,故文案不宣稱是哪一種,只說沒有變更並重新整理。
+ *
+ * 🔴 寫入走 base table public.quote_reminders,不走 view。
+ *    view 為 is_updatable=NO 且僅 GRANT SELECT,寫進去會直接失敗,
+ *    但仍在此明寫,避免日後有人以為兩者可互換。
+ *
+ * 🔴 solved_date 為 date 型別,以 todayLocalISO() 取 local 日期。
+ *    不可用 new Date().toISOString() —— 美東 20:00 後 UTC 已跨日。 */
+async function solveReminder(id) {
+  const btn = document.getElementById('solve-' + id);
+  if (btn && btn.disabled) return;          // mid-flight 防呆:連點只算一次
+  if (!window.confirm('Mark this reminder as solved?')) return;
+
+  const originalText = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  const { error, count } = await _supabase
+    .from('quote_reminders')
+    .update({ status: 'solved', solved_date: todayLocalISO() }, { count: 'exact' })
+    .eq('id', id)
+    .eq('status', 'marked');
+
+  if (error) {
+    console.error('[CB-82] solveReminder failed:', error);
+    showToast('Could not update this reminder: ' + (error.message || 'Unexpected error') +
+              ' Nothing was changed.', true);
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    return;
+  }
+
+  if (count === 0) {
+    showToast('This reminder is no longer marked — it may have been changed by someone else. ' +
+              'Nothing was changed. Refreshing now.', true);
+    await loadReminders();
+    return;
+  }
+
+  showToast('Reminder marked as solved.');
+  await loadReminders();
+}
+
+// ── init ──────────────────────────────────────────────────────────────
+async function init() {
+  // 守衛寫在本頁,與其他 admin 頁同模式 —— navigator.js 不負責導向。
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  const { data: me } = await _supabase.from('dealers').select('role').eq('id', session.user.id).single();
+  if (!['admin', 'super_admin'].includes(me && me.role)) { window.location.href = 'dashboard.html'; return; }
+
+  // 一次取全表,同時餵 Created By 與 Company 兩個下拉。
+  // dealers 的 SELECT policy 對 admin 為全表可讀(F-56 基線)。
+  const { data: dealers, error: dErr } = await _supabase
+    .from('dealers')
+    .select('id, company_name, contact_name, role')
+    .order('company_name');
+
+  if (dErr) {
+    // 🔴 不吞掉 —— 下拉空白會被誤讀為「沒有任何公司/使用者」。
+    console.error('[CB-82] load dealers failed:', dErr);
+    showToast('Could not load the filter lists. Filtering by company or user is unavailable.', true);
+  }
+
+  if (dealers) {
+    const admins = [];
+    const comps  = [];
+    dealers.forEach(function (d) {
+      // 🔴 正向識別:admin / super_admin 進 Created By;dealer 進 Company。
+      //    account_type 為 internal_account / location / trial 者 role 仍是
+      //    'dealer',故一併涵蓋,不需另外判斷(CB-76)。
+      if (d.role === 'admin' || d.role === 'super_admin') {
+        _adminMap[d.id] = d;
+        admins.push(d);
+      } else if (d.role === 'dealer') {
+        comps.push(d);
+      }
+    });
+
+    const cbSel = document.getElementById('rmCreatedBy');
+    admins.sort(function (a, b) {
+      return String(a.contact_name || '').localeCompare(String(b.contact_name || ''));
+    }).forEach(function (d) {
+      const o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.contact_name || d.company_name || '(no name)';
+      cbSel.appendChild(o);
+    });
+
+    // Company 下拉以 company_name 為值(view 已攤平該欄,不需 dealer_id)。
+    // 同名公司會合併為一個選項 —— 篩選結果涵蓋兩者,語意正確。
+    const coSel = document.getElementById('rmCompany');
+    const seen  = {};
+    comps.forEach(function (d) {
+      const name = d.company_name;
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      const o = document.createElement('option');
+      o.value = name;
+      o.textContent = name;
+      coSel.appendChild(o);
+    });
+  }
+
+  // ── 10b: 接受 ?po=<單號> 預先篩選 ───────────────────────────
+  // admin-quotes 的 ! / ✓ 標示點下去就帶著單號跳到這裡。
+  // 🔴 同樣走 sanitizeSearchTerm —— URL 參數是外部輸入，不因為“是我們自己
+  //    產生的連結”就跳過淨化。使用者可以手改網址列。
+  // 🔴 淨化後若有改寫，poAltered 會讓提示列現身 —— 不靜默改寫搜尋詞。
+  try {
+    const rawPo = new URLSearchParams(window.location.search).get('po');
+    if (rawPo) {
+      const r = sanitizeSearchTerm(rawPo);
+      if (r.term) {
+        _listState.po        = r.term;
+        _listState.poAltered = r.altered;
+        const el = document.getElementById('rmPo');
+        if (el) el.value = r.term;
+      }
+    }
+  } catch (e) {
+    // 網址解析失敗不該擋住整頁 —— 退化為不篩選，與直接進本頁相同。
+    console.warn('[CB-82] could not read ?po= parameter:', e);
+  }
+
+  await loadReminders();
+}
+
+init();
+</script>
+</body>
+</html>
