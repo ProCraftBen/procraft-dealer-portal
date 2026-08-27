@@ -1,0 +1,670 @@
+-- ============================================================================
+-- CB-83  內部稽核日誌表 account_events
+-- ----------------------------------------------------------------------------
+-- 環境:PRODUCTION (acwgemgpnusworpxxoai)
+-- 日期:2026-08-27
+-- 範圍:純 DB 改動(前端 navigator.js 為獨立交付)。
+--       不動 CB-77 / CB-76 / F2 任何物件、不建任何 FK、不改既有 RLS。
+--
+-- 交付:public.account_events                  — 稽核表
+--       public.record_account_event()          — trigger 函式 (DEFINER)
+--       public.record_login_event()            — 登入 RPC (DEFINER, 零參數)
+--       trg_record_account_event_ins/upd/del   — AFTER trigger 三支
+--
+-- ----------------------------------------------------------------------------
+-- 🔴 執行方式:七段,【依序】貼入 Supabase SQL Editor。
+--      Segment 1 → 2 → 3 → 4 → 5 → 6 → 7
+--
+--    Segment 2 與 Segment 4 為【原子單元】,各自必須整段一次執行。
+--    其餘各段單獨失敗皆無害,全段冪等,可安全重跑。
+--
+--    Segment 2 會主動檢查 Segment 1 的前置條件,漏跑會 RAISE EXCEPTION
+--    而非靜默通過。
+-- ----------------------------------------------------------------------------
+-- 🔴 本檔為 PRODUCTION 版本。由 STAGING 版逐字複製後,【僅】置換 6 處
+--    _ops.assert_env 的環境字串(可執行 5 處:Segment 1、2、4、5、7;
+--    ROLLBACK R-1 註解內 1 處),其餘一字未改。
+--
+-- 前置閘門 G-1:已於 2026-08-27 解除。
+--    F-123(Winnie 帳號 account_type='dealer')已改為 internal_account。
+--    複核:admin/internal_account = 7、super_admin/internal_account = 2,
+--          不再有 role 為 admin/super_admin 而 account_type 為 dealer 的列。
+--
+-- 🔴 promote 前置閘門 G-1:F-123 須先修畢
+--    (production 殘留 1 個 admin 帳號 account_type='dealer')。
+--    未修即上線,該帳號每筆事件都會固化錯值,且依快照原則不可事後修正。
+-- ============================================================================
+
+
+-- ============================================================================
+-- Segment 1 / 7   表
+-- ----------------------------------------------------------------------------
+-- 🔴 除 id / occurred_at / event_type 外【全部 nullable】。這不是疏漏,
+--    是 Q-9=A(fail-closed)的前提:company_name 為空、po_number 為 NULL、
+--    被刪帳號查不到快照,全都是【正常狀態】。用 NOT NULL 會把正常狀態
+--    變成一個能擋住訂單流程的失敗模式。
+--
+-- 🔴 本表【無任何 FK】(Q-10)。FK 無論哪個方向都會壞:
+--      ON DELETE CASCADE  -> draft 被刪時稽核列一併消失,違背本票目的
+--      NO ACTION          -> dealer 刪不掉自己的 draft,對既有功能的迴歸
+--
+-- occurred_at 用 clock_timestamp() 而非 now():now() 回傳交易開始時刻,
+--   同一交易內兩次事件會拿到完全相同的時戳,排序失真(CB-77 T-12)。
+--
+-- CHECK 約束【刻意不在本段】—— 見 Segment 2 的原子性說明。
+-- ============================================================================
+
+DO $cb83_tbl$
+BEGIN
+  PERFORM _ops.assert_env('production');
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'account_events'
+  ) THEN
+    CREATE TABLE public.account_events (
+      id                 uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+      occurred_at        timestamptz NOT NULL DEFAULT clock_timestamp(),
+      event_type         text        NOT NULL,
+      status_value       text        NULL,
+      actor_id           uuid        NULL,
+      actor_name         text        NULL,
+      actor_role         text        NULL,
+      actor_account_type text        NULL,
+      actor_company      text        NULL,
+      db_role            text        NULL,
+      quote_id           uuid        NULL,
+      quote_company      text        NULL,
+      po_number          text        NULL,
+      draft_number       text        NULL,
+      auth_session_id    text        NULL
+    );
+    RAISE NOTICE 'CB-83 Segment 1:已建立 public.account_events。';
+  ELSE
+    RAISE NOTICE 'CB-83 Segment 1:public.account_events 已存在,略過建表。';
+  END IF;
+END
+$cb83_tbl$;
+
+
+-- ============================================================================
+-- Segment 2 / 7   🔴 原子單元 —— 必須整段一次執行
+-- ----------------------------------------------------------------------------
+-- 🔴 為何 CHECK 與 trigger 函式必須同生共死(CB-83 Q-14,PM 加強要求):
+--
+--    event_type 的 CHECK 字面值,與 record_account_event() 的 TG_OP 分支
+--    所產生的值,是同一份契約的兩半。
+--
+--    在 Q-9=A(fail-closed)之下,稽核寫入失敗 = 主操作失敗。若 CHECK 缺
+--    'quote_created' 而函式已產生該值,則【每一次建單都會撞 CHECK 而失敗】
+--    —— 不是少記一筆,是【全站所有人都無法建單】。
+--
+--    已實測確認(PG16):CHECK 為三值、函式產生四值時,
+--    INSERT INTO quotes 回 check_violation,該列從未寫入。
+--
+-- 🔴 日後修改任一處【必須先確認另一處】。這條寫進 COMMENT ON TABLE。
+--
+-- ⚠️ 已實測的反向限制:一旦表中已有 quote_created 列,DROP+ADD 窄化 CHECK
+--    會被既有列擋下("is violated by some row")。回退需先處理既有列。
+--
+-- 🔴 assert_env 以 PERFORM 置於 DO 區塊【第一行】,確保環境守衛與 DDL 位於
+--    同一 statement。寫成區塊外的獨立 SELECT 即失去此保證
+--    (Supabase SQL Editor 走連線池 —— CB-71 教訓)。
+-- ============================================================================
+
+DO $cb83_core$
+BEGIN
+  PERFORM _ops.assert_env('production');
+
+  -- ── 前置條件:Segment 1 的表 ──────────────────────────────────────────
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = 'account_events'
+  ) THEN
+    RAISE EXCEPTION
+      'ABORT: public.account_events 不存在 -> Segment 1 未執行或失敗。'
+      ' 未建立 CHECK 或函式,無任何改動。';
+  END IF;
+
+  -- ── ① CHECK ─────────────────────────────────────────────────────────
+  -- 具名而非 inline(CB-76 Q-20 定版):inline 的自動命名恰好也是這個名字,
+  -- 但那是巧合對上;日後本欄若再加第二條 CHECK,自動命名會變 _check1。
+  -- 值採小寫底線(CB-82 P-1 = B)。status_value 另存 TitleCase 原值。
+  ALTER TABLE public.account_events
+    DROP CONSTRAINT IF EXISTS account_events_event_type_check;
+
+  ALTER TABLE public.account_events
+    ADD CONSTRAINT account_events_event_type_check
+    CHECK (event_type IN ('login', 'status_change', 'quote_created', 'quote_deleted'));
+
+  -- ── ② trigger 函式 ──────────────────────────────────────────────────
+  CREATE OR REPLACE FUNCTION public.record_account_event()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = public, pg_temp
+  AS $fn$
+  DECLARE
+    v_q          jsonb;
+    v_event_type text;
+    v_uid        uuid := auth.uid();
+    v_a_name     text;
+    v_a_role     text;
+    v_a_type     text;
+    v_a_company  text;
+    v_q_company  text;
+  BEGIN
+    -- 🔴 NEW 在 DELETE trigger 中未賦值,直接引用即報錯,故必須分支。
+    --    分支後轉 jsonb,讓下方【只有一處 INSERT】—— 三條路徑的欄位形態
+    --    不可能分歧(CB-77 共用單一函式的同一理由)。
+    IF TG_OP = 'DELETE' THEN
+      v_q := to_jsonb(OLD);
+      v_event_type := 'quote_deleted';
+    ELSIF TG_OP = 'INSERT' THEN
+      v_q := to_jsonb(NEW);
+      v_event_type := 'quote_created';       -- Q-14 = A
+    ELSE
+      v_q := to_jsonb(NEW);
+      v_event_type := 'status_change';
+    END IF;
+
+    -- 🔴 不宣告 record 型別變數:SELECT ... INTO 查無列時 record 維持未賦值,
+    --    後續取欄位會拋 record is not assigned yet —— 那會憑空製造一個
+    --    在 fail-closed 之下會擋住訂單的失敗模式。純量變數查無列即留 NULL。
+    IF v_uid IS NOT NULL THEN
+      SELECT d.contact_name, d.role, d.account_type, d.company_name
+        INTO v_a_name, v_a_role, v_a_type, v_a_company
+      FROM public.dealers d WHERE d.id = v_uid;
+    END IF;
+
+    IF (v_q ->> 'dealer_id') IS NOT NULL THEN
+      SELECT d.company_name INTO v_q_company
+      FROM public.dealers d WHERE d.id = (v_q ->> 'dealer_id')::uuid;
+    END IF;
+
+    INSERT INTO public.account_events (
+      event_type, status_value, actor_id, actor_name, actor_role,
+      actor_account_type, actor_company, db_role,
+      quote_id, quote_company, po_number, draft_number
+    ) VALUES (
+      v_event_type,
+      v_q ->> 'status',                                    -- Q-15:DELETE 亦填
+      v_uid, v_a_name, v_a_role, v_a_type, v_a_company,
+      -- 🔴 Q-11:本函式為 SECURITY DEFINER,current_user 恆為 postgres。
+      --    coalesce 必須 auth.role() 在前,否則 dealer 的操作會全部被
+      --    誤記為 postgres(CB-77 B-3 的同型陷阱,在 DEFINER 下更絕對)。
+      coalesce(auth.role(), current_user::text),
+      (v_q ->> 'id')::uuid,
+      v_q_company,                                         -- Q-7:單的公司
+      v_q ->> 'po_number',                                 -- Q-6:兩欄分存
+      v_q ->> 'draft_number'
+    );
+
+    RETURN NULL;   -- AFTER row trigger 的回傳值被忽略
+  END
+  $fn$;
+
+  RAISE NOTICE 'CB-83 Segment 2 完成:CHECK 與 trigger 函式已同步建立。';
+END
+$cb83_core$;
+
+
+-- ============================================================================
+-- Segment 3 / 7   登入 RPC
+-- ----------------------------------------------------------------------------
+-- 🔴 零參數。身分(auth.uid())與 session(JWT session_id claim)皆由函式
+--    自行取得,【客戶端無法偽造任何欄位】。這是本表可信度的基礎 ——
+--    與 audit_logs 由 client 提供 actor_id / actor_name 形成對比(F-121 鄰居)。
+--
+-- 🔴 M-10 可靠性邊界:本函式內部 fail-closed(取不到 uid 或 session_id
+--    即 RAISE),但【前端不阻擋頁面】。登入已在 GoTrue 完成,沒有主操作
+--    可回滾;為一筆稽核紀錄擋住使用者進入系統不成比例。
+--    -> login 事件為 best-effort,詳見 COMMENT ON TABLE。
+--
+-- ON CONFLICT DO NOTHING 搭配 Segment 5 的部分唯一索引:同一 auth session
+--   重複呼叫天然冪等,不需要前端保證只呼叫一次。
+--
+-- 正向識別(F-35):明確檢查 IS NULL 再拒絕,不用 IF NOT FOUND 這類
+--   會被後續任何 SQL 覆寫的隱含狀態。
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public.record_login_event()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $fn$
+DECLARE
+  v_uid       uuid := auth.uid();
+  v_sid       text := auth.jwt() ->> 'session_id';
+  v_a_name    text;
+  v_a_role    text;
+  v_a_type    text;
+  v_a_company text;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'CB-83: no authenticated user' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_sid IS NULL THEN
+    RAISE EXCEPTION 'CB-83: JWT has no session_id claim' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT d.contact_name, d.role, d.account_type, d.company_name
+    INTO v_a_name, v_a_role, v_a_type, v_a_company
+  FROM public.dealers d WHERE d.id = v_uid;
+
+  INSERT INTO public.account_events (
+    event_type, actor_id, actor_name, actor_role, actor_account_type,
+    actor_company, db_role, auth_session_id
+  ) VALUES (
+    'login', v_uid, v_a_name, v_a_role, v_a_type, v_a_company,
+    coalesce(auth.role(), current_user::text), v_sid
+  )
+  ON CONFLICT DO NOTHING;
+END
+$fn$;
+
+-- trigger 函式的 EXECUTE 權限僅在 CREATE TRIGGER 時檢查,觸發時不檢查
+-- -> REVOKE 不影響運作,但可防外部直接呼叫。
+-- 🔴 本票兩支皆為 SECURITY DEFINER,縱深防禦的價值高於 CB-77 那支 INVOKER。
+REVOKE ALL ON FUNCTION public.record_account_event() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.record_login_event()   FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.record_login_event() TO authenticated;
+
+
+-- ============================================================================
+-- Segment 4 / 7   🔴 原子單元 —— 必須整段一次執行
+-- ----------------------------------------------------------------------------
+-- 🔴 為何三支必須同生共死:
+--    若 ins/upd 成立而 del 失敗,表面一切正常,但被刪的 draft 會【靜默地
+--    留下一條沒有結局的事件序列】—— 恰好是本票要防的那件事,且錯得安靜。
+--
+-- 🔴 為何是 AFTER 而非 BEFORE(CB-83 Q-2):
+--    AFTER row trigger 只在該列確定寫入後才排入 after-trigger queue。任一
+--    BEFORE trigger RAISE EXCEPTION(F2 的 42501、CB-76 的 trial 攔截)會
+--    中止整個 statement,本票 trigger 從未被排入 -> 不會留下幻影紀錄。
+--    已實測確認(PG16):BEFORE trigger 拋例外後,account_events 列數不變。
+--
+--    此保證【不依賴】CB-76 Q-12 的「拒絕形式必須是 RAISE EXCEPTION」前提 ——
+--    即使日後改成強制回寫,AFTER 記到的仍是實際落地的值,是事實非幻影。
+--    CB-77 選 BEFORE 是因 AFTER 需回寫 NEW 而撞 F2 Case 3;本票寫獨立表,
+--    該限制不存在。
+--
+-- 🔴 命名不構成順序依賴:本票三支皆為 AFTER,與 quotes 上既有五支 BEFORE
+--    無任何執行順序耦合(BEFORE 全跑完、該列寫入後才輪到 AFTER)。
+--    CB-77 T-2 那條「名稱是功能不變量」的負擔在本票不存在。
+--
+-- 為何必須三支而非一支:WHEN 子句需引用 OLD,而 OLD 在 INSERT 的 WHEN 中
+--   不存在,語法即錯(CB-77 同一限制)。DELETE 亦需獨立宣告。
+-- ============================================================================
+
+DO $cb83_trg$
+BEGIN
+  PERFORM _ops.assert_env('production');
+
+  -- ── 前置條件:Segment 2 的函式 ────────────────────────────────────────
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'record_account_event'
+      AND p.prorettype = 'pg_catalog.trigger'::regtype
+  ) THEN
+    RAISE EXCEPTION
+      'ABORT: public.record_account_event() 不存在 -> Segment 2 未執行或失敗。'
+      ' 未建立任何 trigger,無任何改動。';
+  END IF;
+
+  -- ── 冪等:先移除舊版(若有)────────────────────────────────────────────
+  DROP TRIGGER IF EXISTS trg_record_account_event_ins ON public.quotes;
+  DROP TRIGGER IF EXISTS trg_record_account_event_upd ON public.quotes;
+  DROP TRIGGER IF EXISTS trg_record_account_event_del ON public.quotes;
+
+  CREATE TRIGGER trg_record_account_event_ins
+    AFTER INSERT ON public.quotes
+    FOR EACH ROW
+    EXECUTE FUNCTION public.record_account_event();
+
+  CREATE TRIGGER trg_record_account_event_upd
+    AFTER UPDATE ON public.quotes
+    FOR EACH ROW
+    WHEN (OLD.status IS DISTINCT FROM NEW.status)
+    EXECUTE FUNCTION public.record_account_event();
+
+  CREATE TRIGGER trg_record_account_event_del
+    AFTER DELETE ON public.quotes
+    FOR EACH ROW
+    EXECUTE FUNCTION public.record_account_event();
+
+  RAISE NOTICE 'CB-83 Segment 4 完成:三支 AFTER trigger 均已建立。';
+END
+$cb83_trg$;
+
+
+-- ============================================================================
+-- Segment 5 / 7   索引 / RLS / 表權限
+-- ----------------------------------------------------------------------------
+-- 🔴 uq_account_events_login_session【不是查詢優化,是正確性機制】——
+--    Q-5 的去重靠它,不靠前端。前端的 sessionStorage 只是省網路請求。
+--
+-- 未建 event_type 索引:僅四個值,選擇性太低,occurred_at 索引已覆蓋
+--   時間查詢。刻意不建。
+--
+-- 🔴 ENABLE ROW LEVEL SECURITY 必須在 policy 之前(CB-82 先例)——
+--    順序反了會有「policy 已存在但 RLS 未啟用」的窗口,那個窗口內本表
+--    對所有 authenticated 使用者全開。
+--
+-- 🔴 REVOKE ALL 不可省略,亦不可縮寫為逐項 REVOKE(CB-83 Q-13):
+--    Stage 0 D-12 顯示 public schema 的 default ACL 標示 anon/authenticated
+--    為 arwdDxtm;D-11 卻顯示 CB-82 的 quote_reminders 未被灌入。
+--    🔴 機制不明,故不依賴理解 —— 由 Segment 7 的斷言保證結果。
+--    (已在 PG16 mock 環境實測:default ACL 確實會灌,REVOKE ALL 有效。)
+-- ============================================================================
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_account_events_login_session
+  ON public.account_events (auth_session_id) WHERE event_type = 'login';
+
+CREATE INDEX IF NOT EXISTS idx_account_events_occurred
+  ON public.account_events (occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_account_events_actor
+  ON public.account_events (actor_id, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_account_events_quote
+  ON public.account_events (quote_id) WHERE quote_id IS NOT NULL;
+
+ALTER TABLE public.account_events ENABLE ROW LEVEL SECURITY;
+
+DO $cb83_rls$
+BEGIN
+  PERFORM _ops.assert_env('production');
+
+  -- 🔴 唯一一條 policy。無 INSERT / UPDATE / DELETE policy,亦無對應 GRANT
+  --    —— 雙層。寫入只走兩支 SECURITY DEFINER 函式。
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policy
+    WHERE polrelid = 'public.account_events'::regclass
+      AND polname  = 'admin_read_account_events'
+  ) THEN
+    CREATE POLICY admin_read_account_events
+      ON public.account_events
+      FOR SELECT TO authenticated
+      USING (public.is_admin());
+    RAISE NOTICE 'CB-83 Segment 5:已建立 admin_read_account_events。';
+  ELSE
+    RAISE NOTICE 'CB-83 Segment 5:admin_read_account_events 已存在,略過。';
+  END IF;
+END
+$cb83_rls$;
+
+REVOKE ALL ON public.account_events FROM anon, authenticated;
+GRANT SELECT ON public.account_events TO authenticated;
+
+
+-- ============================================================================
+-- Segment 6 / 7   文件(零行為影響)
+-- ============================================================================
+
+COMMENT ON TABLE public.account_events IS
+$doc$CB-83 內部稽核日誌。合併兩類事件:帳號登入、訂單狀態變更。
+純 DB 表,無 UI —— 查詢者是業主本人,以 SQL / Colab 直接查。
+
+存在理由:紀錄必須獨立於母體存活。
+  quotes.status_history(CB-77)是 quotes 的欄位,母體刪除即一起消失;
+  而 dealer 刪 draft 是硬刪(真 DELETE,無 deleted_at)。
+  本表是刪除之後唯一還看得到「哪家、哪張單、誰動的」的地方。
+
+🔴 (C-1) FK 策略與 quote_reminders【刻意相反】,不可「順手對齊」:
+  quote_reminders.quote_id  ON DELETE CASCADE  — reminder 隨 draft 消失是預期
+  account_events.quote_id   【無 FK】          — 紀錄必須存活
+  兩表同庫、都關聯 quotes、策略相反。CASCADE 會刪掉稽核列(違背本票目的);
+  NO ACTION 會讓 dealer 刪不掉自己的 draft(對既有功能的迴歸)。
+  無 FK 是唯一正確解,不是疏漏。
+
+🔴 (C-2) 快照原則:本表記錄事件當下的值,【不可事後修正】。
+  例:某 admin 帳號的 account_type 誤設為 'dealer'(F-123),其事件會
+  忠實帶著該錯值。要修請修來源表,不要動本表 ——
+  稽核表一旦變成「經過詮釋的資料」,就失去證據價值。
+
+🔴 (C-3) 兩類事件的可靠性【不對等】,查詢時不可混為一談:
+  status_change / quote_created / quote_deleted
+      = 交易保證。由 quotes 上的 AFTER trigger 寫入,與主操作同交易。
+        【不存在即該事件確實沒發生。】
+  login
+      = best-effort。由前端 navigator.js 呼叫 record_login_event() 寫入,
+        網路失敗即遺漏,且刻意不阻擋頁面(M-10)。
+        【不存在【不代表】該使用者沒登入。】
+  ⚠️ 把 login 的缺口讀成「此人未登入」,比沒有紀錄更糟 —— 那是錯誤的結論,
+     不是缺資料。要讓登入也具交易保證,唯一路徑是啟用 GoTrue Postgres
+     稽核 + pg_cron,屬另一張票。
+
+🔴 (C-4) 無保留期限、不分區(Q-12)。但在 fail-closed(Q-9=A)之下,
+  本表若撐爆磁碟,訂單流程會【全停】。以 2026-08 規模推算年增約一萬列,
+  風險可忽略。觀察閾值:100 萬列 / 500 MB,越過即重新評估。
+
+🔴 (C-5) event_type 的 CHECK 字面值與 record_account_event() 的 TG_OP 分支
+  【必須同步修改】。任一不同步 -> 該類事件撞 CHECK -> 在 fail-closed 之下
+  主操作連帶失敗(例:CHECK 缺 quote_created 時,全站無法建單)。
+  修改任一處前必須確認另一處。已實測確認此後果為真。
+  ⚠️ 反向限制:表中已有某 event_type 的列時,窄化 CHECK 會被既有列擋下。
+
+RLS:admin only(is_admin())。dealer 有 SELECT GRANT 但 policy 不成立,
+  實際回零列。無 INSERT/UPDATE/DELETE policy 且無對應 GRANT。$doc$;
+
+COMMENT ON COLUMN public.account_events.occurred_at IS
+  '事件時刻。用 clock_timestamp() 非 now() —— 同交易內兩次事件用 now() 會拿到相同時戳。';
+
+COMMENT ON COLUMN public.account_events.event_type IS
+  '🔴 值只能由函式內部字面值產生,【永不可由資料衍生】。否則 CHECK 會變成一個活的失敗模式,直接推翻 Q-9=A 的前提。';
+
+COMMENT ON COLUMN public.account_events.status_value IS
+  'quotes.status 的 TitleCase canonical value,原封不動(CB-79 Q-1:那是「不能改,不是典範」)。登入事件為 NULL。DELETE 事件填刪除當下的狀態(Q-15)。';
+
+COMMENT ON COLUMN public.account_events.actor_company IS
+  '操作者本人的 company_name 快照。🔴 與 quote_company 語意不同,不可互相替代 —— admin 改 dealer 的單時兩者不同值。';
+
+COMMENT ON COLUMN public.account_events.quote_company IS
+  '該單所屬 dealer 的 company_name 快照。🔴 這是「哪一家的單」,登入事件為 NULL。';
+
+COMMENT ON COLUMN public.account_events.db_role IS
+  'coalesce(auth.role(), current_user::text)。🔴 順序不可調換 —— 本表兩支寫入函式皆為 SECURITY DEFINER,current_user 恆為 postgres(CB-77 B-3 的同型陷阱,在 DEFINER 下更絕對)。n8n / service_role 路徑在此顯示為 service_role 且 actor_id 為 NULL。';
+
+COMMENT ON COLUMN public.account_events.quote_id IS
+  '🔴 無 FK(Q-10)。母體刪除後,這是唯一能把同一張單的多筆事件串起來的鍵。';
+
+COMMENT ON COLUMN public.account_events.po_number IS
+  '快照。🔴 Draft 階段恆為 NULL(雙編號制,Stage 0 D-6 兩環境實證 has_po=0),故必須與 draft_number 兩欄並存 —— 只存本欄會讓被刪的 draft 退化成無法辨識,抵銷本票價值(Q-6)。';
+
+COMMENT ON COLUMN public.account_events.auth_session_id IS
+  'JWT 的 session_id claim。🔴 搭配 uq_account_events_login_session 部分唯一索引達成登入去重 —— 這是正確性機制,不是查詢優化。語意為「每個 auth session 一列」,非「每次按下 Sign In 一列」(Q-5)。';
+
+COMMENT ON FUNCTION public.record_account_event() IS
+  'CB-83 訂單事件記錄。由 quotes 上三支 AFTER trigger 共用,以 TG_OP 分支 —— 單一真相來源,三條路徑的欄位形態不可能分歧。🔴 無 EXCEPTION 區塊(Q-9=A fail-closed):獨立失敗模式已在設計階段消除(無 FK、快照欄全 nullable、CHECK 只約束內部字面值、DEFINER 繞過 RLS),剩餘者為表被 DROP 或磁碟滿等系統級故障,應大聲失敗。';
+
+COMMENT ON FUNCTION public.record_login_event() IS
+  'CB-83 登入事件記錄。🔴 零參數 —— 身分與 session 皆由函式自行從 JWT 取得,客戶端無法偽造。由 components/navigator.js 呼叫。前端須檢查 error 並 console.error,但【不阻擋頁面】(M-10)。';
+
+COMMENT ON TRIGGER trg_record_account_event_ins ON public.quotes IS
+  'CB-83 建單事件(Q-14 = quote_created)。🔴 AFTER 而非 BEFORE:BEFORE trigger 拋例外時本 trigger 從未排入 after-trigger queue,不會留下幻影紀錄,且此保證不依賴 CB-76 Q-12 的拒絕形式前提。改為 BEFORE 即重新引入該風險。';
+
+COMMENT ON TRIGGER trg_record_account_event_upd ON public.quotes IS
+  'CB-83 狀態變更事件。WHEN 子句寫在 CREATE TRIGGER 而非函式體內:條件不成立時 PostgreSQL 根本不呼叫函式 -> 改金額/備註的 UPDATE 成本為零。本 trigger 與 CB-77 的 trg_record_status_history 是同一事實的兩份獨立紀錄,互不讀寫。';
+
+COMMENT ON TRIGGER trg_record_account_event_del ON public.quotes IS
+  'CB-83 刪單事件(Q-3)。🔴 這是母體消失前唯一能記錄「誰刪了哪張單」的時點 —— 沒有本 trigger,被刪的 draft 會留下一條沒有結局的事件序列,分不出是還在草稿還是被刪了。dealer 刪 draft 若被 RLS 擋下,0 列受影響 -> 本 trigger 不觸發,不會有假紀錄。';
+
+
+-- ============================================================================
+-- Segment 7 / 7   schema reload + 硬斷言
+-- ----------------------------------------------------------------------------
+-- 硬斷言:任一不成立即 RAISE EXCEPTION,不得僅回報。
+-- 🔴 斷言 6/7 是 Q-13 的核心 —— Stage 0 查不出 default ACL 為何對
+--    quote_reminders 沒生效,故不依賴理解,由斷言保證結果。
+-- ============================================================================
+
+NOTIFY pgrst, 'reload schema';
+
+DO $cb83_verify$
+DECLARE
+  v_ins "char"; v_upd "char"; v_del "char";
+  v_secdef boolean; v_cfg text[];
+  v_before int; v_n_anon int; v_n_auth int; v_auth_priv text;
+  v_rls boolean; v_pol int; v_chk text;
+BEGIN
+  PERFORM _ops.assert_env('production');
+
+  SELECT tgenabled INTO v_ins FROM pg_trigger
+   WHERE tgrelid = 'public.quotes'::regclass AND tgname = 'trg_record_account_event_ins';
+  SELECT tgenabled INTO v_upd FROM pg_trigger
+   WHERE tgrelid = 'public.quotes'::regclass AND tgname = 'trg_record_account_event_upd';
+  SELECT tgenabled INTO v_del FROM pg_trigger
+   WHERE tgrelid = 'public.quotes'::regclass AND tgname = 'trg_record_account_event_del';
+
+  -- (1) 三支 trigger 皆存在
+  IF v_ins IS NULL OR v_upd IS NULL OR v_del IS NULL THEN
+    RAISE EXCEPTION
+      'ASSERT 1 失敗:三支 trigger 未全數建立 (ins=%, upd=%, del=%)。'
+      ' 🔴 若缺 del,被刪的 draft 會靜默地留下沒有結局的事件序列。',
+      v_ins, v_upd, v_del;
+  END IF;
+
+  -- (2) 三支皆為啟用狀態
+  IF v_ins <> 'O' OR v_upd <> 'O' OR v_del <> 'O' THEN
+    RAISE EXCEPTION
+      'ASSERT 2 失敗:tgenabled 非 O (ins=%, upd=%, del=%) -> 事件會靜默漏記。',
+      v_ins, v_upd, v_del;
+  END IF;
+
+  -- (3) 本票 trigger 不得出現 BEFORE timing
+  SELECT count(*) INTO v_before FROM pg_trigger t
+   WHERE t.tgrelid = 'public.quotes'::regclass AND NOT t.tgisinternal
+     AND t.tgname LIKE 'trg\_record\_account\_event\_%'
+     AND (t.tgtype & 2) > 0;
+  IF v_before > 0 THEN
+    RAISE EXCEPTION
+      'ASSERT 3 失敗:本票 trigger 出現 BEFORE timing (% 支) -> Q-2 的無幻影保證失效。', v_before;
+  END IF;
+
+  -- (4) trigger 函式為 DEFINER + search_path 正確
+  SELECT p.prosecdef, p.proconfig INTO v_secdef, v_cfg FROM pg_proc p
+   JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'record_account_event';
+  IF v_secdef IS NOT TRUE OR v_cfg IS NULL
+     OR NOT (v_cfg @> ARRAY['search_path=public, pg_temp']) THEN
+    RAISE EXCEPTION
+      'ASSERT 4 失敗:record_account_event 非 SECURITY DEFINER 或 search_path 不符。proconfig = %', v_cfg;
+  END IF;
+
+  -- (5) 登入 RPC 為 DEFINER + search_path 正確
+  SELECT p.prosecdef, p.proconfig INTO v_secdef, v_cfg FROM pg_proc p
+   JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'record_login_event';
+  IF v_secdef IS NOT TRUE OR v_cfg IS NULL
+     OR NOT (v_cfg @> ARRAY['search_path=public, pg_temp']) THEN
+    RAISE EXCEPTION
+      'ASSERT 5 失敗:record_login_event 非 SECURITY DEFINER 或 search_path 不符。proconfig = %', v_cfg;
+  END IF;
+
+  -- (6) 🔴 anon 對本表零權限
+  SELECT count(*) INTO v_n_anon FROM information_schema.role_table_grants
+   WHERE table_schema = 'public' AND table_name = 'account_events' AND grantee = 'anon';
+  IF v_n_anon <> 0 THEN
+    RAISE EXCEPTION
+      'ASSERT 6 失敗:anon 對 account_events 仍持有 % 項權限(TRUNCATE 不受 RLS 約束)。', v_n_anon;
+  END IF;
+
+  -- (7) 🔴 authenticated 恰為 SELECT 一項
+  SELECT count(*), coalesce(min(privilege_type), '-')
+    INTO v_n_auth, v_auth_priv
+    FROM information_schema.role_table_grants
+   WHERE table_schema = 'public' AND table_name = 'account_events' AND grantee = 'authenticated';
+  IF v_n_auth <> 1 OR v_auth_priv <> 'SELECT' THEN
+    RAISE EXCEPTION
+      'ASSERT 7 失敗:authenticated 應恰為 SELECT 一項,實際 % 項 (%)。', v_n_auth, v_auth_priv;
+  END IF;
+
+  -- (8) RLS 已啟用
+  SELECT c.relrowsecurity INTO v_rls FROM pg_class c
+   JOIN pg_namespace n ON n.oid = c.relnamespace
+   WHERE n.nspname = 'public' AND c.relname = 'account_events';
+  IF v_rls IS NOT TRUE THEN
+    RAISE EXCEPTION 'ASSERT 8 失敗:RLS 未啟用 -> 本表對所有 authenticated 全開。';
+  END IF;
+
+  -- (9) policy 恰為 1 條
+  SELECT count(*) INTO v_pol FROM pg_policy
+   WHERE polrelid = 'public.account_events'::regclass;
+  IF v_pol <> 1 THEN
+    RAISE EXCEPTION 'ASSERT 9 失敗:policy 數應為 1(僅 SELECT),實際 %。', v_pol;
+  END IF;
+
+  -- (10) 🔴 CHECK 必須含四個值(C-5 同步契約)
+  SELECT pg_get_constraintdef(oid) INTO v_chk FROM pg_constraint
+   WHERE conrelid = 'public.account_events'::regclass
+     AND conname  = 'account_events_event_type_check';
+  IF v_chk IS NULL
+     OR v_chk NOT LIKE '%login%' OR v_chk NOT LIKE '%status_change%'
+     OR v_chk NOT LIKE '%quote_created%' OR v_chk NOT LIKE '%quote_deleted%' THEN
+    RAISE EXCEPTION
+      'ASSERT 10 失敗:CHECK 未涵蓋四個 event_type -> 該類事件會撞 CHECK,'
+      ' 在 fail-closed 之下主操作連帶失敗。實際 = %', v_chk;
+  END IF;
+
+  RAISE NOTICE 'CB-83 驗證通過:斷言 1-10 全數成立。';
+END
+$cb83_verify$;
+
+
+-- ── 人眼複核 A:quotes 上的 trigger 全貌與執行順序 ──────────────────────
+SELECT (SELECT name FROM _ops.environment) AS env,
+       t.tgname,
+       CASE WHEN (t.tgtype & 2) > 0 THEN 'BEFORE' ELSE 'AFTER' END AS timing,
+       (t.tgtype & 4)  > 0 AS on_insert,
+       (t.tgtype & 16) > 0 AS on_update,
+       (t.tgtype & 8)  > 0 AS on_delete,
+       t.tgenabled
+FROM pg_trigger t
+WHERE t.tgrelid = 'public.quotes'::regclass AND NOT t.tgisinternal
+ORDER BY CASE WHEN (t.tgtype & 2) > 0 THEN 0 ELSE 1 END, t.tgname COLLATE "C";
+-- 預期 8 列:5 支 BEFORE(既有,不得變動)+ 3 支 AFTER(本票)
+
+-- ── 人眼複核 B:本表尚無資料(migration 後、測試前)────────────────────
+SELECT (SELECT name FROM _ops.environment) AS env,
+       count(*) AS total_events
+FROM public.account_events;
+-- 預期 0
+
+
+-- ============================================================================
+-- ROLLBACK  R-CB83
+-- ----------------------------------------------------------------------------
+-- ⚠️ R-1 與 R-2/R-3 刻意分離:
+--    只跑 R-1 即可【完全停止】新資料寫入,且不損失已收集的紀錄。
+--    🔴 R-1 亦是「訂單流程被稽核擋住」時的緊急出口 —— 那是 Q-9=A
+--       (fail-closed)的代價,必須有一條不需要思考就能執行的解法。
+--    R-3 不可逆 —— 會永久刪除所有已收集的稽核紀錄。
+-- ============================================================================
+-- ── R-1  止血 ───────────────────────────────────────────────────────────
+-- DO $rb$
+-- BEGIN
+--   PERFORM _ops.assert_env('production');
+--   DROP TRIGGER IF EXISTS trg_record_account_event_ins ON public.quotes;
+--   DROP TRIGGER IF EXISTS trg_record_account_event_upd ON public.quotes;
+--   DROP TRIGGER IF EXISTS trg_record_account_event_del ON public.quotes;
+--   RAISE NOTICE 'CB-83 R-1:三支 trigger 已移除。登入 RPC 不受影響。';
+-- END
+-- $rb$;
+--
+-- ── R-1b 一併停止登入事件(選用)────────────────────────────────────────
+-- REVOKE EXECUTE ON FUNCTION public.record_login_event() FROM authenticated;
+--
+-- ── R-2  移除函式(選用)────────────────────────────────────────────────
+-- DROP FUNCTION IF EXISTS public.record_account_event();
+-- DROP FUNCTION IF EXISTS public.record_login_event();
+--
+-- ── R-3  🔴 不可逆:永久刪除所有稽核紀錄 ────────────────────────────────
+-- DROP TABLE IF EXISTS public.account_events;
+-- ============================================================================
