@@ -2677,12 +2677,23 @@ async function loadReminderFlag() {
   _rmCheckFailed = false;
 }
 
-// 🔴 與 admin-quotes.html 的 reminderFlagHtml() 同一套規則：
-//    有未處理 → 紅 !；全部已處理 → 綠 ✓；都沒有 → 不顯示。
-//    ⚠️ 兩頁各一份實作，但判斷規則必須一致 —— 一邊改了另一邊沒改，
-//    會讓同一張單在兩頁顯示不同顏色，而且不報錯。
+// ══ F-118 同步單元:reminderFlagHtml() ═══════════════════════════════════
+//   本函式共有【兩份】平行實作,判斷規則必須逐字一致:
+//     ① admin-quotes.html   — 資料來源:_rmOpen / _rmClear 兩個 Set
+//     ② quote-detail.html   — 資料來源:_rmOpenCount / _rmSolvedCount 兩個計數
+//
+//   共同規則(改動任一份都必須同步另一份):
+//     有未處理 → 紅 ! ;否則有已處理 → 綠 ✓ ;都沒有 → 不顯示。
+//     降級(_rmDegraded / _rmCheckFailed)時一律【不渲染】。
+//     連結一律指向 admin-reminders.html?po=<po_number || draft_number>。
+//
+//   🔴 不一致的症狀:同一張單在兩頁顯示不同顏色,且【不報錯】。
+//   🔴 不抽成共用函式的理由:兩邊資料形態不同(Set vs 計數),抽出前得先
+//      統一形態,那會把 admin-quotes 的集合設計拖進來改。目前僅三行判斷,
+//      重複成本低於耦合成本。規則若變複雜,回頭抽(比照 F-66 round2 的判斷)。
+// ═══════════════════════════════════════════════════════════════════════
 // 🔴 降級時【不渲染】—— 不知道就不講，比講錯好。
-//    Fulfilled 攬截那邊會以「無法確認」提醒，不會無聲無息。
+//    Fulfilled 攔截那邊會以「無法確認」提醒，不會無聲無息。
 function reminderFlagHtml() {
   if (!_isAdmin || _rmCheckFailed || !_quote) return '';
 
