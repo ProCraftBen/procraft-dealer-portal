@@ -584,6 +584,9 @@
 <script src="components/i18n.js?v=cb62c"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js?v=cb62c"></script>
+<!-- CB-82: Reminder 表單 modal(與 admin-reminders.html 共用同一份)。
+     新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
+<script src="components/reminder-modal.js"></script>
 <script src="components/footer.js?v=cb62c"></script>
 <!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
 <script src="components/order-complete.js"></script>
@@ -2604,36 +2607,21 @@ async function fulfillOrder() {
 }
 
 
-/* ═════════════════════════════════════════════════════════════════════════
- * CB-82 — Add Reminder modal
+/* ══════════════════════════════════════════════════════════════════════════
+ * CB-82 — Reminder(admin 專屬)
  *
- * 🔴 admin 專屬。dealer 看不到按鈕,且 quote_reminders 對 dealer 零 policy,
+ * 🔴 表單 modal 已抽至 components/reminder-modal.js(單元 11 / Q-19 = B)——
+ *    admin-reminders.html 的 Edit 用的是【同一份表單】,各留一份必然漂移。
+ *    本頁只保留:旗標載入、Add 入口、INSERT 寫入。
+ *
+ * 🔴 dealer 看不到按鈕,且 quote_reminders 對 dealer 零 policy,
  *    即使繞過前端也讀不到、寫不進(G-3 已實測)。
- *
- * 🔴 形態沿用 components/order-complete.js 的 openDateModal():
- *      - 樣式自注入且冪等(STYLE_ID 守衛),class 全帶 pcrm- 前綴
- *      - 主色帶 fallback,不依賴本頁是否定義 CSS 變數
- *      - DOM 掛 document.body 層級,不受任何父層冒泡影響
- *      - Promise 化,resolve(null) 代表取消
- *    前綴 pcrm- 與既有 pcoc- / pcd- 不碰撞(已 grep 確認)。
  *
  * 🔴 本頁載入 i18n.js,但 admin 專屬元素一律英文硬編碼、不掛 i18n 標記
  *    (CB-62 Q-5 / CB-66)。未載入對應 key 的標記會成為死標記(F-25 同類)。
  *
  * 🔴 寫入走 base table public.quote_reminders,不走 view。
  * ═══════════════════════════════════════════════════════════════════════ */
-
-const PCRM_STYLE_ID = 'pcrm-styles';
-
-// Q-18 定版:僅前端限制,不做 DB CHECK —— 與 reminder_date 必填規則同一理由
-// (admin-only 內部工具,DB 層做長度/條件限制成本不成比例)。
-const PCRM_SUBJECT_MAX = 120;
-const PCRM_DESC_MAX    = 500;
-
-// 🔴 Type 為 backorder / payment 時 Date 必填(需求書定版)。
-//    正向識別(F-35):列出「需要日期」的型別,不寫 type !== 'other' ——
-//    未來新增第四種型別時,負向判斷會把它一併當成必填,且不報錯。
-const PCRM_DATE_REQUIRED_TYPES = ['backorder', 'payment'];
 
 /* ── CB-82: Fulfilled 攬截所需的兩個旗標 ───────────────────────
  * 🔴 order-complete.js 【不自行查 DB】，旗標由呼叫端傳入。兩個呼叫端
@@ -2669,176 +2657,25 @@ async function loadReminderFlag() {
   _rmOpenCount   = (count == null ? 0 : count);
 }
 
-function pcrmInjectStyles() {
-  if (document.getElementById(PCRM_STYLE_ID)) return;
-  const css = ''
-    + '.pcrm-overlay{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.55);'
-    + 'display:flex;align-items:center;justify-content:center;padding:20px;'
-    + "font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;}"
-    + '.pcrm-box{background:#fff;border-radius:10px;width:100%;max-width:520px;'
-    + 'box-shadow:0 20px 50px rgba(15,23,42,.28);overflow:hidden;'
-    + 'max-height:90vh;display:flex;flex-direction:column;}'
-    + '.pcrm-head{padding:20px 24px 14px;border-bottom:1px solid #E5E7EB;flex:0 0 auto;}'
-    + '.pcrm-title{margin:0;font-size:17px;font-weight:600;color:#0F172A;letter-spacing:-.01em;}'
-    + '.pcrm-sub{margin:4px 0 0;font-size:12px;color:#64748B;}'
-    + '.pcrm-body{padding:18px 24px;overflow-y:auto;flex:1 1 auto;}'
-    + '.pcrm-field{margin-bottom:16px;}'
-    + '.pcrm-field:last-child{margin-bottom:0;}'
-    + '.pcrm-label{display:block;font-size:9px;font-weight:600;letter-spacing:.18em;'
-    + 'text-transform:uppercase;color:#64748B;margin-bottom:7px;}'
-    + '.pcrm-req{color:#C0392B;}'
-    + '.pcrm-input,.pcrm-select,.pcrm-area{width:100%;box-sizing:border-box;'
-    + 'padding:10px 12px;font-size:14px;font-family:inherit;color:#0F172A;'
-    + 'border:1.5px solid #CBD5E1;border-radius:7px;background:#fff;}'
-    + '.pcrm-area{min-height:96px;resize:vertical;line-height:1.5;}'
-    + '.pcrm-input:focus,.pcrm-select:focus,.pcrm-area:focus{outline:none;'
-    + 'border-color:var(--green-dark,#3e5a42);box-shadow:0 0 0 3px rgba(62,90,66,.14);}'
-    + '.pcrm-counter{margin-top:5px;font-size:11px;color:#94A3B8;text-align:right;}'
-    + '.pcrm-hint{margin-top:5px;font-size:11px;color:#64748B;line-height:1.5;}'
-    + '.pcrm-err{display:none;margin:0 0 14px;padding:10px 12px;border-radius:6px;'
-    + 'background:#FEF2F2;border:1px solid #FECACA;font-size:12px;line-height:1.55;color:#991B1B;}'
-    + '.pcrm-err.show{display:block;}'
-    + '.pcrm-foot{padding:14px 24px 20px;display:flex;gap:10px;justify-content:flex-end;'
-    + 'border-top:1px solid #E5E7EB;flex:0 0 auto;background:#fff;}'
-    + '.pcrm-btn{font-family:inherit;font-size:13px;font-weight:500;padding:9px 18px;'
-    + 'border-radius:7px;cursor:pointer;border:1px solid transparent;transition:opacity .15s;}'
-    + '.pcrm-btn:disabled{opacity:.5;cursor:not-allowed;}'
-    + '.pcrm-cancel{background:#fff;border-color:#CBD5E1;color:#475569;}'
-    + '.pcrm-cancel:hover:not(:disabled){background:#F8FAFC;}'
-    + '.pcrm-save{background:var(--green-dark,#3e5a42);color:#fff;}'
-    + '.pcrm-save:hover:not(:disabled){opacity:.88;}'
-    + '@media(max-width:480px){.pcrm-foot{flex-direction:column-reverse;}'
-    + '.pcrm-btn{width:100%;}}';
-  const el = document.createElement('style');
-  el.id = PCRM_STYLE_ID;
-  el.textContent = css;
-  document.head.appendChild(el);
-}
-
-/* resolve({type, reminder_date, subject, description}) 或 resolve(null) 代表取消。
- * 驗證未通過時【不關閉】modal —— 關掉會讓使用者重打一次,且看不到錯在哪。 */
-function pcrmOpenModal(quote) {
-  return new Promise(function (resolve) {
-    pcrmInjectStyles();
-
-    const label = quote.po_number || quote.draft_number || 'This order';
-
-    const overlay = document.createElement('div');
-    overlay.className = 'pcrm-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.innerHTML = ''
-      + '<div class="pcrm-box">'
-      +   '<div class="pcrm-head">'
-      +     '<h3 class="pcrm-title">Add Reminder</h3>'
-      +     '<p class="pcrm-sub">' + escapeHtml(label) + '</p>'
-      +   '</div>'
-      +   '<div class="pcrm-body">'
-      +     '<div class="pcrm-err" id="pcrm-err"></div>'
-      +     '<div class="pcrm-field">'
-      +       '<label class="pcrm-label" for="pcrm-type">Type <span class="pcrm-req">*</span></label>'
-      +       '<select class="pcrm-select" id="pcrm-type">'
-      +         '<option value="">Select a type…</option>'
-      +         '<option value="backorder">Backorder</option>'
-      +         '<option value="payment">Payment</option>'
-      +         '<option value="other">Other</option>'
-      +       '</select>'
-      +     '</div>'
-      +     '<div class="pcrm-field">'
-      +       '<label class="pcrm-label" for="pcrm-date">Date</label>'
-      +       '<input class="pcrm-input" id="pcrm-date" type="date"/>'
-      +       '<div class="pcrm-hint" id="pcrm-date-hint">Required for Backorder and Payment.</div>'
-      +     '</div>'
-      +     '<div class="pcrm-field">'
-      +       '<label class="pcrm-label" for="pcrm-subject">Subject <span class="pcrm-req">*</span></label>'
-      +       '<input class="pcrm-input" id="pcrm-subject" type="text" autocomplete="off" maxlength="' + PCRM_SUBJECT_MAX + '"/>'
-      +     '</div>'
-      +     '<div class="pcrm-field">'
-      +       '<label class="pcrm-label" for="pcrm-desc">Description</label>'
-      +       '<textarea class="pcrm-area" id="pcrm-desc" maxlength="' + PCRM_DESC_MAX + '"></textarea>'
-      +       '<div class="pcrm-counter" id="pcrm-desc-count">0 / ' + PCRM_DESC_MAX + '</div>'
-      +     '</div>'
-      +   '</div>'
-      +   '<div class="pcrm-foot">'
-      +     '<button type="button" class="pcrm-btn pcrm-cancel" id="pcrm-cancel">Cancel</button>'
-      +     '<button type="button" class="pcrm-btn pcrm-save" id="pcrm-save">Save Reminder</button>'
-      +   '</div>'
-      + '</div>';
-
-    document.body.appendChild(overlay);
-
-    const elType = overlay.querySelector('#pcrm-type');
-    const elDate = overlay.querySelector('#pcrm-date');
-    const elSubj = overlay.querySelector('#pcrm-subject');
-    const elDesc = overlay.querySelector('#pcrm-desc');
-    const elErr  = overlay.querySelector('#pcrm-err');
-    const elSave = overlay.querySelector('#pcrm-save');
-    const elCnt  = overlay.querySelector('#pcrm-desc-count');
-
-    elDesc.addEventListener('input', function () {
-      elCnt.textContent = elDesc.value.length + ' / ' + PCRM_DESC_MAX;
-    });
-
-    function showErr(msg) {
-      elErr.textContent = msg;
-      elErr.classList.add('show');
-    }
-
-    let closed = false;
-    function close(result) {
-      if (closed) return;
-      closed = true;
-      document.removeEventListener('keydown', onKey, true);
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      resolve(result);
-    }
-
-    function onKey(e) {
-      if (e.key === 'Escape' || e.key === 'Esc') { e.stopPropagation(); close(null); }
-    }
-    document.addEventListener('keydown', onKey, true);
-
-    // 覆蓋層點擊關閉;面板內點擊不關(避免打字時誤觸)。
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(null); });
-    overlay.querySelector('#pcrm-cancel').addEventListener('click', function () { close(null); });
-
-    elSave.addEventListener('click', function () {
-      elErr.classList.remove('show');
-
-      const type = elType.value;
-      // <input type="date"> 的 .value 本身就是 "YYYY-MM-DD" 純字串,直接送。
-      // 🔴 全程不得經過 Date 物件往返,否則會被當成 UTC 午夜解析,美東少一天。
-      const date = elDate.value;
-      const subj = elSubj.value.trim();
-      const desc = elDesc.value.trim();
-
-      if (!type) { showErr('Please choose a type.'); elType.focus(); return; }
-      if (!subj) { showErr('Subject is required.'); elSubj.focus(); return; }
-      if (PCRM_DATE_REQUIRED_TYPES.indexOf(type) !== -1 && !date) {
-        showErr('A date is required for Backorder and Payment reminders.');
-        elDate.focus();
-        return;
-      }
-
-      close({
-        type:          type,
-        reminder_date: date || null,
-        subject:       subj,
-        description:   desc || null,
-      });
-    });
-
-    setTimeout(function () { try { elType.focus(); } catch (e) {} }, 30);
-  });
-}
-
 async function openAddReminder() {
   if (!_isAdmin || !_quote || !_quote.id) return;
 
   const btn = document.getElementById('addReminderBtn');
   if (btn && btn.disabled) return;          // mid-flight 防呆:連點只算一次
 
-  const payload = await pcrmOpenModal(_quote);
+  // 🔴 表單由 components/reminder-modal.js 提供（與 admin-reminders 共用）。
+  //    typeof 防護針對版本錯配（新 HTML + 載失敗的 component），
+  //    以明確錯誤報出，不静默當作取消。
+  if (!window.ProCraftReminderModal) {
+    console.error('[CB-82] reminder-modal.js not loaded');
+    window.alert('The reminder form could not be opened. Please refresh the page.');
+    return;
+  }
+
+  const payload = await window.ProCraftReminderModal.open({
+    title:    'Add Reminder',
+    subtitle: _quote.po_number || _quote.draft_number || 'This order',
+  });
   if (!payload) return;                     // 取消 = 什麼都不做
 
   const originalHtml = btn ? btn.innerHTML : null;
