@@ -288,6 +288,11 @@
            本票改寫該節點時一併掛上 data-i18n。
            原文「留白則該區段不顯示」在加入必填地址後已不成立,故一併改寫。 -->
       <p class="section-desc" data-i18n="profile.presentation.desc">This is what customers see on the public ProCraft Dealer Locator. The address here is shown on the dealer map — it is separate from your billing address above.</p>
+      <!-- CB-84 附帶:Dealer Locator 同步時點。刻意【不】併入
+      profile.presentation.desc —— 那句是「本區給客人看」的說明,
+      這句是營運資訊(何時生效)。合併會讓一個 key 承載兩件事,
+      日後改同步時點就得連帶重寫整段說明。 -->
+      <p class="form-hint" style="margin:-10px 0 16px;" data-i18n="profile.info.locator_sync">Changes to this section appear on the public dealer map after the daily update at 9:00 AM ET.</p>
 
       <!-- 🔴 CB-81 Q-16:Google 地址搜尋服務未載入時的提示。
            預設隱藏,由 pcMapsUnavailable() 開啟。
