@@ -366,6 +366,7 @@
   "profile.hours.title": "Business Hours",
   "profile.hours.desc": "Let customers know when your showroom is open. Set each day to Open, By Appointment, or Closed.",
   "profile.presentation.title": "Dealer Locator Listing",
+  "profile.info.locator_sync": "Changes to this section appear on the public dealer map after the daily update at 9:00 AM ET.",
   "profile.presentation.desc": "This is what customers see on the public ProCraft Dealer Locator. The address here is shown on the dealer map \u2014 it is separate from your billing address above.",
   "profile.field.heading": "Store Heading",
   "profile.ph.heading": "e.g. Maryland's Premier Cabinet Showroom",
