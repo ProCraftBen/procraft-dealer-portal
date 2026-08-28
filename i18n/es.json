@@ -366,6 +366,7 @@
   "profile.hours.title": "Horario comercial",
   "profile.hours.desc": "Informe a los clientes cuándo está abierta su sala de exhibición. Configure cada día como Abierto, Con cita previa o Cerrado.",
   "profile.presentation.title": "Ficha del Localizador de Distribuidores",
+  "profile.info.locator_sync": "Los cambios en esta sección aparecen en el mapa público de distribuidores después de la actualización diaria de las 9:00 a. m. (hora del Este).",
   "profile.presentation.desc": "Esto es lo que ven los clientes en el Localizador de Distribuidores ProCraft. La dirección de esta sección se muestra en el mapa \u2014 es distinta de su dirección de facturación de arriba.",
   "profile.field.heading": "Título de la tienda",
   "profile.ph.heading": "ej. La principal sala de exhibición de gabinetes de Maryland",
