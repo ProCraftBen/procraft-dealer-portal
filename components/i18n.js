@@ -75,7 +75,17 @@
 
   // 🔴 語言檔 fetch 的版本參數。改語言檔時必須連同各頁 HTML 的
   //    <script src="components/i18n.js?v=..."> 一起 bump,兩者保持一致。
-  var PC_I18N_VER = 'cb81';
+  //
+  // ⚠️ CB-84 促銷版例外:本次【只】bump 本常數,13 頁的 ?v= 一律未動
+  //    (仍為 cb62c / cb79a / cb80)。理由:CB-84 新增的 20 個 key 只有
+  //    dealer-profile.html 會用到,而該頁本來就在 promote 清單內;
+  //    要 bump 13 頁就得連帶推 dashboard.html,那會把一筆與本票無關的
+  //    promo 改動帶進 production。
+  //    後果已知且有界:暖快取的頁面沿用舊的 i18n.js(PC_I18N_VER='cb81'),
+  //    最多 10 分鐘後自癒(GitHub Pages max-age=600,CB-82 實測),
+  //    期間西語使用者在新 modal 看到的是英文 fallback,不是壞掉的畫面。
+  //    📌 README §4 已載明單獨 bump 本常數是「合法但部分生效」。
+  var PC_I18N_VER = 'cb84';
 
   var BASE_LANG   = 'en';                 // fallback 基準,永遠載入
   var SUPPORTED   = ['en', 'es'];         // 加語言時在此加一筆
