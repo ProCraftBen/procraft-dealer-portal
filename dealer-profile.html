@@ -90,6 +90,44 @@
     .confirmed-icon { width: 16px; height: 16px; fill: var(--success); flex-shrink: 0; }
     .confirmed-text { font-size: 12px; color: var(--muted); }
     .confirmed-value { font-size: 13px; color: var(--text); font-weight: 500; }
+        /* ═══════════════════════════════════════════════════════════════════
+       CB-84｜資料變更申請(pccr- = ProCraft Change Request)
+       -------------------------------------------------------------------
+       🔴 刻意【不】修改共用的 .confirmed-row —— 該 class 同時服務下方
+          Pricing 卡的三個乘數欄(display_stock_multiplier 等)。改它今天
+          沒有視覺後果,但那是巧合(那三列只有單一子節點),不是設計。
+          入口鈕靠右改由鈕自身的 margin-left:auto 達成,共用 class 零改動。
+       🔴 modal 形態沿用 components/order-complete.js 的 openDateModal()
+          與 reminder-modal.js:overlay + 置中卡片、前綴獨立、body 層級。
+          唯一差異是本 modal【掛 data-i18n】—— 那兩支是 admin 專用故硬編碼
+          英文(CB-62 Q-5),本頁是 dealer 端,必須翻譯。
+       ⚠️ z-index 10000 對齊 pcoc- / pcrm-。navigator.js 的行動版選單為
+          10001,Stage 3 須在行動版寬度實測 modal 未被蓋住。
+       ═══════════════════════════════════════════════════════════════════ */
+    .cr-btn { margin-left: auto; flex-shrink: 0; background: none; border: none; padding: 0 0 0 12px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; color: var(--green-dark); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: right; }
+    .cr-btn:hover:not(:disabled) { color: var(--gold); }
+    .cr-btn:disabled { color: var(--muted); text-decoration: none; cursor: default; }
+    .pccr-overlay { display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(15,23,42,0.55); padding: 20px; overflow-y: auto; }
+    .pccr-overlay.show { display: flex; align-items: center; justify-content: center; }
+    .pccr-card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; width: 100%; max-width: 460px; }
+    .pccr-head { padding: 16px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; }
+    .pccr-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; color: var(--green-dark); }
+    .pccr-body { padding: 20px; }
+    .pccr-intro { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; padding: 10px 14px; background: rgba(201,168,76,0.06); border-left: 3px solid var(--gold); border-radius: 0 3px 3px 0; }
+    .pccr-cur { font-size: 12px; color: var(--muted); margin-bottom: 14px; word-break: break-all; }
+    .pccr-cur strong { color: var(--text); font-weight: 500; }
+    .pccr-new { font-size: 13px; color: var(--text); font-weight: 500; word-break: break-all; margin: 0 0 16px; }
+    .pccr-err { display: none; background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); border-radius: 3px; padding: 10px 14px; font-size: 12px; color: var(--error); line-height: 1.6; margin-bottom: 14px; }
+    .pccr-err.show { display: block; }
+    .pccr-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 0 20px 20px; }
+    .pccr-b { height: 40px; padding: 0 18px; border-radius: 3px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .pccr-b-primary { background: var(--green-dark); color: #fff; border: none; }
+    .pccr-b-primary:hover:not(:disabled) { background: var(--green-mid); }
+    .pccr-b-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .pccr-b-ghost { background: none; color: var(--muted); border: 1px solid var(--border); }
+    .pccr-b-ghost:hover { color: var(--text); }
+    .pccr-b.loading .pccr-b-text { display: none; }
+    .pccr-b.loading .spinner { display: block; }
 
     /* CB-76: Trial 帳號擋頁面板(與 change-password.html 同一份規則) */
     /* 🔴 中性資訊色(金色系),刻意【不用】紅色 —— 這不是錯誤,是帳號狀態說明。
@@ -136,6 +174,11 @@
           <div class="confirmed-text" data-i18n="profile.field.company_name">Company Name</div>
           <div class="confirmed-value" id="display_company_name">—</div>
         </div>
+        <!-- CB-84:入口鈕。靠右由 .cr-btn 自身的 margin-left:auto 達成,
+             .confirmed-row 零改動(Pricing 卡共用同一 class)。
+             🔴 標籤由 pccrRender() 寫入,故【不】掛 data-i18n —— 掛了就會有
+                兩個擁有者,語言切換時 i18n.js 會把「已送出」抹回「申請變更」。 -->
+        <button class="cr-btn" type="button" id="crBtnCompany" onclick="pccrOpen('company_name')">Request a change</button>
       </div>
       <div class="confirmed-row">
         <svg class="confirmed-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
@@ -143,6 +186,7 @@
           <div class="confirmed-text" data-i18n="profile.field.email">Email Address</div>
           <div class="confirmed-value" id="display_email">—</div>
         </div>
+        <button class="cr-btn" type="button" id="crBtnEmail" onclick="pccrOpen('email')">Request a change</button>
       </div>
       <div class="form-group">
         <label class="form-label"><span data-i18n="profile.field.contact_name">Contact Name</span> <span class="required">*</span></label>
@@ -244,6 +288,11 @@
            本票改寫該節點時一併掛上 data-i18n。
            原文「留白則該區段不顯示」在加入必填地址後已不成立,故一併改寫。 -->
       <p class="section-desc" data-i18n="profile.presentation.desc">This is what customers see on the public ProCraft Dealer Locator. The address here is shown on the dealer map — it is separate from your billing address above.</p>
+      <!-- CB-84 附帶:Dealer Locator 同步時點。刻意【不】併入
+      profile.presentation.desc —— 那句是「本區給客人看」的說明,
+      這句是營運資訊(何時生效)。合併會讓一個 key 承載兩件事,
+      日後改同步時點就得連帶重寫整段說明。 -->
+      <p class="form-hint" style="margin:-10px 0 16px;" data-i18n="profile.info.locator_sync">Changes to this section appear on the public dealer map after the daily update at 9:00 AM ET.</p>
 
       <!-- 🔴 CB-81 Q-16:Google 地址搜尋服務未載入時的提示。
            預設隱藏,由 pcMapsUnavailable() 開啟。
@@ -373,7 +422,69 @@
     <div class="spinner"></div>
   </button>
 </div>
+<!-- ═══════════════════════════════════════════════════════════════════
+     CB-84｜資料變更申請 modal(三步:表單 → 確認 → 已送出)
+     -------------------------------------------------------------------
+     🔴 一節點一擁有者(i18n README §10):
+        帶 data-i18n 的節點由 i18n.js 自行重繪;帶 id 且由 pccrRender()
+        寫入的節點【絕不】掛 data-i18n。兩者若同時存在於同一節點,
+        語言切換會讓 i18n.js 把使用者的輸入值抹掉 —— 而那不會報錯。
+     🔴 #pccrCurValue / #pccrNewEcho 是【資料】,永遠不翻譯。
+     ⚠️ 本 modal 在 .page 之外,不受 showTrialBlock() 的
+        querySelectorAll('.page > .card') 影響。trial 看不到它是因為兩顆
+        入口鈕隨 Contact 卡一起被隱藏,modal 本身不可達。
+     ═══════════════════════════════════════════════════════════════════ -->
+<div class="pccr-overlay" id="pccrOverlay">
+  <div class="pccr-card" role="dialog" aria-modal="true" aria-labelledby="pccrTitle">
+    <div class="pccr-head"><div class="pccr-title" id="pccrTitle"></div></div>
 
+    <!-- ① 表單步 -->
+    <div id="pccrStepForm">
+      <div class="pccr-body">
+        <div class="pccr-intro" data-i18n="profile.info.cr_intro">This is a request, not an immediate change. Our team reviews it and updates your account within 2–3 business days. We'll let you know once it's done.</div>
+        <div class="pccr-cur"><span data-i18n="profile.field.cr_current">Current</span>: <strong id="pccrCurValue"></strong></div>
+        <div class="pccr-err" id="pccrErrForm"></div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" id="pccrNewLabel"></label>
+          <input class="form-input" id="pccrNewValue" type="text" maxlength="100" autocomplete="off" oninput="pccrOnInput()"/>
+        </div>
+      </div>
+      <div class="pccr-foot">
+        <button class="pccr-b pccr-b-ghost" type="button" onclick="pccrClose()" data-i18n="profile.btn.cr_cancel">Cancel</button>
+        <button class="pccr-b pccr-b-primary" type="button" id="pccrToConfirm" onclick="pccrToConfirm()" disabled>
+          <span class="pccr-b-text" data-i18n="profile.btn.cr_submit">Submit request</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ② 確認步 -->
+    <div id="pccrStepConfirm" style="display:none;">
+      <div class="pccr-body">
+        <div class="pccr-cur"><span data-i18n="profile.field.cr_current">Current</span>: <strong id="pccrCurValue2"></strong></div>
+        <div class="pccr-new" id="pccrNewEcho"></div>
+        <div class="pccr-intro" id="pccrConfirmInfo"></div>
+        <div class="pccr-err" id="pccrErrConfirm"></div>
+      </div>
+      <div class="pccr-foot">
+        <button class="pccr-b pccr-b-ghost" type="button" id="pccrBack" onclick="pccrBack()" data-i18n="profile.btn.cr_back">Go back</button>
+        <button class="pccr-b pccr-b-primary" type="button" id="pccrSubmit" onclick="pccrSubmit()">
+          <span class="pccr-b-text" data-i18n="profile.btn.cr_confirm_yes">Yes, submit</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ③ 已送出步 -->
+    <div id="pccrStepSent" style="display:none;">
+      <div class="pccr-body">
+        <div class="pccr-intro" data-i18n="profile.info.cr_sent">Thanks — we've received it. Our team will review it within 2–3 business days and let you know once your account is updated.</div>
+      </div>
+      <div class="pccr-foot">
+        <button class="pccr-b pccr-b-primary" type="button" onclick="pccrClose()" data-i18n="profile.btn.cr_close">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="pcd-footer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -672,6 +783,7 @@ async function init() {
   // Populate contact info
   document.getElementById('display_company_name').textContent = dealer.company_name || '—';
   document.getElementById('display_email').textContent        = dealer.email || '—';
+  pccrRenderEntries();   // CB-84:入口鈕標籤(JS 擁有,無 data-i18n)
   document.getElementById('f_contact_name').value = dealer.contact_name || '';
   document.getElementById('f_phone').value         = dealer.phone || '';
   document.getElementById('f_secondary_email').value          = dealer.secondary_email || '';
@@ -1015,10 +1127,242 @@ function pcSnapshotHours() {
   return Object.keys(h).length ? h : null;
 }
 
+// ══════════════════════════════════════════════════════════════
+// 🔴 CB-84｜資料變更申請(email / 公司名稱)
+// -------------------------------------------------------------------
+// 本區【不改任何儲存值】。dealer 送出的是一則申請,實際變更由業主依
+// DOC-1 SOP 手動執行(auth.users + auth.identities + dealers 三表同一
+// transaction)。顯示 ≠ 值:display_email / display_company_name 送出後
+// 一律維持原值,不做任何樂觀更新 —— 那會讓 dealer 以為已經改好了。
+//
+// 🔴 沉默的失敗最危險:寄信失敗時【絕不】顯示任何成功字樣。
+//    EF 成功才回 { ok:true, sent:1 };前端要求正向訊號
+//    (res.ok && sent >= 1),缺席即視為失敗。正向識別(F-35):
+//    確認「信寄出了」,而不是確認「沒被拒絕」。
+//    ⚠️ 為何不能只看 res.ok:CB-76 的停信回的是 HTTP 200 + { sent:0 }。
+//       本 EF 刻意不含停信邏輯,但這道檢查讓那個失敗模式即使日後被
+//       誤植也接得住。
+//
+// 🔴 不做防重複(業主已定調:可能需要改很多次,統一處理)。
+//    送出後入口鈕 disable 只是【單次操作的即時回饋】,重新整理即恢復,
+//    不隱含任何持久狀態。
+// ══════════════════════════════════════════════════════════════
+
+// 🔴 寄信管道故障時給 dealer 的後備聯絡信箱。
+//    與 EF 的收件人是【不同的東西】:EF 收件人是後端設定
+//    (settings.change_request_notify_email),本常數是要顯示給 dealer 看的。
+//    兩者目前同值,但用途不同 —— 改其中一個不代表要改另一個。
+const PCCR_FALLBACK_EMAIL = 'orders@procraftdc.com';
+
+// 🔴 白名單。正向識別(F-35):比對命中才放行,而非排除不合法值。
+const PCCR_TYPES = ['email', 'company_name'];
+
+let _pccrType  = null;    // 'email' | 'company_name' | null(modal 未開)
+let _pccrStep  = 'form';  // 'form' | 'confirm' | 'sent'
+let _pccrBusy  = false;
+let _pccrErrKey = null;   // 目前顯示中的錯誤 key,供語言切換時重繪
+const _pccrSent = { email: false, company_name: false };
+
+function pccrCurrent(type) {
+  if (!currentUser) return '';
+  return (type === 'email' ? currentUser.email : currentUser.company_name) || '';
+}
+
+// 入口鈕標籤。已送出者顯示「已送出」並 disable。
+function pccrRenderEntries() {
+  const map = { email: 'crBtnEmail', company_name: 'crBtnCompany' };
+  PCCR_TYPES.forEach(function (t) {
+    const el = document.getElementById(map[t]);
+    if (!el) return;
+    const done = _pccrSent[t];
+    el.textContent = done
+      ? pcTxt('profile.btn.cr_sent', 'Request sent')
+      : pcTxt('profile.btn.request_change', 'Request a change');
+    el.disabled = !!done;
+  });
+}
+
+// modal 內由 JS 擁有的節點。與 data-i18n 節點互斥,不重疊。
+function pccrRenderModal() {
+  if (!_pccrType) return;
+  const isEmail = (_pccrType === 'email');
+
+  // 標題隨步驟改變。三個 key 都用得到 —— 定義了卻沒掛的 key 就是死標記
+  // (F-25 同類),交付前的 key 覆蓋檢查會抓出來。
+  let title;
+  if (_pccrStep === 'confirm') {
+    title = pcTxt('profile.title.cr_confirm', 'Submit this request?');
+  } else if (_pccrStep === 'sent') {
+    title = pcTxt('profile.title.cr_sent', 'Request submitted');
+  } else {
+    title = isEmail
+      ? pcTxt('profile.title.cr_email',   'Request an email change')
+      : pcTxt('profile.title.cr_company', 'Request a company name change');
+  }
+  document.getElementById('pccrTitle').textContent = title;
+
+  document.getElementById('pccrNewLabel').textContent = isEmail
+    ? pcTxt('profile.field.cr_new_email',   'New email address')
+    : pcTxt('profile.field.cr_new_company', 'New company name');
+
+  document.getElementById('pccrConfirmInfo').textContent = isEmail
+    ? pcTxt('profile.info.cr_confirm_email',   "We'll send this to the ProCraft team. Nothing changes yet — you'll keep signing in with your current email until we confirm the change.")
+    : pcTxt('profile.info.cr_confirm_company', "We'll send this to the ProCraft team. Nothing changes yet — your company name stays as it is until we confirm the change.");
+
+  // 錯誤訊息:記住 key,語言切換時重繪。{email} 為參數,不寫進語言檔。
+  if (_pccrErrKey) {
+    const msg = (_pccrErrKey === 'profile.err.cr_failed')
+      ? pcTxt('profile.err.cr_failed',
+              "We couldn't send your request. Nothing was submitted. Please try again, or email us directly at {email}.",
+              { email: PCCR_FALLBACK_EMAIL }).replace('{email}', PCCR_FALLBACK_EMAIL)
+      : pcTxt('profile.err.cr_invalid', 'Please enter a valid email address.');
+    const target = (_pccrStep === 'confirm') ? 'pccrErrConfirm' : 'pccrErrForm';
+    const el = document.getElementById(target);
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+}
+
+function pccrClearErr() {
+  _pccrErrKey = null;
+  ['pccrErrForm', 'pccrErrConfirm'].forEach(function (id) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.remove('show');
+  });
+}
+
+function pccrShowErr(key) {
+  pccrClearErr();
+  _pccrErrKey = key;
+  pccrRenderModal();
+}
+
+function pccrStep(step) {
+  _pccrStep = step;
+  document.getElementById('pccrStepForm').style.display    = (step === 'form')    ? '' : 'none';
+  document.getElementById('pccrStepConfirm').style.display = (step === 'confirm') ? '' : 'none';
+  document.getElementById('pccrStepSent').style.display    = (step === 'sent')    ? '' : 'none';
+  pccrRenderModal();   // 標題隨步驟改變
+}
+
+function pccrOpen(type) {
+  if (PCCR_TYPES.indexOf(type) === -1) return;   // 正向識別
+  if (_pccrSent[type]) return;
+  _pccrType = type;
+  pccrClearErr();
+  const cur = pccrCurrent(type);
+  document.getElementById('pccrCurValue').textContent  = cur || '—';
+  document.getElementById('pccrCurValue2').textContent = cur || '—';
+  const input = document.getElementById('pccrNewValue');
+  input.value = '';
+  input.type  = (type === 'email') ? 'email' : 'text';
+  document.getElementById('pccrToConfirm').disabled = true;
+  pccrStep('form');
+  pccrRenderModal();
+  document.getElementById('pccrOverlay').classList.add('show');
+  input.focus();
+}
+
+function pccrClose() {
+  if (_pccrBusy) return;
+  document.getElementById('pccrOverlay').classList.remove('show');
+  _pccrType = null;
+  pccrClearErr();
+  pccrRenderEntries();
+}
+
+// 空值、與現值相同 → 直接 disable 送出鈕,不另設錯誤文案。
+function pccrOnInput() {
+  pccrClearErr();
+  const v   = document.getElementById('pccrNewValue').value.trim();
+  const cur = pccrCurrent(_pccrType).trim();
+  const same = (_pccrType === 'email')
+    ? (v.toLowerCase() === cur.toLowerCase())
+    : (v === cur);
+  document.getElementById('pccrToConfirm').disabled = (!v || same);
+}
+
+function pccrToConfirm() {
+  const v = document.getElementById('pccrNewValue').value.trim();
+  if (!v) return;
+  // 格式驗證只對 email(已拍板事項 #6)。公司名稱不驗 —— 合法的公司名
+  // 千奇百怪,擋錯的代價比放行高。
+  if (_pccrType === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) {
+    pccrShowErr('profile.err.cr_invalid');
+    return;
+  }
+  pccrClearErr();
+  document.getElementById('pccrNewEcho').textContent = v;
+  pccrStep('confirm');
+}
+
+function pccrBack() {
+  if (_pccrBusy) return;
+  pccrClearErr();
+  pccrStep('form');   // 🔴 輸入值刻意保留,不清空
+}
+
+async function pccrSubmit() {
+  if (_pccrBusy || !_pccrType) return;
+  const v = document.getElementById('pccrNewValue').value.trim();
+  if (!v) return;
+
+  const btn  = document.getElementById('pccrSubmit');
+  const back = document.getElementById('pccrBack');
+  _pccrBusy = true;
+  btn.classList.add('loading');
+  btn.disabled = true;
+  back.disabled = true;
+  pccrClearErr();
+
+  let ok = false;
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    // 🔴 payload 只有兩個欄位。dealer 身分、公司名稱、原始 email 一律由 EF
+    //    以 JWT 的 auth.uid() 回查 DB —— 若信任前端帶入,任何人都能偽造一封
+    //    申請寄到業主信箱,而業主會照著改。
+    const res = await fetch(window.SB_URL + '/functions/v1/send-change-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify({ request_type: _pccrType, new_value: v }),
+    });
+    // 🔴 正向訊號:res.ok 不足以判定寄出。必須看到 sent >= 1。
+    let body = null;
+    try { body = await res.json(); } catch (_) { body = null; }
+    ok = !!(res.ok && body && Number(body.sent) >= 1);
+    if (!ok) console.error('[CB-84] send-change-request not confirmed:', res.status, body);
+  } catch (err) {
+    ok = false;
+    console.error('[CB-84] send-change-request failed:', err);
+  }
+
+  _pccrBusy = false;
+  btn.classList.remove('loading');
+  btn.disabled = false;
+  back.disabled = false;
+
+  if (!ok) {
+    // 🔴 停在確認步:值不清空,可直接重試。絕不顯示任何成功字樣。
+    pccrShowErr('profile.err.cr_failed');
+    return;
+  }
+
+  _pccrSent[_pccrType] = true;
+  pccrStep('sent');
+  pccrRenderEntries();
+}
+
 document.addEventListener('pc:i18n-changed', function () {
   const snap = pcSnapshotHours();
   if (snap) buildHoursUI(snap);
   renderImages();
+  // CB-84:入口鈕與 modal 內由 JS 寫入的節點須自行重繪(README §10 第三列)。
+  pccrRenderEntries();
+  pccrRenderModal();
 });
 
 init();
