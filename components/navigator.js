@@ -459,26 +459,34 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // CB-83｜登入事件記錄
+  // CB-83｜登入事件記錄  +  CB-85｜頁面瀏覽記錄
   // -------------------------------------------------------------------
   // 🔴 刻意【不】掛在 init() / initHeadless() 內。兩者分屬不同進入點,且
   //    都會因缺少容器或取不到 role 而提早 return —— 把稽核綁在導覽列渲染
-  //    的成敗上,是製造一個沒有理由存在的耦合。本函式自建 client、自取
+  //    的成敗上,是製造一個沒有理由存在的耦合。本區塊自建 client、自取
   //    session,與導覽列完全獨立。
   //
-  // 🔴 M-10 可靠性邊界:登入已在 GoTrue 完成,沒有主操作可回滾。本函式
+  // 🔴 CB-85 Q-11|client 與 getSession() 各做一次,兩支 RPC 共用:
+  //    改前 navigator.js 每頁建 2 個 client(此處 + init/initHeadless)。
+  //    若 recordPageView 自建第三個,本票會【加劇】F-124;共用後維持 2 個。
+  //    兩支 RPC 各自 try/catch,任一失敗不影響另一支。
+  //
+  // 🔴 M-10 可靠性邊界(CB-83):登入已在 GoTrue 完成,沒有主操作可回滾。
   //    失敗一律吞掉並 console.error,【絕不阻擋頁面】—— 為一筆稽核紀錄
   //    擋住使用者進入系統不成比例。故 login 事件為 best-effort,此邊界
   //    已寫入 account_events 的 COMMENT ON TABLE。
   //
-  // 去重兩層:sessionStorage 只是省掉同分頁內的重複請求;真正的正確性
-  //    來自 DB 端 uq_account_events_login_session 部分唯一索引 +
-  //    ON CONFLICT DO NOTHING。RPC 為零參數,身分與 session_id 皆由函式
-  //    自行從 JWT 取得,前端無法偽造任何欄位。
+  // 去重兩層【僅限 login】:sessionStorage 只是省掉同分頁內的重複請求;
+  //    真正的正確性來自 DB 端 uq_account_events_login_session 部分唯一
+  //    索引 + ON CONFLICT DO NOTHING。RPC 為零參數,身分與 session_id 皆
+  //    由函式自行從 JWT 取得,前端無法偽造任何欄位。
+  // 🔴 該去重【必須】留在 recordLoginEvent() 內,不可提升到 runAuditWrites()。
+  //    一旦提升,page_view 會被登入去重連坐 —— 每個 session 只記一列,
+  //    CB-85 直接失效,而且沒有任何錯誤訊號(CB-85 Q-9 = 不去重)。
   // ═══════════════════════════════════════════════════════════════════
-  recordLoginEvent();
+  runAuditWrites();
 
-  async function recordLoginEvent() {
+  async function runAuditWrites() {
     try {
       if (!window.supabase || !window.supabase.createClient) return;
 
@@ -488,6 +496,17 @@
       const session = result && result.data ? result.data.session : null;
       if (!session) return;
 
+      // 兩支皆 fire-and-forget,刻意不 await —— 稽核與瀏覽記錄都不得
+      // 影響頁面。各自 try/catch,不會有未處理的 rejection 逸出。
+      recordLoginEvent(sb, session);
+      recordPageView(sb);
+    } catch (e) {
+      console.error('[navigator] runAuditWrites unexpected error:', e);
+    }
+  }
+
+  async function recordLoginEvent(sb, session) {
+    try {
       // sessionStorage 以 access_token 前 32 字元為鍵,避免把整個 token
       // 寫進儲存空間。鍵不同即視為新 session,重複呼叫由 DB 端擋下。
       const key = 'pcdLoginLogged:' + String(session.access_token || '').slice(0, 32);
@@ -504,6 +523,43 @@
       try { sessionStorage.setItem(key, '1'); } catch (_) { /* 同上 */ }
     } catch (e) {
       console.error('[navigator][CB-83] recordLoginEvent unexpected error:', e);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // CB-85｜頁面瀏覽記錄
+  // -------------------------------------------------------------------
+  // 🔴 本函式為 fire-and-forget。【不可 await、不可搬進 init() /
+  //    initHeadless()】。頁面瀏覽記錄失敗不得影響渲染,而防線【在這裡】,
+  //    不在 DB —— PostgREST 的 RPC 失敗回的是 error 物件,不是拋出的
+  //    例外,DB 端拋錯【不會】讓頁面白掉。真正會白掉的是:
+  //      (a) 有人把本呼叫改成被 await,且呼叫端沒有 try/catch
+  //      (b) 有人把它搬進渲染的關鍵路徑
+  //    ⚠️ 這段話寫在【這裡】而不是只寫在 DB 的 COMMENT,是因為會改壞它
+  //       的人是在看 JS,不是在看 \d+。(CB-85 Q-13)
+  //
+  // 🔴 【不做】任何前端去重(CB-85 Q-9)。每次頁面載入都記一列,重整五次
+  //    就是五列 —— 那是行為訊號,不是雜訊。與上方 login 的 sessionStorage
+  //    去重【方向相反】,不可順手對齊。
+  //
+  // 🔴 參數皆為【原始值】,前端不做任何處理(CB-85 B-1 = B)。正規化、
+  //    白名單、同源判斷全部在 DB 端的 record_page_view() 內,是單一真相。
+  //    日後新增要記錄的 query 參數,改 DB 函式一處即可,本檔不需要動。
+  //    p_origin 僅供 DB 做同源判斷,【不入庫】(CB-85 B-2 = A)。
+  // ═══════════════════════════════════════════════════════════════════
+  async function recordPageView(sb) {
+    try {
+      const { error } = await sb.rpc('record_page_view', {
+        p_pathname: window.location.pathname,
+        p_search:   window.location.search,
+        p_referrer: document.referrer,
+        p_origin:   window.location.origin
+      });
+      if (error) {
+        console.error('[navigator][CB-85] record_page_view failed:', error);
+      }
+    } catch (e) {
+      console.error('[navigator][CB-85] recordPageView unexpected error:', e);
     }
   }
 
