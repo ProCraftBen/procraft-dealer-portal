@@ -144,11 +144,59 @@
 
   _supabase.auth.getSession().then(function (res) {
     var session = res && res.data ? res.data.session : null;
-    if (!session) { window.location.href = 'login.html'; }
+    if (!session) { window.location.href = 'login.html'; return; }
+    pcRecordPageView();
   }).catch(function () {
     // 取不到 session 一律視為未登入,不讓未授權者停留在本頁。
     window.location.href = 'login.html';
   });
+
+  // ══════════════════════════════════════════════════════════════════
+  // CB-85｜頁面瀏覽記錄
+  // ------------------------------------------------------------------
+  // 🔴 本頁【不引用】navigator.js(見上方載入順序說明),故 page_view 由
+  //    本頁自行呼叫。⚠️ 不可為了「統一」而改成引用 navigator.js —— 那會
+  //    同時推翻 CB-80 的決定、讓本頁多建一個 Supabase client(加劇
+  //    F-124),並載入本頁完全用不到的導覽列與折扣模組。「統一」在這裡
+  //    是負向的。(CB-85 Stage 1 §4 組 3)
+  //
+  // 🔴 沿用上方登入守衛【既有的】_supabase 與【同一次】getSession() ——
+  //    本頁不新增任何 client、不新增任何 session 查詢。
+  //
+  // 🔴 fire-and-forget。【不可 await、不可放進任何會擋住渲染的路徑】。
+  //    頁面瀏覽記錄失敗不得影響本頁的版面與 PDF 連結。防線在【這裡】,
+  //    不在 DB —— PostgREST 的 RPC 失敗回的是 error 物件,不是拋出的
+  //    例外。(CB-85 Q-13)
+  //
+  // ⚠️ 本函式只記錄【本頁被瀏覽】。assets/ 底下的 PDF 是公開檔案,下載
+  //    行為不經過本頁的 JS,故【不會】被記錄 —— 這是預期的邊界,不是
+  //    遺漏。要記錄下載需另開票,且會牴觸「PDF 無需登入即可下載」。
+  //
+  // 🔴 參數皆為【原始值】,本頁不做任何處理(CB-85 B-1 = B)。正規化、
+  //    白名單、同源判斷全部在 DB 端的 record_page_view() 內,是單一真相。
+  //    日後新增要記錄的 query 參數,改 DB 函式一處即可,本檔不需要動。
+  //    p_origin 僅供 DB 做同源判斷,【不入庫】(CB-85 B-2 = A)。
+  //
+  // 🔴 【不做】任何前端去重(CB-85 Q-9)。每次頁面載入都記一列。
+  // ══════════════════════════════════════════════════════════════════
+  function pcRecordPageView() {
+    try {
+      _supabase.rpc('record_page_view', {
+        p_pathname: window.location.pathname,
+        p_search:   window.location.search,
+        p_referrer: document.referrer,
+        p_origin:   window.location.origin
+      }).then(function (r) {
+        if (r && r.error) {
+          console.error('[resources][CB-85] record_page_view failed:', r.error);
+        }
+      }).catch(function (e) {
+        console.error('[resources][CB-85] record_page_view rejected:', e);
+      });
+    } catch (e) {
+      console.error('[resources][CB-85] pcRecordPageView unexpected error:', e);
+    }
+  }
 })();
 </script>
 
