@@ -695,44 +695,49 @@ color: var(--green-dark);
               其餘角色僅在值 !== 0 時顯示該行(Q-7,沿用 CB-75 Q-2「有值才列」),
               避免每張單都印三行 $0.00。
            🔴 admin 判準用【角色】(isAdminViewer),不是 viewMode ——
-              與同檔 isAdminShippingMode()(CB-33)刻意不同,見 setupAdjustmentInputs()。 -->
+              與同檔 isAdminShippingMode()(CB-33)刻意不同,見 setupAdjustmentInputs()。
+           🔴 輸入框只收【金額大小】,正負號由欄位語意固定(左側 − / + 字符)。
+              取值時一律 Math.abs() 再套號,故「Account Credit 是正數」這種
+              錯誤在結構上不可能發生 —— 因此本區塊【沒有】單欄正負防呆。
+              ⚠️ 勿加回 max="0" 或正負檢查:那會讓 admin 必須自己打負號,
+                 正是本設計要消除的負擔。 -->
       <div id="adjustmentsRow" style="display:none;">
         <div class="total-row" id="adjAccountCreditRow" style="display:none;">
           <div>
             <span class="total-label" data-i18n="nq3.sum.account_credit">Account Credit</span>
-            <div id="adjAccountCreditAdmin" style="display:none;align-items:center;gap:8px;margin-top:6px;">
-              <input type="number" id="adjAccountCredit" max="0" step="0.01" placeholder="0.00"
+            <div id="adjAccountCreditAdmin" style="display:none;align-items:center;gap:6px;margin-top:6px;">
+              <span style="font-size:15px;color:#8B6914;font-weight:600;width:10px;text-align:center;">−</span>
+              <span style="font-size:13px;color:var(--muted);">$</span>
+              <input type="number" id="adjAccountCredit" min="0" step="0.01" placeholder="0.00"
                 oninput="onAdjustmentInput()"
                 style="width:110px;height:30px;border:1px solid var(--border);border-radius:3px;padding:0 8px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:right;"/>
-              <span style="font-size:11px;color:var(--muted);" data-i18n="nq3.adj.hint_negative_only">Enter a negative amount (credits and discounts only).</span>
             </div>
-            <div class="total-note" id="adjAccountCreditErr" style="display:none;color:var(--error);font-size:11px;margin-top:4px;"></div>
           </div>
           <span class="total-value" id="adjAccountCreditVal" style="color:#8B6914;">$0.00</span>
         </div>
         <div class="total-row" id="adjManagerDiscountRow" style="display:none;">
           <div>
             <span class="total-label" data-i18n="nq3.sum.manager_discount">Manager Discount</span>
-            <div id="adjManagerDiscountAdmin" style="display:none;align-items:center;gap:8px;margin-top:6px;">
-              <input type="number" id="adjManagerDiscount" max="0" step="0.01" placeholder="0.00"
+            <div id="adjManagerDiscountAdmin" style="display:none;align-items:center;gap:6px;margin-top:6px;">
+              <span style="font-size:15px;color:#8B6914;font-weight:600;width:10px;text-align:center;">−</span>
+              <span style="font-size:13px;color:var(--muted);">$</span>
+              <input type="number" id="adjManagerDiscount" min="0" step="0.01" placeholder="0.00"
                 oninput="onAdjustmentInput()"
                 style="width:110px;height:30px;border:1px solid var(--border);border-radius:3px;padding:0 8px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:right;"/>
-              <span style="font-size:11px;color:var(--muted);" data-i18n="nq3.adj.hint_negative_only">Enter a negative amount (credits and discounts only).</span>
             </div>
-            <div class="total-note" id="adjManagerDiscountErr" style="display:none;color:var(--error);font-size:11px;margin-top:4px;"></div>
           </div>
           <span class="total-value" id="adjManagerDiscountVal" style="color:#8B6914;">$0.00</span>
         </div>
         <div class="total-row" id="adjHandlingFeeRow" style="display:none;">
           <div>
             <span class="total-label" data-i18n="nq3.sum.handling_fee">Handling Fee</span>
-            <div id="adjHandlingFeeAdmin" style="display:none;align-items:center;gap:8px;margin-top:6px;">
+            <div id="adjHandlingFeeAdmin" style="display:none;align-items:center;gap:6px;margin-top:6px;">
+              <span style="font-size:15px;color:#8B6914;font-weight:600;width:10px;text-align:center;">+</span>
+              <span style="font-size:13px;color:var(--muted);">$</span>
               <input type="number" id="adjHandlingFee" min="0" step="0.01" placeholder="0.00"
                 oninput="onAdjustmentInput()"
                 style="width:110px;height:30px;border:1px solid var(--border);border-radius:3px;padding:0 8px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:right;"/>
-              <span style="font-size:11px;color:var(--muted);" data-i18n="nq3.adj.hint_positive_only">Enter a positive amount.</span>
             </div>
-            <div class="total-note" id="adjHandlingFeeErr" style="display:none;color:var(--error);font-size:11px;margin-top:4px;"></div>
           </div>
           <span class="total-value" id="adjHandlingFeeVal" style="color:#8B6914;">$0.00</span>
         </div>
@@ -4576,13 +4581,14 @@ function getAdminShippingOverride() {
 //    的 Draft/Returned 分支對非 status 欄位完全放行。四條 CHECK 約束是
 //    唯一的 DB 防線,前端是唯一的「人話訊息」防線(CB-70 Q-9 = C)。
 // ═══════════════════════════════════════════════════════════════════
+// sign 為欄位的固定正負號。輸入框只收金額大小,取值時 Math.abs() 後乘上 sign。
 const CB70_ADJ_FIELDS = [
   { key: 'account_credit',   input: 'adjAccountCredit',   admin: 'adjAccountCreditAdmin',
-    row: 'adjAccountCreditRow',   val: 'adjAccountCreditVal',   err: 'adjAccountCreditErr',   neg: true  },
+    row: 'adjAccountCreditRow',   val: 'adjAccountCreditVal',   sign: -1 },
   { key: 'manager_discount', input: 'adjManagerDiscount', admin: 'adjManagerDiscountAdmin',
-    row: 'adjManagerDiscountRow', val: 'adjManagerDiscountVal', err: 'adjManagerDiscountErr', neg: true  },
+    row: 'adjManagerDiscountRow', val: 'adjManagerDiscountVal', sign: -1 },
   { key: 'handling_fee',     input: 'adjHandlingFee',     admin: 'adjHandlingFeeAdmin',
-    row: 'adjHandlingFeeRow',     val: 'adjHandlingFeeVal',     err: 'adjHandlingFeeErr',     neg: false },
+    row: 'adjHandlingFeeRow',     val: 'adjHandlingFeeVal',     sign:  1 },
 ];
 
 // CB-70 防呆結果。由 applyTotals() 內的 renderAdjustmentRows() 單一處寫入,
@@ -4605,7 +4611,11 @@ function getOrderAdjustments() {
     if (isAdminViewer) {
       const el = document.getElementById(f.input);
       // 🔴 元素不存在時退回 hydration 值,不退回 0 —— 退回 0 等於靜默清掉。
-      v = el ? cb70Num(el.value) : cb70Num(_existingAdjustments[f.key]);
+      //    輸入框只收金額大小 → Math.abs() 後套欄位固定的 sign。
+      //    即使 admin 打了 -100,abs 後仍是 100,再乘 sign 得正確方向,
+      //    故「Account Credit 存成正數」在結構上不可能發生(CB-70 Q-16)。
+      v = el ? round2(f.sign * Math.abs(cb70Num(el.value)))
+             : cb70Num(_existingAdjustments[f.key]);
     } else {
       v = cb70Num(_existingAdjustments[f.key]);
     }
@@ -4623,9 +4633,11 @@ function setupAdjustmentInputs() {
     if (!isAdminViewer) { wrap.style.display = 'none'; return; }
     wrap.style.display = 'flex';
     const el = document.getElementById(f.input);
-    // 預帶既有值。0 不預帶 —— 讓輸入框維持空白,placeholder 顯示 0.00。
+    // 預帶既有值,🔴 取【絕對值】—— DB 存的是帶號值,輸入框收的是金額大小。
+    //   直接把 -500 塞進輸入框會讓 admin 看到負號,再被 abs 一次,語意就亂了。
+    //   0 不預帶 —— 讓輸入框維持空白,placeholder 顯示 0.00。
     if (el && (el.value === '' || el.value == null) && _existingAdjustments[f.key] !== 0) {
-      el.value = String(_existingAdjustments[f.key]);
+      el.value = String(Math.abs(_existingAdjustments[f.key]));
     }
   });
 }
@@ -4640,12 +4652,10 @@ function onAdjustmentInput() {
 //   才能與 DB 的 chk_quotes_adjusted_subtotal_nonneg 用同一個數。
 function renderAdjustmentRows(adj, subtotalR) {
   let anyVisible = false;
-  let signBad    = false;
 
   CB70_ADJ_FIELDS.forEach(function (f) {
     const row = document.getElementById(f.row);
     const val = document.getElementById(f.val);
-    const err = document.getElementById(f.err);
     if (!row || !val) return;
 
     const v = adj[f.key];
@@ -4654,32 +4664,25 @@ function renderAdjustmentRows(adj, subtotalR) {
     row.style.display = show ? 'flex' : 'none';
     if (show) anyVisible = true;
 
-    // 顯示:負值用 −$X.XX(同 Total Discount),正值用 +$X.XX(同 Assemble Fee)。
-    val.textContent = (v < 0)
-      ? `−$${Math.abs(v).toFixed(2)}`
-      : `+$${v.toFixed(2)}`;
-
-    // 單欄正負防呆。🔴 刻意【不】自動翻正負號 —— 那是靜默改動使用者輸入的
-    //   數字,與本票最怕的失效模式同型。錯的值照原樣進入即時計算,總額會
-    //   立刻往錯的方向跑,配合下方訊息即為最直接的回饋。
-    const bad = f.neg ? (v > 0) : (v < 0);
-    if (bad) signBad = true;
-    if (err) {
-      err.style.display = bad ? 'block' : 'none';
-      err.textContent   = bad
-        ? (f.neg
-            ? pcTxt('nq3.adj.hint_negative_only', 'Enter a negative amount (credits and discounts only).')
-            : pcTxt('nq3.adj.hint_positive_only', 'Enter a positive amount.'))
-        : '';
-    }
+    // 顯示:負值 −$X.XX(同 Total Discount)、正值 +$X.XX(同 Assemble Fee)、
+    //   0 不加號(避免出現「−$0.00」這種讀起來像有折讓的空值)。
+    val.textContent = (v === 0)
+      ? '$0.00'
+      : (v < 0 ? `−$${Math.abs(v).toFixed(2)}` : `+$${v.toFixed(2)}`);
   });
+
+  // 🔴 此處【沒有】單欄正負防呆,是設計不是遺漏(CB-70 Q-16):
+  //    輸入框只收金額大小,正負號由 CB70_ADJ_FIELDS.sign 固定套上,
+  //    「Account Credit 是正數 / Handling Fee 是負數」在結構上不可能發生。
+  //    ⚠️ 勿加回單欄檢查 —— 它永遠不會觸發,只會讓人誤以為有這個風險。
 
   const wrap = document.getElementById('adjustmentsRow');
   if (wrap) wrap.style.display = anyVisible ? 'block' : 'none';
 
-  // 🔴 第四層(最重要):單看每一欄都合法,加起來仍可能是負的。
+  // 🔴 合計防呆(唯一仍需要的一層):三欄各自都是合法方向,加起來仍可能
+  //    把 subtotal 打成負數 —— 例如 Account Credit 大於整單金額。
   const totalBad = round2(cb70Num(subtotalR) + adj.sum) < 0;
-  _cb70GuardOk = !(signBad || totalBad);
+  _cb70GuardOk = !totalBad;
 
   // 合計為負的訊息依【角色】分兩版(CB-70 Q-13 = A)。
   //   dealer 看不到那三個輸入框、也無權修改,訊息若暗示他可以改只會更困惑;
