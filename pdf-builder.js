@@ -1674,6 +1674,37 @@ return total;
       y += 6;
     }
 
+    // ── CB-70: 訂單層級調整項 ────────────────────────────────────────────
+    //   位置依已拍板 #4「subtotal 下方」= 折扣區塊之後、Modifications 之前,
+    //   與 new-quote-step3.html / quote-detail.html 三檔版面一致。
+    //   🔴 版面在 Modifications 之前,但三項與 taxable mods【同時】進稅基 ——
+    //      位置是業主指定的閱讀順序,不是計算順序。勿據此改公式。
+    //   🔴 英文硬編碼,不掛 i18n(CB-62 Q-56:UI 文字翻譯,會輸出的不翻)。
+    //   顯示規則:值 !== 0 才畫該行,與另兩檔一致(Q-7)。
+    //   Account Credit / Manager Discount 在 Draft Quote 已於上方被歸零
+    //   (_hideCred),故此處自動不畫,無須另外判斷。
+    if (showPrices) {
+      const _cb70Rows = [
+        ['Account Credit',   totals.accountCredit],
+        ['Manager Discount', totals.managerDiscount],
+        ['Handling Fee',     totals.handlingFee],
+      ];
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      _cb70Rows.forEach(function (r) {
+        const v = Number(r[1] || 0);
+        if (v === 0) return;
+        doc.setTextColor(...COLORS.muted);
+        doc.text(r[0], totalsX, y);
+        doc.setTextColor(140, 100, 20);
+        doc.text(
+          (v < 0 ? `-$${Math.abs(v).toFixed(2)}` : `+$${v.toFixed(2)}`),
+          valX, y, { align: 'right' }
+        );
+        y += 6;
+      });
+    }
+
     // ── Modifications (CB-75: 依【項目】聚合明細 + Total;取代 CB-27 的 by-type) ──
     if (showPrices && totals.modsDisplayTotal > 0) {
       // 標題行(無金額)
@@ -1975,6 +2006,14 @@ return total;
       //   ⚠️ 絕不可與 receipt 併用 —— 會使 live grand ≠ payments.base_amount,
       //      CB-45 對帳斷言必然 throw。下方已加硬性防護。
       hideDiscount = false,
+      // CB-70 (Q-6 = A):true = 本份 PDF 忽略 Account Credit 與 Manager Discount ——
+      //   Subtotal 之下不畫該兩列,且兩者退出 taxBase 與 grand。
+      //   Handling Fee【不受影響,一律顯示】:前兩者是 ProCraft 對 dealer 的讓利,
+      //   性質同折扣(_hideDiscount 的同一條理由);Handling Fee 是 dealer 實付成本,
+      //   理應轉嫁給終端客戶。
+      //   ⚠️ 絕不可與 receipt 併用 —— 會使 live grand ≠ payments.base_amount,
+      //      CB-45 對帳斷言必然 throw。下方已加硬性防護。
+      hideCredit = false,
       receipt = null,          // CB-45: Receipt 模式帶入;Invoice/Draft 為 null
     } = args;
     const { pageW, margin } = LAYOUT;
@@ -2004,6 +2043,26 @@ return total;
     const showDiscount   = discountLineTotal > 0.005;
 
     const assembleTotal = _calcAssembleTotal(items);   // CB-72(含 mapping SKU 組裝費)
+
+    // ── CB-70: 訂單層級調整項 ──────────────────────────────────────────────
+    //   來源為 quoteData 的三個鍵,由 new-quote-step3.html 與 quote-detail.html
+    //   各自的 buildQuoteDataForPdf() 供應。
+    //   🔴 兩處來源端都必須供應這三個鍵。漏掉任一處的失效模式是【PDF 的
+    //      Order Total 靜默少算】,且 Receipt 會直接撞下方 CB-45 對帳斷言而
+    //      印不出來 —— 斷點在來源端,不在本檔(F-40 / CB-74 踩過同一個坑)。
+    //   🔴 三項全部進 taxBase(已拍板 #5,含 Handling Fee),
+    //      全部不進 billingBase(已拍板 #6:運費為手動輸入,無級距重算)。
+    // 硬性防護:Receipt 一律揭露三項,否則對帳斷言必爆(同 _hideDisc 的理由)。
+    const _hideCred = hideCredit && !receipt;
+    if (hideCredit && receipt) {
+      console.warn('[CB-70] hideCredit ignored for Receipt (would break CB-45 reconciliation)');
+    }
+    const _rawAccountCredit   = parseFloat(quoteData.account_credit_amount   || 0);
+    const _rawManagerDiscount = parseFloat(quoteData.manager_discount_amount || 0);
+    const accountCredit   = _hideCred ? 0 : _rawAccountCredit;
+    const managerDiscount = _hideCred ? 0 : _rawManagerDiscount;
+    const handlingFee     = parseFloat(quoteData.handling_fee_amount || 0);   // 永不隱藏
+    const adjSum          = accountCredit + managerDiscount + handlingFee;
 
     let modsTotal;
     if (typeof quoteData.modifications_total === 'number') {
@@ -2054,11 +2113,19 @@ return total;
     // ── Tax base = SKU + TAXABLE mods ──
     const taxRate   = quoteData._taxRate || 0;
     const taxExempt = !!quoteData._taxExempt;
-    const taxBase   = markedSubtotal + taxableModsTotal;
+    // 🔴 CB-70:taxBase 含 adjSum,且必須與來源端反解稅率時用的 taxBase
+    //    【同式】—— quote-detail.html 與 new-quote-step3.html 的
+    //    buildQuoteDataForPdf() 都已納入三項。兩端定義一致才會抵銷還原成
+    //    已取整的 tax_amount;只有一端含就會壞。⚠️ 動這裡必須同時動那兩處。
+    const taxBase   = markedSubtotal + taxableModsTotal + adjSum;
     const tax       = taxExempt ? 0 : taxBase * taxRate;
 
-    // ── Grand total = billing base + assembly + shipping + tax ──
-    const grand = billingBase + assembleTotal + (pendingShipping ? 0 : shipping) + tax;
+    // ── Grand total = billing base + assembly + adjustments + shipping + tax ──
+    // 🔴 CB-70:adjSum 進 grand。少了這一項,含調整項的單 live grand 會與
+    //    payments.base_amount 差到「元」的等級(不是取整的 1 分),
+    //    Receipt 直接 throw RECEIPT_RECONCILIATION_MISMATCH ——
+    //    症狀是【印不出來】,不是印錯。
+    const grand = billingBase + assembleTotal + adjSum + (pendingShipping ? 0 : shipping) + tax;
 
     // ── CB-45 對帳斷言(裁決 Q2):Receipt 專用 ──
     //   Receipt 的 Order Total 走 live 重算 grand(明細五行也是 live),fee/total_paid 讀
@@ -2111,6 +2178,10 @@ return total;
       appliedRules:      _appliedRules,
       showDiscount:      showDiscount,
       assembleTotal:     assembleTotal,
+      // ── CB-70 顯示用(已套 _hideCred;Handling Fee 永不隱藏)──
+      accountCredit:     accountCredit,
+      managerDiscount:   managerDiscount,
+      handlingFee:       handlingFee,
       shipping:          shipping,
       tax:               tax,
       grand:             grand,
@@ -2137,7 +2208,19 @@ return total;
     const ASM_H      = assembleTotal > 0 ? 6 : 0;
     // CB-47:每 rule 一行 4mm + Total Discount 6mm + Subtotal After Discount 6mm
     const DISC_H     = showDiscount ? (_appliedRules.length * 4 + 12) : 0;
-    const TOTALS_H   = 45 + MODS_H + ASM_H + DISC_H;
+    // ── CB-70:三個調整項,有值才畫,每行 6mm(_drawTotals 同式)──
+    //   常數 45 對基本五行(28mm)的餘裕僅 17mm,三行滿載 18mm 即溢出,
+    //   故必須計入而不是靠餘裕吸收。
+    const ADJ_H      = [accountCredit, managerDiscount, handlingFee]
+                         .filter(function (v) { return Number(v || 0) !== 0; }).length * 6;
+    // ── F-151 補償(CB-70 Q-15 = A;【非】CB-70 本身的改動)────────────────
+    //   常數 45 從未計入 Receipt 專屬區塊:Transaction Fee 6mm + 尾段
+    //   (Paid 6 + Balance Due 8 + divider 5 + Payment Method 6 + PAID 5)= 36mm。
+    //   此低估在 CB-70 之前就存在,滿版 Receipt 的實際底部可越過戳記(281)
+    //   與頁尾綠條(287)。CB-70 新增的 18mm 會使其惡化,故依 Q-15 一併補上。
+    //   🔴 本行與上一行落在同一個運算式,但歸屬不同 —— 出事時據此分辨。
+    const RECEIPT_H  = receipt ? 36 : 0;
+    const TOTALS_H   = 45 + MODS_H + ASM_H + DISC_H + ADJ_H + RECEIPT_H;
     const NEEDED     = Math.max(TC_BLOCK_H, TOTALS_H) + 20;
     if (y + NEEDED > 275) {
       doc.addPage();
@@ -2320,6 +2403,12 @@ return total;
     //      Receipt 與確認信都看得到,Draft Quote 唯一的用途是對外報價。
     //      Invoice / Receipt 為 ProCraft ↔ dealer 之間的憑證,一律揭露折扣。
     const _hideDiscount = true;
+    // ── CB-70 (Q-6 = A) ───────────────────────────────────────────────────
+    //   同一條理由延伸到 Account Credit 與 Manager Discount:兩者是 ProCraft
+    //   對 dealer 的讓利,印出來等於把進價條件攤給終端客戶。
+    //   🔴 Handling Fee【不隱藏】—— 它是 dealer 實付的成本,不是讓利,
+    //      理應轉嫁。三項不是同一種東西,勿為了「一致」把它一起關掉。
+    const _hideCredit = true;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'DRAFT QUOTE'
@@ -2339,6 +2428,7 @@ return total;
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
       hideDiscount: _hideDiscount,         // CB-47 Q-A3
+      hideCredit:   _hideCredit,           // CB-70 Q-6
     });
 
     _drawStamp(doc, options.stamp);   // CB-50
