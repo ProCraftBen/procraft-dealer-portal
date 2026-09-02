@@ -685,6 +685,65 @@ color: var(--green-dark);
           <span class="total-value" id="totalSubtotalNet">$0.00</span>
         </div>
       </div>
+      <!-- ══ CB-70: 訂單層級調整項 ══════════════════════════════════════
+           Account Credit / Manager Discount(僅負) + Handling Fee(僅正)。
+           位置依已拍板 #4「subtotal 下方」= 折扣區塊之後、Modifications 之前。
+           🔴 版面在 Modifications 之前,但三項與 taxable mods【同時】進稅基 ——
+              不是「只作用於 subtotal」。位置是業主指定的閱讀順序,不是計算順序。
+              ⚠️ 勿因為版面在上面就把公式改成先加三項再算 mods。
+           🔴 顯示規則:admin/super_admin 一律顯示三行(要能填);
+              其餘角色僅在值 !== 0 時顯示該行(Q-7,沿用 CB-75 Q-2「有值才列」),
+              避免每張單都印三行 $0.00。
+           🔴 admin 判準用【角色】(isAdminViewer),不是 viewMode ——
+              與同檔 isAdminShippingMode()(CB-33)刻意不同,見 setupAdjustmentInputs()。
+           🔴 輸入框只收【金額大小】,正負號由欄位語意固定(左側 − / + 字符)。
+              取值時一律 Math.abs() 再套號,故「Account Credit 是正數」這種
+              錯誤在結構上不可能發生 —— 因此本區塊【沒有】單欄正負防呆。
+              ⚠️ 勿加回 max="0" 或正負檢查:那會讓 admin 必須自己打負號,
+                 正是本設計要消除的負擔。 -->
+      <div id="adjustmentsRow" style="display:none;">
+        <div class="total-row" id="adjAccountCreditRow" style="display:none;">
+          <div>
+            <span class="total-label" data-i18n="nq3.sum.account_credit">Account Credit</span>
+            <div id="adjAccountCreditAdmin" style="display:none;align-items:center;gap:6px;margin-top:6px;">
+              <span style="font-size:15px;color:#8B6914;font-weight:600;width:10px;text-align:center;">−</span>
+              <span style="font-size:13px;color:var(--muted);">$</span>
+              <input type="number" id="adjAccountCredit" min="0" step="0.01" placeholder="0.00"
+                oninput="onAdjustmentInput()"
+                style="width:110px;height:30px;border:1px solid var(--border);border-radius:3px;padding:0 8px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:right;"/>
+            </div>
+          </div>
+          <span class="total-value" id="adjAccountCreditVal" style="color:#8B6914;">$0.00</span>
+        </div>
+        <div class="total-row" id="adjManagerDiscountRow" style="display:none;">
+          <div>
+            <span class="total-label" data-i18n="nq3.sum.manager_discount">Manager Discount</span>
+            <div id="adjManagerDiscountAdmin" style="display:none;align-items:center;gap:6px;margin-top:6px;">
+              <span style="font-size:15px;color:#8B6914;font-weight:600;width:10px;text-align:center;">−</span>
+              <span style="font-size:13px;color:var(--muted);">$</span>
+              <input type="number" id="adjManagerDiscount" min="0" step="0.01" placeholder="0.00"
+                oninput="onAdjustmentInput()"
+                style="width:110px;height:30px;border:1px solid var(--border);border-radius:3px;padding:0 8px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:right;"/>
+            </div>
+          </div>
+          <span class="total-value" id="adjManagerDiscountVal" style="color:#8B6914;">$0.00</span>
+        </div>
+        <div class="total-row" id="adjHandlingFeeRow" style="display:none;">
+          <div>
+            <span class="total-label" data-i18n="nq3.sum.handling_fee">Handling Fee</span>
+            <div id="adjHandlingFeeAdmin" style="display:none;align-items:center;gap:6px;margin-top:6px;">
+              <span style="font-size:15px;color:#8B6914;font-weight:600;width:10px;text-align:center;">+</span>
+              <span style="font-size:13px;color:var(--muted);">$</span>
+              <input type="number" id="adjHandlingFee" min="0" step="0.01" placeholder="0.00"
+                oninput="onAdjustmentInput()"
+                style="width:110px;height:30px;border:1px solid var(--border);border-radius:3px;padding:0 8px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:right;"/>
+            </div>
+          </div>
+          <span class="total-value" id="adjHandlingFeeVal" style="color:#8B6914;">$0.00</span>
+        </div>
+        <!-- 第四層防呆:合計不得為負。訊息依角色分兩版,見 renderAdjustmentRows()。 -->
+        <div id="adjTotalErr" style="display:none;color:var(--error);font-size:12px;line-height:1.5;padding:6px 0 2px;"></div>
+      </div>
       <!-- CB-27: Modifications 改成標題 + by-type 明細 + Total(仿 assembleRow) -->
       <div id="modsRow" style="display:none;">
         <div class="total-row" style="padding-bottom:2px;">
@@ -982,6 +1041,12 @@ let _isAdminContext         = false;
 let _existingLogisticType = null;
 let _existingShippingCost = null;
 let _existingSubtotal     = null;
+// ── CB-70: 訂單層級調整項的既有值(hydration 自 quotes)──
+//   🔴 三欄為 NOT NULL DEFAULT 0,故此處恆為數字,永不為 null。
+//      非 admin 的寫入路徑一律把這三個值【原值寫回】(CB-70 Q-11 = A)——
+//      不這麼做的話,admin 填的 −$500 會在 dealer 按一次 Save 之後靜默歸零,
+//      而且兩邊都不會收到任何錯誤。
+let _existingAdjustments = { account_credit: 0, manager_discount: 0, handling_fee: 0 };
 let _saveNonStockAck = false;  // CB-5 需求2 階段2: non-stock 通知已確認
 // CB-36: Save Internal Draft vs Save & Notify Dealer 意圖（module 變數,避免 non-stock modal 回呼丟失參數）
 let _pendingNotify = false;
@@ -2141,6 +2206,13 @@ let dealerIdToLoad = session.user.id;
     _existingSubtotal      = (q.subtotal === null || q.subtotal === undefined)
                                ? null
                                : parseFloat(q.subtotal);
+    // CB-70:三個調整項一律經 cb70Num() 正規化為數字(見該函式)。
+    //   上方 select('*') 已涵蓋新欄位,無須加欄。
+    _existingAdjustments = {
+      account_credit:   cb70Num(q.account_credit_amount),
+      manager_discount: cb70Num(q.manager_discount_amount),
+      handling_fee:     cb70Num(q.handling_fee_amount),
+    };
     if (q.status === 'Returned') _isResumingReturned = true;
   } else if (step1Data && step1Data.dealerIdForQuote) {
     dealerIdToLoad = step1Data.dealerIdForQuote;
@@ -2361,6 +2433,10 @@ if (draftId) {
   
     // CB-33: admin shipping fee 輸入框(僅 admin mode + logistic=shipping)
     setupAdminShippingInput();
+    // CB-70: 三個調整項的 admin 輸入框(依角色,非 viewMode)。
+    //   🔴 必須在 renderReview() 之前 —— applyTotals() 會讀輸入框當前值,
+    //      預帶值若晚於第一次計算,首屏的總額會少算既有調整項。
+    setupAdjustmentInputs();
     refreshAdminSubmitGate();
   
     renderReview();
@@ -2948,7 +3024,15 @@ function applyTotals(opts) {
   // CB-47 D6:shipping 級距同樣用折【後】billingBase —— 業主 override,
   //   dealer 使用折扣就承擔級距後果(折後掉出 $12,000 即失去免運)。
   //   ⚠️ 勿改回 gross,那是 PM 原始拍板後被推翻的版本。
-  const taxBase     = round2(skuSubtotalR + taxableModsR);
+  // ── CB-70: 訂單層級調整項 ──
+  //   🔴 三項【全部】進稅基,含 Handling Fee(已拍板 #5,不是漏掉)。
+  //   🔴 三項【都不】進 billingBase —— 運費為手動輸入,無級距重算問題
+  //      (已拍板 #6)。⚠️ 勿為了「一致」把 adjSum 加進 billingBase,
+  //      那會讓調整項意外改變免運門檻與運費級距。
+  const _cb70Adj = getOrderAdjustments();      // 恆為數字,永不為 null
+  const adjSumR  = _cb70Adj.sum;               // 已 round2(見 getOrderAdjustments)
+
+  const taxBase     = round2(skuSubtotalR + taxableModsR + adjSumR);
   const billingBase = round2(skuSubtotalR + modsSubtotalR);
 
   const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
@@ -3031,7 +3115,9 @@ function applyTotals(opts) {
   // ── CB-46: tax 先取整，grand 用已取整的加數相加 ──
   const shippingForTotalR = round2(shippingForTotal);
   const tax   = round2(taxBase * taxRate);
-  const grand = round2(skuSubtotalR + modsSubtotalR + assembleTotalR + shippingForTotalR + tax);
+  // CB-70: adjSumR 進 grand。⚠️ 漏掉這一項的症狀是【靜默】的 —— 畫面與落庫
+  //   金額分岔,Receipt 的 CB-45 對帳斷言會直接 throw(印不出來,而非印錯)。
+  const grand = round2(skuSubtotalR + modsSubtotalR + assembleTotalR + adjSumR + shippingForTotalR + tax);
 
   // ── CB-47 顯示(D10)──
   //   有折扣 → Subtotal 顯示折前,下方列出各 rule 明細 + Total Discount + 折後小計
@@ -3041,6 +3127,10 @@ function applyTotals(opts) {
   document.getElementById('totalSubtotal').textContent =
     `$${(discountTotalR > 0 ? _subGrossDisplay : _subNetDisplay).toFixed(2)}`;
   renderDiscountRows(discountTotalR, _subNetDisplay);
+  // CB-70: 三行的顯示/隱藏 + 即時防呆。skuSubtotalR 就是落庫的 quotes.subtotal
+  //   (見 saveDraft 的 _t47s.net),故與 DB 的 chk_quotes_adjusted_subtotal_nonneg
+  //   用的是【同一個數】—— 前端擋得住的,DB 就不會再擋一次。
+  renderAdjustmentRows(_cb70Adj, skuSubtotalR);
 
   const modsRow = document.getElementById('modsRow');
   if (modBreakdown.modsDisplayTotal > 0) {
@@ -3317,7 +3407,14 @@ function buildQuoteDataForPdf(opts) {
   const _pdfSkuR       = round2(skuSubtotalNow);
   const _pdfTaxableR   = round2(taxableModsSubtotalNow);
   const _pdfRawTaxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
-  const _pdfTaxBase    = round2(_pdfSkuR + _pdfTaxableR);
+  // ── CB-70 ──
+  //   🔴 _pdfTaxBase 必須與落庫的 taxBase 同式(含三項),否則反解出的稅率
+  //      乘回去無法還原成已取整的 tax_amount,PDF 與 DB 的稅金就會分岔。
+  //   🔴 pdf-builder 的 taxBase 也必須含三項 —— 兩端定義只要一致,反解/乘回
+  //      就會抵銷;只有一端含就會壞。⚠️ 動其中一邊必須同時動另一邊。
+  const _pdfAdj        = getOrderAdjustments();
+  const _pdfAdjSumR    = _pdfAdj.sum;
+  const _pdfTaxBase    = round2(_pdfSkuR + _pdfTaxableR + _pdfAdjSumR);
   const _pdfTax        = round2(_pdfTaxBase * _pdfRawTaxRate);
   const _pdfTaxRate    = (_pdfTaxBase > 0 && _pdfTax > 0) ? (_pdfTax / _pdfTaxBase) : 0;
 
@@ -3344,6 +3441,14 @@ function buildQuoteDataForPdf(opts) {
     _taxExempt:  !!dealer?.tax_exempt,
     modifications_total:         round2(modsSubtotalNow),
     modifications_total_taxable: _pdfTaxableR,  // F-TAX
+    // CB-70:三個調整項送進 PDF。
+    //   🔴 本檔與 quote-detail.html 各有一份 buildQuoteDataForPdf(),兩處都要
+    //      供應這三個鍵。漏掉任一處的失效模式是【PDF 的 Order Total 靜默少算】,
+    //      且 Receipt 會直接撞 CB-45 對帳斷言而印不出來 —— 斷點在來源端,
+    //      不在 pdf-builder(F-40 / CB-74 踩過同一個坑)。
+    account_credit_amount:   _pdfAdj.account_credit,
+    manager_discount_amount: _pdfAdj.manager_discount,
+    handling_fee_amount:     _pdfAdj.handling_fee,
     // CB-47: 折扣快照給 PDF 顯示用(金額本身已含在 items.discount_amount 內)
     discount_total:         _t47p.discount,
     applied_discount_rules: _appliedDiscountRules,
@@ -3416,8 +3521,20 @@ async function saveDraft() {
     const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
     const assembleTotal        = calcAssembleTotal(step2Data);   // CB-72(內含 round2)
 
+
+    // ── CB-70: 訂單層級調整項 ──
+    //   🔴 取值一律經 getOrderAdjustments():admin 讀輸入框,其餘角色讀
+    //      _existingAdjustments(hydration 自 DB)。非 admin 路徑因此是把既有值
+    //      【原值寫回】—— 少了這一步,dealer 只要按一次 Save,admin 填的調整項
+    //      就會靜默歸零,而且兩邊都不會收到任何錯誤(CB-70 Q-11 = A)。
+    //   🔴 恆為數字,永不為 null —— 三欄在 DB 為 NOT NULL。
+    const _adj    = getOrderAdjustments();
+    const adjSumR = _adj.sum;
+    cb70AssertAdjustments(skuSubtotal, _adj);
+
     // F-TAX: tax base = SKU + taxable mods; billing base = SKU + all mods
-    const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
+    // CB-70: 三項全部進 taxBase(已拍板 #5),都不進 billingBase(已拍板 #6)。
+    const taxBase     = round2(skuSubtotal + taxableModsSubtotal + adjSumR);
     const billingBase = round2(skuSubtotal + modsSubtotal);
 
     const logisticType  = step1Data.logisticType || 'pickup';
@@ -3438,10 +3555,10 @@ async function saveDraft() {
     const taxRate = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
     // CB-46: tax 先取整，grand 用【已取整】的加數相加 → subtotal+mods+asm+ship+tax === grand
     const tax     = round2(taxBase * taxRate);
-    const grand   = round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax);
+    const grand   = round2(skuSubtotal + modsSubtotal + assembleTotal + adjSumR + shippingForTotal + tax);
 
     console.log('[CB-46] saveDraft identity:',
-      round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
+      round2(skuSubtotal + modsSubtotal + assembleTotal + adjSumR + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
 
     console.log('[F-TAX] saveDraft:',
       'sku=$' + skuSubtotal.toFixed(2),
@@ -3469,6 +3586,10 @@ async function saveDraft() {
       shipping_cost:       (shippingForDb === null) ? null : round2(shippingForDb),
       tax_amount:          tax,
       grand_total:         grand,
+      // CB-70: 三個調整項。admin 寫入輸入框的值,其餘角色原值寫回。
+      account_credit_amount:   _adj.account_credit,
+      manager_discount_amount: _adj.manager_discount,
+      handling_fee_amount:     _adj.handling_fee,
       // CB-47: 每次存 Draft 都重新快照(D2)
       discount_total:         _t47s.discount,
       applied_discount_rules: _appliedDiscountRules,
@@ -3692,8 +3813,17 @@ async function submitQuote() {
     const taxableModsSubtotal  = round2(calcTaxableModsCost(step2Data));   // F-TAX
     const assembleTotal        = calcAssembleTotal(step2Data);   // CB-72(內含 round2)
 
+
+    // ── CB-70: 訂單層級調整項(同 saveDraft,見該處說明)──
+    //   🔴 非 admin 路徑為【原值寫回】。漏掉 = dealer 一存就把 admin 填的
+    //      調整項靜默歸零(CB-70 Q-11 = A)。
+    const _adj    = getOrderAdjustments();
+    const adjSumR = _adj.sum;
+    cb70AssertAdjustments(skuSubtotal, _adj);
+
     // F-TAX
-    const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
+    // CB-70: 三項全部進 taxBase,都不進 billingBase。
+    const taxBase     = round2(skuSubtotal + taxableModsSubtotal + adjSumR);
     const billingBase = round2(skuSubtotal + modsSubtotal);
 
     const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
@@ -3714,10 +3844,10 @@ async function submitQuote() {
 
     // CB-46: tax 先取整，grand 用【已取整】的加數相加
     const tax   = round2(taxBase * taxRate);
-    const grand = round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax);
+    const grand = round2(skuSubtotal + modsSubtotal + assembleTotal + adjSumR + shippingForTotal + tax);
 
     console.log('[CB-46] submitQuote identity:',
-      round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
+      round2(skuSubtotal + modsSubtotal + assembleTotal + adjSumR + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
 
     console.log('[F-TAX] submitQuote:',
       'sku=$' + skuSubtotal.toFixed(2),
@@ -3749,6 +3879,10 @@ async function submitQuote() {
       shipping_cost:       shippingCostWrite,
       tax_amount:          tax,
       grand_total:         grand,
+      // CB-70: 三個調整項(同 saveDraft)。
+      account_credit_amount:   _adj.account_credit,
+      manager_discount_amount: _adj.manager_discount,
+      handling_fee_amount:     _adj.handling_fee,
       // CB-47: 送出即凍結快照,之後 admin 改規則不影響本張單
       discount_total:         _t47q.discount,
       applied_discount_rules: _appliedDiscountRules,
@@ -3991,6 +4125,15 @@ async function submitQuote() {
             shipping_pending:            (shippingCostWrite === null),
             tax_amount:                  tax.toFixed(2),
             grand_total:                 grand.toFixed(2),
+            // F-145:三個調整項送進確認信(send-quote-email 的 buildTotalsBlock)。
+            //   🔴 只有【送出信】需要。requestRevision 走 notification_type 'return',
+            //      而 handleReturnNotification 完全不渲染 totals —— 在那裡加只是
+            //      再製造三個永遠不被讀取的 key(F-155 已登記同型既有債)。
+            //   🔴 與 Edge Function 無部署順序相依:EF 未更新時多送的 key 被忽略,
+            //      前端未更新時 EF 讀到 undefined → 0 → 三行不渲染。兩邊都安全。
+            account_credit_amount:       _adj.account_credit.toFixed(2),
+            manager_discount_amount:     _adj.manager_discount.toFixed(2),
+            handling_fee_amount:         _adj.handling_fee.toFixed(2),
             revision_number:             pdfRevisionNumber,
             is_resubmit:                 _isResumingReturned,
             estimated_lead_time:         calculateLeadTime(step2Data, allDoorStyles),  // email 顯示交期(NEW)
@@ -4131,7 +4274,15 @@ async function requestRevision(note) {
     const taxableModsSubtotal = round2(calcTaxableModsCost(step2Data));
     const assembleTotal       = calcAssembleTotal(step2Data);   // CB-72(內含 round2)
 
-    const taxBase     = round2(skuSubtotal + taxableModsSubtotal);
+    // ── CB-70: 訂單層級調整項(同 saveDraft,見該處說明)──
+    //   🔴 非 admin 路徑為【原值寫回】。漏掉 = dealer 一存就把 admin 填的
+    //      調整項靜默歸零(CB-70 Q-11 = A)。
+    const _adj    = getOrderAdjustments();
+    const adjSumR = _adj.sum;
+    cb70AssertAdjustments(skuSubtotal, _adj);
+
+    // CB-70: 三項全部進 taxBase,都不進 billingBase。
+    const taxBase     = round2(skuSubtotal + taxableModsSubtotal + adjSumR);
     const billingBase = round2(skuSubtotal + modsSubtotal);
 
     const taxRate      = dealer?.tax_exempt ? 0 : parseFloat(dealer?.tax_rate || 0);
@@ -4155,10 +4306,10 @@ async function requestRevision(note) {
 
     // CB-46: tax 先取整，grand 用【已取整】的加數相加
     const tax   = round2(taxBase * taxRate);
-    const grand = round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax);
+    const grand = round2(skuSubtotal + modsSubtotal + assembleTotal + adjSumR + shippingForTotal + tax);
 
     console.log('[CB-46] requestRevision identity:',
-      round2(skuSubtotal + modsSubtotal + assembleTotal + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
+      round2(skuSubtotal + modsSubtotal + assembleTotal + adjSumR + shippingForTotal + tax) === grand ? 'OK' : 'MISMATCH');
 
     // ── resolve PO# / quote_number (admin-edit always has an existing draft) ──
     let poNumber = _existingPoNumber;
@@ -4190,6 +4341,10 @@ async function requestRevision(note) {
       shipping_cost:       shippingCostWrite,
       tax_amount:          tax,
       grand_total:         grand,
+      // CB-70: 三個調整項(同 saveDraft)。
+      account_credit_amount:   _adj.account_credit,
+      manager_discount_amount: _adj.manager_discount,
+      handling_fee_amount:     _adj.handling_fee,
       discount_total:         _t47r.discount,       // CB-47
       applied_discount_rules: _appliedDiscountRules, // CB-47
       quote_number:        quoteNum,
@@ -4475,6 +4630,164 @@ function getAdminShippingOverride() {
   //   吃到同一個值(123.46)，否則「各行加總 === grand_total」恆等式當場破掉。
   return round2(v);                       // 含 0
 }
+// ═══════════════════════════════════════════════════════════════════
+// CB-70: Order-Level Adjustments(Account Credit / Manager Discount /
+//        Handling Fee)
+//
+// 🔴 admin 判準用【角色】(isAdminViewer),不是 viewMode。
+//    已拍板 #7 寫的是「super_admin / admin only」= 角色語意;viewMode 是
+//    「進入方式」,不是權限。admin 未帶 ?adminDraft 自建單時 viewMode 為
+//    'normal',用 viewMode 會把整個區塊藏起來 —— 那是 admin,他應該看得到。
+//    ⚠️ 同檔的 isAdminShippingMode()(CB-33)是依 viewMode 判斷。
+//       兩處判準不同是【設計】,不是遺漏。勿順手對齊(F-66 §8 同型保護)。
+//
+// 🔴 DB 層對這三欄零保護:dealer_update_own_quotes_when_editable 的
+//    WITH CHECK 只查 dealer_id + status;enforce_dealer_quote_transition
+//    的 Draft/Returned 分支對非 status 欄位完全放行。四條 CHECK 約束是
+//    唯一的 DB 防線,前端是唯一的「人話訊息」防線(CB-70 Q-9 = C)。
+// ═══════════════════════════════════════════════════════════════════
+// sign 為欄位的固定正負號。輸入框只收金額大小,取值時 Math.abs() 後乘上 sign。
+const CB70_ADJ_FIELDS = [
+  { key: 'account_credit',   input: 'adjAccountCredit',   admin: 'adjAccountCreditAdmin',
+    row: 'adjAccountCreditRow',   val: 'adjAccountCreditVal',   sign: -1 },
+  { key: 'manager_discount', input: 'adjManagerDiscount', admin: 'adjManagerDiscountAdmin',
+    row: 'adjManagerDiscountRow', val: 'adjManagerDiscountVal', sign: -1 },
+  { key: 'handling_fee',     input: 'adjHandlingFee',     admin: 'adjHandlingFeeAdmin',
+    row: 'adjHandlingFeeRow',     val: 'adjHandlingFeeVal',     sign:  1 },
+];
+
+// CB-70 防呆結果。由 applyTotals() 內的 renderAdjustmentRows() 單一處寫入,
+//   按鈕 gate 與(Batch B)寫入路徑一律讀這個值,不各自重算。
+let _cb70GuardOk = true;
+
+// 正規化為數字。🔴 恆回傳 number,永不回傳 null/undefined/'' ——
+//   三欄在 DB 為 NOT NULL,送 null 會撞約束而非靜默寫 0。
+function cb70Num(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : round2(n);
+}
+
+// 取當前三項的值。admin 讀輸入框,其餘角色讀 hydration 值(原值保留)。
+function getOrderAdjustments() {
+  const out = {};
+  CB70_ADJ_FIELDS.forEach(function (f) {
+    let v;
+    if (isAdminViewer) {
+      const el = document.getElementById(f.input);
+      // 🔴 元素不存在時退回 hydration 值,不退回 0 —— 退回 0 等於靜默清掉。
+      //    輸入框只收金額大小 → Math.abs() 後套欄位固定的 sign。
+      //    即使 admin 打了 -100,abs 後仍是 100,再乘 sign 得正確方向,
+      //    故「Account Credit 存成正數」在結構上不可能發生(CB-70 Q-16)。
+      v = el ? round2(f.sign * Math.abs(cb70Num(el.value)))
+             : cb70Num(_existingAdjustments[f.key]);
+    } else {
+      v = cb70Num(_existingAdjustments[f.key]);
+    }
+    out[f.key] = v;
+  });
+  out.sum = round2(out.account_credit + out.manager_discount + out.handling_fee);
+  return out;
+}
+
+// admin 輸入框:顯示 + 預帶既有值。比照 setupAdminShippingInput() 的形態。
+function setupAdjustmentInputs() {
+  CB70_ADJ_FIELDS.forEach(function (f) {
+    const wrap = document.getElementById(f.admin);
+    if (!wrap) return;
+    if (!isAdminViewer) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    const el = document.getElementById(f.input);
+    // 預帶既有值,🔴 取【絕對值】—— DB 存的是帶號值,輸入框收的是金額大小。
+    //   直接把 -500 塞進輸入框會讓 admin 看到負號,再被 abs 一次,語意就亂了。
+    //   0 不預帶 —— 讓輸入框維持空白,placeholder 顯示 0.00。
+    if (el && (el.value === '' || el.value == null) && _existingAdjustments[f.key] !== 0) {
+      el.value = String(Math.abs(_existingAdjustments[f.key]));
+    }
+  });
+}
+
+// 寫入前的最終防呆。四條寫入路徑共用(CB-70 Q-9 = C 的「前端先攔」那一半)。
+// 🔴 本式與 renderAdjustmentRows() 的即時檢查、以及 DB 的
+//    chk_quotes_adjusted_subtotal_nonneg 是【同一條式子、同一個 subtotal 來源】。
+//    三處一致才有意義:前端擋得住的 DB 不會再擋一次,DB 會擋的前端一定先擋過,
+//    使用者永遠不會看到原生的 PostgreSQL 約束錯誤。
+//    ⚠️ 若日後改了其中任何一處的式子,另外兩處必須同步改。
+// 🔴 訊息依【角色】分兩版(Q-13 = A):dealer 看不到那三個輸入框、也無權修改,
+//    訊息若暗示他可以改只會更困惑,故 dealer 版一律指向「請聯絡 ProCraft 調整」。
+function cb70AssertAdjustments(subtotalR, adj) {
+  if (round2(cb70Num(subtotalR) + adj.sum) >= 0) return;
+  throw new Error(isAdminViewer
+    ? pcTxt('nq3.err.adj_negative_admin',
+        'Adjusted subtotal would be negative. Reduce the credit or discount, or increase the order amount.')
+    : pcTxt('nq3.err.adj_negative_dealer',
+        'This order includes an adjustment set by ProCraft. With the items currently on the order, ' +
+        'the adjusted total would drop below zero, so it can\'t be saved. Please contact ProCraft ' +
+        'and ask us to update the adjustment for this order.'));
+}
+
+function onAdjustmentInput() {
+  updateMarkupPreview();      // 即時重算總額(applyTotals 會讀 getOrderAdjustments)
+  refreshAdminSubmitGate();   // 即時更新按鈕 disable
+}
+
+// 顯示三行 + 四層防呆的即時檢查。
+//   subtotalR 必須是【落庫的 quotes.subtotal】(折後淨 SKU 小計),
+//   才能與 DB 的 chk_quotes_adjusted_subtotal_nonneg 用同一個數。
+function renderAdjustmentRows(adj, subtotalR) {
+  let anyVisible = false;
+
+  CB70_ADJ_FIELDS.forEach(function (f) {
+    const row = document.getElementById(f.row);
+    const val = document.getElementById(f.val);
+    if (!row || !val) return;
+
+    const v = adj[f.key];
+    // admin 一律顯示(要能填);其餘角色有值才顯示(Q-7)。
+    const show = isAdminViewer || v !== 0;
+    row.style.display = show ? 'flex' : 'none';
+    if (show) anyVisible = true;
+
+    // 顯示:負值 −$X.XX(同 Total Discount)、正值 +$X.XX(同 Assemble Fee)、
+    //   0 不加號(避免出現「−$0.00」這種讀起來像有折讓的空值)。
+    val.textContent = (v === 0)
+      ? '$0.00'
+      : (v < 0 ? `−$${Math.abs(v).toFixed(2)}` : `+$${v.toFixed(2)}`);
+  });
+
+  // 🔴 此處【沒有】單欄正負防呆,是設計不是遺漏(CB-70 Q-16):
+  //    輸入框只收金額大小,正負號由 CB70_ADJ_FIELDS.sign 固定套上,
+  //    「Account Credit 是正數 / Handling Fee 是負數」在結構上不可能發生。
+  //    ⚠️ 勿加回單欄檢查 —— 它永遠不會觸發,只會讓人誤以為有這個風險。
+
+  const wrap = document.getElementById('adjustmentsRow');
+  if (wrap) wrap.style.display = anyVisible ? 'block' : 'none';
+
+  // 🔴 合計防呆(唯一仍需要的一層):三欄各自都是合法方向,加起來仍可能
+  //    把 subtotal 打成負數 —— 例如 Account Credit 大於整單金額。
+  const totalBad = round2(cb70Num(subtotalR) + adj.sum) < 0;
+  _cb70GuardOk = !totalBad;
+
+  // 合計為負的訊息依【角色】分兩版(CB-70 Q-13 = A)。
+  //   dealer 看不到那三個輸入框、也無權修改,訊息若暗示他可以改只會更困惑;
+  //   admin 改得動,訊息直接指向動作。兩版刻意不合併。
+  const box = document.getElementById('adjTotalErr');
+  if (box) {
+    box.style.display = totalBad ? 'block' : 'none';
+    box.textContent   = totalBad
+      ? (isAdminViewer
+          ? pcTxt('nq3.err.adj_negative_admin',
+              'Adjusted subtotal would be negative. Reduce the credit or discount, or increase the order amount.')
+          : pcTxt('nq3.err.adj_negative_dealer',
+              'This order includes an adjustment set by ProCraft. With the items currently on the order, ' +
+              'the adjusted total would drop below zero, so it can\'t be saved. Please contact ProCraft ' +
+              'and ask us to update the adjustment for this order.'))
+      : '';
+    // 合計為負時,即使三行都是 0 也必須把區塊打開,否則訊息無處可顯示。
+    if (totalBad && wrap) wrap.style.display = 'block';
+  }
+}
+
 function setupAdminShippingInput() {
   const wrap = document.getElementById('adminShippingWrap');
   if (!wrap) return;
@@ -4497,6 +4810,13 @@ function refreshAdminSubmitGate() {
   //    btn.disabled = false —— 沒有這道 early return,A-1 設下的 disabled
   //    會在 init 尾端被本函式立刻打開(A-1 執行後緊接著就呼叫本函式)。
   if (isTrialDealer()) {
+    btn.disabled = true;
+    if (hint) hint.style.display = 'none';
+    return;
+  }
+  // 🔴 CB-70: 調整項防呆不通過即不得送出。置於 shipping 判斷【之前】——
+  //    下方 else 分支會無條件 btn.disabled = false,放在後面會被打開。
+  if (!_cb70GuardOk) {
     btn.disabled = true;
     if (hint) hint.style.display = 'none';
     return;
