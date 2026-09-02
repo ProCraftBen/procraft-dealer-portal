@@ -4125,6 +4125,15 @@ async function submitQuote() {
             shipping_pending:            (shippingCostWrite === null),
             tax_amount:                  tax.toFixed(2),
             grand_total:                 grand.toFixed(2),
+            // F-145:三個調整項送進確認信(send-quote-email 的 buildTotalsBlock)。
+            //   🔴 只有【送出信】需要。requestRevision 走 notification_type 'return',
+            //      而 handleReturnNotification 完全不渲染 totals —— 在那裡加只是
+            //      再製造三個永遠不被讀取的 key(F-155 已登記同型既有債)。
+            //   🔴 與 Edge Function 無部署順序相依:EF 未更新時多送的 key 被忽略,
+            //      前端未更新時 EF 讀到 undefined → 0 → 三行不渲染。兩邊都安全。
+            account_credit_amount:       _adj.account_credit.toFixed(2),
+            manager_discount_amount:     _adj.manager_discount.toFixed(2),
+            handling_fee_amount:         _adj.handling_fee.toFixed(2),
             revision_number:             pdfRevisionNumber,
             is_resubmit:                 _isResumingReturned,
             estimated_lead_time:         calculateLeadTime(step2Data, allDoorStyles),  // email 顯示交期(NEW)
