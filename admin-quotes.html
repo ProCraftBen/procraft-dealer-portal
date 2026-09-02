@@ -1149,6 +1149,28 @@ function renderTable() {
         '</div>';
     }
 
+    // ── CB-70: 訂單層級調整項(admin 唯讀顯示)────────────────────────────
+    //   quotes 的 select('*') 已涵蓋三個新欄位,無須加欄。
+    //   值 !== 0 才列(Q-7),舊單三欄為 DEFAULT 0 → 不渲染,畫面與 CB-70 前一致。
+    //   🔴 本頁不載 i18n(無 i18n.js,亦無翻譯函式),故標籤英文硬編碼 ——
+    //      與 new-quote-step3.html / quote-detail.html 掛 i18n 的做法刻意不同。
+    //   ⚠️ 本 totals-mini 區塊【本來就不是對帳視圖】:它沒有 Modifications 行、
+    //      也沒有 Discount 行,故 Subtotal + Asm + Shipping + Tax 在有 mods 或
+    //      有折扣的單上早就不等於 Total。加了本區塊三行仍然不等於 —— 這是
+    //      CB-70 之前就存在的缺口(F-154),本票刻意不修。
+    //      勿誤以為加三行是為了讓它加得起來。
+    let cb70RowsHtml = '';
+    [['Account Credit',   q.account_credit_amount],
+     ['Manager Discount', q.manager_discount_amount],
+     ['Handling Fee',     q.handling_fee_amount]].forEach(function (r) {
+      const v = parseFloat(r[1] || 0);
+      if (v === 0) return;
+      const shown = (v < 0) ? ('\u2212' + fmt(Math.abs(v))) : ('+' + fmt(v));
+      cb70RowsHtml +=
+        '<div class="total-mini-row"><span class="total-mini-label">' + r[0] + '</span>' +
+        '<span class="total-mini-value">' + shown + '</span></div>';
+    });
+
     // ── Items HTML ──
     let itemsHtml = '';
     if (items.length) {
@@ -1170,6 +1192,7 @@ function renderTable() {
         '</table>' +
         '<div class="totals-mini">' +
           '<div class="total-mini-row"><span class="total-mini-label">Subtotal</span><span class="total-mini-value">' + fmt(q.subtotal) + '</span></div>' +
+          cb70RowsHtml +
           asmBreakdownHtml +
           '<div class="total-mini-row"><span class="total-mini-label">Shipping</span><span class="total-mini-value">' + shippingVal + '</span></div>' +
           '<div class="total-mini-row"><span class="total-mini-label">Tax</span><span class="total-mini-value">' + taxVal + '</span></div>' +
