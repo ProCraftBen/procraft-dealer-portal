@@ -2285,6 +2285,34 @@ function renderQuote(quote, dealer, addr) {
   const subtotalNetDisp   = skuSubtotal + mappingMaterialTotal;
   const subtotalGrossDisp = subtotalNetDisp + discountTotal;
 
+  // ─────────────────────────────────────────────────────────────────────
+  // CB-70: 訂單層級調整項(Account Credit / Manager Discount / Handling Fee)
+  //   🔴 純讀快照,本檔【不重算、不可編輯】(CB-70 Q-8 = 不做)——
+  //      三項若要改,必須回 step3 由 admin 改;在此提供編輯會連帶要求重算 tax,
+  //      與 CB-13 的運費差額法(saveShipping)相衝。
+  //   🔴 舊單三欄為 NOT NULL DEFAULT 0 → 全 0 → 整塊不渲染,畫面與 CB-70 前一致。
+  //   顯示規則:值 !== 0 才列(Q-7,沿用 CB-75 Q-2「有值才顯示」),
+  //      避免每張單都印三行 $0.00。本檔無 admin 輸入框,故無「一律顯示」分支。
+  // ─────────────────────────────────────────────────────────────────────
+  const adjAccountCredit   = parseFloat(quote.account_credit_amount   || 0);
+  const adjManagerDiscount = parseFloat(quote.manager_discount_amount || 0);
+  const adjHandlingFee     = parseFloat(quote.handling_fee_amount     || 0);
+  const adjSum             = adjAccountCredit + adjManagerDiscount + adjHandlingFee;
+
+  const adjRow = function (labelKey, labelEn, v) {
+    if (v === 0) return '';
+    // 負值 −$X.XX(同 Total Discount)、正值 +$X.XX(同 Assemble Fee)。
+    const shown = (v < 0) ? ('−' + fmt(Math.abs(v))) : ('+' + fmt(v));
+    return `<div class="total-row">
+        <span class="total-label">${escapeHtml(pcTxt(labelKey, labelEn))}</span>
+        <span class="total-val" style="color:#8B6914;">${shown}</span>
+      </div>`;
+  };
+  const adjustmentRowsHtml =
+      adjRow('nq3.sum.account_credit',   'Account Credit',   adjAccountCredit)
+    + adjRow('nq3.sum.manager_discount', 'Manager Discount', adjManagerDiscount)
+    + adjRow('nq3.sum.handling_fee',     'Handling Fee',     adjHandlingFee);
+
   const discountRowsHtml = (discountTotal > 0)
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div class="asm-breakdown">
@@ -2442,7 +2470,10 @@ function renderQuote(quote, dealer, addr) {
     // tax base = SKU + taxable mods
     let taxDetailHtml = '';
     if (modsSubtotal > 0 && nonTaxableMods > 0.005) {
-      const taxBase = skuSubtotal + taxableMods;
+      // 🔴 CB-70:三項【全部】進稅基(已拍板 #5,含 Handling Fee)。
+      //    漏加的話這一行會直接印出一個與 tax_amount 對不起來的數字給 dealer 看 ——
+      //    是本檔唯一會把稅基【明文顯示】的地方,不是內部計算。
+      const taxBase = skuSubtotal + taxableMods + adjSum;
       taxDetailHtml = `<div class="tax-note-detail">Taxable base: ${fmt(taxBase)} (excludes ${fmt(nonTaxableMods)} non-taxable mods)</div>`;
     }
     taxRowHtml = `
@@ -2647,6 +2678,7 @@ function renderQuote(quote, dealer, addr) {
       <div class="totals">
         <div class="total-row"><span class="total-label">${escapeHtml(pcTxt('nq3.sum.subtotal', 'Subtotal'))}</span><span class="total-val">${fmt(discountTotal > 0 ? subtotalGrossDisp : subtotalNetDisp)}</span></div>
         ${discountRowsHtml}
+        ${adjustmentRowsHtml}
         ${modsRowHtml}
         ${asmBreakdownHtml}
         ${shippingRowHtml}
@@ -3070,7 +3102,15 @@ function buildQuoteDataForPdf() {
   // Tax rate: derive from snapshot. tax_amount was snapshotted at submit time;
   // effective rate = tax_amount / taxable base (SKU + taxable mods).
   const skuSubtotal = parseFloat(_quote.subtotal || 0);
-  const taxableBase = skuSubtotal + taxableModsTotal;
+  // ── CB-70 ──
+  //   🔴 taxableBase 必須含三項,與 step3 落庫時的 taxBase 同式。
+  //      本行是「反解稅率」的分母,pdf-builder 再用同一個定義乘回去 ——
+  //      兩端定義一致才會抵銷還原成已取整的 tax_amount;只有一端含就會壞。
+  //      ⚠️ 動這裡必須同時動 pdf-builder 的 _computeTotals。
+  const _qdAdjSum   = parseFloat(_quote.account_credit_amount   || 0)
+                    + parseFloat(_quote.manager_discount_amount || 0)
+                    + parseFloat(_quote.handling_fee_amount     || 0);
+  const taxableBase = skuSubtotal + taxableModsTotal + _qdAdjSum;
   const taxAmount   = parseFloat(_quote.tax_amount || 0);
   const _taxRate    = (taxableBase > 0 && taxAmount > 0) ? (taxAmount / taxableBase) : 0;
   const _taxExempt  = taxAmount === 0 && !!(_dealer && _dealer.tax_exempt);
@@ -3097,6 +3137,14 @@ function buildQuoteDataForPdf() {
     construction_type:   resolveQuoteConstructionType(_groupedItems, _allDoorStyles),  // CB-22: PDF Order List 排序依據
     modifications_total:         parseFloat(modsTotal.toFixed(2)),
     modifications_total_taxable: parseFloat(taxableModsTotal.toFixed(2)),
+    // CB-70:三個調整項送進 PDF(純讀快照)。
+    //   🔴 本檔與 new-quote-step3.html 各有一份 buildQuoteDataForPdf(),
+    //      兩處都要供應這三個鍵。漏掉任一處 → PDF 的 Order Total 靜默少算,
+    //      且 Receipt 會撞 CB-45 對帳斷言而【印不出來】。
+    //      斷點在來源端,不在 pdf-builder(F-40 / CB-74 踩過同一個坑)。
+    account_credit_amount:   parseFloat(_quote.account_credit_amount   || 0),
+    manager_discount_amount: parseFloat(_quote.manager_discount_amount || 0),
+    handling_fee_amount:     parseFloat(_quote.handling_fee_amount     || 0),
     // CB-47:折扣快照給 PDF 顯示用。金額本身已含在 items[].discount_amount,
     //   pdf-builder 由此 live 重算,與 DB grand_total 收斂(CB-45 對帳不受影響)。
     discount_total:         parseFloat(_quote.discount_total || 0),
