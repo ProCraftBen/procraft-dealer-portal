@@ -1609,6 +1609,91 @@ async function exportQuotesCsv() {
   }
 }
 
+// ── CSV 組裝 ────────────────────────────────────────────────────────────
+// 🔴 Q-24 拍板欄位。金額欄【原值輸出,零計算】——
+//    不 round、不加總、不重算。Export 是唯讀的鏡子,不是計算器。
+//    (故本單元不落入「碰金額計算」的授權例外)
+const CSV_COLUMNS = [
+  { key: 'draft_number',            head: 'Draft #' },
+  { key: 'po_number',               head: 'PO #' },
+  { key: 'quote_number',            head: 'Quote #' },
+  { key: 'revision_number',         head: 'Revision' },
+  { key: 'job_name',                head: 'Job Name' },
+  { key: 'status',                  head: 'Status' },
+  { key: 'created_at',              head: 'Created At' },
+  { key: 'fulfillment_date',        head: 'Fulfillment Date' },
+  { key: 'dealer_id',               head: 'Dealer ID' },
+  { key: '_dealer_name',            head: 'Dealer' },
+  { key: 'subtotal',                head: 'Subtotal' },
+  { key: 'discount_total',          head: 'Discount Total' },
+  { key: 'assemble_total',          head: 'Assemble Total' },
+  { key: 'shipping_cost',           head: 'Shipping Cost' },
+  { key: 'delivery_fee',            head: 'Delivery Fee' },
+  { key: 'tax_amount',              head: 'Tax Amount' },
+  { key: 'account_credit_amount',   head: 'Account Credit' },
+  { key: 'manager_discount_amount', head: 'Manager Discount' },
+  { key: 'handling_fee_amount',     head: 'Handling Fee' },
+  { key: 'grand_total',             head: 'Grand Total' },
+  { key: 'notes',                   head: 'Notes' },
+  { key: 'return_reason',           head: 'Return Reason' },
+  { key: 'close_reason',            head: 'Close Reason' }
+];
+
+// 🔴 F-154 註記必須在【檔案裡】,不是只寫在交付說明。
+//    三個月後拿這份 CSV 對帳的人只會看到檔案本身。檔名會被改掉,
+//    畫面提示會消失,只有首行跟著檔案走。
+//    ⚠️ 已知代價:Excel 會把這兩行當成資料列,需手動略過。
+//       接受 —— 略過兩行是一次性麻煩,不知道欄位加不回總額是持續的誤導。
+const CSV_DISCLAIMER = [
+  '# Note: individual amount columns do not sum to grand_total.',
+  '# See F-154. Use grand_total for reconciliation.'
+];
+
+function csvCell(v) {
+  // 🔴 null 與 0 必須可區分:null -> 空字串,0 -> "0"。
+  //    把 0 寫成空白等於宣稱「沒有值」,那是不同的事實。
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  // 🔴 一律加引號並將內部引號成對跳脫 —— job_name / notes 常含逗號與換行,
+  //    不包裹會讓整列右移,而 CSV 不會因此報錯。
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function downloadQuotesCsv(rows) {
+  const lines = CSV_DISCLAIMER.slice();
+
+  lines.push(CSV_COLUMNS.map(function (c) { return csvCell(c.head); }).join(','));
+
+  rows.forEach(function (q) {
+    const d = allDealers[q.dealer_id];
+    lines.push(CSV_COLUMNS.map(function (c) {
+      const v = (c.key === '_dealer_name')
+        ? (d ? d.company_name : null)
+        : q[c.key];
+      return csvCell(v);
+    }).join(','));
+  });
+
+  // 🔴 BOM:沒有它,Excel 會用系統預設編碼開檔,中文公司名變亂碼。
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')],
+                        { type: 'text/csv;charset=utf-8;' });
+
+  const now = new Date();
+  const pad = function (n) { return String(n).padStart(2, '0'); };
+  const name = 'quotes_' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate())
+             + '_' + pad(now.getHours()) + pad(now.getMinutes()) + '.csv';
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // 🔴 必須釋放,否則每次匯出都留一份 blob 在記憶體直到頁面關閉。
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
 // ══ CB-60a M1:Stats 改由 get_quote_stats() RPC 取得 ══════════════════════
 //  🔴 Q-20 = A。舊做法(client 端 filter allQuotes)在分頁後只剩當頁 25 筆,
 //     語意直接錯;改打 quotes 的 count:'exact' 則會在 policy 擋住時回 0 而非
