@@ -408,6 +408,9 @@
     <div class="filter-group">
       <label class="filter-label">Search</label>
       <input type="text" class="filter-input" id="filterSearch" placeholder="PO# / Draft ID / Job Name"/>
+      <!-- CB-60a M4:淨化提示。🔴 必須顯示在畫面上,不是 console ——
+           console 對 admin 等於不存在。 -->
+      <div id="searchNotice" style="display:none;font-size:10px;color:#92400E;margin-top:4px;max-width:220px;line-height:1.4;"></div>
     </div>
     <!-- CB-60a M3:Sort By。options 由 initSortOptions() 填入,
          避免選項清單在 HTML 與 JS 兩處各存一份(F-118 同族)。 -->
@@ -645,6 +648,47 @@ let _listState = { page: 0, total: null };
 // 🔴 查詢失敗的狀態必須獨立保存:清單為空與查詢失敗在畫面上同形,
 //    靠 allQuotes.length === 0 判斷會把兩者混為一談。
 let _listError = null;
+
+
+// ══ CB-60a M4:搜尋淨化 ═════════════════════════════════════════════════
+// 沿用 F-30 已驗證的方案,不重新設計:
+//   % _        跳脫(讓它們比對字面值,而非當成萬用字元)
+//   * " \      移除【並顯示提示】—— F-30 S1-d1 實證這三個無法跳脫
+//   , ( )      保留 —— 用雙引號包裹 ilike 值即不破壞 .or() 語法
+//   . - @      絕不動(email 與公司名必然含這些)
+// 🔴 不得靜默改寫:被移除的字元一律回報給使用者。
+const SEARCH_UNESCAPABLE = /[*"\\]/g;
+
+function sanitizeSearch(raw) {
+  let s = String(raw == null ? '' : raw);
+
+  // 🔴 順序是關鍵:【先】移除使用者輸入的反斜線,【再】插入跳脫用的反斜線。
+  //    反過來做的話,下一步會把我們自己加的跳脫字元一起刪掉,
+  //    結果 % 又變回萬用字元 —— 而且看起來完全正常。
+  const hits = s.match(SEARCH_UNESCAPABLE);
+  const removed = hits ? Array.from(new Set(hits)).sort() : [];
+
+  s = s.replace(SEARCH_UNESCAPABLE, '');
+  s = s.replace(/([%_])/g, '\\$1');
+
+  return { value: s, removed: removed };
+}
+
+// 🔴 提示必須顯示在使用者看得到的地方,不是 console。
+function renderSearchNotice(removed) {
+  const el = document.getElementById('searchNotice');
+  if (!el) return;
+  if (!removed || !removed.length) {
+    el.textContent = '';
+    el.style.display = 'none';
+    return;
+  }
+  el.textContent = 'Removed from search: ' + removed.join(' ')
+                 + ' (these characters cannot be searched)';
+  el.style.display = 'block';
+}
+
+  
 
 // ══ CB-60a M3:排序 ═════════════════════════════════════════════════════
 // 🔴 每個選項都必須指定 nullsFirst,不依賴 PostgREST 預設。
@@ -1068,14 +1112,21 @@ function buildQuotesQuery(salesDealerIds) {
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
 
   const search = (document.getElementById('filterSearch').value || '').trim();
+  if (!search) renderSearchNotice([]);   // CB-60a M4:清空搜尋時一併清掉提示
   if (search) {
     if (/^D\d{5}$/i.test(search)) {
       query = query.eq('draft_number', search.toUpperCase());
     } else if (/^PDC\d{5}$/i.test(search)) {
       query = query.eq('po_number', search.toUpperCase());
     } else {
-      const safe = search.replace(/[,()*]/g, '');
-      query = query.or('draft_number.ilike.%' + safe + '%,po_number.ilike.%' + safe + '%,job_name.ilike.%' + safe + '%');
+      // 🔴 雙引號包裹 ilike 值:F-30 已實測,包裹後 , ( ) 不再破壞 .or() 結構,
+      //    因此不需要剔除它們 —— Job Name 常含括號,剔除會讓搜尋靜默失效。
+      const san = sanitizeSearch(search);
+      renderSearchNotice(san.removed);
+      const v = '"%' + san.value + '%"';
+      query = query.or('draft_number.ilike.' + v
+                     + ',po_number.ilike.'   + v
+                     + ',job_name.ilike.'    + v);
     }
   }
 
