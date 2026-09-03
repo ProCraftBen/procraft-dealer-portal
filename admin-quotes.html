@@ -1092,9 +1092,8 @@ function emptyStateMessage() {
 // 🔴 抽成獨立函式的理由是【技術必要】,不是整理:PGRST103 超界時必須用
 //    同一組篩選條件重跑一次,而 supabase-js 的 query builder 一經 await
 //    即不可重複使用。沿用同一個 builder 會拿到不可預期的結果。
-// ⚠️ 篩選邏輯本身逐字沿用原碼,未做任何行為變更。
-//    搜尋淨化(replace(/[,()*]/g,''))刻意保留原樣 —— M4 才會改它,
-//    避免兩個單元動同一段。
+// ⚠️ 篩選邏輯沿用原碼,除搜尋淨化外未做行為變更。
+//    搜尋淨化已於 M4 改為 sanitizeSearch() + 雙引號包裹。
 function buildQuotesQuery(salesDealerIds) {
   let query = _supabase
     .from('quotes')
