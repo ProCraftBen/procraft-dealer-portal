@@ -2233,7 +2233,12 @@ async function confirmDeleteDraft() {
 }
 
 // ── Filters ────────────────────────────────────────────────────────
-function applyFilters() { loadQuotes(); }
+// 🔴 篩選改變【必須】重置至第 1 頁(F-30 🟢 通用項)。
+//    不重置的話:停在第 4 頁時改篩選,新條件下可能只有 1 頁,
+//    range(75,99) 會落在空區 -> PGRST103 -> 觸發 clamp 重跑,
+//    畫面最終是對的,但多一次來回;若 count 剛好夠,則會顯示
+//    「第 4 頁」的資料而使用者以為是第 1 頁 —— 而且不報錯。
+function applyFilters() { _listState.page = 0; loadQuotes(); }
 function resetFilters() {
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterDealer').value = '';
@@ -2242,6 +2247,7 @@ function resetFilters() {
   document.getElementById('filterSearch').value = '';
   // CB-38 Q3:Sales 回到 landing 時的 default(admin → My Dealers),而非清空
   document.getElementById('filterSales').value  = defaultSalesValue;
+  _listState.page = 0;
   loadQuotes();
 }
 
