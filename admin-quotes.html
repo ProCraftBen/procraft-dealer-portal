@@ -768,15 +768,24 @@ function mountDealerPicker(cfg) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  // 🔴 常駐模式(Create Draft)清單裡沒有 placeholder 那一列,
+  //    鍵盤導覽的索引偏移因此不同,不能一律 +1。
+  function allowClearNav() { return !wrap.classList.contains('always-open'); }
   function render() {
     const kw = search.value.trim().toLowerCase();
     shown = kw
       ? _dealerOptions.filter(function (d) { return d.name.toLowerCase().indexOf(kw) >= 0; })
       : _dealerOptions.slice();
 
-    // 🔴 「不指定」永遠在最前,且不受搜尋影響 —— 使用者必須隨時能清除選擇。
-    let html = '<div class="dsel-item' + (sel.value ? '' : ' selected')
-             + '" data-id="">' + esc(cfg.placeholder) + '</div>';
+    // 🔴 「不指定」只在篩選器出現,不在常駐模式(Create Draft)出現。
+    //    篩選器需要「清除選擇」;Create Draft 則【必須】選一家 ——
+    //    在必填的挑選器裡放一個「不選」是誤導,而且上方顯示欄已經
+    //    在講「還沒選」,清單裡再放一次是重複。
+    const allowClear = !wrap.classList.contains('always-open');
+    let html = allowClear
+      ? '<div class="dsel-item' + (sel.value ? '' : ' selected')
+        + '" data-id="">' + esc(cfg.placeholder) + '</div>'
+      : '';
 
     shown.forEach(function (d, i) {
       html += '<div class="dsel-item' + (d.id === sel.value ? ' selected' : '')
@@ -838,7 +847,8 @@ function mountDealerPicker(cfg) {
       if (active < 0) active = shown.length - 1;
       if (active >= shown.length) active = 0;
       render();
-      const el = list.querySelectorAll('.dsel-item')[active + 1];
+      // 🔴 常駐模式沒有 placeholder 那一列,索引不能一律 +1。
+      const el = list.querySelectorAll('.dsel-item')[active + (allowClearNav() ? 1 : 0)];
       if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Enter') {
       e.preventDefault();
