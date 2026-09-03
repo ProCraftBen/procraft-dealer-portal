@@ -489,6 +489,9 @@
     <div class="filter-group" style="flex-direction:row;gap:8px;">
       <button class="btn-filter" onclick="applyFilters()">Filter</button>
       <button class="btn-reset" onclick="resetFilters()">Reset</button>
+      <!-- CB-60a M6:Export CSV。🔴 純唯讀,零寫入。
+           匯出範圍為【當前篩選結果全部】(Q-2),與畫面分頁無關。 -->
+      <button class="btn-reset" id="btnExportCsv" onclick="exportQuotesCsv()">Export CSV</button>
     </div>
   </div>
 
