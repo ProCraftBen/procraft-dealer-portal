@@ -1653,10 +1653,12 @@ const CSV_COLUMNS = [
 //    畫面提示會消失,只有首行跟著檔案走。
 //    ⚠️ 已知代價:Excel 會把這兩行當成資料列,需手動略過。
 //       接受 —— 略過兩行是一次性麻煩,不知道欄位加不回總額是持續的誤導。
-const CSV_DISCLAIMER = [
-  '# Note: individual amount columns do not sum to grand_total.',
-  '# See F-154. Use grand_total for reconciliation.'
-];
+// 🔴 註記已移除。2026-09-03 實測 staging 五筆:九個金額欄加總與 grand_total
+//    完全相符(gap 全為 0),原註記所稱的「加不起來」不成立 ——
+//    那是 mini totals 的【顯示】缺口,與 CSV 的欄位組成無關,我先前混為一談。
+//    ⚠️ 折抵欄位(account_credit_amount / manager_discount_amount)在 DB 中
+//       已存為負數,故直接相加即可,不需再轉符號。
+const CSV_DISCLAIMER = [];
 
 function csvCell(v) {
   // 🔴 null 與 0 必須可區分:null -> 空字串,0 -> "0"。
