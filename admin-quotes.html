@@ -707,68 +707,137 @@ let _listState = { page: 0, total: null };
 //    靠 allQuotes.length === 0 判斷會把兩者混為一談。
 let _listError = null;
 
-// ══ CB-60a M5:dealer 選擇器搜尋過濾 ════════════════════════════════════
-// 🔴 Q-6 = client 端記憶體過濾,不經 PostgREST ——
-//    資料在 init() 已全量載入(renderTable 的 Sales 欄與 resolveSalesDealerIds
-//    都依賴它),所以過濾不需要再查一次;也因此完全沒有 ilike 淨化面。
-// 🔴 不做分頁(Q-15):選擇器不是清單頁,分頁會讓「選一個」變成多次翻頁。
-// 📌 刻意【保留原生 <select>】,只在上方加一個搜尋框過濾其 options:
-//    .value API 完全不變,既有呼叫端一行都不用改。
+// ══ CB-60a M5-v2:自製 dealer 下拉 ══════════════════════════════════════
+// 🔴 存在理由:原生 <select> 展開的清單由瀏覽器繪製,無法在其中放搜尋框,
+//    也無法限制展開高度。production 已有 103 家 dealer,捲動找人不可行。
+// 📌 值仍存在隱藏的 <select> 上 —— filterDealer.value / draftDealerSelect.value
+//    的既有呼叫端一行都不用改。這是刻意的:換掉 UI 不該波及資料契約。
+// 🔴 一支函式、兩個掛載點(Stage 1 承諾)。
 let _dealerOptions = [];   // [{ id, name }],僅 role='dealer'
 
-function renderDealerOptions(selectId, keyword, placeholder) {
-  const sel = document.getElementById(selectId);
-  if (!sel) return;
+function mountDealerPicker(cfg) {
+  const wrap   = document.getElementById(cfg.wrapId);
+  const btn    = document.getElementById(cfg.btnId);
+  const search = document.getElementById(cfg.searchId);
+  const list   = document.getElementById(cfg.listId);
+  const sel    = document.getElementById(cfg.selectId);
+  if (!wrap || !btn || !search || !list || !sel) return;
 
-  const kw = String(keyword || '').trim().toLowerCase();
-  const prev = sel.value;
+  let active = -1;
+  let shown  = [];
 
-  const hit = kw
-    ? _dealerOptions.filter(function (d) {
-        return d.name.toLowerCase().indexOf(kw) >= 0;
-      })
-    : _dealerOptions.slice();
-
-  // 🔴 已選中的項目【永遠保留】,即使不符合關鍵字。
-  //    否則打字會靜默清掉使用者已經做好的選擇 —— 而 .value 變成 ''
-  //    在畫面上與「本來就沒選」完全同形。
-  if (prev && !hit.some(function (d) { return d.id === prev; })) {
-    const keep = _dealerOptions.filter(function (d) { return d.id === prev; });
-    hit.unshift.apply(hit, keep);
+  function label() {
+    const v = sel.value;
+    const d = _dealerOptions.filter(function (x) { return x.id === v; })[0];
+    btn.textContent = d ? d.name : cfg.placeholder;
+    btn.classList.toggle('placeholder', !d);
   }
 
-  let html = '<option value="">' + placeholder + '</option>';
-  hit.forEach(function (d) {
-    html += '<option value="' + d.id + '">'
-          + d.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-          + '</option>';
-  });
-  sel.innerHTML = html;
-  sel.value = prev;
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
 
-  // 🔴 無命中時明說,不留一個只有 placeholder 的空下拉 ——
-  //    空下拉與「資料沒載進來」看起來一樣。
-  const note = document.getElementById(selectId + 'Notice');
-  if (note) {
-    if (kw && hit.length === 0) {
-      note.textContent = 'No dealer matches "' + kw + '"';
-      note.style.display = 'block';
-    } else {
-      note.textContent = '';
-      note.style.display = 'none';
+  function render() {
+    const kw = search.value.trim().toLowerCase();
+    shown = kw
+      ? _dealerOptions.filter(function (d) { return d.name.toLowerCase().indexOf(kw) >= 0; })
+      : _dealerOptions.slice();
+
+    // 🔴 「不指定」永遠在最前,且不受搜尋影響 —— 使用者必須隨時能清除選擇。
+    let html = '<div class="dsel-item' + (sel.value ? '' : ' selected')
+             + '" data-id="">' + esc(cfg.placeholder) + '</div>';
+
+    shown.forEach(function (d, i) {
+      html += '<div class="dsel-item' + (d.id === sel.value ? ' selected' : '')
+            + (i === active ? ' active' : '')
+            + '" data-id="' + d.id + '">' + esc(d.name) + '</div>';
+    });
+
+    // 🔴 無命中要明說。空面板與「資料沒載進來」看起來一樣。
+    if (kw && shown.length === 0) {
+      html += '<div class="dsel-empty">No dealer matches "' + esc(search.value.trim()) + '"</div>';
     }
+    list.innerHTML = html;
   }
+
+  function open() {
+    wrap.classList.add('open');
+    search.value = '';
+    active = -1;
+    render();
+    search.focus();
+  }
+
+  function close() {
+    wrap.classList.remove('open');
+    active = -1;
+  }
+
+  function pick(id) {
+    sel.value = id;
+    // 🔴 必須手動觸發 change:程式設定 .value 不會自動派發事件,
+    //    而既有邏輯(以及日後可能掛上的監聽)是靠 change 驅動的。
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    label();
+    close();
+  }
+
+  btn.onclick = function (e) {
+    e.stopPropagation();
+    if (wrap.classList.contains('open')) { close(); } else { open(); }
+  };
+
+  search.oninput = function () { active = -1; render(); };
+
+  search.onkeydown = function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!shown.length) return;
+      active += (e.key === 'ArrowDown' ? 1 : -1);
+      if (active < 0) active = shown.length - 1;
+      if (active >= shown.length) active = 0;
+      render();
+      const el = list.querySelectorAll('.dsel-item')[active + 1];
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active >= 0 && shown[active]) pick(shown[active].id);
+      else if (shown.length === 1) pick(shown[0].id);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+      btn.focus();
+    }
+  };
+
+  list.onclick = function (e) {
+    const item = e.target.closest ? e.target.closest('.dsel-item') : null;
+    if (!item) return;
+    pick(item.getAttribute('data-id'));
+  };
+
+  // 🔴 外點關閉掛在 document,用旗標避免重複掛載 ——
+  //    mountDealerPicker 可能被呼叫多次,addEventListener 會疊加而不報錯。
+  if (!wrap._dselOutside) {
+    wrap._dselOutside = function (e) {
+      if (!wrap.contains(e.target)) close();
+    };
+    document.addEventListener('click', wrap._dselOutside);
+  }
+
+  wrap._dselRefresh = function () { label(); render(); };
+  label();
+  render();
 }
 
-function mountDealerPicker(selectId, searchId, placeholder) {
-  renderDealerOptions(selectId, '', placeholder);
-  const box = document.getElementById(searchId);
-  if (!box) return;
-  // 🔴 oninput 賦值而非 addEventListener:mount 可能被呼叫多次,
-  //    addEventListener 會疊加而不報錯。
-  box.oninput = function () {
-    renderDealerOptions(selectId, box.value, placeholder);
-  };
+// 供 resetFilters() 之類【程式端改值】後同步按鈕文字。
+// 🔴 沒有這支,程式清空 .value 後按鈕仍顯示舊的公司名 ——
+//    畫面說「已選 ABC」而實際值是空的,兩者不一致且不報錯。
+function refreshDealerPickers() {
+  ['filterDealerWrap', 'draftDealerWrap'].forEach(function (id) {
+    const w = document.getElementById(id);
+    if (w && w._dselRefresh) w._dselRefresh();
+  });
 }
 
 
@@ -866,8 +935,9 @@ function initSortOptions() {
   // 🔴 排序變更【必須】重置至第 1 頁:第 3 頁的第 1 筆在新排序下毫無意義,
   //    而畫面不會顯示任何異常 —— 使用者只會看到「一堆不相干的單」。
   el.onchange = function () {
-    _listState.page = 0;
-    loadQuotes();
+  refreshDealerPickers();   // CB-60a M5-v2:程式清空 .value 後同步按鈕文字
+  _listState.page = 0;
+  loadQuotes();
   };
 }
 
@@ -1003,8 +1073,16 @@ async function init() {
       return { id: d.id, name: d.company_name || '(no company name)' };
     });
 
-    mountDealerPicker('filterDealer',      'filterDealerSearch', 'All Dealers');
-    mountDealerPicker('draftDealerSelect', 'draftDealerSearch',  '\u2014 Select a dealer \u2014');
+    mountDealerPicker({
+      wrapId: 'filterDealerWrap', btnId: 'filterDealerBtn',
+      searchId: 'filterDealerSearch', listId: 'filterDealerList',
+      selectId: 'filterDealer', placeholder: 'All Dealers'
+    });
+    mountDealerPicker({
+      wrapId: 'draftDealerWrap', btnId: 'draftDealerBtn',
+      searchId: 'draftDealerSearch', listId: 'draftDealerList',
+      selectId: 'draftDealerSelect', placeholder: '\u2014 Select a dealer \u2014'
+    });
 
     // CB-38:Sales dropdown(同一份資料過濾出 admin / super_admin)
     salesList = dealers.filter(function(d) {
