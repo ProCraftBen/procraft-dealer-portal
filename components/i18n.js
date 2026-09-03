@@ -85,7 +85,7 @@
   //    最多 10 分鐘後自癒(GitHub Pages max-age=600,CB-82 實測),
   //    期間西語使用者在新 modal 看到的是英文 fallback,不是壞掉的畫面。
   //    📌 README §4 已載明單獨 bump 本常數是「合法但部分生效」。
-  var PC_I18N_VER = 'cb84';
+  var PC_I18N_VER = 'cb88';
 
   var BASE_LANG   = 'en';                 // fallback 基準,永遠載入
   var SUPPORTED   = ['en', 'es'];         // 加語言時在此加一筆
