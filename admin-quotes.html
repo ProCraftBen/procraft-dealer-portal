@@ -473,9 +473,13 @@
     <div class="modal-sub">Select a dealer to create a quote on their behalf. You will be taken through the full quote flow and can save as draft when done.</div>
     <div class="modal-field">
       <label>Dealer <span style="color:var(--gold);">*</span></label>
+      <!-- CB-60a M5:搜尋框過濾下方 select 的 options -->
+      <input type="text" id="draftDealerSearch" placeholder="Type to filter…"
+             style="width:100%;margin-bottom:6px;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px;"/>
       <select id="draftDealerSelect">
         <option value="">— Select a dealer —</option>
       </select>
+      <div id="draftDealerSelectNotice" style="display:none;font-size:11px;color:#92400E;margin-top:4px;"></div>
     </div>
     <div class="modal-error" id="draftModalError"></div>
     <div class="modal-actions">
