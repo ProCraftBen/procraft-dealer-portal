@@ -393,9 +393,14 @@
     </div>
     <div class="filter-group">
       <label class="filter-label">Dealer</label>
+      <!-- CB-60a M5:搜尋框過濾下方 select 的 options(Q-6:client 端記憶體過濾)。
+           🔴 刻意保留原生 select —— .value API 不變,既有呼叫端全部無需改動。 -->
+      <input type="text" class="filter-input" id="filterDealerSearch"
+             placeholder="Type to filter\u2026" style="margin-bottom:4px;"/>
       <select class="filter-select" id="filterDealer">
         <option value="">All Dealers</option>
       </select>
+      <div id="filterDealerNotice" style="display:none;font-size:10px;color:#92400E;margin-top:4px;"></div>
     </div>
     <div class="filter-group">
       <label class="filter-label">From</label>
@@ -648,6 +653,70 @@ let _listState = { page: 0, total: null };
 // 🔴 查詢失敗的狀態必須獨立保存:清單為空與查詢失敗在畫面上同形,
 //    靠 allQuotes.length === 0 判斷會把兩者混為一談。
 let _listError = null;
+
+// ══ CB-60a M5:dealer 選擇器搜尋過濾 ════════════════════════════════════
+// 🔴 Q-6 = client 端記憶體過濾,不經 PostgREST ——
+//    資料在 init() 已全量載入(renderTable 的 Sales 欄與 resolveSalesDealerIds
+//    都依賴它),所以過濾不需要再查一次;也因此完全沒有 ilike 淨化面。
+// 🔴 不做分頁(Q-15):選擇器不是清單頁,分頁會讓「選一個」變成多次翻頁。
+// 📌 刻意【保留原生 <select>】,只在上方加一個搜尋框過濾其 options:
+//    .value API 完全不變,既有呼叫端一行都不用改。
+let _dealerOptions = [];   // [{ id, name }],僅 role='dealer'
+
+function renderDealerOptions(selectId, keyword, placeholder) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+
+  const kw = String(keyword || '').trim().toLowerCase();
+  const prev = sel.value;
+
+  const hit = kw
+    ? _dealerOptions.filter(function (d) {
+        return d.name.toLowerCase().indexOf(kw) >= 0;
+      })
+    : _dealerOptions.slice();
+
+  // 🔴 已選中的項目【永遠保留】,即使不符合關鍵字。
+  //    否則打字會靜默清掉使用者已經做好的選擇 —— 而 .value 變成 ''
+  //    在畫面上與「本來就沒選」完全同形。
+  if (prev && !hit.some(function (d) { return d.id === prev; })) {
+    const keep = _dealerOptions.filter(function (d) { return d.id === prev; });
+    hit.unshift.apply(hit, keep);
+  }
+
+  let html = '<option value="">' + placeholder + '</option>';
+  hit.forEach(function (d) {
+    html += '<option value="' + d.id + '">'
+          + d.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          + '</option>';
+  });
+  sel.innerHTML = html;
+  sel.value = prev;
+
+  // 🔴 無命中時明說,不留一個只有 placeholder 的空下拉 ——
+  //    空下拉與「資料沒載進來」看起來一樣。
+  const note = document.getElementById(selectId + 'Notice');
+  if (note) {
+    if (kw && hit.length === 0) {
+      note.textContent = 'No dealer matches "' + kw + '"';
+      note.style.display = 'block';
+    } else {
+      note.textContent = '';
+      note.style.display = 'none';
+    }
+  }
+}
+
+function mountDealerPicker(selectId, searchId, placeholder) {
+  renderDealerOptions(selectId, '', placeholder);
+  const box = document.getElementById(searchId);
+  if (!box) return;
+  // 🔴 oninput 賦值而非 addEventListener:mount 可能被呼叫多次,
+  //    addEventListener 會疊加而不報錯。
+  box.oninput = function () {
+    renderDealerOptions(selectId, box.value, placeholder);
+  };
+}
 
 
 // ══ CB-60a M4:搜尋淨化 ═════════════════════════════════════════════════
