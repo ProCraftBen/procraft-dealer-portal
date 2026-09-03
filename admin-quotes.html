@@ -628,6 +628,24 @@ let allQuotes = [], allDealers = {};
 //    ⚠️ 上方 <thead> 的 skeleton 列是靜態 HTML，無法套常數，改欄位數時要一併手改。
 const LIST_COLSPAN = 9;
 
+// ══ CB-60a M2:分頁 ══════════════════════════════════════════════════════
+// 🟡 頁大小具名常數(繼承 F-30 的紀律,值本頁自定)。
+const QUOTES_PAGE_SIZE = 25;
+
+// 模組層狀態(Q-8:沿用 F-30,不跨 reload 保留)。
+// 🔴 page 為 0-based。
+let _listState = { page: 0, total: null };
+
+// 🔴 排序一律以 id 收尾作為 tiebreaker,方向隨主排序(Q-5)。
+//    T-2/P2 已實證:staging 90 筆、每頁 25 筆,單獨用非唯一鍵排序時
+//    第 1、2 頁之間有 4 張單各出現兩次、另 4 張永不出現,
+//    而 HTTP 是 200、error 為 null、每頁剛好 25 筆 —— 不會報錯。
+//    ⚠️ 此處為 M2 的預設排序;M3 會把主排序欄位參數化,tiebreaker 不變。
+function applySort(q) {
+  return q.order('created_at', { ascending: false })
+          .order('id',         { ascending: false });
+}
+
 // ── CB-82: reminder 標示的兩支【正向】集合 ─────────────────────
 // 🔴 F-35 正向識別：兩個集合各自來自一支 .eq() 查詢，判定時兩邊都是
 //    【命中】而非【排除】。不寫「B 減 A」—— 那是排除法，且在 A 查詢
@@ -986,9 +1004,15 @@ async function loadQuotes() {
   // 陷阱 #2:空陣列傳給 .in() 會產生無效的 PostgREST 語法,必須短路。
   const salesDealerIds = resolveSalesDealerIds();
   if (salesDealerIds && salesDealerIds.length === 0) {
+    // 🔴 renderStats() 已於 M1 移除,此處原本會拋 ReferenceError 而中止 ——
+    //    但這條路徑只在「選了某 sales 且其名下無 dealer」時才走到,
+    //    M1 驗證未涵蓋。屬 M1 遺留,在此修正。
     allQuotes = [];
-    renderStats();
+    _listState.total = 0;
+    document.getElementById('tableCount').textContent = '0 quotes';
+    await loadStats();
     renderTable();
+    renderPager();
     updateStatsScope();
     return;
   }
