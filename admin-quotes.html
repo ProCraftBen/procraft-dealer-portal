@@ -2588,6 +2588,7 @@ function resetFilters() {
 // ── Create Draft Modal ─────────────────────────────────────────────
 function openCreateDraftModal() {
   document.getElementById('draftDealerSelect').value = '';
+  refreshDealerPickers();   // CB-60a M5-v2:同步按鈕文字,避免顯示上次的選擇
   document.getElementById('draftModalError').classList.remove('show');
   document.getElementById('btnCreateDraft').disabled    = false;
   document.getElementById('btnCreateDraft').textContent = 'Start Quote →';
