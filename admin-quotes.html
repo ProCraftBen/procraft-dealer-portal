@@ -114,12 +114,24 @@
     /* 🔴 max-height + overflow-y:展開高度由我們控制,不由清單長度決定。
        這正是原生 select 做不到的那一件事。 */
     .dsel-list { max-height: 240px; overflow-y: auto; }
+
+    /* ══ CB-60a M5-v2:常駐展開模式(Create Draft 彈窗用)══════════════
+       🔴 彈窗本身就是為了選 dealer 而開的,再點一次按鈕才展開是多餘的一步,
+          而且展開後面板浮在按鈕下方,在彈窗裡顯得又窄又擠。
+          常駐模式:不要按鈕、面板內嵌、清單高度固定。 */
+    .dsel.always-open .dsel-btn { display: none; }
+    .dsel.always-open .dsel-panel {
+      display: block; position: static; box-shadow: none;
+      border-radius: 4px;
+    }
+    .dsel.always-open .dsel-list { max-height: 260px; }
     .dsel-item {
       padding: 8px 12px; font-size: 13px; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dsel-item:hover, .dsel-item.active { background: var(--bg); }
-    .dsel-item.selected { font-weight: 600; }
+    .dsel-item.selected { font-weight: 600; background: var(--bg); }
+    .dsel-item.selected::before { content: '✓ '; color: var(--gold); }
     .dsel-empty { padding: 10px 12px; font-size: 12px; color: #92400E; }
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
@@ -519,7 +531,7 @@
     <div class="modal-field">
       <label>Dealer <span style="color:var(--gold);">*</span></label>
       <!-- CB-60a M5-v2:同一支元件,第二個掛載點。 -->
-      <div class="dsel" id="draftDealerWrap">
+      <div class="dsel always-open" id="draftDealerWrap">
         <button type="button" class="dsel-btn placeholder" id="draftDealerBtn">— Select a dealer —</button>
         <div class="dsel-panel">
           <input type="text" class="dsel-search" id="draftDealerSearch" placeholder="Type to filter…"/>
@@ -782,6 +794,9 @@ function mountDealerPicker(cfg) {
   }
 
   function close() {
+    // 🔴 常駐展開模式不關閉:選完就收起來的話,彈窗會變成一片空白,
+    //    使用者無從得知自己選了什麼、也無法改選。
+    if (wrap.classList.contains('always-open')) { active = -1; return; }
     wrap.classList.remove('open');
     active = -1;
   }
