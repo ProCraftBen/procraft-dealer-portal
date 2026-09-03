@@ -73,6 +73,72 @@
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); }
+    /* CB-60a M2 分頁列 */
+    .pager { display: none; align-items: center; justify-content: flex-end; gap: 12px;
+             padding: 12px 20px; border-top: 1px solid var(--border); font-size: 12px; }
+    .pager.show { display: flex; }
+    .pager-btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: 4px;
+                 background: var(--white); cursor: pointer; font-size: 12px; }
+    .pager-btn:disabled { opacity: 0.4; cursor: default; }
+    .pager-info { color: var(--muted); }
+
+    /* ══ CB-60a M5-v2:自製 dealer 下拉 ══════════════════════════════
+       🔴 存在理由:原生 <select> 展開的清單由瀏覽器繪製,網頁無法在其中
+          放入搜尋框,也無法限制展開高度。103 家 dealer 時要捲很久。
+       📌 值仍存在一個隱藏的 <select> 上,.value API 完全不變。 */
+    .dsel { position: relative; }
+    .dsel-btn {
+      width: 100%; text-align: left; cursor: pointer;
+      padding: 10px 28px 10px 12px; font-size: 13px;
+      border: 1px solid var(--border); border-radius: 4px;
+      background: var(--white); color: inherit;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dsel-btn::after {
+      content: ''; position: absolute; right: 12px; top: 50%;
+      width: 6px; height: 6px; margin-top: -4px;
+      border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
+      transform: rotate(45deg); pointer-events: none;
+    }
+    .dsel-btn.placeholder { color: var(--muted); }
+    .dsel-panel {
+      display: none; position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 2px);
+      background: var(--white); border: 1px solid var(--border); border-radius: 4px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+    .dsel.open .dsel-panel { display: block; }
+    .dsel-search {
+      width: 100%; box-sizing: border-box; padding: 8px 10px; font-size: 12px;
+      border: 0; border-bottom: 1px solid var(--border); outline: none;
+    }
+    /* 🔴 max-height + overflow-y:展開高度由我們控制,不由清單長度決定。
+       這正是原生 select 做不到的那一件事。 */
+    .dsel-list { max-height: 240px; overflow-y: auto; }
+
+    /* ══ CB-60a M5-v2:常駐展開模式(Create Draft 彈窗用)══════════════
+       🔴 彈窗本身就是為了選 dealer 而開的,再點一次按鈕才展開是多餘的一步,
+          而且展開後面板浮在按鈕下方,在彈窗裡顯得又窄又擠。
+          常駐模式:不要按鈕、面板內嵌、清單高度固定。 */
+    /* 🔴 按鈕留著當【顯示欄】,只是不可點 ——
+       常駐模式下清單一直開著,按鈕的職責從「展開」變成「顯示目前選了誰」。 */
+    .dsel.always-open .dsel-btn { pointer-events: none; margin-bottom: 6px; }
+    .dsel.always-open .dsel-btn::after { display: none; }
+    /* 🔴 按鈕留著當【顯示欄】,只是不可點 ——
+       常駐模式下清單一直開著,按鈕的職責從「展開」變成「顯示目前選了誰」。 */
+    .dsel.always-open .dsel-btn { pointer-events: none; margin-bottom: 6px; }
+    .dsel.always-open .dsel-btn::after { display: none; }
+    .dsel.always-open .dsel-panel {
+      display: block; position: static; box-shadow: none;
+      border-radius: 4px;
+    }
+    .dsel.always-open .dsel-list { max-height: 260px; }
+    .dsel-item {
+      padding: 8px 12px; font-size: 13px; cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dsel-item:hover, .dsel-item.active { background: var(--bg); }
+    .dsel-item.selected { font-weight: 600; background: var(--bg); }
+    .dsel-empty { padding: 10px 12px; font-size: 12px; color: #92400E; }
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
     tbody tr { border-bottom: 1px solid var(--border); }
@@ -355,6 +421,9 @@
   </div>
   <!-- CB-38 陷阱 #3:stat 卡是對「過濾後」的資料計算的,此行標示目前範圍。 -->
   <div id="statsScope" style="font-size:10px;color:var(--muted);letter-spacing:0.06em;margin:-8px 0 14px 2px;">All quotes</div>
+  <!-- CB-60a M1:統計降級橫幅。沿用 CB-82 的 .rm-degraded 視覺樣式(L71)。
+       ⚠️ 兩者共用同一個 class,CB-82 若改動該樣式會一併影響此處。 -->
+  <div class="rm-degraded" id="statsDegraded"></div>
 
   <div class="filters">
     <div class="filter-group">
@@ -382,7 +451,17 @@
     </div>
     <div class="filter-group">
       <label class="filter-label">Dealer</label>
-      <select class="filter-select" id="filterDealer">
+      <!-- CB-60a M5-v2:自製下拉。搜尋框在面板【內】,高度由 max-height 控制。
+           🔴 隱藏的 <select> 仍是值的來源 —— filterDealer.value 的既有呼叫端
+              (L1110、L2350)一行都不用改。 -->
+      <div class="dsel" id="filterDealerWrap">
+        <button type="button" class="dsel-btn placeholder" id="filterDealerBtn">All Dealers</button>
+        <div class="dsel-panel">
+          <input type="text" class="dsel-search" id="filterDealerSearch" placeholder="Type to filter…"/>
+          <div class="dsel-list" id="filterDealerList"></div>
+        </div>
+      </div>
+      <select id="filterDealer" style="display:none;">
         <option value="">All Dealers</option>
       </select>
     </div>
@@ -397,10 +476,22 @@
     <div class="filter-group">
       <label class="filter-label">Search</label>
       <input type="text" class="filter-input" id="filterSearch" placeholder="PO# / Draft ID / Job Name"/>
+      <!-- CB-60a M4:淨化提示。🔴 必須顯示在畫面上,不是 console ——
+           console 對 admin 等於不存在。 -->
+      <div id="searchNotice" style="display:none;font-size:10px;color:#92400E;margin-top:4px;max-width:220px;line-height:1.4;"></div>
+    </div>
+    <!-- CB-60a M3:Sort By。options 由 initSortOptions() 填入,
+         避免選項清單在 HTML 與 JS 兩處各存一份(F-118 同族)。 -->
+    <div class="filter-group">
+      <label class="filter-label">Sort By</label>
+      <select class="filter-select" id="sortBy"></select>
     </div>
     <div class="filter-group" style="flex-direction:row;gap:8px;">
       <button class="btn-filter" onclick="applyFilters()">Filter</button>
       <button class="btn-reset" onclick="resetFilters()">Reset</button>
+      <!-- CB-60a M6:Export CSV。🔴 純唯讀,零寫入。
+           匯出範圍為【當前篩選結果全部】(Q-2),與畫面分頁無關。 -->
+      <button class="btn-reset" id="btnExportCsv" onclick="exportQuotesCsv()">Export CSV</button>
     </div>
   </div>
 
@@ -429,6 +520,14 @@
           <tr><td colspan="9"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
+      <!-- CB-60a M2:分頁列。
+           🔴 刻意置於 </table> 之後,【不進 <thead>】—— CB-82 的 LIST_COLSPAN = 9
+              註解已預留此約定,兩票因此不衝突。欄位數不變,LIST_COLSPAN 維持 9。 -->
+      <div class="pager" id="quotesPager">
+        <span class="pager-info" id="pagerInfo"></span>
+        <button class="pager-btn" id="pagerPrev" type="button">Prev</button>
+        <button class="pager-btn" id="pagerNext" type="button">Next</button>
+      </div>
     </div>
   </div>
 </div>
@@ -440,7 +539,15 @@
     <div class="modal-sub">Select a dealer to create a quote on their behalf. You will be taken through the full quote flow and can save as draft when done.</div>
     <div class="modal-field">
       <label>Dealer <span style="color:var(--gold);">*</span></label>
-      <select id="draftDealerSelect">
+      <!-- CB-60a M5-v2:同一支元件,第二個掛載點。 -->
+      <div class="dsel always-open" id="draftDealerWrap">
+        <button type="button" class="dsel-btn placeholder" id="draftDealerBtn">— Select a dealer —</button>
+        <div class="dsel-panel">
+          <input type="text" class="dsel-search" id="draftDealerSearch" placeholder="Type to filter…"/>
+          <div class="dsel-list" id="draftDealerList"></div>
+        </div>
+      </div>
+      <select id="draftDealerSelect" style="display:none;">
         <option value="">— Select a dealer —</option>
       </select>
     </div>
@@ -609,6 +716,286 @@ let allQuotes = [], allDealers = {};
 //    ⚠️ 上方 <thead> 的 skeleton 列是靜態 HTML，無法套常數，改欄位數時要一併手改。
 const LIST_COLSPAN = 9;
 
+// ══ CB-60a M2:分頁 ══════════════════════════════════════════════════════
+// 🟡 頁大小具名常數(繼承 F-30 的紀律,值本頁自定)。
+const QUOTES_PAGE_SIZE = 25;
+
+// 模組層狀態(Q-8:沿用 F-30,不跨 reload 保留)。
+// 🔴 page 為 0-based。
+let _listState = { page: 0, total: null };
+
+// 🔴 查詢失敗的狀態必須獨立保存:清單為空與查詢失敗在畫面上同形,
+//    靠 allQuotes.length === 0 判斷會把兩者混為一談。
+let _listError = null;
+
+// ══ CB-60a M5-v2:自製 dealer 下拉 ══════════════════════════════════════
+// 🔴 存在理由:原生 <select> 展開的清單由瀏覽器繪製,無法在其中放搜尋框,
+//    也無法限制展開高度。production 已有 103 家 dealer,捲動找人不可行。
+// 📌 值仍存在隱藏的 <select> 上 —— filterDealer.value / draftDealerSelect.value
+//    的既有呼叫端一行都不用改。這是刻意的:換掉 UI 不該波及資料契約。
+// 🔴 一支函式、兩個掛載點(Stage 1 承諾)。
+let _dealerOptions = [];   // [{ id, name }],僅 role='dealer'
+
+function mountDealerPicker(cfg) {
+  const wrap   = document.getElementById(cfg.wrapId);
+  const btn    = document.getElementById(cfg.btnId);
+  const search = document.getElementById(cfg.searchId);
+  const list   = document.getElementById(cfg.listId);
+  const sel    = document.getElementById(cfg.selectId);
+  if (!wrap || !btn || !search || !list || !sel) return;
+
+  let active = -1;
+  let shown  = [];
+
+  // 🔴 隱藏的 <select> 必須先有對應的 <option>,否則 sel.value = id 會被
+  //    瀏覽器【靜默忽略】—— 賦值不報錯,.value 卻回退成 ''。
+  //    這是 v1 的 renderDealerOptions 原本在做、v2 改版時漏掉的一步。
+  function syncOptions() {
+    const keep = sel.value;
+    let html = '<option value=""></option>';
+    _dealerOptions.forEach(function (d) {
+      html += '<option value="' + d.id + '"></option>';
+    });
+    sel.innerHTML = html;
+    sel.value = keep;
+  }
+
+  function label() {
+    const v = sel.value;
+    const d = _dealerOptions.filter(function (x) { return x.id === v; })[0];
+    btn.textContent = d ? d.name : cfg.placeholder;
+    btn.classList.toggle('placeholder', !d);
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // 🔴 常駐模式(Create Draft)清單裡沒有 placeholder 那一列,
+  //    鍵盤導覽的索引偏移因此不同,不能一律 +1。
+  function allowClearNav() { return !wrap.classList.contains('always-open'); }
+  function render() {
+    const kw = search.value.trim().toLowerCase();
+    shown = kw
+      ? _dealerOptions.filter(function (d) { return d.name.toLowerCase().indexOf(kw) >= 0; })
+      : _dealerOptions.slice();
+
+    // 🔴 「不指定」只在篩選器出現,不在常駐模式(Create Draft)出現。
+    //    篩選器需要「清除選擇」;Create Draft 則【必須】選一家 ——
+    //    在必填的挑選器裡放一個「不選」是誤導,而且上方顯示欄已經
+    //    在講「還沒選」,清單裡再放一次是重複。
+    const allowClear = !wrap.classList.contains('always-open');
+    let html = allowClear
+      ? '<div class="dsel-item' + (sel.value ? '' : ' selected')
+        + '" data-id="">' + esc(cfg.placeholder) + '</div>'
+      : '';
+
+    shown.forEach(function (d, i) {
+      html += '<div class="dsel-item' + (d.id === sel.value ? ' selected' : '')
+            + (i === active ? ' active' : '')
+            + '" data-id="' + d.id + '">' + esc(d.name) + '</div>';
+    });
+
+    // 🔴 無命中要明說。空面板與「資料沒載進來」看起來一樣。
+    if (kw && shown.length === 0) {
+      html += '<div class="dsel-empty">No dealer matches "' + esc(search.value.trim()) + '"</div>';
+    }
+    list.innerHTML = html;
+  }
+
+  function open() {
+    wrap.classList.add('open');
+    search.value = '';
+    active = -1;
+    render();
+    search.focus();
+  }
+
+  function close() {
+    // 🔴 常駐展開模式不關閉:選完就收起來的話,彈窗會變成一片空白,
+    //    使用者無從得知自己選了什麼、也無法改選。
+    if (wrap.classList.contains('always-open')) { active = -1; return; }
+    wrap.classList.remove('open');
+    active = -1;
+  }
+
+  function pick(id) {
+    sel.value = id;
+    // 🔴 正向確認賦值真的生效。select 對不存在的 option 值會靜默回退,
+    //    而「選了但沒選上」在畫面上與「還沒選」同形。
+    if (sel.value !== id) {
+      console.error('[CB-60a] dealer select rejected value:', id);
+      syncOptions();
+      sel.value = id;
+    }
+    // 🔴 必須手動觸發 change:程式設定 .value 不會自動派發事件,
+    //    而既有邏輯(以及日後可能掛上的監聽)是靠 change 驅動的。
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    label();
+    close();
+  }
+
+  btn.onclick = function (e) {
+    e.stopPropagation();
+    if (wrap.classList.contains('open')) { close(); } else { open(); }
+  };
+
+  search.oninput = function () { active = -1; render(); };
+
+  search.onkeydown = function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!shown.length) return;
+      active += (e.key === 'ArrowDown' ? 1 : -1);
+      if (active < 0) active = shown.length - 1;
+      if (active >= shown.length) active = 0;
+      render();
+      // 🔴 常駐模式沒有 placeholder 那一列,索引不能一律 +1。
+      const el = list.querySelectorAll('.dsel-item')[active + (allowClearNav() ? 1 : 0)];
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active >= 0 && shown[active]) pick(shown[active].id);
+      else if (shown.length === 1) pick(shown[0].id);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+      btn.focus();
+    }
+  };
+
+  list.onclick = function (e) {
+    const item = e.target.closest ? e.target.closest('.dsel-item') : null;
+    if (!item) return;
+    pick(item.getAttribute('data-id'));
+  };
+
+  // 🔴 外點關閉掛在 document,用旗標避免重複掛載 ——
+  //    mountDealerPicker 可能被呼叫多次,addEventListener 會疊加而不報錯。
+  if (!wrap._dselOutside) {
+    wrap._dselOutside = function (e) {
+      if (!wrap.contains(e.target)) close();
+    };
+    document.addEventListener('click', wrap._dselOutside);
+  }
+
+  wrap._dselRefresh = function () { syncOptions(); label(); render(); };
+  syncOptions();
+  label();
+  render();
+}
+
+// 供 resetFilters() 之類【程式端改值】後同步按鈕文字。
+// 🔴 沒有這支,程式清空 .value 後按鈕仍顯示舊的公司名 ——
+//    畫面說「已選 ABC」而實際值是空的,兩者不一致且不報錯。
+function refreshDealerPickers() {
+  ['filterDealerWrap', 'draftDealerWrap'].forEach(function (id) {
+    const w = document.getElementById(id);
+    if (w && w._dselRefresh) w._dselRefresh();
+  });
+}
+
+
+// ══ CB-60a M4:搜尋淨化 ═════════════════════════════════════════════════
+// 沿用 F-30 已驗證的方案,不重新設計:
+//   % _        跳脫(讓它們比對字面值,而非當成萬用字元)
+//   * " \      移除【並顯示提示】—— F-30 S1-d1 實證這三個無法跳脫
+//   , ( )      保留 —— 用雙引號包裹 ilike 值即不破壞 .or() 語法
+//   . - @      絕不動(email 與公司名必然含這些)
+// 🔴 不得靜默改寫:被移除的字元一律回報給使用者。
+const SEARCH_UNESCAPABLE = /[*"\\]/g;
+
+function sanitizeSearch(raw) {
+  let s = String(raw == null ? '' : raw);
+
+  // 🔴 順序是關鍵:【先】移除使用者輸入的反斜線,【再】插入跳脫用的反斜線。
+  //    反過來做的話,下一步會把我們自己加的跳脫字元一起刪掉,
+  //    結果 % 又變回萬用字元 —— 而且看起來完全正常。
+  const hits = s.match(SEARCH_UNESCAPABLE);
+  const removed = hits ? Array.from(new Set(hits)).sort() : [];
+
+  s = s.replace(SEARCH_UNESCAPABLE, '');
+  // 🔴 雙反斜線,不是單反斜線 —— PostgREST 對【雙引號內】的值會先做一層
+  //    自己的反轉義,單個 \ 會被它消化掉,LIKE 收到的仍是裸的 %。
+  //    2026-09-03 實測(staging):
+  //      包裹 + 單反斜線 -> count 90(= 全表,萬用字元未被跳脫)
+  //      包裹 + 雙反斜線 -> count 0  (對照組「包裹 + 普通字 a」= 24,證明查詢本身正常)
+  //    ⚠️ F-30 驗證的是「不包裹 + 單反斜線」。本頁因為要保留 , ( ) 而改用包裹,
+  //       組合後行為不同 —— 單獨可行不代表組合可行,不可用 F-30 的結論外推。
+  s = s.replace(/([%_])/g, '\\\\$1');
+
+  return { value: s, removed: removed };
+}
+
+// 🔴 提示必須顯示在使用者看得到的地方,不是 console。
+function renderSearchNotice(removed) {
+  const el = document.getElementById('searchNotice');
+  if (!el) return;
+  if (!removed || !removed.length) {
+    el.textContent = '';
+    el.style.display = 'none';
+    return;
+  }
+  el.textContent = 'Removed from search: ' + removed.join(' ')
+                 + ' (these characters cannot be searched)';
+  el.style.display = 'block';
+}
+
+  
+
+// ══ CB-60a M3:排序 ═════════════════════════════════════════════════════
+// 🔴 每個選項都必須指定 nullsFirst,不依賴 PostgREST 預設。
+//    預設是 ASC -> NULLS LAST、DESC -> NULLS FIRST,所以切換升降序時
+//    NULL 區塊會【整塊換邊】而不報錯。fulfillment_date 在 staging 有
+//    92% 為 NULL,那會讓前三頁全是空白日期,排序等於無用。
+//    一律 nullsFirst: false(NULLS LAST),兩個方向一致。
+// 🔴 tiebreaker 一律 id,方向隨主排序(Q-5)。
+//    T-2/P2 已實證:少了它,90 筆翻頁會有 4 筆重複、4 筆遺漏,且 HTTP 200。
+// 📌 status 走 status_rank(PostgREST computed column,T-1),
+//    流程順序而非字母序。字母序會把 Cancelled 排在 Draft 前面。
+const SORT_OPTIONS = {
+  created_desc:    { label: 'Newest first',            col: 'created_at',       asc: false },
+  created_asc:     { label: 'Oldest first',            col: 'created_at',       asc: true  },
+  total_desc:      { label: 'Total: high to low',      col: 'grand_total',      asc: false },
+  total_asc:       { label: 'Total: low to high',      col: 'grand_total',      asc: true  },
+  job_asc:         { label: 'Job name: A to Z',        col: 'job_name',         asc: true  },
+  status_asc:      { label: 'Status: workflow order',  col: 'status_rank',      asc: true  },
+  fulfillment_asc: { label: 'Fulfillment: soonest',    col: 'fulfillment_date', asc: true  }
+};
+
+const SORT_DEFAULT = 'created_desc';
+
+function currentSortKey() {
+  const el = document.getElementById('sortBy');
+  const val = el ? el.value : SORT_DEFAULT;
+  // 🔴 正向識別(F-35):必須是已知的 key 才採用。
+  //    未知值一律退回預設,而非原樣送給 PostgREST —— 未知欄位會回 42703
+  //    讓整個清單載不出來(T-2/P0 實證)。
+  return Object.prototype.hasOwnProperty.call(SORT_OPTIONS, val) ? val : SORT_DEFAULT;
+}
+
+function applySort(q) {
+  const s = SORT_OPTIONS[currentSortKey()];
+  return q.order(s.col, { ascending: s.asc, nullsFirst: false })
+          .order('id',  { ascending: s.asc, nullsFirst: false });
+}
+
+function initSortOptions() {
+  const el = document.getElementById('sortBy');
+  if (!el) return;
+  el.innerHTML = Object.keys(SORT_OPTIONS).map(function (k) {
+    return '<option value="' + k + '">' + SORT_OPTIONS[k].label + '</option>';
+  }).join('');
+  el.value = SORT_DEFAULT;
+  // 🔴 排序變更【必須】重置至第 1 頁:第 3 頁的第 1 筆在新排序下毫無意義,
+  //    而畫面不會顯示任何異常 —— 使用者只會看到「一堆不相干的單」。
+  el.onchange = function () {
+  refreshDealerPickers();   // CB-60a M5-v2:程式清空 .value 後同步按鈕文字
+  _listState.page = 0;
+  loadQuotes();
+  };
+}
+
 // ── CB-82: reminder 標示的兩支【正向】集合 ─────────────────────
 // 🔴 F-35 正向識別：兩個集合各自來自一支 .eq() 查詢，判定時兩邊都是
 //    【命中】而非【排除】。不寫「B 減 A」—— 那是排除法，且在 A 查詢
@@ -709,10 +1096,23 @@ async function init() {
   currentUserRole = me.role;
 
   // CB-38:select 加 role 與 assigned_sales_id(Q2 需要 role 才能分流兩個 dropdown)
-  const { data: dealers } = await _supabase
+  // 🔴 CB-60a M5:加 count 與 error 解構 —— 授權出口(CB-82 原則)。
+  //    原碼只解 data:policy 擋住時回 200 / [] / error null,
+  //    兩個 dealer 下拉會變成空的,而「真的沒有 dealer」長得一模一樣。
+  //    admin 頁的 dealer 數為 0 本身即異常,必須說出來。
+  const { data: dealers, error: dealersErr, count: dealersCount } = await _supabase
     .from('dealers')
-    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state, role, assigned_sales_id')
+    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state, role, assigned_sales_id, account_type',
+            { count: 'exact' })
     .order('company_name');
+
+  if (dealersErr) {
+    console.error('[CB-60a] dealer list query failed:', dealersErr);
+    alert('Dealer list failed to load. Dealer filter and Create Draft will be incomplete.');
+  } else if (dealersCount === 0) {
+    console.error('[CB-60a] dealer list returned 0 rows (unexpected on an admin page)');
+    alert('No dealers found. This is unexpected — please report it.');
+  }
 
   if (dealers) {
     dealers.forEach(function(d) { allDealers[d.id] = d; });
@@ -721,20 +1121,22 @@ async function init() {
     // 修正既有瑕疵 —— 過去未過濾,admin 帳號會出現在兩個 dealer 下拉中。
     const dealerOnly = dealers.filter(function(d) { return d.role === 'dealer'; });
 
-    // Filter dropdown
-    const filterSel = document.getElementById('filterDealer');
-    dealerOnly.forEach(function(d) {
-      const opt = document.createElement('option');
-      opt.value = d.id; opt.textContent = d.company_name;
-      filterSel.appendChild(opt);
+    // ── CB-60a M5:兩處共用同一支函式,兩個掛載點 ──────────────────
+    // 📌 原本兩段 forEach 是同一段邏輯的兩份複本;改用共用函式後,
+    //    日後改動只有一處(Stage 1 承諾的「一支函式、兩個掛載點」)。
+    _dealerOptions = dealerOnly.map(function (d) {
+      return { id: d.id, name: d.company_name || '(no company name)' };
     });
 
-    // Modal dropdown
-    const modalSel = document.getElementById('draftDealerSelect');
-    dealerOnly.forEach(function(d) {
-      const opt2 = document.createElement('option');
-      opt2.value = d.id; opt2.textContent = d.company_name;
-      modalSel.appendChild(opt2);
+    mountDealerPicker({
+      wrapId: 'filterDealerWrap', btnId: 'filterDealerBtn',
+      searchId: 'filterDealerSearch', listId: 'filterDealerList',
+      selectId: 'filterDealer', placeholder: 'All Dealers'
+    });
+    mountDealerPicker({
+      wrapId: 'draftDealerWrap', btnId: 'draftDealerBtn',
+      searchId: 'draftDealerSearch', listId: 'draftDealerList',
+      selectId: 'draftDealerSelect', placeholder: '\u2014 Select a dealer \u2014'
     });
 
     // CB-38:Sales dropdown(同一份資料過濾出 admin / super_admin)
@@ -753,6 +1155,7 @@ async function init() {
   //       需求為「一眼看到哪張單有狀況」，接受。
   await loadReminderFlags();
 
+  initSortOptions();   // CB-60a M3:須在 loadQuotes 之前,否則首次載入無排序值
   await loadQuotes();
 }
 
@@ -927,19 +1330,14 @@ function resolveSalesDealerIds() {
   });
 }
 
-// 目前是否套了任何 filter(供 #statsScope 判斷)
-function anyFilterActive() {
-  return !!(document.getElementById('filterStatus').value
-         || document.getElementById('filterDealer').value
-         || document.getElementById('filterFrom').value
-         || document.getElementById('filterTo').value
-         || (document.getElementById('filterSearch').value || '').trim()
-         || document.getElementById('filterSales').value);
-}
-
+// ── CB-38 #statsScope ────────────────────────────────────────────────────
+// 🔴 Q-26 = A:統計為全表,不隨篩選變動,故標籤固定 All quotes。
+//    ⚠️ 原本的 'Filtered view' 態已移除 —— 保留它會宣稱一件不再為真的事,
+//       那比沒有標籤更糟。行為改變已由 PM 授權並知會業主。
+// 📌 anyFilterActive() 一併移除:全檔僅此一處呼叫(L942),移除後即成死碼。
 function updateStatsScope() {
   const el = document.getElementById('statsScope');
-  if (el) el.textContent = anyFilterActive() ? 'Filtered view' : 'All quotes';
+  if (el) el.textContent = 'All quotes';
 }
 
 // Q6:空結果文案分情境,讓「過濾正確但無資料」與「查詢壞掉」可區分。
@@ -959,25 +1357,21 @@ function emptyStateMessage() {
                   : 'No quotes from this sales\u2019 dealers.';
 }
 
-// ── Load Quotes ────────────────────────────────────────────────────
-async function loadQuotes() {
-  let query = _supabase.from('quotes').select('*, quote_items(*)').order('created_at', { ascending: false });
+// ══ CB-60a M2:查詢建構抽出 ══════════════════════════════════════════════
+// 🔴 抽成獨立函式的理由是【技術必要】,不是整理:PGRST103 超界時必須用
+//    同一組篩選條件重跑一次,而 supabase-js 的 query builder 一經 await
+//    即不可重複使用。沿用同一個 builder 會拿到不可預期的結果。
+// ⚠️ 篩選邏輯沿用原碼,除搜尋淨化外未做行為變更。
+//    搜尋淨化已於 M4 改為 sanitizeSearch() + 雙引號包裹。
+function buildQuotesQuery(salesDealerIds) {
+  let query = _supabase
+    .from('quotes')
+    .select('*, quote_items(*)', { count: 'exact' });
 
   const status = document.getElementById('filterStatus').value;
   const dealer = document.getElementById('filterDealer').value;
   const from   = document.getElementById('filterFrom').value;
   const to     = document.getElementById('filterTo').value;
-
-  // CB-38:Sales → dealer_id[]。null = All Sales(不加條件)。
-  // 陷阱 #2:空陣列傳給 .in() 會產生無效的 PostgREST 語法,必須短路。
-  const salesDealerIds = resolveSalesDealerIds();
-  if (salesDealerIds && salesDealerIds.length === 0) {
-    allQuotes = [];
-    renderStats();
-    renderTable();
-    updateStatsScope();
-    return;
-  }
 
   if (status) query = query.eq('status', status);
   if (dealer) query = query.eq('dealer_id', dealer);
@@ -985,36 +1379,426 @@ async function loadQuotes() {
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
 
-  // 雙編號制 + 選項 C: 完整編號精確比對;否則模糊比對兩個編號 + Job Name
   const search = (document.getElementById('filterSearch').value || '').trim();
+  if (!search) renderSearchNotice([]);   // CB-60a M4:清空搜尋時一併清掉提示
   if (search) {
     if (/^D\d{5}$/i.test(search)) {
       query = query.eq('draft_number', search.toUpperCase());
     } else if (/^PDC\d{5}$/i.test(search)) {
       query = query.eq('po_number', search.toUpperCase());
     } else {
-      const safe = search.replace(/[,()*]/g, '');  // 去掉會破壞 PostgREST or() 的字元
-      query = query.or('draft_number.ilike.%' + safe + '%,po_number.ilike.%' + safe + '%,job_name.ilike.%' + safe + '%');
+      // 🔴 雙引號包裹 ilike 值:F-30 已實測,包裹後 , ( ) 不再破壞 .or() 結構,
+      //    因此不需要剔除它們 —— Job Name 常含括號,剔除會讓搜尋靜默失效。
+      const san = sanitizeSearch(search);
+      renderSearchNotice(san.removed);
+      const v = '"%' + san.value + '%"';
+      query = query.or('draft_number.ilike.' + v
+                     + ',po_number.ilike.'   + v
+                     + ',job_name.ilike.'    + v);
     }
   }
 
-  const { data: quotes } = await query;
-  allQuotes = quotes || [];
-  renderStats();
-  renderTable();
-  updateStatsScope();   // CB-38
+  return applySort(query);
 }
 
-// ── Stats ──────────────────────────────────────────────────────────
-function renderStats() {
-  document.getElementById('statTotal').textContent      = allQuotes.length;
-  document.getElementById('statDraft').textContent      = allQuotes.filter(function(q) { return q.status === 'Draft'; }).length;
-  document.getElementById('statReturned').textContent   = allQuotes.filter(function(q) { return q.status === 'Returned'; }).length;
-  document.getElementById('statStockReview').textContent = allQuotes.filter(function(q) { return q.status === 'Stock Review'; }).length;
-  document.getElementById('statPending').textContent    = allQuotes.filter(function(q) { return q.status === 'Pending'; }).length;
-  document.getElementById('statPaymentProcessing').textContent = allQuotes.filter(function(q) { return q.status === 'Payment Processing'; }).length;
-  document.getElementById('statOrderProcessing').textContent   = allQuotes.filter(function(q) { return q.status === 'Order Processing'; }).length;
-  document.getElementById('tableCount').textContent     = allQuotes.length + ' quote' + (allQuotes.length !== 1 ? 's' : '');
+// ── Load Quotes ────────────────────────────────────────────────────
+async function loadQuotes() {
+  const salesDealerIds = resolveSalesDealerIds();
+
+  // CB-38 陷阱 #2:空陣列傳給 .in() 會產生無效的 PostgREST 語法,必須短路。
+  if (salesDealerIds && salesDealerIds.length === 0) {
+    allQuotes = [];
+    _listState.total = 0;
+    _listState.page  = 0;
+    _listError = null;
+    await loadStats();
+    renderTable();
+    renderPager();
+    updateStatsScope();
+    return;
+  }
+
+  const run = async function (page) {
+    const start = page * QUOTES_PAGE_SIZE;
+    return buildQuotesQuery(salesDealerIds).range(start, start + QUOTES_PAGE_SIZE - 1);
+  };
+
+  // 🔴 F-114 清償(Q-22):error 一併解構。原碼只解 data,查詢失敗會與
+  //    「沒資料」同形 —— 那是本票一路在防的形狀。
+  let { data, error, count } = await run(_listState.page);
+
+  // 🔴 超界處理,沿用 F-30 Stage 3 已實證的行為,不重新推理:
+  //      S3-d1  超界【不是】回空陣列,而是 416 / PGRST103
+  //      S3-d2  零筆時同樣回 416 —— 故第二道 clamp 為死碼,不寫
+  //    ⚠️ 只重跑一次,不迴圈:count 若持續變動,迴圈不保證終止。
+  if (error && error.code === 'PGRST103') {
+    const head = await buildQuotesQuery(salesDealerIds)
+      .range(0, 0)
+      .then(function (r) { return r; });
+
+    const realTotal = (head && head.count != null) ? head.count : 0;
+    const lastPage  = realTotal > 0
+      ? Math.floor((realTotal - 1) / QUOTES_PAGE_SIZE)
+      : 0;
+
+    _listState.page = lastPage;
+    const retry = await run(lastPage);
+    data  = retry.data;
+    error = retry.error;
+    count = retry.count;
+  }
+
+  if (error) {
+    // 🔴 不把失敗渲染成空清單。空清單與查詢失敗在畫面上同形,
+    //    而 admin 無從分辨 —— 這正是 F-114 的實質危害。
+    _listError = error;
+    allQuotes  = [];
+    _listState.total = null;
+    console.error('[CB-60a] quote list query failed:', error);
+  } else {
+    _listError = null;
+    allQuotes  = data || [];
+    _listState.total = (count != null) ? count : null;
+
+    // 🔴 截斷偵測(沿用 CB-82 loadReminderFlags 的做法):
+    //    要求的頁大小是 25,若非末頁卻少於 25 筆,代表被 max-rows 截斷。
+    //    PostgREST 的截斷【不報錯】,只會讓資料悄悄變少。
+    const start = _listState.page * QUOTES_PAGE_SIZE;
+    const expected = (count != null)
+      ? Math.max(0, Math.min(QUOTES_PAGE_SIZE, count - start))
+      : allQuotes.length;
+    if (allQuotes.length !== expected) {
+      console.error('[CB-60a] page row count mismatch: got '
+        + allQuotes.length + ', expected ' + expected + ' (max-rows truncation?)');
+      _listError = { code: 'CB60A_TRUNCATED',
+                     message: 'row count mismatch (possible truncation)' };
+    }
+  }
+
+  await loadStats();
+  renderTable();
+  renderPager();
+  updateStatsScope();
+}
+
+// ══ CB-60a M2:分頁列 ═══════════════════════════════════════════════════
+// 🔴 按鈕用 onclick 賦值而非 addEventListener:renderPager 每次載入都會跑,
+//    addEventListener 會疊加,一次點擊觸發多次翻頁 —— 而且不報錯。
+function renderPager() {
+  const bar  = document.getElementById('quotesPager');
+  const info = document.getElementById('pagerInfo');
+  const prev = document.getElementById('pagerPrev');
+  const next = document.getElementById('pagerNext');
+  if (!bar || !info || !prev || !next) return;
+
+  const total = _listState.total;
+
+  // 查詢失敗或 count 不可得 -> 不顯示分頁列。
+  // 🔴 顯示 "Showing 0–0 of 0" 會宣稱一件我們不知道的事。
+  if (_listError || total == null) {
+    bar.classList.remove('show');
+    document.getElementById('tableCount').textContent =
+      _listError ? 'Unable to load quotes' : '';
+    prev.disabled = true;
+    next.disabled = true;
+    return;
+  }
+
+  const start = _listState.page * QUOTES_PAGE_SIZE;
+  const shownFrom = total === 0 ? 0 : start + 1;
+  const shownTo   = start + allQuotes.length;
+
+  document.getElementById('tableCount').textContent =
+    total + ' quote' + (total !== 1 ? 's' : '');
+
+  info.textContent = 'Showing ' + shownFrom + '\u2013' + shownTo + ' of ' + total;
+
+  prev.disabled = _listState.page === 0;
+  next.disabled = shownTo >= total;
+
+  // 🔴 total <= 頁大小時整條隱藏:單頁不需要 Prev/Next。
+  bar.classList.toggle('show', total > QUOTES_PAGE_SIZE);
+
+  prev.onclick = async function () {
+    if (_listState.page === 0) return;
+    _listState.page -= 1;
+    await loadQuotes();
+  };
+  next.onclick = async function () {
+    _listState.page += 1;
+    await loadQuotes();
+  };
+}
+
+// ══ CB-60a M6:Export CSV ═══════════════════════════════════════════════
+// 🔴 純唯讀,零寫入。
+// 🔴 範圍 = 當前篩選結果【全部】(Q-2),與畫面分頁完全脫鉤 ——
+//    只匯出當前 25 筆對 admin 沒有實用價值。
+// 🔴 全有或全無:任一批失敗就【不產檔】並報錯。
+//    給 admin 一份「看起來完整但少 500 筆」的 CSV,比不給更糟 ——
+//    他不會知道少了,而檔案離開系統後就再也查不出來。
+const EXPORT_BATCH_SIZE = 1000;
+const EXPORT_MAX_BATCHES = 100;   // 上限 100,000 筆;超過即停並提示
+
+async function exportQuotesCsv() {
+  const btn = document.getElementById('btnExportCsv');
+  if (!btn || btn.disabled) return;
+
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+
+  try {
+    const salesDealerIds = resolveSalesDealerIds();
+
+    if (salesDealerIds && salesDealerIds.length === 0) {
+      alert('No quotes match the current filters. Nothing to export.');
+      return;
+    }
+
+    const rows = [];
+    let batch = 0;
+    let expected = null;
+
+    while (batch < EXPORT_MAX_BATCHES) {
+      const start = batch * EXPORT_BATCH_SIZE;
+      btn.textContent = 'Exporting… ' + rows.length;
+
+      const res = await buildQuotesQuery(salesDealerIds)
+        .range(start, start + EXPORT_BATCH_SIZE - 1);
+
+      // 🔴 零筆與超界皆回 416 / PGRST103(F-30 S3-d1 / S3-d2 已實證)。
+      if (res.error && res.error.code === 'PGRST103') break;
+
+      // 🔴 中途失敗直接中止,不產檔。
+      if (res.error) throw res.error;
+
+      if (expected === null && res.count != null) expected = res.count;
+
+      const got = res.data || [];
+      rows.push.apply(rows, got);
+
+      if (got.length < EXPORT_BATCH_SIZE) break;
+      batch += 1;
+    }
+
+    if (batch >= EXPORT_MAX_BATCHES) {
+      throw new Error('Export exceeded ' + EXPORT_MAX_BATCHES
+        + ' batches (' + (EXPORT_MAX_BATCHES * EXPORT_BATCH_SIZE)
+        + ' rows). Narrow the filters and try again.');
+    }
+
+    if (rows.length === 0) {
+      alert('No quotes match the current filters. Nothing to export.');
+      return;
+    }
+
+    // 🔴 筆數必須與 count 相符。不符即代表被截斷或分批漏抓 ——
+    //    兩者都不報錯,只會讓檔案悄悄變少。這是最後一道閘門。
+    if (expected != null && rows.length !== expected) {
+      throw new Error('Export row count mismatch: got ' + rows.length
+        + ', expected ' + expected + '. Nothing was downloaded.');
+    }
+
+    downloadQuotesCsv(rows);
+
+  } catch (err) {
+    console.error('[CB-60a] export failed:', err);
+    alert('Export failed. No file was downloaded.\n\n'
+      + (err && err.message ? err.message : String(err)));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+// ── CSV 組裝 ────────────────────────────────────────────────────────────
+// 🔴 Q-24 拍板欄位。金額欄【原值輸出,零計算】——
+//    不 round、不加總、不重算。Export 是唯讀的鏡子,不是計算器。
+//    (故本單元不落入「碰金額計算」的授權例外)
+const CSV_COLUMNS = [
+  { key: 'draft_number',            head: 'Draft #' },
+  { key: 'po_number',               head: 'PO #' },
+  { key: 'quote_number',            head: 'Quote #' },
+  { key: 'revision_number',         head: 'Revision' },
+  { key: 'job_name',                head: 'Job Name' },
+  { key: 'status',                  head: 'Status' },
+  { key: 'created_at',              head: 'Created At' },
+  { key: 'fulfillment_date',        head: 'Fulfillment Date' },
+  { key: 'dealer_id',               head: 'Dealer ID' },
+  { key: '_dealer_name',            head: 'Dealer' },
+  // 🔴 以下兩欄是 dealer【當下】的屬性,不是下單當時的快照。
+  //    舊單匯出時帶的是該 dealer 現在的 sales 與 account_type ——
+  //    若拿去做業績歸屬分析,轉手過的客戶會歸到新負責人身上。
+  //    要做快照需改資料庫結構,屬另一張票。
+  { key: '_dealer_account_type',    head: 'Account Type' },
+  { key: '_dealer_sales',           head: 'Assigned Sales' },
+  { key: 'subtotal',                head: 'Subtotal' },
+  { key: 'discount_total',          head: 'Discount Total' },
+  { key: 'assemble_total',          head: 'Assemble Total' },
+  { key: 'shipping_cost',           head: 'Shipping Cost' },
+  { key: 'delivery_fee',            head: 'Delivery Fee' },
+  { key: 'tax_amount',              head: 'Tax Amount' },
+  { key: 'account_credit_amount',   head: 'Account Credit' },
+  { key: 'manager_discount_amount', head: 'Manager Discount' },
+  { key: 'handling_fee_amount',     head: 'Handling Fee' },
+  { key: 'grand_total',             head: 'Grand Total' },
+  { key: 'notes',                   head: 'Notes' },
+  { key: 'return_reason',           head: 'Return Reason' },
+  { key: 'close_reason',            head: 'Close Reason' }
+];
+
+// 🔴 F-154 註記必須在【檔案裡】,不是只寫在交付說明。
+//    三個月後拿這份 CSV 對帳的人只會看到檔案本身。檔名會被改掉,
+//    畫面提示會消失,只有首行跟著檔案走。
+//    ⚠️ 已知代價:Excel 會把這兩行當成資料列,需手動略過。
+//       接受 —— 略過兩行是一次性麻煩,不知道欄位加不回總額是持續的誤導。
+// 🔴 註記已移除。2026-09-03 實測 staging 五筆:九個金額欄加總與 grand_total
+//    完全相符(gap 全為 0),原註記所稱的「加不起來」不成立 ——
+//    那是 mini totals 的【顯示】缺口,與 CSV 的欄位組成無關,我先前混為一談。
+//    ⚠️ 折抵欄位(account_credit_amount / manager_discount_amount)在 DB 中
+//       已存為負數,故直接相加即可,不需再轉符號。
+const CSV_DISCLAIMER = [];
+
+function csvCell(v) {
+  // 🔴 null 與 0 必須可區分:null -> 空字串,0 -> "0"。
+  //    把 0 寫成空白等於宣稱「沒有值」,那是不同的事實。
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  // 🔴 一律加引號並將內部引號成對跳脫 —— job_name / notes 常含逗號與換行,
+  //    不包裹會讓整列右移,而 CSV 不會因此報錯。
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function downloadQuotesCsv(rows) {
+  const lines = CSV_DISCLAIMER.slice();
+
+  lines.push(CSV_COLUMNS.map(function (c) { return csvCell(c.head); }).join(','));
+
+  rows.forEach(function (q) {
+    const d = allDealers[q.dealer_id];
+    // 🔴 sales 名字要再反查一層:assigned_sales_id 指向另一筆 dealers 列
+    //    (role='admin'),而 allDealers 裡兩種角色都在。
+    const s = (d && d.assigned_sales_id) ? allDealers[d.assigned_sales_id] : null;
+
+    lines.push(CSV_COLUMNS.map(function (c) {
+      let v;
+      if (c.key === '_dealer_name') {
+        v = d ? d.company_name : null;
+      } else if (c.key === '_dealer_account_type') {
+        v = d ? d.account_type : null;
+      } else if (c.key === '_dealer_sales') {
+        // 🔴 有 id 但查不到人時輸出標記,不輸出空白 ——
+        //    空白會被讀成「沒有指派 sales」,那是不同的事實。
+        v = s ? (s.contact_name || s.company_name)
+              : (d && d.assigned_sales_id ? '(unknown sales)' : null);
+      } else {
+        v = q[c.key];
+      }
+      return csvCell(v);
+    }).join(','));
+  });
+
+  // 🔴 BOM:沒有它,Excel 會用系統預設編碼開檔,中文公司名變亂碼。
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')],
+                        { type: 'text/csv;charset=utf-8;' });
+
+  const now = new Date();
+  const pad = function (n) { return String(n).padStart(2, '0'); };
+  const name = 'quotes_' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate())
+             + '_' + pad(now.getHours()) + pad(now.getMinutes()) + '.csv';
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // 🔴 必須釋放,否則每次匯出都留一份 blob 在記憶體直到頁面關閉。
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+// ══ CB-60a M1:Stats 改由 get_quote_stats() RPC 取得 ══════════════════════
+//  🔴 Q-20 = A。舊做法(client 端 filter allQuotes)在分頁後只剩當頁 25 筆,
+//     語意直接錯;改打 quotes 的 count:'exact' 則會在 policy 擋住時回 0 而非
+//     error,與「真的 0 張」同形(CB-82 缺陷二)。RPC 對非 admin 拋 42501,
+//     前端拿到的是【真正的 error】,這是本函式存在的全部理由。
+//  🔴 Q-26 = A。RPC 無參數 = 全表統計,【不隨篩選變動】。
+let _statsDegraded = false;
+
+async function loadStats() {
+  _statsDegraded = false;
+
+  const { data, error } = await _supabase.rpc('get_quote_stats');
+
+  const fail = function (why) {
+    _statsDegraded = true;
+    console.error('[CB-60a] quote stats unavailable:', why);
+  };
+
+  let s = null;
+  if (error) {
+    // 🔴 非 admin 在函式內拿到 42501;網路失敗、函式不存在、schema cache
+    //    未重載亦落入此分支。重點是它【是一個 error】—— 不再與「沒資料」同形。
+    fail(error);
+  } else if (!Array.isArray(data) || data.length !== 1) {
+    // 🔴 正向識別(F-35):必須【就是】一列。RPC 回 TABLE,理論上恆為一列,
+    //    但「理論上」正是本票一路在防的東西。形狀不符即降級,不猜。
+    fail('unexpected shape (expected exactly 1 row)');
+  } else {
+    s = data[0];
+  }
+
+  const CARDS = {
+    statTotal:             'total_count',
+    statDraft:             'draft_count',
+    statReturned:          'returned_count',
+    statStockReview:       'stock_review_count',
+    statPending:           'pending_count',
+    statPaymentProcessing: 'payment_processing_count',
+    statOrderProcessing:   'order_processing_count'
+  };
+
+  Object.keys(CARDS).forEach(function (elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    // 🔴 降級時填 em dash,【不填 0】。0 是一個有意義的答案,而我們此刻
+    //    沒有答案 —— 用 0 冒充「查不到」正是這支 RPC 要消滅的失效形狀。
+    el.textContent = s ? String(Number(s[CARDS[elId]])) : '\u2014';
+  });
+
+  const bar = document.getElementById('statsDegraded');
+  if (!bar) return;
+
+  let msg = '';
+
+  if (_statsDegraded) {
+    msg = 'Quote statistics unavailable \u2014 the numbers above cannot be shown. '
+        + 'Please refresh to retry.';
+  } else {
+    // ── baseline:全表 0 張,在 admin 頁本身即異常 ────────────────────
+    // 🔴 這個檢查【不是】恆真式:total 來自 SECURITY DEFINER RPC,授權失敗
+    //    走的是上面的 error 分支,不會偽裝成 0。作廢的 Q-18 不變式
+    //    (SUM(9)+NULL == total)則是 0+0==0 恆成立,永遠通過。
+    const total = Number(s.total_count);
+    const other = Number(s.other_status_count);
+    const nul   = Number(s.null_status_count);
+
+    if (total === 0) {
+      msg = 'No quotes exist in the database. If this is unexpected, do not treat '
+          + 'it as an empty list \u2014 report it.';
+    } else if (other > 0 || nul > 0) {
+      // 🔴 正向識別(F-35):九張卡之外還有單。若不說出來,那些單會從所有
+      //    統計中靜默消失 —— 這正是 other_status_count 存在的理由。
+      msg = 'Total ' + total + ' includes ' + other + ' quote(s) with an unrecognized '
+          + 'status and ' + nul + ' with no status. They are not counted in any card '
+          + 'below. Report this \u2014 the status list may have changed.';
+    }
+  }
+
+  bar.textContent = msg;
+  bar.classList.toggle('show', !!msg);
 }
 
 // ── Render Table ───────────────────────────────────────────────────
@@ -1448,7 +2232,7 @@ async function saveStatus(quoteId) {
   const q = allQuotes.find(function(q) { return q.id === quoteId; });
   if (q) q.status = newStatus;
   _previousStatus[quoteId] = newStatus;
-  renderStats();
+await loadStats();   // CB-60a M1-fix:renderStats() 已移除
 showToast('Status updated to ' + pcQuoteStatusLabel(newStatus));
 }
 
@@ -1646,7 +2430,7 @@ async function confirmReturnQuote() {
   btn.classList.remove('loading');
   btn.disabled = false;
 
-  renderStats();
+  await loadStats();   // CB-60a M1-fix:renderStats() 已移除
   renderTable();
 
   if (emailErr) {
@@ -1807,7 +2591,7 @@ async function confirmCloseQuote() {
   btn.classList.remove('loading');
   btn.disabled = false;
 
-  renderStats();
+  await loadStats();   // CB-60a M1-fix:renderStats() 已移除
   renderTable();
 
   if (emailErr) {
@@ -1991,7 +2775,7 @@ async function confirmDeleteDraft() {
   btn.classList.remove('loading');
   btn.disabled = false;
 
-  renderStats();
+  await loadStats();   // CB-60a M1-fix:renderStats() 已移除
   renderTable();
 
   // Toast 文案
@@ -2006,7 +2790,12 @@ async function confirmDeleteDraft() {
 }
 
 // ── Filters ────────────────────────────────────────────────────────
-function applyFilters() { loadQuotes(); }
+// 🔴 篩選改變【必須】重置至第 1 頁(F-30 🟢 通用項)。
+//    不重置的話:停在第 4 頁時改篩選,新條件下可能只有 1 頁,
+//    range(75,99) 會落在空區 -> PGRST103 -> 觸發 clamp 重跑,
+//    畫面最終是對的,但多一次來回;若 count 剛好夠,則會顯示
+//    「第 4 頁」的資料而使用者以為是第 1 頁 —— 而且不報錯。
+function applyFilters() { _listState.page = 0; loadQuotes(); }
 function resetFilters() {
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterDealer').value = '';
@@ -2015,12 +2804,14 @@ function resetFilters() {
   document.getElementById('filterSearch').value = '';
   // CB-38 Q3:Sales 回到 landing 時的 default(admin → My Dealers),而非清空
   document.getElementById('filterSales').value  = defaultSalesValue;
+  _listState.page = 0;
   loadQuotes();
 }
 
 // ── Create Draft Modal ─────────────────────────────────────────────
 function openCreateDraftModal() {
   document.getElementById('draftDealerSelect').value = '';
+  refreshDealerPickers();   // CB-60a M5-v2:同步按鈕文字,避免顯示上次的選擇
   document.getElementById('draftModalError').classList.remove('show');
   document.getElementById('btnCreateDraft').disabled    = false;
   document.getElementById('btnCreateDraft').textContent = 'Start Quote →';
