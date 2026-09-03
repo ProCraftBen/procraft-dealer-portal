@@ -669,7 +669,14 @@ function sanitizeSearch(raw) {
   const removed = hits ? Array.from(new Set(hits)).sort() : [];
 
   s = s.replace(SEARCH_UNESCAPABLE, '');
-  s = s.replace(/([%_])/g, '\\$1');
+  // 🔴 雙反斜線,不是單反斜線 —— PostgREST 對【雙引號內】的值會先做一層
+  //    自己的反轉義,單個 \ 會被它消化掉,LIKE 收到的仍是裸的 %。
+  //    2026-09-03 實測(staging):
+  //      包裹 + 單反斜線 -> count 90(= 全表,萬用字元未被跳脫)
+  //      包裹 + 雙反斜線 -> count 0  (對照組「包裹 + 普通字 a」= 24,證明查詢本身正常)
+  //    ⚠️ F-30 驗證的是「不包裹 + 單反斜線」。本頁因為要保留 , ( ) 而改用包裹,
+  //       組合後行為不同 —— 單獨可行不代表組合可行,不可用 F-30 的結論外推。
+  s = s.replace(/([%_])/g, '\\\\$1');
 
   return { value: s, removed: removed };
 }
