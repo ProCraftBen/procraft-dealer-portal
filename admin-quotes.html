@@ -1527,6 +1527,88 @@ function renderPager() {
   };
 }
 
+// ══ CB-60a M6:Export CSV ═══════════════════════════════════════════════
+// 🔴 純唯讀,零寫入。
+// 🔴 範圍 = 當前篩選結果【全部】(Q-2),與畫面分頁完全脫鉤 ——
+//    只匯出當前 25 筆對 admin 沒有實用價值。
+// 🔴 全有或全無:任一批失敗就【不產檔】並報錯。
+//    給 admin 一份「看起來完整但少 500 筆」的 CSV,比不給更糟 ——
+//    他不會知道少了,而檔案離開系統後就再也查不出來。
+const EXPORT_BATCH_SIZE = 1000;
+const EXPORT_MAX_BATCHES = 100;   // 上限 100,000 筆;超過即停並提示
+
+async function exportQuotesCsv() {
+  const btn = document.getElementById('btnExportCsv');
+  if (!btn || btn.disabled) return;
+
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Exporting…';
+
+  try {
+    const salesDealerIds = resolveSalesDealerIds();
+
+    if (salesDealerIds && salesDealerIds.length === 0) {
+      alert('No quotes match the current filters. Nothing to export.');
+      return;
+    }
+
+    const rows = [];
+    let batch = 0;
+    let expected = null;
+
+    while (batch < EXPORT_MAX_BATCHES) {
+      const start = batch * EXPORT_BATCH_SIZE;
+      btn.textContent = 'Exporting… ' + rows.length;
+
+      const res = await buildQuotesQuery(salesDealerIds)
+        .range(start, start + EXPORT_BATCH_SIZE - 1);
+
+      // 🔴 零筆與超界皆回 416 / PGRST103(F-30 S3-d1 / S3-d2 已實證)。
+      if (res.error && res.error.code === 'PGRST103') break;
+
+      // 🔴 中途失敗直接中止,不產檔。
+      if (res.error) throw res.error;
+
+      if (expected === null && res.count != null) expected = res.count;
+
+      const got = res.data || [];
+      rows.push.apply(rows, got);
+
+      if (got.length < EXPORT_BATCH_SIZE) break;
+      batch += 1;
+    }
+
+    if (batch >= EXPORT_MAX_BATCHES) {
+      throw new Error('Export exceeded ' + EXPORT_MAX_BATCHES
+        + ' batches (' + (EXPORT_MAX_BATCHES * EXPORT_BATCH_SIZE)
+        + ' rows). Narrow the filters and try again.');
+    }
+
+    if (rows.length === 0) {
+      alert('No quotes match the current filters. Nothing to export.');
+      return;
+    }
+
+    // 🔴 筆數必須與 count 相符。不符即代表被截斷或分批漏抓 ——
+    //    兩者都不報錯,只會讓檔案悄悄變少。這是最後一道閘門。
+    if (expected != null && rows.length !== expected) {
+      throw new Error('Export row count mismatch: got ' + rows.length
+        + ', expected ' + expected + '. Nothing was downloaded.');
+    }
+
+    downloadQuotesCsv(rows);
+
+  } catch (err) {
+    console.error('[CB-60a] export failed:', err);
+    alert('Export failed. No file was downloaded.\n\n'
+      + (err && err.message ? err.message : String(err)));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
 // ══ CB-60a M1:Stats 改由 get_quote_stats() RPC 取得 ══════════════════════
 //  🔴 Q-20 = A。舊做法(client 端 filter allQuotes)在分頁後只剩當頁 25 筆,
 //     語意直接錯;改打 quotes 的 count:'exact' 則會在 policy 擋住時回 0 而非
