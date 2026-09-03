@@ -726,6 +726,19 @@ function mountDealerPicker(cfg) {
   let active = -1;
   let shown  = [];
 
+  // 🔴 隱藏的 <select> 必須先有對應的 <option>,否則 sel.value = id 會被
+  //    瀏覽器【靜默忽略】—— 賦值不報錯,.value 卻回退成 ''。
+  //    這是 v1 的 renderDealerOptions 原本在做、v2 改版時漏掉的一步。
+  function syncOptions() {
+    const keep = sel.value;
+    let html = '<option value=""></option>';
+    _dealerOptions.forEach(function (d) {
+      html += '<option value="' + d.id + '"></option>';
+    });
+    sel.innerHTML = html;
+    sel.value = keep;
+  }
+
   function label() {
     const v = sel.value;
     const d = _dealerOptions.filter(function (x) { return x.id === v; })[0];
@@ -775,6 +788,13 @@ function mountDealerPicker(cfg) {
 
   function pick(id) {
     sel.value = id;
+    // 🔴 正向確認賦值真的生效。select 對不存在的 option 值會靜默回退,
+    //    而「選了但沒選上」在畫面上與「還沒選」同形。
+    if (sel.value !== id) {
+      console.error('[CB-60a] dealer select rejected value:', id);
+      syncOptions();
+      sel.value = id;
+    }
     // 🔴 必須手動觸發 change:程式設定 .value 不會自動派發事件,
     //    而既有邏輯(以及日後可能掛上的監聽)是靠 change 驅動的。
     sel.dispatchEvent(new Event('change', { bubbles: true }));
@@ -825,7 +845,8 @@ function mountDealerPicker(cfg) {
     document.addEventListener('click', wrap._dselOutside);
   }
 
-  wrap._dselRefresh = function () { label(); render(); };
+  wrap._dselRefresh = function () { syncOptions(); label(); render(); };
+  syncOptions();
   label();
   render();
 }
