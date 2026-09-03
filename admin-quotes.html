@@ -433,15 +433,19 @@
     </div>
     <div class="filter-group">
       <label class="filter-label">Dealer</label>
-      <!-- CB-60a M5:搜尋框過濾下方 select 的 options(Q-6:client 端記憶體過濾)。
-           🔴 刻意保留原生 select —— .value API 不變,既有呼叫端全部無需改動。 -->
-      <input type="text" class="filter-input" id="filterDealerSearch"
-             placeholder="Type to filter…"
-             style="margin-bottom:4px;font-size:11px;padding:4px 8px;"/>
-      <select class="filter-select" id="filterDealer">
+      <!-- CB-60a M5-v2:自製下拉。搜尋框在面板【內】,高度由 max-height 控制。
+           🔴 隱藏的 <select> 仍是值的來源 —— filterDealer.value 的既有呼叫端
+              (L1110、L2350)一行都不用改。 -->
+      <div class="dsel" id="filterDealerWrap">
+        <button type="button" class="dsel-btn placeholder" id="filterDealerBtn">All Dealers</button>
+        <div class="dsel-panel">
+          <input type="text" class="dsel-search" id="filterDealerSearch" placeholder="Type to filter…"/>
+          <div class="dsel-list" id="filterDealerList"></div>
+        </div>
+      </div>
+      <select id="filterDealer" style="display:none;">
         <option value="">All Dealers</option>
       </select>
-      <div id="filterDealerNotice" style="display:none;font-size:10px;color:#92400E;margin-top:4px;"></div>
     </div>
     <div class="filter-group">
       <label class="filter-label">From</label>
@@ -514,13 +518,17 @@
     <div class="modal-sub">Select a dealer to create a quote on their behalf. You will be taken through the full quote flow and can save as draft when done.</div>
     <div class="modal-field">
       <label>Dealer <span style="color:var(--gold);">*</span></label>
-      <!-- CB-60a M5:搜尋框過濾下方 select 的 options -->
-      <input type="text" id="draftDealerSearch" placeholder="Type to filter…"
-             style="width:100%;margin-bottom:6px;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px;"/>
-      <select id="draftDealerSelect">
+      <!-- CB-60a M5-v2:同一支元件,第二個掛載點。 -->
+      <div class="dsel" id="draftDealerWrap">
+        <button type="button" class="dsel-btn placeholder" id="draftDealerBtn">— Select a dealer —</button>
+        <div class="dsel-panel">
+          <input type="text" class="dsel-search" id="draftDealerSearch" placeholder="Type to filter…"/>
+          <div class="dsel-list" id="draftDealerList"></div>
+        </div>
+      </div>
+      <select id="draftDealerSelect" style="display:none;">
         <option value="">— Select a dealer —</option>
       </select>
-      <div id="draftDealerSelectNotice" style="display:none;font-size:11px;color:#92400E;margin-top:4px;"></div>
     </div>
     <div class="modal-error" id="draftModalError"></div>
     <div class="modal-actions">
