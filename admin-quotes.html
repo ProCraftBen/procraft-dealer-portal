@@ -1565,7 +1565,7 @@ async function saveStatus(quoteId) {
   const q = allQuotes.find(function(q) { return q.id === quoteId; });
   if (q) q.status = newStatus;
   _previousStatus[quoteId] = newStatus;
-  renderStats();
+await loadStats();   // CB-60a M1-fix:renderStats() 已移除
 showToast('Status updated to ' + pcQuoteStatusLabel(newStatus));
 }
 
@@ -1763,7 +1763,7 @@ async function confirmReturnQuote() {
   btn.classList.remove('loading');
   btn.disabled = false;
 
-  renderStats();
+  await loadStats();   // CB-60a M1-fix:renderStats() 已移除
   renderTable();
 
   if (emailErr) {
@@ -1924,7 +1924,7 @@ async function confirmCloseQuote() {
   btn.classList.remove('loading');
   btn.disabled = false;
 
-  renderStats();
+  await loadStats();   // CB-60a M1-fix:renderStats() 已移除
   renderTable();
 
   if (emailErr) {
@@ -2108,7 +2108,7 @@ async function confirmDeleteDraft() {
   btn.classList.remove('loading');
   btn.disabled = false;
 
-  renderStats();
+  await loadStats();   // CB-60a M1-fix:renderStats() 已移除
   renderTable();
 
   // Toast 文案
