@@ -636,6 +636,10 @@ const QUOTES_PAGE_SIZE = 25;
 // 🔴 page 為 0-based。
 let _listState = { page: 0, total: null };
 
+// 🔴 查詢失敗的狀態必須獨立保存:清單為空與查詢失敗在畫面上同形,
+//    靠 allQuotes.length === 0 判斷會把兩者混為一談。
+let _listError = null;
+
 // 🔴 排序一律以 id 收尾作為 tiebreaker,方向隨主排序(Q-5)。
 //    T-2/P2 已實證:staging 90 筆、每頁 25 筆,單獨用非唯一鍵排序時
 //    第 1、2 頁之間有 4 張單各出現兩次、另 4 張永不出現,
@@ -991,31 +995,22 @@ function emptyStateMessage() {
                   : 'No quotes from this sales\u2019 dealers.';
 }
 
-// ── Load Quotes ────────────────────────────────────────────────────
-async function loadQuotes() {
-  let query = _supabase.from('quotes').select('*, quote_items(*)').order('created_at', { ascending: false });
+// ══ CB-60a M2:查詢建構抽出 ══════════════════════════════════════════════
+// 🔴 抽成獨立函式的理由是【技術必要】,不是整理:PGRST103 超界時必須用
+//    同一組篩選條件重跑一次,而 supabase-js 的 query builder 一經 await
+//    即不可重複使用。沿用同一個 builder 會拿到不可預期的結果。
+// ⚠️ 篩選邏輯本身逐字沿用原碼,未做任何行為變更。
+//    搜尋淨化(replace(/[,()*]/g,''))刻意保留原樣 —— M4 才會改它,
+//    避免兩個單元動同一段。
+function buildQuotesQuery(salesDealerIds) {
+  let query = _supabase
+    .from('quotes')
+    .select('*, quote_items(*)', { count: 'exact' });
 
   const status = document.getElementById('filterStatus').value;
   const dealer = document.getElementById('filterDealer').value;
   const from   = document.getElementById('filterFrom').value;
   const to     = document.getElementById('filterTo').value;
-
-  // CB-38:Sales → dealer_id[]。null = All Sales(不加條件)。
-  // 陷阱 #2:空陣列傳給 .in() 會產生無效的 PostgREST 語法,必須短路。
-  const salesDealerIds = resolveSalesDealerIds();
-  if (salesDealerIds && salesDealerIds.length === 0) {
-    // 🔴 renderStats() 已於 M1 移除,此處原本會拋 ReferenceError 而中止 ——
-    //    但這條路徑只在「選了某 sales 且其名下無 dealer」時才走到,
-    //    M1 驗證未涵蓋。屬 M1 遺留,在此修正。
-    allQuotes = [];
-    _listState.total = 0;
-    document.getElementById('tableCount').textContent = '0 quotes';
-    await loadStats();
-    renderTable();
-    renderPager();
-    updateStatsScope();
-    return;
-  }
 
   if (status) query = query.eq('status', status);
   if (dealer) query = query.eq('dealer_id', dealer);
@@ -1023,7 +1018,6 @@ async function loadQuotes() {
   if (from)   query = query.gte('created_at', from);
   if (to)     query = query.lte('created_at', to + 'T23:59:59');
 
-  // 雙編號制 + 選項 C: 完整編號精確比對;否則模糊比對兩個編號 + Job Name
   const search = (document.getElementById('filterSearch').value || '').trim();
   if (search) {
     if (/^D\d{5}$/i.test(search)) {
@@ -1031,25 +1025,141 @@ async function loadQuotes() {
     } else if (/^PDC\d{5}$/i.test(search)) {
       query = query.eq('po_number', search.toUpperCase());
     } else {
-      const safe = search.replace(/[,()*]/g, '');  // 去掉會破壞 PostgREST or() 的字元
+      const safe = search.replace(/[,()*]/g, '');
       query = query.or('draft_number.ilike.%' + safe + '%,po_number.ilike.%' + safe + '%,job_name.ilike.%' + safe + '%');
     }
   }
 
-  // ⚠️ 此處的 error 仍被丟棄(F-114)—— M2 分頁單元會連同 count:'exact'
-  //    一起改寫這一行。M1 刻意不動,避免兩個單元改同一處。
-  const { data: quotes } = await query;
-  allQuotes = quotes || [];
+  return applySort(query);
+}
 
-  // 🔴 tableCount 從 renderStats 搬到這裡:它算的是【當前清單筆數】,
-  //    與全表統計是不同的量。留在 loadStats 裡會讓兩個語意混在一起。
-  //    ⚠️ M2 會把它改成 "Showing X–Y of N"。
-  document.getElementById('tableCount').textContent =
-    allQuotes.length + ' quote' + (allQuotes.length !== 1 ? 's' : '');
+// ── Load Quotes ────────────────────────────────────────────────────
+async function loadQuotes() {
+  const salesDealerIds = resolveSalesDealerIds();
 
-  await loadStats();    // CB-60a M1
+  // CB-38 陷阱 #2:空陣列傳給 .in() 會產生無效的 PostgREST 語法,必須短路。
+  if (salesDealerIds && salesDealerIds.length === 0) {
+    allQuotes = [];
+    _listState.total = 0;
+    _listState.page  = 0;
+    _listError = null;
+    await loadStats();
+    renderTable();
+    renderPager();
+    updateStatsScope();
+    return;
+  }
+
+  const run = async function (page) {
+    const start = page * QUOTES_PAGE_SIZE;
+    return buildQuotesQuery(salesDealerIds).range(start, start + QUOTES_PAGE_SIZE - 1);
+  };
+
+  // 🔴 F-114 清償(Q-22):error 一併解構。原碼只解 data,查詢失敗會與
+  //    「沒資料」同形 —— 那是本票一路在防的形狀。
+  let { data, error, count } = await run(_listState.page);
+
+  // 🔴 超界處理,沿用 F-30 Stage 3 已實證的行為,不重新推理:
+  //      S3-d1  超界【不是】回空陣列,而是 416 / PGRST103
+  //      S3-d2  零筆時同樣回 416 —— 故第二道 clamp 為死碼,不寫
+  //    ⚠️ 只重跑一次,不迴圈:count 若持續變動,迴圈不保證終止。
+  if (error && error.code === 'PGRST103') {
+    const head = await buildQuotesQuery(salesDealerIds)
+      .range(0, 0)
+      .then(function (r) { return r; });
+
+    const realTotal = (head && head.count != null) ? head.count : 0;
+    const lastPage  = realTotal > 0
+      ? Math.floor((realTotal - 1) / QUOTES_PAGE_SIZE)
+      : 0;
+
+    _listState.page = lastPage;
+    const retry = await run(lastPage);
+    data  = retry.data;
+    error = retry.error;
+    count = retry.count;
+  }
+
+  if (error) {
+    // 🔴 不把失敗渲染成空清單。空清單與查詢失敗在畫面上同形,
+    //    而 admin 無從分辨 —— 這正是 F-114 的實質危害。
+    _listError = error;
+    allQuotes  = [];
+    _listState.total = null;
+    console.error('[CB-60a] quote list query failed:', error);
+  } else {
+    _listError = null;
+    allQuotes  = data || [];
+    _listState.total = (count != null) ? count : null;
+
+    // 🔴 截斷偵測(沿用 CB-82 loadReminderFlags 的做法):
+    //    要求的頁大小是 25,若非末頁卻少於 25 筆,代表被 max-rows 截斷。
+    //    PostgREST 的截斷【不報錯】,只會讓資料悄悄變少。
+    const start = _listState.page * QUOTES_PAGE_SIZE;
+    const expected = (count != null)
+      ? Math.max(0, Math.min(QUOTES_PAGE_SIZE, count - start))
+      : allQuotes.length;
+    if (allQuotes.length !== expected) {
+      console.error('[CB-60a] page row count mismatch: got '
+        + allQuotes.length + ', expected ' + expected + ' (max-rows truncation?)');
+      _listError = { code: 'CB60A_TRUNCATED',
+                     message: 'row count mismatch (possible truncation)' };
+    }
+  }
+
+  await loadStats();
   renderTable();
-  updateStatsScope();   // CB-38
+  renderPager();
+  updateStatsScope();
+}
+
+// ══ CB-60a M2:分頁列 ═══════════════════════════════════════════════════
+// 🔴 按鈕用 onclick 賦值而非 addEventListener:renderPager 每次載入都會跑,
+//    addEventListener 會疊加,一次點擊觸發多次翻頁 —— 而且不報錯。
+function renderPager() {
+  const bar  = document.getElementById('quotesPager');
+  const info = document.getElementById('pagerInfo');
+  const prev = document.getElementById('pagerPrev');
+  const next = document.getElementById('pagerNext');
+  if (!bar || !info || !prev || !next) return;
+
+  const total = _listState.total;
+
+  // 查詢失敗或 count 不可得 -> 不顯示分頁列。
+  // 🔴 顯示 "Showing 0–0 of 0" 會宣稱一件我們不知道的事。
+  if (_listError || total == null) {
+    bar.classList.remove('show');
+    document.getElementById('tableCount').textContent =
+      _listError ? 'Unable to load quotes' : '';
+    prev.disabled = true;
+    next.disabled = true;
+    return;
+  }
+
+  const start = _listState.page * QUOTES_PAGE_SIZE;
+  const shownFrom = total === 0 ? 0 : start + 1;
+  const shownTo   = start + allQuotes.length;
+
+  document.getElementById('tableCount').textContent =
+    total + ' quote' + (total !== 1 ? 's' : '');
+
+  info.textContent = 'Showing ' + shownFrom + '\u2013' + shownTo + ' of ' + total;
+
+  prev.disabled = _listState.page === 0;
+  next.disabled = shownTo >= total;
+
+  // 🔴 total <= 頁大小時整條隱藏:單頁不需要 Prev/Next。
+  bar.classList.toggle('show', total > QUOTES_PAGE_SIZE);
+
+  prev.onclick = async function () {
+    if (_listState.page === 0) return;
+    _listState.page -= 1;
+    await loadQuotes();
+  };
+  next.onclick = async function () {
+    _listState.page += 1;
+    await loadQuotes();
+  };
 }
 
 // ══ CB-60a M1:Stats 改由 get_quote_stats() RPC 取得 ══════════════════════
