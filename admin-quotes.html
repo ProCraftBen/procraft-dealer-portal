@@ -1102,7 +1102,7 @@ async function init() {
   //    admin 頁的 dealer 數為 0 本身即異常,必須說出來。
   const { data: dealers, error: dealersErr, count: dealersCount } = await _supabase
     .from('dealers')
-    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state, role, assigned_sales_id',
+    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state, role, assigned_sales_id, account_type',
             { count: 'exact' })
     .order('company_name');
 
@@ -1627,6 +1627,12 @@ const CSV_COLUMNS = [
   { key: 'fulfillment_date',        head: 'Fulfillment Date' },
   { key: 'dealer_id',               head: 'Dealer ID' },
   { key: '_dealer_name',            head: 'Dealer' },
+  // 🔴 以下兩欄是 dealer【當下】的屬性,不是下單當時的快照。
+  //    舊單匯出時帶的是該 dealer 現在的 sales 與 account_type ——
+  //    若拿去做業績歸屬分析,轉手過的客戶會歸到新負責人身上。
+  //    要做快照需改資料庫結構,屬另一張票。
+  { key: '_dealer_account_type',    head: 'Account Type' },
+  { key: '_dealer_sales',           head: 'Assigned Sales' },
   { key: 'subtotal',                head: 'Subtotal' },
   { key: 'discount_total',          head: 'Discount Total' },
   { key: 'assemble_total',          head: 'Assemble Total' },
@@ -1669,10 +1675,24 @@ function downloadQuotesCsv(rows) {
 
   rows.forEach(function (q) {
     const d = allDealers[q.dealer_id];
+    // 🔴 sales 名字要再反查一層:assigned_sales_id 指向另一筆 dealers 列
+    //    (role='admin'),而 allDealers 裡兩種角色都在。
+    const s = (d && d.assigned_sales_id) ? allDealers[d.assigned_sales_id] : null;
+
     lines.push(CSV_COLUMNS.map(function (c) {
-      const v = (c.key === '_dealer_name')
-        ? (d ? d.company_name : null)
-        : q[c.key];
+      let v;
+      if (c.key === '_dealer_name') {
+        v = d ? d.company_name : null;
+      } else if (c.key === '_dealer_account_type') {
+        v = d ? d.account_type : null;
+      } else if (c.key === '_dealer_sales') {
+        // 🔴 有 id 但查不到人時輸出標記,不輸出空白 ——
+        //    空白會被讀成「沒有指派 sales」,那是不同的事實。
+        v = s ? (s.contact_name || s.company_name)
+              : (d && d.assigned_sales_id ? '(unknown sales)' : null);
+      } else {
+        v = q[c.key];
+      }
       return csvCell(v);
     }).join(','));
   });
