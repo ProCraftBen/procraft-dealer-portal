@@ -73,6 +73,14 @@
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); }
+    /* CB-60a M2 分頁列 */
+    .pager { display: none; align-items: center; justify-content: flex-end; gap: 12px;
+             padding: 12px 20px; border-top: 1px solid var(--border); font-size: 12px; }
+    .pager.show { display: flex; }
+    .pager-btn { padding: 5px 12px; border: 1px solid var(--border); border-radius: 4px;
+                 background: var(--white); cursor: pointer; font-size: 12px; }
+    .pager-btn:disabled { opacity: 0.4; cursor: default; }
+    .pager-info { color: var(--muted); }
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
     tbody tr { border-bottom: 1px solid var(--border); }
@@ -432,6 +440,14 @@
           <tr><td colspan="9"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
+      <!-- CB-60a M2:分頁列。
+           🔴 刻意置於 </table> 之後,【不進 <thead>】—— CB-82 的 LIST_COLSPAN = 9
+              註解已預留此約定,兩票因此不衝突。欄位數不變,LIST_COLSPAN 維持 9。 -->
+      <div class="pager" id="quotesPager">
+        <span class="pager-info" id="pagerInfo"></span>
+        <button class="pager-btn" id="pagerPrev" type="button">Prev</button>
+        <button class="pager-btn" id="pagerNext" type="button">Next</button>
+      </div>
     </div>
   </div>
 </div>
