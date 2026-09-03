@@ -922,10 +922,23 @@ async function init() {
   currentUserRole = me.role;
 
   // CB-38:select 加 role 與 assigned_sales_id(Q2 需要 role 才能分流兩個 dropdown)
-  const { data: dealers } = await _supabase
+  // 🔴 CB-60a M5:加 count 與 error 解構 —— 授權出口(CB-82 原則)。
+  //    原碼只解 data:policy 擋住時回 200 / [] / error null,
+  //    兩個 dealer 下拉會變成空的,而「真的沒有 dealer」長得一模一樣。
+  //    admin 頁的 dealer 數為 0 本身即異常,必須說出來。
+  const { data: dealers, error: dealersErr, count: dealersCount } = await _supabase
     .from('dealers')
-    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state, role, assigned_sales_id')
+    .select('id, uid, company_name, contact_name, email, secondary_email, secondary_email_notify, optional_email_2, optional_email_2_notify, city, state, role, assigned_sales_id',
+            { count: 'exact' })
     .order('company_name');
+
+  if (dealersErr) {
+    console.error('[CB-60a] dealer list query failed:', dealersErr);
+    alert('Dealer list failed to load. Dealer filter and Create Draft will be incomplete.');
+  } else if (dealersCount === 0) {
+    console.error('[CB-60a] dealer list returned 0 rows (unexpected on an admin page)');
+    alert('No dealers found. This is unexpected — please report it.');
+  }
 
   if (dealers) {
     dealers.forEach(function(d) { allDealers[d.id] = d; });
@@ -934,21 +947,15 @@ async function init() {
     // 修正既有瑕疵 —— 過去未過濾,admin 帳號會出現在兩個 dealer 下拉中。
     const dealerOnly = dealers.filter(function(d) { return d.role === 'dealer'; });
 
-    // Filter dropdown
-    const filterSel = document.getElementById('filterDealer');
-    dealerOnly.forEach(function(d) {
-      const opt = document.createElement('option');
-      opt.value = d.id; opt.textContent = d.company_name;
-      filterSel.appendChild(opt);
+    // ── CB-60a M5:兩處共用同一支函式,兩個掛載點 ──────────────────
+    // 📌 原本兩段 forEach 是同一段邏輯的兩份複本;改用共用函式後,
+    //    日後改動只有一處(Stage 1 承諾的「一支函式、兩個掛載點」)。
+    _dealerOptions = dealerOnly.map(function (d) {
+      return { id: d.id, name: d.company_name || '(no company name)' };
     });
 
-    // Modal dropdown
-    const modalSel = document.getElementById('draftDealerSelect');
-    dealerOnly.forEach(function(d) {
-      const opt2 = document.createElement('option');
-      opt2.value = d.id; opt2.textContent = d.company_name;
-      modalSel.appendChild(opt2);
-    });
+    mountDealerPicker('filterDealer',      'filterDealerSearch', 'All Dealers');
+    mountDealerPicker('draftDealerSelect', 'draftDealerSearch',  '\u2014 Select a dealer \u2014');
 
     // CB-38:Sales dropdown(同一份資料過濾出 admin / super_admin)
     salesList = dealers.filter(function(d) {
