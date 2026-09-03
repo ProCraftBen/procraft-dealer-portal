@@ -409,6 +409,12 @@
       <label class="filter-label">Search</label>
       <input type="text" class="filter-input" id="filterSearch" placeholder="PO# / Draft ID / Job Name"/>
     </div>
+    <!-- CB-60a M3:Sort By。options 由 initSortOptions() 填入,
+         避免選項清單在 HTML 與 JS 兩處各存一份(F-118 同族)。 -->
+    <div class="filter-group">
+      <label class="filter-label">Sort By</label>
+      <select class="filter-select" id="sortBy"></select>
+    </div>
     <div class="filter-group" style="flex-direction:row;gap:8px;">
       <button class="btn-filter" onclick="applyFilters()">Filter</button>
       <button class="btn-reset" onclick="resetFilters()">Reset</button>
@@ -640,14 +646,56 @@ let _listState = { page: 0, total: null };
 //    靠 allQuotes.length === 0 判斷會把兩者混為一談。
 let _listError = null;
 
-// 🔴 排序一律以 id 收尾作為 tiebreaker,方向隨主排序(Q-5)。
-//    T-2/P2 已實證:staging 90 筆、每頁 25 筆,單獨用非唯一鍵排序時
-//    第 1、2 頁之間有 4 張單各出現兩次、另 4 張永不出現,
-//    而 HTTP 是 200、error 為 null、每頁剛好 25 筆 —— 不會報錯。
-//    ⚠️ 此處為 M2 的預設排序;M3 會把主排序欄位參數化,tiebreaker 不變。
+// ══ CB-60a M3:排序 ═════════════════════════════════════════════════════
+// 🔴 每個選項都必須指定 nullsFirst,不依賴 PostgREST 預設。
+//    預設是 ASC -> NULLS LAST、DESC -> NULLS FIRST,所以切換升降序時
+//    NULL 區塊會【整塊換邊】而不報錯。fulfillment_date 在 staging 有
+//    92% 為 NULL,那會讓前三頁全是空白日期,排序等於無用。
+//    一律 nullsFirst: false(NULLS LAST),兩個方向一致。
+// 🔴 tiebreaker 一律 id,方向隨主排序(Q-5)。
+//    T-2/P2 已實證:少了它,90 筆翻頁會有 4 筆重複、4 筆遺漏,且 HTTP 200。
+// 📌 status 走 status_rank(PostgREST computed column,T-1),
+//    流程順序而非字母序。字母序會把 Cancelled 排在 Draft 前面。
+const SORT_OPTIONS = {
+  created_desc:    { label: 'Newest first',            col: 'created_at',       asc: false },
+  created_asc:     { label: 'Oldest first',            col: 'created_at',       asc: true  },
+  total_desc:      { label: 'Total: high to low',      col: 'grand_total',      asc: false },
+  total_asc:       { label: 'Total: low to high',      col: 'grand_total',      asc: true  },
+  job_asc:         { label: 'Job name: A to Z',        col: 'job_name',         asc: true  },
+  status_asc:      { label: 'Status: workflow order',  col: 'status_rank',      asc: true  },
+  fulfillment_asc: { label: 'Fulfillment: soonest',    col: 'fulfillment_date', asc: true  }
+};
+
+const SORT_DEFAULT = 'created_desc';
+
+function currentSortKey() {
+  const el = document.getElementById('sortBy');
+  const val = el ? el.value : SORT_DEFAULT;
+  // 🔴 正向識別(F-35):必須是已知的 key 才採用。
+  //    未知值一律退回預設,而非原樣送給 PostgREST —— 未知欄位會回 42703
+  //    讓整個清單載不出來(T-2/P0 實證)。
+  return Object.prototype.hasOwnProperty.call(SORT_OPTIONS, val) ? val : SORT_DEFAULT;
+}
+
 function applySort(q) {
-  return q.order('created_at', { ascending: false })
-          .order('id',         { ascending: false });
+  const s = SORT_OPTIONS[currentSortKey()];
+  return q.order(s.col, { ascending: s.asc, nullsFirst: false })
+          .order('id',  { ascending: s.asc, nullsFirst: false });
+}
+
+function initSortOptions() {
+  const el = document.getElementById('sortBy');
+  if (!el) return;
+  el.innerHTML = Object.keys(SORT_OPTIONS).map(function (k) {
+    return '<option value="' + k + '">' + SORT_OPTIONS[k].label + '</option>';
+  }).join('');
+  el.value = SORT_DEFAULT;
+  // 🔴 排序變更【必須】重置至第 1 頁:第 3 頁的第 1 筆在新排序下毫無意義,
+  //    而畫面不會顯示任何異常 —— 使用者只會看到「一堆不相干的單」。
+  el.onchange = function () {
+    _listState.page = 0;
+    loadQuotes();
+  };
 }
 
 // ── CB-82: reminder 標示的兩支【正向】集合 ─────────────────────
@@ -794,6 +842,7 @@ async function init() {
   //       需求為「一眼看到哪張單有狀況」，接受。
   await loadReminderFlags();
 
+  initSortOptions();   // CB-60a M3:須在 loadQuotes 之前,否則首次載入無排序值
   await loadQuotes();
 }
 
