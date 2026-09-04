@@ -1091,6 +1091,26 @@ function cb89BlockedHtml(reason) {
   return '<div class="modal-error show" style="margin-bottom:0;">' + escapeHtml(text) + '</div>';
 }
 
+// Q-13:DB 端 42501 錯誤 → admin 語境訊息。
+// 🔴 DB 那側【一字不改】—— CB-76 已上線,dealer 路徑仍在用那些文字。
+//    admin 看到「Contact ProCraft to activate your account」會困惑:他就是 ProCraft。
+// 🔴 正向識別(F-35):code 必須是 '42501',且訊息【完全相等】。
+//    禁止 includes / 正則模糊比對 —— 認不出的一律原樣回傳,不猜。
+//    ⚠️ 該 trigger 第三種訊息帶 uuid 參數,無法完全相等比對,刻意不映射:
+//       那是 FK 失效等級的故障,原文比任何改寫更有助於排查。
+function cb89MapDbError(err) {
+  const raw = (err && err.message) ? String(err.message) : '';
+  if (err && err.code === '42501') {
+    if (raw === DB_ERR_TRIAL_BLOCKED) {
+      return 'This dealer account is on a trial plan, so its orders cannot be advanced. Activate the account first.';
+    }
+    if (raw === DB_ERR_NO_DEALER_ID) {
+      return 'This order has no dealer assigned and cannot be advanced. Please report this to the developer.';
+    }
+  }
+  return raw || 'Action failed. Please try again.';
+}
+
 async function awaitingSelectMethod(id) {
   const q = awaitingQuotes.find(function (x) { return x.id === id; }) || null;
   if (!q) { showToast('Order not found. Please refresh.', true); return; }
