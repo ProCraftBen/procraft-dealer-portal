@@ -1180,14 +1180,18 @@ async function awaitingSelectMethod(id) {
   } else {
     // 付款方式 —— 🔴 選項與費率皆來自單一來源(PAY_METHOD_OPTIONS + settings),
     //    與 dealer 端讀同一組 settings 鍵。此處不得硬寫任何費率數字。
+    // 🔴 樣式一律走 .cb89-* class,不用 inline style:選項是 <label>,會繼承
+    //    .modal-field label 的 uppercase 與 0.15em 字距。重置寫在 CSS 那側,
+    //    改回 inline style 就會把繼承問題帶回來(CB-89 U10)。
     fields += '<div class="modal-field"><label>Payment Method</label>';
     PAY_METHOD_OPTIONS.forEach(function (o) {
       const f = feeByMethod[o.value];
       fields += '' +
-        '<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:3px;margin-bottom:6px;cursor:pointer;background:var(--cream);">' +
-          '<input type="radio" name="cb89pm" value="' + escapeHtml(o.value) + '" onchange="cb89SyncConfirm()" style="margin-top:2px;"/>' +
-          '<span style="font-size:13px;color:var(--text);">' + escapeHtml(o.label) +
-            '<span style="display:block;font-size:11px;color:var(--muted);margin-top:2px;">' +
+        '<label class="cb89-opt">' +
+          '<input type="radio" name="cb89pm" value="' + escapeHtml(o.value) + '" onchange="cb89SyncConfirm()"/>' +
+          '<span>' +
+            '<span class="cb89-opt-name">' + escapeHtml(o.label) + '</span>' +
+            '<span class="cb89-opt-fee">' +
               'Transaction Fee (' + escapeHtml(String(f.pct)) + '%): ' + money(f.fee) +
               ' &nbsp;·&nbsp; Total to Pay: ' + money(f.total) +
             '</span>' +
@@ -1198,21 +1202,17 @@ async function awaitingSelectMethod(id) {
 
     // 費率來源透明化:走 fallback 時明說,不靜默。
     if (st.feeFromFallback) {
-      fields += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">' +
-        'Fee rates could not be read from settings; showing default rates.' +
-        '</div>';
+      fields += '<div class="cb89-note">Fee rates could not be read from settings; showing default rates.</div>';
     }
 
     // 🔴 正向顯示收件人 —— 讓操作者當場看到 E1a 會寄到哪,而不是假設它會寄。
-    fields += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">' +
-      'A New Payment Submitted notification will be sent to ' +
-      '<strong style="color:var(--text);">' + escapeHtml(st.notifyRecipient) + '</strong>.' +
-      '</div>';
+    fields += '<div class="cb89-note">A New Payment Submitted notification will be sent to ' +
+      '<strong style="color:var(--text);">' + escapeHtml(st.notifyRecipient) + '</strong>.</div>';
 
     // 確認勾選(CB-89 Q-15 = 合併版)。防手滑 + 儀式性提醒,純前端,不留紀錄。
     fields += '' +
-      '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text);cursor:pointer;">' +
-        '<input type="checkbox" id="cb89Ack" onchange="cb89SyncConfirm()" style="margin-top:3px;"/>' +
+      '<label class="cb89-ack">' +
+        '<input type="checkbox" id="cb89Ack" onchange="cb89SyncConfirm()"/>' +
         '<span>The client is aware of this action and has authorized me to select a payment method on their behalf.</span>' +
       '</label>';
   }
@@ -1232,6 +1232,67 @@ async function awaitingSelectMethod(id) {
   //    刻意不改 openActionModal 本身 —— 那支有四個已上線呼叫端。
   const btn = document.getElementById('amConfirm');
   if (btn) btn.disabled = true;
+}
+
+// Actions 選單(CB-89 Q-16 = A)—— 取代列上並排的四顆鈕。
+// -------------------------------------------------------------------
+// 🔴 為何不用絕對定位的下拉:.await-scroll 有 overflow:auto,選單會被裁掉
+//    一半。改用既有的 #pickerModal 承載 —— 不新增任何 modal DOM。
+// 🔴 每個動作配一行說明,這是本設計的主要收穫:
+//    Select Payment Method 與 Record Offline 外觀相近但後果完全不同
+//    (有無 Receipt),並排時只能靠順序降低誤觸,列成選單才講得清楚。
+// ⚠️ 已知落差:pickerOffline / pickerResend 的「← Back」會直接關閉視窗,
+//    不會退回本選單。改它要動兩支已上線函式,本票不做。
+// -------------------------------------------------------------------
+function cb89Actions(id) {
+  const q = awaitingQuotes.find(function (x) { return x.id === id; }) || null;
+  if (!q) { showToast('Order not found. Please refresh.', true); return; }
+  const d = awaitingDealers[q.dealer_id] || {};
+  const safeId = escapeHtml(id);
+
+  document.getElementById('pickerBody').innerHTML = '' +
+    '<div class="picker-title" style="margin-bottom:4px;">Actions</div>' +
+    '<div class="modal-sub">' +
+      escapeHtml(q.po_number || '(no PO#)') +
+      (q.job_name ? ' — ' + escapeHtml(q.job_name) : '') +
+      ' &nbsp;·&nbsp; ' + escapeHtml(d.company_name || '—') +
+      ' &nbsp;·&nbsp; ' + money(q.grand_total) +
+    '</div>' +
+    '<div class="cb89-menu">' +
+      '<button class="cb89-menu-item" onclick="cb89MenuPick(\'select\', \'' + safeId + '\')">' +
+        '<span class="cb89-menu-title">Select Payment Method</span>' +
+        '<span class="cb89-menu-desc">Choose a method on the client\'s behalf. The order moves to Payment Processing and follows the normal flow, so a receipt is produced.</span>' +
+      '</button>' +
+      '<button class="cb89-menu-item" onclick="cb89MenuPick(\'offline\', \'' + safeId + '\')">' +
+        '<span class="cb89-menu-title">Record Offline Payment</span>' +
+        '<span class="cb89-menu-desc">Only when the money has already been received outside the portal. Goes straight to Order Processing — no receipt is produced.</span>' +
+      '</button>' +
+      '<button class="cb89-menu-item" onclick="cb89MenuPick(\'remind\', \'' + safeId + '\')">' +
+        '<span class="cb89-menu-title">Send Reminder</span>' +
+        '<span class="cb89-menu-desc">Re-send the payment reminder email to the dealer. Nothing else changes.</span>' +
+      '</button>' +
+      '<button class="cb89-menu-item danger" onclick="cb89MenuPick(\'close\', \'' + safeId + '\')">' +
+        '<span class="cb89-menu-title">Close Order</span>' +
+        '<span class="cb89-menu-desc">Cancel this order permanently. This cannot be undone.</span>' +
+      '</button>' +
+    '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="closePendingPicker()">Cancel</button>' +
+    '</div>';
+
+  document.getElementById('pickerModal').classList.add('show');
+}
+
+// 分派 —— 刻意複用既有的 awaitingOffline / awaitingResend / awaitingClose,
+//   不重寫任何一條路徑,行為與四顆鈕時期完全相同。
+// 🔴 select / close 走 #actionModal,必須先關掉 #pickerModal,
+//    否則兩層 overlay 疊加,下層的點擊區會蓋住上層。
+function cb89MenuPick(action, id) {
+  if (action === 'offline') { awaitingOffline(id); return; }   // 同一個 modal 內換內容
+  if (action === 'remind')  { awaitingResend(id); return; }
+  closePendingPicker();
+  if (action === 'select')  { awaitingSelectMethod(id); return; }
+  if (action === 'close')   { awaitingClose(id); return; }
 }
 
 // 代選寫入 —— openActionModal 的 onConfirm。
