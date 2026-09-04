@@ -219,6 +219,23 @@
   const NOTES_TABLE_FALLBACK_LENGTH = 40;
   const CUSTOM_SUFFIX = ' [CUSTOM]';
 
+  // ── CB-90:Draft Quote 雙版本(無折扣 / 有折扣)────────────────────────────
+  //   無折扣版(給終端客戶)為【預設】;有折扣版(dealer 內部)須由呼叫端明示。
+  //   🔴 正向識別(F-35):只有精確等於 DRAFT_VARIANT_INTERNAL 才是有折扣版。
+  //      undefined / 拼錯 / true / 任何其他值一律落回【無折扣版】——
+  //      fail-closed 的正確方向是「不確定就不揭露折扣」,不是反過來。
+  //   🔴 魔術字串只出現在這裡一次;呼叫端一律讀 ProCraftPDF._DRAFT_VARIANT_INTERNAL。
+  const DRAFT_VARIANT_INTERNAL   = 'internal';
+  const DOC_TITLE_DRAFT          = 'DRAFT QUOTE';
+  const DOC_TITLE_DRAFT_INTERNAL = 'DRAFT QUOTE (INTERNAL)';
+  const FILENAME_INTERNAL_TAG    = ' - Internal';
+  // ── CB-90 D-1:header 標題橫向空間預算(Helvetica-Bold 標準字寬實算)──────
+  //   公司名 'ProCraft Cabinetry DC LLC'  10.5pt bold = 47.5mm → x  76.0 ~ 123.5
+  //   'DRAFT QUOTE'                       16pt  bold = 40.8mm → x 159.2 ~ 200
+  //   'DRAFT QUOTE (INTERNAL)'            16pt  bold = 74.6mm → x 125.4 ~ 200
+  //   🔴 淨餘裕僅 1.9mm。兩者皆為固定字串 + 核心字型,此為確定值而非估計。
+  //      ⚠ 再加長 header 標題或公司名即重疊,且【不會報錯】—— 改前先重算。
+
   // ----------------------------------------
   // Internal Helpers
   // ----------------------------------------
@@ -1926,7 +1943,7 @@ return total;
   const DEFAULT_LOGO_URL =
     'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png';
 
-  async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options, documentTitle) {
+  async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options, documentTitle, isDraftDoc) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -1942,7 +1959,15 @@ return total;
       : new Date();
 
     // 雙編號制: Draft Quote 顯 Draft ID (D);Invoice / Packing List 顯 PO# (P)。
-    const isDraftQuote = (documentTitle === 'DRAFT QUOTE');
+    // ── CB-90 (Q-10 = A):改由【呼叫端明示】,不再用標題字串反推 ──────────────
+    //   🔴 原式為 documentTitle === 'DRAFT QUOTE',那是【用顯示文字做邏輯判斷】,
+    //      踩「顯示 ≠ 值」紅線。CB-90 讓 Draft 有兩個標題(DRAFT QUOTE /
+    //      DRAFT QUOTE (INTERNAL)),原式會使有折扣版靜默改印「SO# —」
+    //      (Draft 階段無 po_number)—— 不報錯,只有編號欄變成一條破折號。
+    //   🔴 選用參數 + 預設 falsy:另三個 builder(Packing List / Invoice /
+    //      Receipt)不傳 → undefined → false → 行為與改動前逐字相同。
+    //   ⚠ 勿改回字串比對,也勿把 documentTitle 併回判斷式。
+    const isDraftQuote = (isDraftDoc === true);
     const headerContext = {
       logoImg,
       poNumber:      isDraftQuote
@@ -2391,34 +2416,59 @@ return total;
    * 改動 13/14: 與 Invoice 同步 — Assemble Fee 併入 Subtotal,無細項。
    */
   async function buildDraftQuotePdf(quoteData, dealer, shippingAddress, options = {}) {
-    const { markupPercent = 0 } = options;
+    // ── CB-90:版本判定(🔴 正向識別 F-35;預設為無折扣版)──────────────────
+    const _isInternal = (options.variant === DRAFT_VARIANT_INTERNAL);
+
+    // ── CB-90 (Q-2 = B / Q-9 = A):有折扣版【強制 markup = 0】──────────────
+    //   🔴 本行【刻意忽略呼叫端傳入的 options.markupPercent】—— 參數沒有壞,
+    //      是有折扣版在結構上不接受 markup。
+    //   理由:markup 不只放大單價 —— 它會一路放大 taxBase(見 _finalizeWithTotals),
+    //   使稅金與 Order Total 同步虛增;而折扣額(items[].discount_amount)
+    //   【不】隨 markup 放大,折扣百分比因此實質縮水。結果是一份
+    //   【沒有一個數字是真的】的 PDF,而有折扣版的唯一用途正是
+    //   「業務讓 dealer 確認金額」—— 確認一個虛增的金額比不確認更糟。
+    //   強制 0 之後,來源端反解稅率用的 taxBase 與本檔同式而抵銷,
+    //   有折扣版的 Order Total 恆等於 DB 的 grand_total。
+    //   🔴 強制點放在本檔而非呼叫端:呼叫端有兩個(new-quote-step3.html /
+    //      quote-detail.html)且分屬不同檔案,靠「兩處都記得傳 0」正是 F-35
+    //      的根因結構。放這裡,日後第三個呼叫端接進來也不需要知道這條規則。
+    //   ⚠️ 無折扣版不受影響 —— 那裡的 markup 是刻意的(給終端客戶的報價)。
+    const _effMarkup = _isInternal ? 0 : (options.markupPercent || 0);
+
     // ── CB-47 (Q-A3) ──────────────────────────────────────────────────────
-    //   Draft Quote 是 dealer 拿去給【終端客戶】看的報價文件,不是對帳單。
+    //   🔴 CB-90 起適用範圍收窄為【無折扣版】,原理由完全不變:
+    //   無折扣版是 dealer 拿去給【終端客戶】看的報價文件,不是對帳單。
     //   若印出「Discount · LSW Framed 10%」等於把 dealer 對 ProCraft 的進價
-    //   折扣攤給客戶,故整份 PDF【一律】忽略折扣 —— 含 markup 0% 的情況:
+    //   折扣攤給客戶,故該版整份 PDF【一律】忽略折扣 —— 含 markup 0% 的情況:
     //     品項單價、Subtotal、Tax、Order Total 全部以折【前】為基礎,不畫折扣列。
     //
-    //   ⚠️ 因此 Draft Quote PDF 的 Order Total 會【高於】dealer 實付金額。
+    //   ⚠️ 因此【無折扣版】的 Order Total 會【高於】dealer 實付金額。
     //      這是刻意的:折後真實金額在 Step 3 畫面、quote-detail、Invoice、
-    //      Receipt 與確認信都看得到,Draft Quote 唯一的用途是對外報價。
+    //      Receipt、確認信,以及 CB-90 的【有折扣版】都看得到。
     //      Invoice / Receipt 為 ProCraft ↔ dealer 之間的憑證,一律揭露折扣。
-    const _hideDiscount = true;
+    const _hideDiscount = !_isInternal;
     // ── CB-70 (Q-6 = A) ───────────────────────────────────────────────────
+    //   🔴 CB-90 (Q-1 = A) 起同樣收窄為【無折扣版】。
     //   同一條理由延伸到 Account Credit 與 Manager Discount:兩者是 ProCraft
-    //   對 dealer 的讓利,印出來等於把進價條件攤給終端客戶。
-    //   🔴 Handling Fee【不隱藏】—— 它是 dealer 實付的成本,不是讓利,
+    //   對 dealer 的讓利,印給【終端客戶】等於把進價條件攤出去。
+    //   🔴 有折扣版的受眾是 dealer,而這三項在 new-quote-step3.html 的畫面上
+    //      本來就對 dealer 顯示 —— 在 PDF 隱藏並不保護任何東西,只會讓 PDF
+    //      與畫面對不起來。故有折扣版全部顯示:這不是放寬保護,是與畫面一致。
+    //   🔴 Handling Fee【兩版都不隱藏】—— 它是 dealer 實付的成本,不是讓利,
     //      理應轉嫁。三項不是同一種東西,勿為了「一致」把它一起關掉。
-    const _hideCredit = true;
+    const _hideCredit = !_isInternal;
+
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
-      'DRAFT QUOTE'
+      (_isInternal ? DOC_TITLE_DRAFT_INTERNAL : DOC_TITLE_DRAFT),
+      true                    // CB-90 Q-10:isDraftDoc — 兩版都是 Draft,恆為 true
     );
 
   const { tableEndY, notes } = _drawItemTable(doc, {
         items:            quoteData.items,
         mode:             'draft-quote',
         startY:           y,
-        markupPercent:    markupPercent,
+        markupPercent:    _effMarkup,
         constructionType: quoteData.construction_type,   // CB-22
         headerContext:    headerContext,
       });
@@ -2426,9 +2476,9 @@ return total;
     _finalizeWithTotals({
       doc, quoteData, items: quoteData.items,
       headerContext, tableEndY, notes,
-      showPrices: true, markupPercent,
-      hideDiscount: _hideDiscount,         // CB-47 Q-A3
-      hideCredit:   _hideCredit,           // CB-70 Q-6
+      showPrices: true, markupPercent: _effMarkup,
+      hideDiscount: _hideDiscount,         // CB-47 Q-A3 / CB-90
+      hideCredit:   _hideCredit,           // CB-70 Q-6  / CB-90
     });
 
     _drawStamp(doc, options.stamp);   // CB-50
@@ -2463,7 +2513,14 @@ return total;
       return `ProCraft DC - Receipt - ${poNumber || 'Quote'}${versionSuffix}.pdf`;
     }
     if (type === 'draft-quote') {
-      return `ProCraft DC - Draft Quote - ${dealerUid || 'Dealer'} - ${_getNYDateString()}.pdf`;
+      // ── CB-90 (Q-4 = A):有折扣版檔名須含 Internal ────────────────────────
+      //   🔴 位置緊接 'Draft Quote' 之後,不可後移到結尾:dealer 在檔案總管的
+      //      窄欄位下只看得到前半段,放結尾會被截斷,就失去「寄出去之前就發現」
+      //      的整個設計目的 —— 檔名是第一道防線,PDF 內頁標題是第二道。
+      //   🔴 正向識別(F-35):只有 internal === true 才加標,預設不加。
+      //   🔴 'Internal' 不翻譯(CB-62 Q-56:會輸出的不翻;檔名為輸出物)。
+      const _internalTag = (options.internal === true) ? FILENAME_INTERNAL_TAG : '';
+      return `ProCraft DC - Draft Quote${_internalTag} - ${dealerUid || 'Dealer'} - ${_getNYDateString()}.pdf`;
     }
 
     return 'quote.pdf';
@@ -2518,6 +2575,8 @@ return total;
     buildReceiptPdf:     buildReceiptPdf,
     buildDraftQuotePdf:  buildDraftQuotePdf,
     getPdfFilename:      getPdfFilename,
+    // CB-90:呼叫端一律讀這個常數,勿在呼叫端硬寫 'internal'(魔術字串只留一份)
+    _DRAFT_VARIANT_INTERNAL: DRAFT_VARIANT_INTERNAL,
   };
 
 })(window);
