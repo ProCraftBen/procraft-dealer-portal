@@ -1046,6 +1046,145 @@ function awaitingResend(id) {
   pickerResend();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CB-89  super_admin 代客戶選付款方式
+// -------------------------------------------------------------------
+// 業務情境:客戶人在 office,直接把卡交給 sales。理論流程是客戶自己登入
+//   payment.html 選方式,但他不會為了這件事掏出手機登入。
+// 🔴 為何不能走捷徑直接推到 Order Processing:客戶要的是標示手續費的
+//   Receipt,而那張只有走完 portal 付款流程才會產生。
+//
+// 🔴 與同區「Record Offline」的差別 —— 兩顆鈕長得像,結果完全不同:
+//     Record Offline        Pending → Order Processing,payment 直接 confirmed
+//                           【不產生 Receipt】,用於錢已經收到的離線付款。
+//     Select Payment Method Pending → Payment Processing,payment 為 processing
+//                           走完整流程,會產生 Receipt。本函式。
+//   用錯不會報錯 —— 單子照樣前進,只是客戶永遠等不到 Receipt。
+//
+// 寫入規格來源:Payment PM(CB-89)。dealer 側對應實作在
+//   payment.html 的 submitSimplifiedPayment()。🔴 兩處必須同步維護。
+// ═══════════════════════════════════════════════════════════════════
+
+// 代選待確認狀態 —— openActionModal 的 onConfirm 需要它。
+// 每次開啟 modal 時整個覆寫,不累加。
+let cb89Pending = null;   // { quote, settings, feeByMethod }
+
+// modal 內的 radio / checkbox 變動時呼叫(fieldsHtml 以 inline onchange 綁定,
+// 與本檔既有的 inline onclick 慣例一致)。
+// 🔴 正向識別:必須【同時】選了方式且勾了確認,才啟用 Confirm。
+//    任一缺席即禁用 —— 不用 toggle、不用反向條件。
+function cb89SyncConfirm() {
+  const btn = document.getElementById('amConfirm');
+  if (!btn) return;
+  const picked  = document.querySelector('input[name="cb89pm"]:checked');
+  const ackEl   = document.getElementById('cb89Ack');
+  const checked = !!(ackEl && ackEl.checked);
+  btn.disabled = !(picked && checked);
+}
+
+// 阻擋畫面(Q-10)—— 不渲染任何付款方式選項,Confirm 恆為禁用。
+// 🔴 兩種成因用兩段【不同】的文字:成因不同、處置不同,不可長成同一句(F-35)。
+function cb89BlockedHtml(reason) {
+  const text = (reason === 'notify_off')
+    ? 'Admin payment notifications are turned off, so no one would be told to create the QuickBooks invoice. This is a settings issue — not something you did wrong. Please turn notifications back on before using this action.'
+    : 'The notification settings could not be read, so this action is blocked. This is a settings or connection issue — not something you did wrong. Please refresh and try again.';
+  return '<div class="modal-error show" style="margin-bottom:0;">' + escapeHtml(text) + '</div>';
+}
+
+async function awaitingSelectMethod(id) {
+  const q = awaitingQuotes.find(function (x) { return x.id === id; }) || null;
+  if (!q) { showToast('Order not found. Please refresh.', true); return; }
+
+  // 🔴 Q-10:寫入【之前】預檢。E1a 是 gated 的,而 send-payment-email 回傳的
+  //    sent 是 E1a + E1b 的合計 —— 開關被關時 dealer 信照寄,sent 仍 >= 1,
+  //    事後判不出 E1a 沒寄。故必須在動作前擋,不能等做完才發現。
+  const st = await loadPaySettings();
+
+  const d      = awaitingDealers[q.dealer_id] || {};
+  const base   = parseFloat(q.grand_total || 0);
+  const blocked = (!st.ok) ? 'read_fail' : (!st.notifyEnabled ? 'notify_off' : null);
+
+  // 費率表:阻擋時不計算(也不顯示選項)。
+  const feeByMethod = {};
+  if (!blocked) {
+    PAY_METHOD_OPTIONS.forEach(function (o) {
+      feeByMethod[o.value] = computeFeeForSelect(o.value, base, st.fee);
+    });
+  }
+
+  cb89Pending = blocked ? null : { quote: q, settings: st, feeByMethod: feeByMethod };
+
+  let fields = '' +
+    '<div class="modal-field">' +
+      '<label>Order</label>' +
+      '<div style="font-size:13px;color:var(--text);">' +
+        escapeHtml(q.po_number || '(no PO#)') +
+        (q.job_name ? ' — ' + escapeHtml(q.job_name) : '') +
+        '<div style="font-size:12px;color:var(--muted);margin-top:3px;">' +
+          escapeHtml(d.company_name || '—') + ' &nbsp;·&nbsp; Order Total ' + money(base) +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  if (blocked) {
+    fields += cb89BlockedHtml(blocked);
+  } else {
+    // 付款方式 —— 🔴 選項與費率皆來自單一來源(PAY_METHOD_OPTIONS + settings),
+    //    與 dealer 端讀同一組 settings 鍵。此處不得硬寫任何費率數字。
+    fields += '<div class="modal-field"><label>Payment Method</label>';
+    PAY_METHOD_OPTIONS.forEach(function (o) {
+      const f = feeByMethod[o.value];
+      fields += '' +
+        '<label style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:3px;margin-bottom:6px;cursor:pointer;background:var(--cream);">' +
+          '<input type="radio" name="cb89pm" value="' + escapeHtml(o.value) + '" onchange="cb89SyncConfirm()" style="margin-top:2px;"/>' +
+          '<span style="font-size:13px;color:var(--text);">' + escapeHtml(o.label) +
+            '<span style="display:block;font-size:11px;color:var(--muted);margin-top:2px;">' +
+              'Transaction Fee (' + escapeHtml(String(f.pct)) + '%): ' + money(f.fee) +
+              ' &nbsp;·&nbsp; Total to Pay: ' + money(f.total) +
+            '</span>' +
+          '</span>' +
+        '</label>';
+    });
+    fields += '</div>';
+
+    // 費率來源透明化:走 fallback 時明說,不靜默。
+    if (st.feeFromFallback) {
+      fields += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">' +
+        'Fee rates could not be read from settings; showing default rates.' +
+        '</div>';
+    }
+
+    // 🔴 正向顯示收件人 —— 讓操作者當場看到 E1a 會寄到哪,而不是假設它會寄。
+    fields += '<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">' +
+      'A New Payment Submitted notification will be sent to ' +
+      '<strong style="color:var(--text);">' + escapeHtml(st.notifyRecipient) + '</strong>.' +
+      '</div>';
+
+    // 確認勾選(CB-89 Q-15 = 合併版)。防手滑 + 儀式性提醒,純前端,不留紀錄。
+    fields += '' +
+      '<label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--text);cursor:pointer;">' +
+        '<input type="checkbox" id="cb89Ack" onchange="cb89SyncConfirm()" style="margin-top:3px;"/>' +
+        '<span>The client is aware of this action and has authorized me to select a payment method on their behalf.</span>' +
+      '</label>';
+  }
+
+  openActionModal({
+    title: 'Select Payment Method for Client',
+    sub: 'This advances the order to Payment Processing on the client\'s behalf. The client receives the same confirmation email as if they had selected it themselves.',
+    fieldsHtml: fields,
+    confirmLabel: 'Confirm Payment Method',
+    danger: false,
+    onDone: refreshAll,
+    onConfirm: doAwaitingSelectMethod,
+  });
+
+  // 🔴 openActionModal 一律把 Confirm 設為 enabled,故必須在其【之後】覆寫。
+  //    它是同步函式,此處執行時 DOM 已就緒。
+  //    刻意不改 openActionModal 本身 —— 那支有四個已上線呼叫端。
+  const btn = document.getElementById('amConfirm');
+  if (btn) btn.disabled = true;
+}
+
 // CB-57:Close Pending Order(super_admin only,終態 Cancelled,不可逆)。
 //   走既有 openActionModal 確認彈窗。寫序 quotes(Pending 守衛 + count:exact)
 //   先 → payments 後。onDone 傳 refreshAll,避免 wireActionModal fallback 去
