@@ -231,6 +231,10 @@ function pcTxt(key, fallback, params) {
   });
 }
 
+// 🔴 F-165 同步清單:本實作在 admin-payments.html 有一份【逐字複製】
+//    (CB-89 admin 代選路徑)。修正 round2 時三份必須【一起】改,不可分批 ——
+//    分批會產生「兩種寫法混用」的過渡期,屆時無法分辨既有 payments 列
+//    是由哪個版本算出的。詳細理由見 admin-payments.html 的 CB-89 round2 註解。
 function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 100) / 100; }
 function fmt(n)     { return '$' + parseFloat(n || 0).toFixed(2); }
 function escapeHtml(s) {
@@ -694,7 +698,13 @@ async function submitSimplifiedPayment(method, f) {
     if (insErr) throw insErr;
     const paymentId = payRow.id;
 
-    // ③ E1b —— 觸發源由 WF1 搬到此處。失敗只 log 不阻斷(對齊既有慣例)。
+    // ③ E1a —— 觸發源由 WF1 搬到此處。失敗只 log 不阻斷(對齊既有慣例)。
+    //    🔴 原註解誤植為 E1b。DOC-1 §7 為真相來源:type='payment_submitted'
+    //       即 E1a(唯一的開單觸發),CB-89 Q-8 已統一定版為 E1a。
+    //       此處僅更正名稱,行為一字未改。
+    //    ⚠️ 呼叫端不檢查回應,失敗會靜默 —— 已登記 F-161,本票不修。
+    //       admin 代選路徑改用 sendPaymentEmailStrict()(CB-89 Q-1),
+    //       兩者判定策略【刻意不同】,勿為了一致性把任一方改成另一方。
     try {
       const { data: { session } } = await _supabase.auth.getSession();
       await fetch(`${window.SB_URL}/functions/v1/send-payment-email`, {
