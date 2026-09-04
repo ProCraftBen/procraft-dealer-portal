@@ -426,6 +426,108 @@ function money(v) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CB-89  代選金額計算 —— round2()
+// -------------------------------------------------------------------
+// 🔴 本函式是 payment.html L234 round2() 的【逐字複製】,
+//    刻意【不】採用 CB-72 定版的 toPrecision(15) 實作。
+//
+// 為什麼刻意不合規(CB-89 Q-14 = M-A,PM 已拍板):
+//   理由 —— admin 代選與 dealer 自選必須對同一張單算出【完全相同】的
+//           fee_amount。客戶拿到的 Receipt 上印的手續費,不可以因為
+//           「是誰按的按鈕」而不同。
+//   後果 —— 若此處改用 CB-72 定版,兩條路徑在極少數金額下會差一分錢,
+//           而且不報錯、不當機、沒有任何東西會顯示異常。
+//           那正是本票 P0-3 交叉註解存在的理由;在本票內引入它等於
+//           親手製造要防的東西。
+//   🔴 這是【刻意的不一致】,不是疏漏。請勿「順手對齊」成 CB-72 版
+//      —— 那個動作正好會製造出這裡要避免的分岔(F-66 §8)。
+//
+// 🔴 F-165 修正時,三份必須【一起】改,不可分批:
+//      payment.html(dealer 自選)
+//      admin-payments.html(本處,admin 代選)
+//      CB-72 定版所在處
+//    分批會產生「兩種寫法混用」的過渡期,屆時無法分辨既有 payments 列
+//    是由哪個版本算出的。
+// ═══════════════════════════════════════════════════════════════════
+function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 100) / 100; }
+
+// CB-89:費率計算 —— 結構與 payment.html 的 computeFee() 逐項對應。
+//   回傳 base 亦經 round2,與 dealer 路徑寫入 payments 的值一致。
+//   🔴 pct 找不到時回 0 而非拋錯:與 dealer 路徑同行為,避免兩邊分岔。
+function computeFeeForSelect(method, base, feeMap) {
+  const pct   = (feeMap && feeMap[method] != null) ? feeMap[method] : 0;
+  const fee   = round2(base * (pct / 100));
+  const total = round2(base + fee);
+  return { pct: pct, fee: fee, total: total, base: round2(base) };
+}
+
+// CB-89:一次讀齊代選所需的六支 settings。
+//   🔴 X-4 分層(Stage 1 定案,勿合併成單一規則):
+//     查詢【整體失敗】     → ok:false → 呼叫端 fail-closed 禁用確認鈕。
+//                            理由:通知開關未知,不可假設它是開的。
+//     查詢成功、費率鍵缺漏 → 套 PAY_FEE_FALLBACK,不阻擋。
+//                            理由:與 payment.html loadFeeConfig() 同行為,
+//                            兩路徑必須算出相同費率。
+//   ⚠️ 此處與 payment.html loadFeeConfig() 的「讀失敗一律寬鬆回落」刻意
+//      不一致:費率算錯有 WF1 與人工複核為第二道保險,E1a 沒寄【沒有】
+//      第二道保險。請勿為了一致性把本函式改成寬鬆(CB-89 X-3)。
+//
+//   notifyRecipient 的回落順序【逐字對應】send-payment-email 內
+//   handlePaymentSubmitted() 的寫法:
+//     settings['payment_notify_email']?.trim() || settings['admin_email'] || 'ben@procraftdc.com'
+//   🔴 此處只用於【顯示】收件人給操作者看,不影響實際寄送。
+//      EF 那側若調整回落順序,此處必須同步 —— 否則畫面會顯示一個
+//      不是真正收件人的信箱,而那比不顯示更糟。
+const EF_ADMIN_EMAIL_FALLBACK = 'ben@procraftdc.com';
+
+async function loadPaySettings() {
+  try {
+    const { data, error } = await _supabase
+      .from('settings')
+      .select('key, value')
+      .in('key', PAY_SETTINGS_KEYS);
+    if (error) throw error;
+
+    const map = {};
+    (data || []).forEach(function (r) { map[r.key] = r.value; });
+
+    // 費率:三鍵齊備且皆為有效數字才採用,否則整組退回 fallback。
+    // 🔴 部分採用會讓三方式的費率來源不一致 —— 全有或全無。
+    const parsed = {
+      card:  parseFloat(map['fee_card_percent']),
+      ach:   parseFloat(map['fee_ach_percent']),
+      check: parseFloat(map['fee_check_percent']),
+    };
+    const feeComplete = [parsed.card, parsed.ach, parsed.check]
+      .every(function (v) { return typeof v === 'number' && !isNaN(v); });
+    if (!feeComplete) {
+      console.warn('[admin-payments] CB-89 fee settings incomplete, using fallback', parsed);
+    }
+
+    // 🔴 正向識別:只有【恰好等於】NOTIFY_DISABLED_VALUE 才算關閉。
+    //    與 EF 的 !== 'false' 判定式同義,不用 truthy 推斷。
+    const notifyEnabled = (map['notify_admin_new_payment'] !== NOTIFY_DISABLED_VALUE);
+
+    const recipient =
+      (map['payment_notify_email'] || '').trim() ||
+      (map['admin_email'] || '').trim() ||
+      EF_ADMIN_EMAIL_FALLBACK;
+
+    return {
+      ok:              true,
+      fee:             feeComplete ? parsed : PAY_FEE_FALLBACK,
+      feeFromFallback: !feeComplete,
+      notifyEnabled:   notifyEnabled,
+      notifyRecipient: recipient,
+    };
+  } catch (err) {
+    // 🔴 不回落、不猜。ok:false 由呼叫端轉成禁用 + 明確訊息(Q-10)。
+    console.error('[admin-payments] CB-89 loadPaySettings failed:', err);
+    return { ok: false };
+  }
+}
+
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
