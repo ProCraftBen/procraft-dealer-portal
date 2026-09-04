@@ -1205,6 +1205,137 @@ async function awaitingSelectMethod(id) {
   if (btn) btn.disabled = true;
 }
 
+// 代選寫入 —— openActionModal 的 onConfirm。
+// -------------------------------------------------------------------
+// 🔴 寫入順序(P0-2,與 payment.html submitSimplifiedPayment() 同序):
+//      ① UPDATE quotes(只寫 status 一欄 + Pending 前態守衛 + count:'exact')
+//      ② INSERT payments
+//      ③ E1a
+//    順序不可顛倒 —— 先寫 payments 再更新 quotes,一旦 quotes 失敗就留下孤兒列。
+//
+// 🔴 為何 UPDATE 只帶 status 一欄(CB-89 Q-12):
+//    【不是】因為 F2 要求。S-3 已查證 trg_enforce_dealer_quote_transition 在
+//    auth.uid() <> OLD.dealer_id 時直接放行,super_admin 不受整列凍結拘束。
+//    真正理由是爆炸半徑最小:不碰任何金額欄位,自動避開 CB-70 新增的三個
+//    調整項(account_credit / manager_discount / handling_fee)。
+//    updated_at 有 DB default,不需手動帶。
+//
+// 🔴 count:'exact' + .eq('status', Pending) 是唯一的併發與前態防線:
+//    RLS 擋下的 UPDATE 會回 200 與空結果,「被擋」與「真的沒資料」在應用層
+//    無法區分 —— 只能靠 row-count,不可靠「沒有 error」。
+// -------------------------------------------------------------------
+async function doAwaitingSelectMethod() {
+  if (!cb89Pending) {
+    amShowError('This action is not ready. Please close this window and try again.');
+    return false;
+  }
+
+  const picked = document.querySelector('input[name="cb89pm"]:checked');
+  const ackEl  = document.getElementById('cb89Ack');
+  if (!picked || !ackEl || !ackEl.checked) {
+    amShowError('Please choose a payment method and tick the confirmation box.');
+    return false;
+  }
+
+  const method = picked.value;
+
+  // 🔴 縱深防禦:DOM 可被竄改,而 admin_insert_payments 的 WITH CHECK 只有
+  //    is_admin() —— payment_method 寫成 'offline' 時 DB 會照單全收(F-163)。
+  //    白名單在此再驗一次,不信任畫面送上來的值。
+  const allowed = PAY_METHOD_OPTIONS.some(function (o) { return o.value === method; });
+  const f = cb89Pending.feeByMethod[method];
+  if (!allowed || !f) {
+    amShowError('That payment method is not available here. Please close this window and try again.');
+    return false;
+  }
+
+  const q = cb89Pending.quote;
+
+  // ── ① UPDATE quotes ────────────────────────────────────────────────
+  const upd = await _supabase.from('quotes')
+    .update({ status: QUOTE_STATUS_PAYMENT_PROCESSING }, { count: 'exact' })
+    .eq('id', q.id)
+    .eq('status', QUOTE_STATUS_PENDING);
+
+  if (upd.error) {
+    amShowError(cb89MapDbError(upd.error));
+    return false;
+  }
+  if (upd.count === 0) {
+    // 尚未建立 payment 列 —— 中止是乾淨的,不留孤兒。
+    amShowError('This order is no longer Pending — its status was changed by someone else. Nothing was saved. 請重新整理後再試。');
+    return false;
+  }
+
+  // ── ② INSERT payments ──────────────────────────────────────────────
+  //    status 與 payment_method 皆走具名常數。金額四欄全部來自 computeFeeForSelect,
+  //    與 dealer 路徑同一套 round2 —— 同一張單不論誰操作,fee_amount 必須相同。
+  //    quickbooks_* / check_image_url / confirmed_* / cancelled_* 刻意不寫(留 NULL),
+  //    與 dealer 路徑一致;submitted_at / created_at / updated_at 走 DB default。
+  const ins = await _supabase.from('payments')
+    .insert({
+      quote_id:       q.id,
+      payment_method: method,
+      base_amount:    f.base,
+      fee_percentage: f.pct,
+      fee_amount:     f.fee,
+      total_paid:     f.total,
+      status:         PAY_STATUS_ON_SELECT,
+    })
+    .select('id')
+    .single();
+
+  if (ins.error) {
+    // 🔴 quotes 已推進且【不回滾】。必須明示狀態不一致,且不得出現任何成功字樣。
+    //    刻意關閉 modal 而非留在原地:留著會誘使重試,而重試必然撞上
+    //    count===0 的「不再是 Pending」訊息 —— 那會把「狀態不一致」
+    //    誤導成「別人改過了」,兩件完全不同的事。
+    console.error('[admin-payments] CB-89 payments insert failed:', ins.error);
+    window.alert(
+      'The order advanced to Payment Processing, but the payment record was NOT created.\n\n' +
+      'PO# ' + (q.po_number || '(no PO#)') + '\n' +
+      'Reason: ' + cb89MapDbError(ins.error) + '\n\n' +
+      'The order status and the payment records are now inconsistent. Please check this order manually before doing anything else. Do not repeat this action.'
+    );
+    cb89Pending = null;
+    return true;
+  }
+
+  // ── ③ E1a ──────────────────────────────────────────────────────────
+  //    🔴 寫入已成功。此後不論寄信結果如何,都【不可】把整個動作講成失敗(X-1)。
+  //       三態訊息一律以 "Payment method saved." 開頭,再說通知的狀況。
+  const mailed = await sendPaymentEmailStrict({
+    type:       'payment_submitted',
+    quote_id:   q.id,
+    payment_id: ins.data.id,
+  });
+
+  if (mailed === 'ok') {
+    showToast('Payment method saved. Notification sent.');
+  } else if (mailed === 'skipped') {
+    // Q-11:CB-76 對 location 帳號全域停信,E1a 必然不寄。
+    // 🔴 訊息要說【該做什麼】,不只是說發生了什麼。
+    window.alert(
+      'Payment method saved.\n\n' +
+      'PO# ' + (q.po_number || '(no PO#)') + '\n\n' +
+      'This dealer account has email notifications disabled, so no notification was sent. ' +
+      'Please tell accounting to create the QuickBooks invoice manually.'
+    );
+  } else {
+    // 🔴 非原子:EF 先寄 E1a 再寄 E1b,任一失敗整體回 500。
+    //    故此處【不可】寫「未寄出」—— 只能說無法確認。
+    window.alert(
+      'Payment method saved.\n\n' +
+      'PO# ' + (q.po_number || '(no PO#)') + '\n\n' +
+      'The notification email could not be confirmed as sent. ' +
+      'Please tell accounting to create the QuickBooks invoice manually.'
+    );
+  }
+
+  cb89Pending = null;
+  return true;
+}
+
 // CB-57:Close Pending Order(super_admin only,終態 Cancelled,不可逆)。
 //   走既有 openActionModal 確認彈窗。寫序 quotes(Pending 守衛 + count:exact)
 //   先 → payments 後。onDone 傳 refreshAll,避免 wireActionModal fallback 去
