@@ -1249,6 +1249,53 @@
       background: #FAFAF8; display: flex; justify-content: flex-end; gap: 10px;
     }
 
+    /* CB-88: MF05 Hinge Side 未選提醒 */
+    .hinge-overlay {
+      display: none; position: fixed; inset: 0; z-index: 1300;
+      background: rgba(0,0,0,0.45); align-items: center; justify-content: center; padding: 20px;
+    }
+    .hinge-overlay.show { display: flex; }
+    .hinge-box {
+      width: 100%; max-width: 560px;
+      background: var(--white); border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.22);
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    .hinge-head { padding: 16px 20px 0; }
+    .hinge-title { font-size: 15px; font-weight: 600; color: var(--green-dark); }
+    .hinge-body { padding: 12px 20px 4px; }
+    .hinge-body-text { font-size: 13px; color: var(--text); margin-bottom: 12px; }
+    /* 清單過長是必然 —— 清單本身就是價值,捲動即可 */
+    .hinge-list { max-height: 50vh; overflow-y: auto; border-top: 1px solid var(--border); }
+    .hinge-list::-webkit-scrollbar { width: 6px; }
+    .hinge-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .hinge-row {
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+      padding: 8px 2px; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .hinge-row-sku { font-weight: 600; color: var(--green-dark); }
+    .hinge-row-style { color: var(--muted); font-size: 12px; }
+    .hinge-row-sub { color: var(--muted); font-size: 11px; letter-spacing: 0.04em; }
+    .hinge-row-manual { color: var(--error); font-size: 11px; font-weight: 600; }
+    .hinge-foot {
+      padding: 14px 20px; border-top: 1px solid var(--border);
+      background: #FAFAF8; display: flex; justify-content: flex-end; gap: 10px;
+    }
+    /* 批次套用期間遮住 mf modal 的閃現。🔴 不動 openMfModal 的顯示邏輯 */
+    .hinge-veil {
+      display: none; position: fixed; inset: 0; z-index: 1400;
+      background: rgba(250,250,248,0.92);
+      align-items: center; justify-content: center;
+      font-size: 13px; color: var(--green-dark); letter-spacing: 0.06em;
+    }
+    .hinge-veil.show { display: flex; }
+    @media (max-width: 700px) {
+      .hinge-overlay { padding: 10px; }
+      .hinge-list { max-height: 55vh; }
+      .hinge-foot { flex-direction: column; align-items: stretch; }
+      .hinge-foot .mf-btn { flex: 1; }
+    }
+
     .bottom-left { font-size: 12px; color: var(--muted); }
     .bottom-left strong { color: var(--green-dark); }
     .bottom-left.complete strong { color: var(--gold); }
@@ -1538,11 +1585,29 @@
       </div>
     </div>
     <div class="swap-confirm-foot">
-      <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapConfirmPopup()" data-i18n="common.btn.cancel">Cancel</button>
+            <button class="mf-btn mf-btn-cancel" type="button" onclick="closeSwapConfirmPopup()" data-i18n="common.btn.cancel">Cancel</button>
       <button class="mf-btn mf-btn-save" type="button" onclick="commitSwap()" data-i18n="nqm.change.confirm_btn">Confirm Change</button>
     </div>
   </div>
 </div>
+
+<!-- CB-88: MF05 Hinge Side 未選提醒。兩個出口皆放行 -->
+<div class="hinge-overlay" id="hingeOverlay">
+  <div class="hinge-box" role="dialog" aria-modal="true" aria-labelledby="hingeTitle">
+    <div class="hinge-head">
+      <span class="hinge-title" id="hingeTitle" data-i18n="nqm.mf05.title">Hinge Side Not Selected</span>
+    </div>
+    <div class="hinge-body">
+      <div class="hinge-body-text" id="hingeBodyText"></div>
+      <div class="hinge-list" id="hingeList"></div>
+    </div>
+    <div class="hinge-foot">
+      <button class="mf-btn mf-btn-cancel" type="button" onclick="hingeGoBack()" data-i18n="nqm.mf05.btn_go_back">Go Back &amp; Select</button>
+      <button class="mf-btn mf-btn-save" type="button" id="hingeSetAllBtn" onclick="hingeSetAll()">Set All to "No Hinge"</button>
+    </div>
+  </div>
+</div>
+<div class="hinge-veil" id="hingeVeil"><span data-i18n="nqm.mf05.working">Applying...</span></div>
 
 <div class="bottom-bar">
   <div class="bottom-left" id="bottomStatus">
@@ -1556,7 +1621,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/i18n.js?v=cb88"></script>
 <script src="components/quote-flow-header.js?v=1.5"></script>
 
 <script src="components/modifications/mf01-skin.js?v=cb62c"></script>
@@ -1590,6 +1655,24 @@ let allSkusFrameless    = [];   // SKU master(價格來源)— frameless
 let activeMfModalKey   = null;
 let activeMfModalRules = [];
 let effectiveRole      = 'dealer';
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-88: MF05 Hinge Side 未選提醒
+//
+// 🔴 設計紅線(勿順手「優化」):
+//   1. 判斷用 mf_code,不用 display_label(後者是 mf_code|display_label 重配對鍵的一半)
+//   2. 判斷用「規則數 − 已存數」計數比對,不用 some()
+//      —— 一個 SKU 可能命中多條 MF05 規則(A/B、A/C 述詞重疊,
+//         Stage 0 S-7 實測目前 0 筆,但無結構阻擋)。
+//         some() 在「兩條規則只選了一條」時會誤判為已選。
+//   3. 寫入值逐字取自 <option>,不寫常數(顯示 = 儲存值紅線)
+//   4. 🔴 批次套用必須逐分頁 onTabClick(見 applyHingeToItem 的 F-158 註解)
+// ═══════════════════════════════════════════════════════════════════
+const HINGE_MF_CODE       = 'MF05';       // 🔴 MF05 的唯一出現處。第二個 mf_code 從這裡擴充
+const HINGE_DEFAULT_LABEL = 'No Hinge';   // 🔴 比對/顯示用;實際寫入的字串一律取自 <option>.value
+
+let hingePendingList = [];   // 掃描結果
+let hingeBusy        = false;
 
 // CB-4: revision-flow view mode (server-resolved; never trusts URL/sessionStorage).
 //   'normal'      — dealer building / editing own Draft
@@ -3002,13 +3085,35 @@ function renderBottomBar(progress) {
   btnNext.disabled = cartItems.length === 0;
 }
 
-function goReview() {
-  if (cartItems.length === 0) { showToast(pcTxt('nqm.toast.cart_empty', 'Cart is empty — add items first'), true); return; }
+function proceedToReview() {
   sessionStorage.setItem('quoteStep2', JSON.stringify(cartItems));
   const nextUrl = draftId
     ? 'new-quote-step3.html?draft=' + draftId + buildModeParam()
     : 'new-quote-step3.html';
   window.location.href = nextUrl;
+}
+
+async function goReview() {
+  if (cartItems.length === 0) { showToast(pcTxt('nqm.toast.cart_empty', 'Cart is empty — add items first'), true); return; }
+  if (hingeBusy) return;
+
+  // CB-88: MF05 Hinge Side 未選攔截。
+  // 🔴 每次按 Review 都重新掃描(票面定版:出口① 之後若仍有未選,再次跳出)。
+  //    不設「已檢查過」旗標。
+  const btn = document.getElementById('btnNext');
+  if (btn) btn.disabled = true;
+  let pending = [];
+  try {
+    pending = await scanMissingHinge();
+  } catch (e) {
+    // 🔴 掃描失敗不阻擋 dealer(本票不做必選機制)。記錄後放行。
+    console.error('[CB-88] scan threw; proceeding without the check:', e);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+  if (pending.length) { openHingeModal(pending); return; }
+
+  proceedToReview();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -4483,6 +4588,307 @@ function handleMfSkip() {
   const skuCode = item.sku_code;
   closeMfModalSilent();
   showToast(pcTxt('nqm.toast.skipped', '{sku} skipped', { sku: skuCode }));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-88: MF05 Hinge Side 未選提醒 — 掃描 / Modal / 批次套用
+// ═══════════════════════════════════════════════════════════════════
+
+function buildHingeRpcParams(item) {
+  const styleRow = allDoorStyles.find(function (s) { return s.style_code === item.style_code; });
+  const ctype = (styleRow && styleRow.construction_type) || item.construction_type || '';
+  const door  = (ctype || '').toLowerCase();
+  if (door !== 'framed' && door !== 'frameless') return null;   // 與 fetchModRulesForActiveItem 同判準
+  const p = {
+    p_door:        door,
+    p_type:        item.skuType     || '',
+    p_category:    item.category    || '',
+    p_subcategory: item.subcategory || '',
+    p_sku_code:    item.sku_code    || null,
+  };
+  // 🔴 5-tuple key。p_sku_code 只參與 exclude_sku_code 比對(Stage 0 S-5),
+  //    但排除清單是逐 SKU 的 → 不可降為 4-tuple,否則會靜默漏報。
+  p.key = [p.p_door, p.p_type, p.p_category, p.p_subcategory, p.p_sku_code].join('|');
+  return p;
+}
+
+async function fetchHingeRulesForKey(p) {
+  try {
+    const { data, error } = await _supabase.rpc('match_modifications_for_sku', {
+      p_door:        p.p_door,
+      p_type:        p.p_type,
+      p_category:    p.p_category,
+      p_subcategory: p.p_subcategory,
+      p_sku_code:    p.p_sku_code,
+    });
+    if (error) {
+      console.error('[CB-88] RPC error for key ' + p.key + ':', error);
+      return { rules: null, failed: true };
+    }
+    const rules = (data || []).filter(function (r) {
+      if (!r || r.mf_code !== HINGE_MF_CODE) return false;
+      // role filter —「可選取」子集。
+      // 🔴 admin-only 規則對 dealer 只會 render 成唯讀,選不了 → 不該提醒。
+      if (!Array.isArray(r.allowed_roles)) return false;
+      return r.allowed_roles.some(function (ar) { return (ar || '').toLowerCase() === effectiveRole; });
+    });
+    return { rules: rules, failed: false };
+  } catch (e) {
+    console.error('[CB-88] RPC threw for key ' + p.key + ':', e);
+    return { rules: null, failed: true };
+  }
+}
+
+function hingeOptionLiteral(rule) {
+  // 🔴 Q-5:逐字回傳 options 陣列中的那一筆,不回傳 HINGE_DEFAULT_LABEL 常數。
+  const opts = (rule && rule.mf_params && Array.isArray(rule.mf_params.options))
+    ? rule.mf_params.options : [];
+  for (let i = 0; i < opts.length; i++) {
+    if (String(opts[i]) === HINGE_DEFAULT_LABEL) return String(opts[i]);
+  }
+  return null;
+}
+
+async function scanMissingHinge() {
+  const candidates = cartItems.filter(function (it) {
+    if (!it) return false;
+    if (it.type === 'RTA') return false;    // RTA 無 modification
+    if (it.is_custom) return false;         // custom 只留 MF07
+    return true;
+  });
+
+  const paramByKey = new Map();
+  const paired = [];
+  candidates.forEach(function (it) {
+    const p = buildHingeRpcParams(it);
+    paired.push({ item: it, params: p });
+    if (p && !paramByKey.has(p.key)) paramByKey.set(p.key, p);
+  });
+
+  const keys = Array.from(paramByKey.keys());
+  const results = await Promise.all(keys.map(function (k) {
+    return fetchHingeRulesForKey(paramByKey.get(k));
+  }));
+  const byKey = new Map();
+  keys.forEach(function (k, i) { byKey.set(k, results[i]); });
+
+  const pending = [];
+  let failedCount = 0;
+  let withRuleCount = 0;
+
+  paired.forEach(function (pair) {
+    if (!pair.params) return;
+    const res = byKey.get(pair.params.key);
+    if (!res || res.failed) {
+      // 🔴 CB-82:RPC 失敗不可靜默視為「沒有規則」。計入 failedCount 並回報。
+      failedCount++;
+      return;
+    }
+    const rules = res.rules || [];
+    if (rules.length === 0) return;
+    withRuleCount++;
+
+    const item = pair.item;
+    if (!Array.isArray(item.sub_groups) || !item.sub_groups.length) return;
+
+    const subs = [];
+    item.sub_groups.forEach(function (g, gi) {
+      const have = (Array.isArray(g.modifications) ? g.modifications : [])
+        .filter(function (m) { return m && m.mf_code === HINGE_MF_CODE; }).length;
+      const missing = rules.length - have;   // 🔴 Q-14 計數比對,不用 some()
+      if (missing > 0) subs.push({ sub_index: g.sub_index || (gi + 1), missing: missing });
+    });
+    if (!subs.length) return;
+
+    // M-3:任一命中規則的 options 不含 No Hinge → 該 SKU 排除於批次。
+    // 🔴 現況不可達:F-130 已將 MF05 四列 options 全部更新為
+    //    ["Left","Right","No Hinge"](Stage 0 S-1b 實查,staging 0 筆例外)。
+    //    保留理由(對齊 CB-82b Q-25):它若出現,正是最該被看見的情況 ——
+    //    資料被改壞而前端靜默套用一個不存在的選項。
+    //    🔴 不可因「看起來是死碼」而移除。
+    let batchable = true;
+    rules.forEach(function (r) {
+      if (hingeOptionLiteral(r) === null) {
+        batchable = false;
+        console.error('[CB-88] rule has no "' + HINGE_DEFAULT_LABEL + '" option; excluded from batch. sku=' +
+                      (item.sku_code || '?') + ' label=' + (r.display_label || '?'));
+      }
+    });
+
+    pending.push({
+      key:       item.key,
+      sku_code:  item.sku_code || '',
+      style:     item.style_name || item.style_code || '',
+      subs:      subs,
+      multiSub:  item.sub_groups.length > 1,
+      batchable: batchable,
+    });
+  });
+
+  console.log('[CB-88] scan · items=' + cartItems.length +
+              ' candidates=' + candidates.length +
+              ' distinctKeys=' + keys.length +
+              ' rpcCalls=' + keys.length +
+              ' withMF05=' + withRuleCount +
+              ' pending=' + pending.length +
+              ' rpcFailed=' + failedCount);
+
+  if (failedCount > 0) {
+    showToast(pcTxt('nqm.mf05.scan_failed',
+      'Could not check Hinge Side on {n} item(s)', { n: failedCount }), true);
+  }
+  return pending;
+}
+
+function openHingeModal(pending) {
+  hingePendingList = pending;
+
+  const listEl  = document.getElementById('hingeList');
+  const bodyEl  = document.getElementById('hingeBodyText');
+  const setBtn  = document.getElementById('hingeSetAllBtn');
+  if (!listEl || !bodyEl) return;
+
+  bodyEl.textContent = pcTxt('nqm.mf05.body',
+    '{n} item(s) still need a Hinge Side selection.', { n: pending.length });
+
+  listEl.innerHTML = pending.map(function (p) {
+    // 🔴 sku_code 是識別碼,不翻譯
+    const subNote = p.multiSub
+      ? '<span class="hinge-row-sub">' + p.subs.map(function (s) {
+          return esc(pcTxt('nqm.mf05.sub_label', 'Sub {n}', { n: s.sub_index }));
+        }).join(', ') + '</span>'
+      : '';
+    const manual = p.batchable ? ''
+      : '<span class="hinge-row-manual">' + esc(pcTxt('nqm.mf05.manual_note', 'Needs individual selection')) + '</span>';
+    return '<div class="hinge-row">' +
+             '<span class="hinge-row-sku">' + esc(p.sku_code) + '</span>' +
+             '<span class="hinge-row-style">' + esc(p.style) + '</span>' +
+             subNote + manual +
+           '</div>';
+  }).join('');
+
+  const batchCount = pending.filter(function (p) { return p.batchable; }).length;
+  if (setBtn) {
+    setBtn.disabled = (batchCount === 0);
+    // 🔴 Q-7:{value} 是儲存值,不進翻譯。整句掛一支 key 會讓 es 版把它一起翻掉。
+    //    此處僅為「顯示」用途;實際寫入 cart 的字串一律取自 <option>(setHingeOnActiveTab)。
+    setBtn.removeAttribute('data-i18n');
+    setBtn.textContent = pcTxt('nqm.mf05.btn_set_all', 'Set All to "{value}"',
+      { value: HINGE_DEFAULT_LABEL });
+  }
+
+  document.getElementById('hingeOverlay').classList.add('show');
+}
+
+function closeHingeModal() {
+  document.getElementById('hingeOverlay').classList.remove('show');
+}
+
+// 出口①:關閉,不放行。下次按 Review 仍會重新掃描並跳出。
+function hingeGoBack() {
+  closeHingeModal();
+  console.log('[CB-88] exit ① Go Back & Select — not proceeding');
+}
+
+function setHingeOnActiveTab() {
+  const wrap = document.getElementById('mfElementsContainer');
+  if (!wrap) return 0;
+  const rows = wrap.querySelectorAll('.mf-row[data-mf-code="' + HINGE_MF_CODE + '"]');
+  let n = 0;
+  Array.prototype.forEach.call(rows, function (row) {
+    if (row.getAttribute('data-readonly') === 'true') return;   // admin 唯讀列不動
+    const sel = row.querySelector('select[data-mf="' + HINGE_MF_CODE + '"]');
+    if (!sel) return;
+    // 🔴 正向識別(F-35):只動「值為空」的,不寫「不是 Left 也不是 Right」
+    if (sel.value !== '') return;
+    let literal = null;
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === HINGE_DEFAULT_LABEL) { literal = sel.options[i].value; break; }
+    }
+    if (literal === null) return;
+    sel.value = literal;                                        // 🔴 逐字取自 <option>
+    sel.dispatchEvent(new Event('change', { bubbles: true }));  // 走 mf05 的 onChange,同手動路徑
+    n++;
+  });
+  return n;
+}
+
+async function applyHingeToItem(pending) {
+  await openMfModal(pending.key);
+  if (activeMfModalKey !== pending.key) {
+    console.warn('[CB-88] modal did not open for', pending.key);
+    return false;
+  }
+
+  // ═══ 🔴 F-158 防護(P1,本票不修)═══════════════════════════════
+  // freezeActiveSub() 只處理作用中分頁,openMfModal 只 render 分頁 0。
+  // 未被點過的分頁 frozenValues 恆為 null → handleMfSave 會把它存成
+  // modifications: [] / status: 'skipped'(靜默資料遺失)。
+  // onTabClick 是這份資料唯一的保護,而它綁在人類的滑鼠行為上。
+  // → 逐分頁走過,等同「dealer 手動點過每個分頁」。
+  // 🔴 這個迴圈不是效能包袱,是資料完整性的必要條件。勿改為只處理分頁 0。
+  // 📌 同時這也是功能面的必要條件:每個分頁都要各設一次 MF05,
+  //    只設分頁 0 會靜默漏套(此理由與 F-158 是否修好無關)。
+  // ═══════════════════════════════════════════════════════════════
+  let applied = 0;
+  for (let i = 0; i < activeSubGroups.length; i++) {
+    if (activeSubGroupIdx !== i) onTabClick(i);
+    applied += setHingeOnActiveTab();
+  }
+
+  handleMfSave();
+  // handleMfSave 無回傳值。成功時 closeMfModalSilent 會把 activeMfModalKey 清成 null;
+  // 驗證被擋時 modal 仍開著 → 這是唯一可靠的成敗訊號(M-8)。
+  if (activeMfModalKey !== null) {
+    console.warn('[CB-88] save blocked for ' + pending.sku_code + ' — skipping');
+    closeMfModal();
+    return false;
+  }
+  console.log('[CB-88] applied ' + applied + ' hinge value(s) to ' + pending.sku_code);
+  return true;
+}
+
+// 出口②:立刻寫入 cart,然後放行至 step3。
+async function hingeSetAll() {
+  if (hingeBusy) return;
+  hingeBusy = true;
+  const veil = document.getElementById('hingeVeil');
+  if (veil) veil.classList.add('show');
+
+  const targets = hingePendingList.filter(function (p) { return p.batchable; });
+  const skipped = hingePendingList.filter(function (p) { return !p.batchable; })
+                                  .map(function (p) { return p.sku_code; });
+  const failed = [];
+
+  try {
+    for (let i = 0; i < targets.length; i++) {
+      const ok = await applyHingeToItem(targets[i]);
+      if (!ok) failed.push(targets[i].sku_code);
+    }
+  } finally {
+    if (veil) veil.classList.remove('show');
+    hingeBusy = false;
+  }
+
+  refreshAfterCartChange();
+  closeHingeModal();
+
+  const okCount = targets.length - failed.length;
+  console.log('[CB-88] exit ② Set All · applied=' + okCount +
+              ' failed=' + JSON.stringify(failed) +
+              ' notBatchable=' + JSON.stringify(skipped));
+
+  showToast(pcTxt('nqm.mf05.toast_applied', 'Applied "{value}" to {n} item(s)',
+    { value: HINGE_DEFAULT_LABEL, n: okCount }));
+
+  const manualTotal = failed.length + skipped.length;
+  if (manualTotal > 0) {
+    showToast(pcTxt('nqm.mf05.toast_partial',
+      '{n} item(s) need individual selection', { n: manualTotal }), true);
+  }
+
+  // 兩個出口皆放行(票面定版):即使部分失敗也繼續。
+  proceedToReview();
 }
 
 // ═══════════════════════════════════════════════════════════════════
