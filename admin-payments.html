@@ -1363,6 +1363,83 @@ async function sendPaymentEmail(payload) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CB-89  send-payment-email 嚴格版 —— 僅供代選路徑使用
+// -------------------------------------------------------------------
+// 🔴 為何不改上方的 sendPaymentEmail():那支有四個已上線的呼叫端
+//    (actCancel / actConfirm / actResolveGhost / doPickerOffline)。
+//    改它等於同時動四條路徑,本票不做。嚴格判定只用於 CB-89。
+//    (全站呼叫端都不檢查回應這件事已登記為 F-161,本票不修。)
+//
+// 🔴 為何需要嚴格判定(P0-1):代選成功但 E1a 沒寄 → 專人不知道要開
+//    QBO invoice → 客戶等 Receipt 等不到,而他人就在現場。
+//    這條路徑上沒有任何東西會報錯。
+//
+// 實測證實的 send-payment-email 回應契約(Stage 0 Q-2):
+//    正常      200 + { ok:true, type, sent }              ← jsonOk()
+//    CB-76 停信 200 + { ok:true, type, sent:0, skipped:'account_type' }
+//    任何 throw 500 + { error }   (含 Brevo 非 2xx)
+//
+// 回傳三態,不 throw —— 寫入已成功,不可因寄信失敗而把整個動作講成失敗:
+//    'ok'      res.ok 且 無 skipped 且 Number(sent) >= 1
+//    'skipped' res.ok 且 skipped 有值(CB-76 停信帳戶)
+//    'failed'  其餘全部(網路 reject / 500 / sent 缺席或為 0 / body 非 JSON)
+//
+// 🔴 「缺席即失敗」:sent 讀不到、body 解析失敗、形狀非預期 —— 一律 failed,
+//    不猜。沒有正向訊號就不算成功(對齊 CB-84 Q-13)。
+//
+// ⚠️ sent 是【合計】:E1a(admin,gated)+ E1b(dealer,force)。
+//    故 sent >= 1 【證明不了】E1a 個別寄出 —— notify_admin_new_payment
+//    被關時,dealer 信照寄使 sent 仍為 1。這個缺口由呼叫端的【寫入前】
+//    預檢補上(loadPaySettings().notifyEnabled,Q-10),不在本函式。
+//    要求 EF 回傳分項計數已登記為 F-166。
+//
+// ⚠️ 非原子:EF 內 E1a 先寄、E1b 後寄,sendEmail() 於 Brevo 非 2xx 時 throw
+//    → 整體回 500。故 'failed' 【不代表】E1a 必然未寄。
+//    🔴 呼叫端的訊息用語必須是「無法確認已寄出」,不可寫「未寄出」。
+// ═══════════════════════════════════════════════════════════════════
+async function sendPaymentEmailStrict(payload) {
+  try {
+    const { data: { session } } = await _supabase.auth.getSession();
+    const res = await fetch(window.SB_URL + '/functions/v1/send-payment-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (session ? session.access_token : ''),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    // body 解析失敗不拋錯,留給下方的正向判定處理 —— null 自然落入 failed。
+    let body = null;
+    try { body = await res.json(); } catch (parseErr) { body = null; }
+
+    if (!res.ok) {
+      console.error('[admin-payments] CB-89 E1a HTTP ' + res.status, body);
+      return 'failed';
+    }
+    if (!body) {
+      console.error('[admin-payments] CB-89 E1a: response body not JSON');
+      return 'failed';
+    }
+    if (body.skipped != null) {
+      console.warn('[admin-payments] CB-89 E1a skipped:', body.skipped, body);
+      return 'skipped';
+    }
+    // 🔴 正向訊號:sent 必須是可轉數字且 >= 1。
+    //    undefined / null / '' / NaN 一律落入 failed。
+    const sent = Number(body.sent);
+    if (!isNaN(sent) && sent >= 1) return 'ok';
+
+    console.error('[admin-payments] CB-89 E1a: no positive sent signal', body);
+    return 'failed';
+
+  } catch (emailErr) {
+    console.error('[admin-payments] CB-89 E1a request failed:', emailErr);
+    return 'failed';
+  }
+}
+
 // CB-57:send-followup-email。Bearer only,失敗只 log、不阻斷、不 throw。
 // ⚠️ 契約與 send-payment-email 不同:欄位是 notification_type(非 type),
 //    且函式內部會重撈 quote 驗 status,故呼叫端必須在 quotes 寫入成功後才呼叫。
