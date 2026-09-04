@@ -1023,6 +1023,10 @@ function renderAwaiting(term) {
       '<td>' + money(q.grand_total) + '</td>' +
       '<td><span class="await-wait">' + daysStr + '</span></td>' +
       '<td><div class="await-actions">' +
+        // CB-89:代選付款方式。刻意排在第一順位 —— 它是【常態】動作
+        //   (客戶要走完流程拿 Receipt),Record Offline 才是例外(錢已收到、
+        //   不需 Receipt)。兩者後果差很多但外觀相近,把常態的放前面可降低誤觸。
+        '<button class="btn-mini" onclick="awaitingSelectMethod(\'' + q.id + '\')">Select Payment Method</button>' +
         '<button class="btn-mini" onclick="awaitingOffline(\'' + q.id + '\')">Record Offline</button>' +
         '<button class="btn-mini" onclick="awaitingResend(\'' + q.id + '\')">Send Reminder</button>' +
         '<button class="btn-mini danger" onclick="awaitingClose(\'' + q.id + '\')">Close Order</button>' +
