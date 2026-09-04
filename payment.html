@@ -627,7 +627,32 @@ function renderCheckSimple() {
   document.getElementById('btnProceed').addEventListener('click', () => openPayConfirm('check', f));
 }
 
-// 送出:三方式共用。寫序 quotes(只改 status)→ payments → E1b → instruction。
+// ═══════════════════════════════════════════════════════════════════
+// 送出:三方式共用。寫序 quotes(只改 status)→ payments → E1a → instruction。
+// -------------------------------------------------------------------
+// 🔴 交叉註解(CB-89 P0-3)—— 本段寫入規格與 admin-payments.html 的
+//    doAwaitingSelectMethod() 相同(規格來源:Payment PM,CB-89)。
+//      本處                    dealer 自選(payment.html)
+//      admin-payments.html     super_admin 代客戶選(CB-89)
+//    🔴 兩處必須同步 —— 任一方變更寫入欄位、狀態值、寫序或費率來源時,
+//       必須檢視另一方。
+//
+//    失效模式:兩處寫法漂移後,admin 代選與 dealer 自選會產生【不同的
+//    payments 列】,而且不報錯、不當機 —— 同一張單的 Receipt 內容會因為
+//    「是誰按的按鈕」而不同,要到客戶反映才會發現。
+//
+// 🔴 架構限制聲明(非 CB-89 造成,CB-89 只是必須在其上工作):
+//    payments 的 admin 與 dealer policy 嚴格度【不對稱】。
+//      dealer_insert_own_payments  WITH CHECK 綁死
+//        status='processing' AND payment_method IN ('card','ach','check')
+//      admin_insert_payments       WITH CHECK 只有 is_admin() —— 零欄位限制
+//    也就是說本檔(dealer 路徑)有 DB 護欄,admin 路徑【沒有】——
+//    那側 status / payment_method 的正確性完全依賴前端的具名常數。
+//    已登記:F-162(防護錯覺)、F-163(policy 不對稱)。背景見 CB-66。
+//
+// ⚠️ round2():本檔 L234 的實作在 admin-payments.html 有一份逐字複製,
+//    F-165 修正時三份必須一起改。見該處註解。
+// ═══════════════════════════════════════════════════════════════════
 async function submitSimplifiedPayment(method, f) {
   const btn   = document.getElementById('btnProceed');
   const errEl = document.getElementById('payError');
