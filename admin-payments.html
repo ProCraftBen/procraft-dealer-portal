@@ -153,6 +153,31 @@
     .picker-back { background: none; border: none; color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; padding: 0; margin-bottom: 14px; }
     .picker-back:hover { color: var(--green-dark); }
 
+    /* ===== CB-89 代選 UI =====
+       🔴 每一條都必須明寫 text-transform:none 與 letter-spacing:normal。
+          上方 .modal-field label(L163)帶 uppercase + 0.15em 字距,而本區塊
+          的元素位於 .modal-field 之內 —— 不重置就會繼承下來,文字被拉長、
+          強制大寫、提早換行,選項卡看起來又擠又亂(CB-89 U5 初版的實際症狀)。
+          🔴 這是繼承問題,不是排版問題;改 padding / width 都治不好。 */
+    .cb89-opt { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 3px; margin-bottom: 8px; cursor: pointer; background: var(--white); text-transform: none; letter-spacing: normal; }
+    .cb89-opt:hover { border-color: var(--gold); }
+    .cb89-opt input { flex: 0 0 auto; margin: 0; }
+    .cb89-opt-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .cb89-opt-fee { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .cb89-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; text-transform: none; letter-spacing: normal; }
+    .cb89-ack { display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 3px; background: var(--cream); font-size: 13px; line-height: 1.5; color: var(--text); cursor: pointer; text-transform: none; letter-spacing: normal; }
+    .cb89-ack input { flex: 0 0 auto; margin: 2px 0 0; }
+
+    /* Actions 選單(承載於既有 #pickerModal,不新增 modal DOM)。
+       🔴 不用絕對定位的下拉:.await-scroll 有 overflow:auto,會把選單裁掉一半。 */
+    .cb89-menu { display: flex; flex-direction: column; gap: 8px; }
+    .cb89-menu-item { width: 100%; text-align: left; background: var(--white); border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+    .cb89-menu-item:hover { border-color: var(--gold); }
+    .cb89-menu-item.danger:hover { border-color: var(--error); }
+    .cb89-menu-title { display: block; font-size: 13px; font-weight: 500; color: var(--green-dark); margin-bottom: 3px; }
+    .cb89-menu-item.danger .cb89-menu-title { color: var(--error); }
+    .cb89-menu-desc { display: block; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
     /* ===== Modal shells (used by Stage-2 actions) ===== */
     .modal-overlay { position: fixed; inset: 0; background: rgba(44,58,50,0.45); display: none; align-items: center; justify-content: center; z-index: 1500; padding: 20px; }
     .modal-overlay.show { display: flex; }
