@@ -51,12 +51,12 @@
 
     /* ===== Awaiting Payment section ===== */
     /* CB-56 U10:列數多時不無限延長 —— 內層捲動容器,滿高後 Y 捲動。
-       🔴 CB-89 更新此算式:本區動作鈕由三顆增為四顆(新增 Select Payment
-       Method),.await-actions 改為可換行,故單列高度在窄視窗下會增加。
-         寬視窗(四顆同一行)  單列 ≈ 66px → 500px ≈ thead 31px + 7 列
-         窄視窗(按鈕換行)    單列 ≈ 94px → 500px ≈ thead 31px + 5 列
-       max-height 由 430px 調為 500px,讓最壞情況(換行)仍看得到 5 列。
-       🔴 日後再增減本區按鈕數量時,必須一併重算此註解 —— 否則它會變成
+       🔴 CB-89 定案(Q-16 = A):本區只剩【一顆】Actions 鈕,四個動作收進
+       選單(cb89Actions)。單列高度回到 ≈ 66px,故
+         500px ≈ thead 31px + 7 列(原 430px 為 6 列)。
+       .await-actions 的 flex-wrap 予以保留 —— 一顆鈕永遠不會換行,留著是
+       讓日後若再加鈕時不至於直接把列撐出水平捲動。
+       🔴 日後增減本區按鈕數量時,必須一併重算此註解 —— 否則它會變成
           與實際不符的死註解(F-164 同類)。
        thead 用 sticky 釘住,捲動時表頭不消失;背景 #F5F3EF 為實色,不會透出列內容。
        捲動容器只包 <table>,不包 .table-header —— 標題與搜尋框必須留在原位。 */
@@ -65,11 +65,10 @@
     .awaiting-head-right { display: flex; align-items: center; gap: 12px; }
     .awaiting-search { height: 30px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--cream); width: 200px; max-width: 46vw; }
     .awaiting-search:focus { outline: none; border-color: var(--gold); }
-    /* CB-89:flex-wrap 由 nowrap 改為 wrap —— 四顆鈕在窄視窗會超出欄寬。
-       不加時的後果是整個 .await-scroll 出現水平捲動,PO# 欄被推出視野。
-       gap 8px 同時作用於兩軸,換行後的列間距不需另設。 */
+    /* CB-89:flex-wrap 由 nowrap 改為 wrap。目前本區只有一顆 Actions 鈕,
+       換行不會發生 —— 保留是為了日後增鈕時不至於撐出水平捲動,
+       那會把 PO# 欄推出視野。gap 8px 同時作用於兩軸。 */
     .await-actions { display: flex; flex-wrap: wrap; gap: 8px; white-space: nowrap; }
-    .await-wait { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
     /* ===== Ghost Payments alert (CB-43 幽靈結案) =====
        緊急梯度最高:幽靈 > 催款 > 一般清單。
@@ -1048,13 +1047,11 @@ function renderAwaiting(term) {
       '<td>' + money(q.grand_total) + '</td>' +
       '<td><span class="await-wait">' + daysStr + '</span></td>' +
       '<td><div class="await-actions">' +
-        // CB-89:代選付款方式。刻意排在第一順位 —— 它是【常態】動作
-        //   (客戶要走完流程拿 Receipt),Record Offline 才是例外(錢已收到、
-        //   不需 Receipt)。兩者後果差很多但外觀相近,把常態的放前面可降低誤觸。
-        '<button class="btn-mini" onclick="awaitingSelectMethod(\'' + q.id + '\')">Select Payment Method</button>' +
-        '<button class="btn-mini" onclick="awaitingOffline(\'' + q.id + '\')">Record Offline</button>' +
-        '<button class="btn-mini" onclick="awaitingResend(\'' + q.id + '\')">Send Reminder</button>' +
-        '<button class="btn-mini danger" onclick="awaitingClose(\'' + q.id + '\')">Close Order</button>' +
+        // CB-89 Q-16:四個動作收進 Actions 選單(見 cb89Actions)。
+        //   並排四顆鈕會把列撐得過寬,且 Select Payment Method 與
+        //   Record Offline 外觀相近、後果完全不同(有無 Receipt)——
+        //   選單能為每個動作附一行說明,講清楚比排順序有效。
+        '<button class="btn-mini" onclick="cb89Actions(\'' + q.id + '\')">Actions</button>' +
       '</div></td>' +
     '</tr>';
   }).join('');
