@@ -349,6 +349,75 @@ const SALES_NONE = '__none__';
 const methodLabel = { card:'Card', ach:'ACH', check:'Check', offline:'Offline' };
 const statusLabel = { processing:'Processing', confirmed:'Confirmed', failed:'Failed', cancelled:'Cancelled' };
 
+// ═══════════════════════════════════════════════════════════════════
+// CB-89  super_admin 代客戶選付款方式 —— 具名常數
+// -------------------------------------------------------------------
+// 🔴 為何這一段必須存在:payments 的 admin 與 dealer policy 嚴格度不對稱。
+//      dealer_insert_own_payments 的 WITH CHECK 綁死
+//        status = 'processing' AND payment_method IN ('card','ach','check')
+//      admin_insert_payments  的 WITH CHECK 只有 is_admin() —— 零欄位限制。
+//    也就是說本路徑寫錯 status 或 payment_method,RLS 會放行、不報錯、
+//    畫面顯示成功,而單子外觀已付款、錢從未收到。
+//    🔴 這些常數是該情境下的【唯一防線】,不是風格偏好。
+//
+// 🔴 這是【既有架構限制】(admin 路徑在 DB 層零欄位保護),非 CB-89 造成。
+//    已登記:F-162(前端限 super_admin、RLS 對 admin 放行的防護錯覺)、
+//            F-163(admin / dealer policy 嚴格度不對稱)。
+//    背景見 CB-66 查出的架構事實。
+// ═══════════════════════════════════════════════════════════════════
+
+// 代選可用的付款方式 —— 🔴 與 payment.html 的 dealer 選單完全一致,不多不少。
+//   payments_payment_method_check 另外允許 'offline',但那是 Record Offline
+//   專用(直接推進 Order Processing、不產生 Receipt),🔴 代選一律不可使用。
+//   DB 不會擋它 —— 只有這份白名單會。
+//   label 刻意不共用上方的 methodLabel:那份是清單表格的短名(Card / ACH),
+//   此處要讓 super_admin 看到與 dealer 完全相同的字面(顯示 ≠ 值)。
+const PAY_METHOD_OPTIONS = [
+  { value: 'card',  label: 'Credit / Debit Card' },
+  { value: 'ach',   label: 'ACH Bank Transfer'   },
+  { value: 'check', label: 'Check'               },
+];
+
+// 代選寫入 payments 時的 status。DB 有 default 'processing',但仍顯式寫入 ——
+// 🔴 依賴 default 等於把正確性交給一個 admin policy 不檢查的欄位。
+const PAY_STATUS_ON_SELECT = 'processing';
+
+// quotes 狀態:一律用 DB canonical value,不可用顯示名 'Waiting for Payment'。
+const QUOTE_STATUS_PENDING            = 'Pending';
+const QUOTE_STATUS_PAYMENT_PROCESSING = 'Payment Processing';
+
+// settings 鍵名 —— 🔴 費率三鍵與 payment.html 的 loadFeeConfig() 讀同一份來源。
+const PAY_SETTINGS_KEYS = [
+  'fee_card_percent',
+  'fee_ach_percent',
+  'fee_check_percent',
+  'notify_admin_new_payment',
+  'payment_notify_email',
+  'admin_email',
+];
+
+// 費率 fallback —— 值與 payment.html L217 的 feeConfig 預設逐字相同。
+// ⚠️ 適用範圍僅限「settings 查詢成功但費率鍵缺漏」;查詢整體失敗時走 fail-closed
+//    (見 U5 的 Q-10 處理),不套用本 fallback。兩者刻意分層,勿合併。
+const PAY_FEE_FALLBACK = { card: 2.99, ach: 1, check: 0 };
+
+// send-payment-email 的 E1a 由此開關 gate。EF 內判定式為 !== 'false',
+// 故任何其他值(含鍵不存在)都代表會寄。此處只認這一個關閉值。
+const NOTIFY_DISABLED_VALUE = 'false';
+
+// Q-13:DB 端錯誤訊息 → admin 語境映射用的比對字串。
+// 🔴 逐字複製自 quotes 的 trg_block_trial_status_change,【一字不可改】——
+//    DB 端維持原樣(CB-76 已上線,dealer 路徑仍在用),映射只在前端。
+// 🔴 比對一律用【完全相等】,禁止 includes / 正則模糊比對(F-35 正向識別)。
+//    認不出的 42501 一律原樣顯示,不猜。
+// ⚠️ 該 trigger 第三種訊息('CB-76: dealer % not found ...')帶 uuid 參數,
+//    無法完全相等比對 —— 刻意【不映射】,讓它原樣顯示。那是 FK 失效等級的
+//    資料庫故障,原文比任何改寫更有助於排查。
+const DB_ERR_TRIAL_BLOCKED =
+  'Trial accounts cannot submit orders. Contact ProCraft to activate your account.';
+const DB_ERR_NO_DEALER_ID =
+  'CB-76: quote has no dealer_id — cannot determine account type.';
+
 // ---- helpers ----
 function getParam(k) { return new URLSearchParams(window.location.search).get(k); }
 
