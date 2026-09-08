@@ -2494,10 +2494,21 @@ function renderQuote(quote, dealer, addr) {
   // ── Item 7: 依 status 渲染下載按鈕 ──
   let downloadButtonsHtml;
   if (quote.status === 'Draft') {
+    // ── CB-90:Draft Quote 雙版本(Q-7 = A,本頁與 step3 同步提供)────────────
+    //   🔴 本頁採【兩顆並列按鈕】而非 modal:本頁沒有 cb4-modal 基礎設施
+    //      (唯一的 modal 是 admin 專用的 components/reminder-modal.js),
+    //      而「並列下載按鈕」本來就是本頁既有 pattern(Packing List + Invoice)。
+    //      移植 modal CSS 屬範圍擴張,不做。
+    //   🔴 無折扣版 = 實心(primary)、有折扣版 = secondary:
+    //      無折扣版是給屋主的安全預設,有折扣版是刻意選擇的第二個出口。
     downloadButtonsHtml = `
       <button class="btn-action" onclick="downloadDraftQuote()">
         <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
         ${escapeHtml(pcTxt('qd.btn.download_draft', 'Download Draft Quote'))}
+      </button>
+      <button class="btn-action secondary" onclick="downloadDraftQuoteInternal()">
+        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5v-2z"/></svg>
+        ${escapeHtml(pcTxt('qd.btn.download_draft_internal', 'Download Draft Quote (Internal)'))}
       </button>`;
   } else {
     // F9: Packing List 僅 admin / super_admin 可見,dealer 端不 render。
@@ -3156,16 +3167,39 @@ function buildQuoteDataForPdf() {
   };
 }
 
+// ── CB-90:Draft Quote 雙版本 ──────────────────────────────────────────────
+//   🔴 兩支【具名】函式,不用 downloadDraftQuote(true / false) 這種 boolean 參數:
+//      讀到呼叫端時無法判斷 true 是哪一版,而寫錯的代價是
+//      「dealer 把含折扣的檔寄給屋主」,不可逆。
+//   ⚠ 本頁的 markupPercent 本來就恆為 0(本頁無 markup 欄位),
+//     故有折扣版在本頁與 step3 產出的金額一致。
 async function downloadDraftQuote() {
+  await _buildAndSaveDraftQuotePdf(false);
+}
+
+async function downloadDraftQuoteInternal() {
+  await _buildAndSaveDraftQuotePdf(true);
+}
+
+async function _buildAndSaveDraftQuotePdf(isInternal) {
   if (!_quote || !_dealer) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
+
+  // ── CB-90:版本旗標 ────────────────────────────────────────────────────
+  //   🔴 markupPercent 維持原樣照傳 0 —— 有折扣版的強制歸零由 pdf-builder
+  //      內部負責(CB-90 Q-9 = A),本檔不重複實作那條規則。
+  //   🔴 常數讀 ProCraftPDF._DRAFT_VARIANT_INTERNAL,不在本檔硬寫 'internal'。
+  const _buildOpts = { markupPercent: 0, stamp: { mode: 'download', user: _me } };
+  if (isInternal === true) _buildOpts.variant = ProCraftPDF._DRAFT_VARIANT_INTERNAL;
+
   const doc = await ProCraftPDF.buildDraftQuotePdf(
-    quoteDataForPdf, _dealer, _addr, { markupPercent: 0, stamp: { mode: 'download', user: _me } }
+    quoteDataForPdf, _dealer, _addr, _buildOpts
   );
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
     poNumber:       _quote.po_number || _quote.draft_number || 'Draft',  // 雙編號制
     dealerUid:      _dealer.uid,
     revisionNumber: _quote.revision_number || 1,
+    internal:       (isInternal === true),   // CB-90:正向識別,預設不加 Internal 標
   });
   doc.save(filename);
 }
