@@ -229,12 +229,17 @@
   const DOC_TITLE_DRAFT          = 'DRAFT QUOTE';
   const DOC_TITLE_DRAFT_INTERNAL = 'DRAFT QUOTE (INTERNAL)';
   const FILENAME_INTERNAL_TAG    = ' - Internal';
-  // ── CB-90 D-1:header 標題橫向空間預算(Helvetica-Bold 標準字寬實算)──────
+  // ── CB-90 D-1 / Q-11 = A:header 標題橫向空間預算 ─────────────────────────
+  //   (Helvetica-Bold 標準字寬實算;jsPDF 用同一份 AFM metrics,故為確定值)
   //   公司名 'ProCraft Cabinetry DC LLC'  10.5pt bold = 47.5mm → x  76.0 ~ 123.5
-  //   'DRAFT QUOTE'                       16pt  bold = 40.8mm → x 159.2 ~ 200
-  //   'DRAFT QUOTE (INTERNAL)'            16pt  bold = 74.6mm → x 125.4 ~ 200
-  //   🔴 淨餘裕僅 1.9mm。兩者皆為固定字串 + 核心字型,此為確定值而非估計。
+  //   'DRAFT QUOTE'                       16pt  bold = 40.8mm → x 159.2 ~ 200(餘裕 35.7mm)
+  //   'DRAFT QUOTE (INTERNAL)'            16pt  bold = 74.6mm → x 125.4 ~ 200(餘裕  1.9mm)🔴 太擠
+  //   'DRAFT QUOTE (INTERNAL)'            13pt  bold = 60.6mm → x 139.4 ~ 200(餘裕 15.9mm)✅ 採用
+  //   🔴 Q-11 = A:有折扣版標題【單獨縮到 13pt】,無折扣版維持 16pt。
+  //      16pt 時淨餘裕只有 1.9mm,列印上實測過擠。
   //      ⚠ 再加長 header 標題或公司名即重疊,且【不會報錯】—— 改前先重算。
+  const DOC_TITLE_SIZE_DEFAULT  = 16;
+  const DOC_TITLE_SIZE_INTERNAL = 13;
 
   // ----------------------------------------
   // Internal Helpers
@@ -749,7 +754,10 @@ return total;
 
     if (documentTitle) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
+      // CB-90 Q-11 = A:字級由呼叫端指定(見 DOC_TITLE_SIZE_* 的空間預算註解)。
+      //   🔴 未傳 → 預設 16 → 另三型與無折扣版行為逐字不變。
+      //   ⚠ 勿改成依 documentTitle 內容判斷字級 —— 那是用顯示文字做邏輯判斷。
+      doc.setFontSize(context.documentTitleSize || DOC_TITLE_SIZE_DEFAULT);
       doc.setTextColor(...COLORS.darkGreen);
       doc.text(documentTitle, pageW - margin, 13, { align: 'right' });
     }
@@ -1943,7 +1951,7 @@ return total;
   const DEFAULT_LOGO_URL =
     'https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo.png';
 
-  async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options, documentTitle, isDraftDoc) {
+  async function _initDocAndDrawTop(quoteData, dealer, shippingAddress, options, documentTitle, isDraftDoc, documentTitleSize) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -1981,6 +1989,8 @@ return total;
       salesName:     quoteData.sales_name || null,
       date,
       documentTitle: documentTitle,
+      // CB-90 Q-11 = A:選用;undefined → _drawHeader 落回 16(另三型行為不變)
+      documentTitleSize: documentTitleSize,
     };
     _drawHeader(doc, headerContext);
 
@@ -2461,7 +2471,8 @@ return total;
     const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       (_isInternal ? DOC_TITLE_DRAFT_INTERNAL : DOC_TITLE_DRAFT),
-      true                    // CB-90 Q-10:isDraftDoc — 兩版都是 Draft,恆為 true
+      true,                   // CB-90 Q-10:isDraftDoc — 兩版都是 Draft,恆為 true
+      (_isInternal ? DOC_TITLE_SIZE_INTERNAL : DOC_TITLE_SIZE_DEFAULT)   // CB-90 Q-11
     );
 
   const { tableEndY, notes } = _drawItemTable(doc, {
