@@ -639,7 +639,7 @@ color: var(--green-dark);
             style="width:80px;height:36px;border:1px solid var(--border);border-radius:3px;padding:0 10px;font-family:'DM Sans',sans-serif;font-size:13px;text-align:center;"
             oninput="updateMarkupPreview()" onchange="updateMarkupPreview()"/>
           <span style="font-size:13px;color:var(--muted);">%</span>
-          <button onclick="downloadPDF()" style="height:36px;padding:0 16px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;">
+            <button onclick="openPdfVariantModal()" style="height:36px;padding:0 16px;background:var(--green-dark);color:#fff;border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;">
             <span data-i18n="nq3.btn.download_pdf">Download PDF</span>
           </button>
         </div>
@@ -999,6 +999,36 @@ color: var(--green-dark);
       <button class="cb4-modal-btn confirm" id="adminChecklistConfirmBtn" onclick="confirmAdminSubmit()" disabled>
         <span class="cb4-btn-label" data-i18n="nq3.modal.confirm_submit">Confirm &amp; Submit</span>
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- CB-90: Draft Quote 雙版本選擇。兩個出口皆放行,不擋(Q-3 已消解)。 -->
+<div class="cb4-modal" id="pdfVariantModal">
+  <div class="cb4-modal-box">
+    <div class="cb4-modal-title" data-i18n="nq3.modal.pdf_title">Download Draft Quote</div>
+    <div class="cb4-modal-msg">
+      <span data-i18n="nq3.modal.pdf_msg">These two versions are for different audiences. Pick the one you need.</span>
+    </div>
+
+    <button class="cb4-modal-btn confirm" style="width:100%;justify-content:center;text-align:center;"
+            onclick="downloadDraftPdfCustomer()">
+      <span class="cb4-btn-label" data-i18n="nq3.modal.pdf_customer_label">Customer Version — No Discounts</span>
+    </button>
+    <div style="font-size:12px;color:var(--muted);line-height:1.55;margin:8px 0 18px;"
+         data-i18n="nq3.modal.pdf_customer_desc">Discounts and account adjustments are hidden, and your PDF markup is applied. This is the version to send to your customer.</div>
+
+    <button class="cb4-modal-btn cancel" style="width:100%;justify-content:center;text-align:center;"
+            onclick="downloadDraftPdfInternal()">
+      <span class="cb4-btn-label" data-i18n="nq3.modal.pdf_internal_label">Internal Version — With Discounts</span>
+    </button>
+    <div style="font-size:12px;color:var(--muted);line-height:1.55;margin:8px 0 4px;"
+         data-i18n="nq3.modal.pdf_internal_desc">Shows every discount and account adjustment. For your own records only. The file name contains "Internal" — do not send this one to your customer.</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.55;margin:0;"
+         data-i18n="nq3.modal.pdf_internal_note">Markup is never applied to this version, so the Order Total matches the amount you will actually pay.</div>
+
+    <div class="cb4-modal-actions">
+      <button class="cb4-modal-btn cancel" onclick="closePdfVariantModal()" data-i18n="nq3.btn.cancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -4892,8 +4922,10 @@ document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
   const acm = document.getElementById('adminChecklistModal');
   const ncm = document.getElementById('adminNeedsConfirmModal');
+  const pvm = document.getElementById('pdfVariantModal');          // CB-90
   if (acm && acm.classList.contains('show')) { closeAdminChecklistModal(); return; }
   if (ncm && ncm.classList.contains('show')) { closeAdminNeedsConfirmModal(); return; }
+  if (pvm && pvm.classList.contains('show')) { closePdfVariantModal(); return; }
 });
 
 function updateMarkupPreview() {
@@ -4923,7 +4955,32 @@ function updateMarkupPreview() {
   });
 }
 
-async function downloadPDF() {
+// ── CB-90:Draft Quote 雙版本 ──────────────────────────────────────────────
+//   入口按鈕改為開 modal,兩個出口各自呼叫下方兩支【具名】函式。
+//   🔴 刻意不用 downloadDraftPdf(true / false) 這種 boolean 參數:讀到呼叫端時
+//      無法判斷 true 是哪一版,而寫錯的代價是「dealer 把含折扣的檔寄給屋主」,
+//      不可逆。具名函式讓誤讀在結構上不可能發生。
+function openPdfVariantModal() {
+  const m = document.getElementById('pdfVariantModal');
+  if (m) m.classList.add('show');
+}
+
+function closePdfVariantModal() {
+  const m = document.getElementById('pdfVariantModal');
+  if (m) m.classList.remove('show');
+}
+
+async function downloadDraftPdfCustomer() {
+  closePdfVariantModal();
+  await _buildAndSaveDraftPdf(false);
+}
+
+async function downloadDraftPdfInternal() {
+  closePdfVariantModal();
+  await _buildAndSaveDraftPdf(true);
+}
+
+async function _buildAndSaveDraftPdf(isInternal) {
   const markupPct = parseFloat(document.getElementById('markupPct').value || 0) / 100;
   // CB-33: 只在 admin+shipping 時帶 override(草稿 PDF 與畫面/submit 一致);
   //   ⚠ 必須 gate isAdminShippingMode() —— 否則 dealer 的 pickup/delivery 會
@@ -4933,14 +4990,28 @@ async function downloadPDF() {
     _pdfOpts.shippingCostOverride = getAdminShippingOverride();  // null=pending / 0=FREE / >0=金額
   }
   const quoteDataForPdf = buildQuoteDataForPdf(_pdfOpts);
+
+  // ── CB-90:版本旗標 ────────────────────────────────────────────────────
+  //   🔴 markup 【一律照傳】—— 有折扣版的歸零由 pdf-builder 內部強制
+  //      (CB-90 Q-9 = A),本檔【不】自己判斷該不該傳 0。
+  //      強制點只有一個,兩個呼叫端都不需要知道這條規則;
+  //      在這裡多加一層「保險」反而製造第二個真相來源(F-35 根因結構)。
+  //   🔴 常數讀 ProCraftPDF._DRAFT_VARIANT_INTERNAL,不在本檔硬寫 'internal'。
+  const _buildOpts = {
+    markupPercent: markupPct,
+    stamp: { mode: 'download', user: _meStamp },
+  };
+  if (isInternal === true) _buildOpts.variant = ProCraftPDF._DRAFT_VARIANT_INTERNAL;
+
   const doc = await ProCraftPDF.buildDraftQuotePdf(
-    quoteDataForPdf, dealer, shippingAddress, { markupPercent: markupPct, stamp: { mode: 'download', user: _meStamp } }
+    quoteDataForPdf, dealer, shippingAddress, _buildOpts
   );
   const previewRevisionNumber = _isResumingReturned ? (_currentRevisionNumber || 1) + 1 : 1;
   const filename = ProCraftPDF.getPdfFilename('draft-quote', {
     poNumber: _existingPoNumber || _existingDraftNumber || 'Draft',  // 雙編號制
     dealerUid: dealer?.uid,
     revisionNumber: previewRevisionNumber,
+    internal: (isInternal === true),   // CB-90:正向識別,預設不加 Internal 標
   });
   doc.save(filename);
 }
