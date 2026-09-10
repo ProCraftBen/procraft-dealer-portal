@@ -155,7 +155,8 @@
           <option value="solved">Solved</option>
         </select>
         <div class="tool-group">
-          <span class="tool-label">Recorded</span>
+          <!-- F-174:基準看得見,使用者才有機會發現不對 -->
+          <span class="tool-label">Recorded (ET)</span>
           <input class="list-date" id="rmFrom" type="date" onchange="onReminderFilter()"/>
           <input class="list-date" id="rmTo" type="date" onchange="onReminderFilter()"/>
         </div>
@@ -207,6 +208,9 @@
 <!-- CB-82: Reminder 表單 modal(與 quote-detail.html 共用同一份)。
      新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
 <script src="components/reminder-modal.js"></script>
+<!-- F-174:日期時區單一來源(ET 日界換算 + 顯示)。
+     必須排在下方 inline script 之前 —— formatDateTime() 與區間篩選都依賴它。 -->
+<script src="components/date-utils.js?v=f174"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
  * CB-82  admin-reminders.html
@@ -291,14 +295,14 @@ function showToast(msg, isErr) {
 }
 
 // created_at 為 timestamptz —— 走 Date 物件無妨,本來就是時間點。
+// F-174 Q-11=甲:顯示釘美東,不隨瀏覽器時區浮動。舊碼 toLocaleString() 無
+//   timeZone → 走瀏覽器本地,與篩選層(UTC)對不齊。
+//   ⚠️ 空值/非法值仍回 '—'(全域破折號),不用工具的 '-',以維持本頁一致。
 function formatDateTime(str) {
   if (!str) return '—';
   const d = new Date(str);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit'
-  });
+  return window.ProCraftDate.formatETDateTime(str);
 }
 
 /* 🔴 reminder_date / solved_date 為 DB 的 date 型別,PostgREST 收送皆為
@@ -380,10 +384,25 @@ function buildReminderQuery(countOnly) {
   if (_listState.type)      qb = qb.eq('type', _listState.type);
   if (_listState.status)    qb = qb.eq('status', _listState.status);
 
-  // Record Time 區間。created_at 為 timestamptz,to 需補到當日 23:59:59,
-  // 否則選同一天會回 0 筆(gte 00:00 且 lte 00:00)。
-  if (_listState.from) qb = qb.gte('created_at', _listState.from);
-  if (_listState.to)   qb = qb.lte('created_at', _listState.to + 'T23:59:59');
+  // 🔴 F-174:Record Time 區間改為 ET 日界 + 半開區間 [start, end)。
+  //    舊碼把 "YYYY-MM-DD" 直接送去比對 UTC,美東 20:00 後(冬季 19:00 後)
+  //    建立的紀錄 UTC 已跨日 → 選當天找不到。與 admin-quotes 同一缺陷。
+  //    ⚠️ 本表目前 0 筆錯位,但那是資料量小(11 筆)所致,不是程式碼正確 ——
+  //       以 quotes 的 2.9% 錯位率推算,11 筆的期望錯位數本就是 0.3。
+  //    終點【獨立】由 to+1 天換算,不可由起點加 24h:2026-11-01 有 25 小時。
+  //    半開區間同時取代舊碼的 'T23:59:59' —— 那會漏掉當日最後 0.999 秒。
+  //    ⚠️ 邊界為 null 代表日期非法,此時中止而非略過(略過會讓範圍無聲擴大)。
+  //       <input type="date"> 不可能產生非法值,此路徑實務上不可達。
+  if (_listState.from) {
+    const loUtc = window.ProCraftDate.etDayStartUTC(_listState.from);
+    if (!loUtc) throw new Error('F-174: invalid From date — ' + _listState.from);
+    qb = qb.gte('created_at', loUtc);
+  }
+  if (_listState.to) {
+    const hiUtc = window.ProCraftDate.etDayEndExclusiveUTC(_listState.to);
+    if (!hiUtc) throw new Error('F-174: invalid To date — ' + _listState.to);
+    qb = qb.lt('created_at', hiUtc);
+  }
 
   // 🟡 tiebreaker【機制】通用 —— 唯一 tiebreaker 是分頁正確性的必要條件,
   //    非排序偏好;缺少它 .range() 會跳號/重複且不報錯。
