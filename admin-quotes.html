@@ -466,11 +466,12 @@
       </select>
     </div>
     <div class="filter-group">
-      <label class="filter-label">From</label>
+      <!-- F-174:基準看得見,使用者才有機會發現不對 -->
+      <label class="filter-label">From (ET)</label>
       <input type="date" class="filter-input" id="filterFrom"/>
     </div>
     <div class="filter-group">
-      <label class="filter-label">To</label>
+      <label class="filter-label">To (ET)</label>
       <input type="date" class="filter-input" id="filterTo"/>
     </div>
     <div class="filter-group">
@@ -661,6 +662,9 @@
 <script src="components/footer.js?v=cb62c"></script>
 <!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
 <script src="components/order-complete.js"></script>
+<!-- F-174:日期時區單一來源(ET 日界換算 + 顯示)。
+     必須排在下方 inline script 之前 —— formatDate() 與 buildQuotesQuery() 都依賴它。 -->
+<script src="components/date-utils.js?v=f174"></script>
 <script>
 const SUPABASE_URL  = window.SB_URL;
 const SUPABASE_ANON = window.SB_KEY;
@@ -1028,8 +1032,11 @@ const SALES_NONE = '__none__';
 const _previousStatus = {};
 
 // ── Helpers ────────────────────────────────────────────────────────
+// F-174 Q-11=甲:created_at 是 timestamptz,顯示一律釘美東,不隨瀏覽器時區浮動。
+//   舊碼用 toLocaleDateString() 無 timeZone → 走瀏覽器本地,與篩選層(UTC)
+//   對不齊,也讓不同時區的 admin 看到不同日期、匯出不同結果。
 function formatDate(str) {
-  return new Date(str).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  return window.ProCraftDate.formatETDate(str);
 }
 // CB-59 B-2:fulfillment_date 是 DB 的 date 型別,PostgREST 回傳 "YYYY-MM-DD"。
 //   絕不可套用上面的 formatDate() —— new Date('2026-08-06') 會被當 UTC 午夜
@@ -1376,8 +1383,25 @@ function buildQuotesQuery(salesDealerIds) {
   if (status) query = query.eq('status', status);
   if (dealer) query = query.eq('dealer_id', dealer);
   if (salesDealerIds) query = query.in('dealer_id', salesDealerIds);
-  if (from)   query = query.gte('created_at', from);
-  if (to)     query = query.lte('created_at', to + 'T23:59:59');
+  // 🔴 F-174:ET 日界換算 + 半開區間 [start, end)。
+  //    舊碼把 "YYYY-MM-DD" 直接送去比對 UTC,美東 20:00 後(冬季 19:00 後)
+  //    建立的單 UTC 已跨日 → 選 9/8 找不到 D00141–D00144。
+  //    終點【獨立】由 to+1 天換算,不可由起點加 24h:2026-11-01 有 25 小時。
+  //    半開區間同時修掉舊碼 lte('...T23:59:59') 漏掉的最後 0.999 秒
+  //    (created_at 為微秒精度,實見 .135801)。
+  //    ⚠️ 邊界為 null 代表日期非法。此時【中止】,不略過該邊界 ——
+  //       略過會讓範圍無聲擴大,那正是本票要消滅的失敗模式。
+  //       <input type="date"> 不可能產生非法值,此路徑實務上不可達。
+  if (from) {
+    const loUtc = window.ProCraftDate.etDayStartUTC(from);
+    if (!loUtc) throw new Error('F-174: invalid From date — ' + from);
+    query = query.gte('created_at', loUtc);
+  }
+  if (to) {
+    const hiUtc = window.ProCraftDate.etDayEndExclusiveUTC(to);
+    if (!hiUtc) throw new Error('F-174: invalid To date — ' + to);
+    query = query.lt('created_at', hiUtc);
+  }
 
   const search = (document.getElementById('filterSearch').value || '').trim();
   if (!search) renderSearchNotice([]);   // CB-60a M4:清空搜尋時一併清掉提示
@@ -1623,7 +1647,10 @@ const CSV_COLUMNS = [
   { key: 'revision_number',         head: 'Revision' },
   { key: 'job_name',                head: 'Job Name' },
   { key: 'status',                  head: 'Status' },
-  { key: 'created_at',              head: 'Created At' },
+  // F-174 Q-14=否:值維持原始 UTC(Export 是唯讀的鏡子),只在表頭標示基準。
+  //   畫面顯示 ET、檔案內容 UTC,差四小時且過去無任何標示 —— 對帳的人
+  //   三個月後只會看到檔案本身。
+  { key: 'created_at',              head: 'Created At (UTC)' },
   { key: 'fulfillment_date',        head: 'Fulfillment Date' },
   { key: 'dealer_id',               head: 'Dealer ID' },
   { key: '_dealer_name',            head: 'Dealer' },
