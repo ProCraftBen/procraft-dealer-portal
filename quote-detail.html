@@ -66,6 +66,41 @@
     .rm-flag:hover { opacity: 0.72; }
     .rm-flag.open  { color: #C0392B; background: rgba(192,57,43,0.14); }
     .rm-flag.clear { color: #16A34A; background: rgba(22,163,74,0.12); }
+
+    /* ── CB-93:退貨(RETURN MEMO / Store Credit)──────────────────────────
+       🔴 顏色刻意避開 .return-banner(Revision Requested)——
+          同一頁可能同時出現兩個橫幅,顏色撞了會被讀成同一件事。
+          Revision 走 --status-returned;本票走琥珀,與 admin-quotes 的 R 徽章同色。 */
+    .stc-banner { display: flex; gap: 14px; align-items: flex-start; padding: 14px 18px; margin-bottom: 16px;
+                  border: 1px solid #B45309; border-left-width: 4px; border-radius: 4px; background: #FFFBEB; }
+    .stc-banner-title { font-size: 13px; font-weight: 500; color: #B45309; margin-bottom: 4px; }
+    .stc-banner-msg { font-size: 12px; line-height: 1.6; color: var(--text); }
+    /* 🔴 降級橫幅與註記橫幅【分開】:一個是「有退貨」,一個是「我不知道有沒有」。
+       共用一個元素的話,降級時會長得像「沒有退貨」—— 正是要防的那件事。 */
+    .stc-degraded { padding: 14px 18px; margin-bottom: 16px; border: 1px solid var(--error); border-left-width: 4px;
+                    border-radius: 4px; background: #FDF2F0; color: var(--error); font-size: 12px; line-height: 1.6; }
+
+    .stc-section { background: #fff; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; overflow: hidden; }
+    .stc-section-head { padding: 12px 18px; border-bottom: 1px solid var(--border); background: #FAFAF8;
+                        display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .stc-section-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .stc-section-note { font-size: 11px; color: var(--muted); font-style: italic; }
+    .stc-row { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; gap: 16px;
+               align-items: flex-start; flex-wrap: wrap; }
+    .stc-row:last-child { border-bottom: none; }
+    .stc-row.void { background: #FAFAF8; }
+    .stc-no { font-size: 13px; font-weight: 500; color: var(--green-dark); white-space: nowrap; }
+    .stc-meta { flex: 1 1 260px; min-width: 200px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .stc-amt { font-size: 13px; white-space: nowrap; text-align: right; min-width: 110px; }
+    .stc-amt .due { color: #B45309; }
+    .stc-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .stc-tag-void { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 500;
+                    letter-spacing: 0.08em; background: rgba(192,57,43,0.10); color: var(--error); }
+    .stc-mini { height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 3px; background: #fff;
+                font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
+                text-transform: uppercase; color: var(--green-dark); cursor: pointer; }
+    .stc-mini:hover { background: var(--cream); }
+    .stc-mini.danger { color: var(--error); }
     .btn-action.review-resubmit { background: var(--status-returned); color: #fff; }
     .btn-action.review-resubmit:hover { background: #c66a30; }
     .btn-action.admin-edit { background: var(--gold); color: #fff; }
@@ -633,7 +668,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/i18n.js?v=cb62c"></script>
+<script src="components/i18n.js?v=cb93"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <!-- CB-82: Reminder 表單 modal(與 admin-reminders.html 共用同一份)。
@@ -982,6 +1017,19 @@ function pcPlural(baseKey, n, enOne, enOther) {
 // CB-59:Fulfilled 放寬給 admin + super_admin,直接沿用 _isAdmin,
 //   原本的 _isSuperAdmin 旗標已無使用者,一併移除不留死變數。
 let _returnHistory = [];
+
+// ── CB-93:退貨(RETURN MEMO / Store Credit)────────────────────────────
+// 🔴 有效與已作廢【分開存】(S1-Q1):
+//      有效 → 顯示註記橫幅、接進三份 PDF
+//      作廢 → 只在 admin 的清單看得到,不進 PDF、不列入註記
+//    全部作廢時,對外回到與「沒有 memo」完全相同的狀態。
+let _stcActive   = [];
+let _stcVoided   = [];
+// 🔴 沉默的失敗最危險:查不到退貨資料時,這張單看起來就像沒退過東西。
+//    Invoice / Packing List 少了註記,倉庫照原數量出貨 —— 那是實體後果。
+//    旗標為 true 時:① 顯示降級橫幅 ② 擋下三份 PDF 下載(Q-9 / S1-Q2)
+let _stcDegraded = false;
+let _stcDegradedWhy = '';
 // CB-82b: uuid -> dealers 列。與 Revision History 共用同一次 .in() 查詢的結果,
 //   不另發往返。查無的 uuid 不會進 map,由呼叫端走 fallback。
 let _userMap = {};
@@ -1870,6 +1918,10 @@ async function init() {
   //    確認」），故最壞的情況是多一句提醒，不是静默放行。
   await loadReminderFlag();
 
+  // 🔴 CB-93:必須在 _quote 就位後、renderQuote 之前 await ——
+  //    不等的話,首次渲染會缺註記橫幅,而使用者不會知道自己看到的是半成品。
+  await loadStoreCredits();
+
   renderQuote(quote, dealer, shippingAddr);
 }
 
@@ -2190,6 +2242,25 @@ function renderQuote(quote, dealer, addr) {
   //    硬編碼且不掛任何 i18n 標記（CB-62 Q-5 / CB-66 定版）。
   const addReminderButtonHtml = _isAdmin
     ? `<button type="button" id="addReminderBtn" class="btn-action secondary" onclick="openAddReminder()">${REMINDER_BTN_INNER}</button>`
+    : '';
+
+  // ── CB-93: Create Return Memo(admin 專屬)────────────────────────────
+  // 🔴 Q-11 定版:僅 Order Processing / Order Completed。正向識別(F-35)——
+  //    列出【允許】的狀態,不列排除的;日後新增狀態時排除法會靜默放行。
+  // 🔴 此處只決定「要不要渲染」,不是安全邊界 ——
+  //    真正的授權在 create_store_credit() 的 is_admin(),
+  //    狀態守衛在該 RPC 與 trg_store_credit_insert 兩層。
+  // 🔴 降級時【仍然顯示】:表單頁有自己的授權資料來源,
+  //    因顯示問題擋掉正常作業並不合理(與擋下 PDF 下載的理由不同 ——
+  //    那邊少了註記會讓倉庫照原數量出貨,是實體後果)。
+  // 🔴 admin 專屬元素一律英文硬編碼、不掛 i18n 標記(CB-62 Q-5 / CB-66 定版)。
+  const canCreateStoreCredit = _isAdmin &&
+    ['Order Processing', 'Order Completed'].includes(quote.status);
+  const createReturnMemoButtonHtml = canCreateStoreCredit
+    ? `<a class="btn-action secondary" href="admin-store-credit.html?quote_id=${quote.id}">
+        <svg viewBox="0 0 24 24"><path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/></svg>
+        Create Return Memo
+      </a>`
     : '';
 
 // ── Ship To 區塊(5 檔鏡像同一份 resolver)──
@@ -2615,8 +2686,10 @@ function renderQuote(quote, dealer, addr) {
   document.getElementById('pageContent').innerHTML = `
     ${backLinkHtml}
     ${returnedBannerHtml}
+    ${storeCreditBannerHtml()}
     ${returnHistoryHtml}
     ${statusHistoryHtml}
+    ${storeCreditSectionHtml()}
     <div class="quote-header">
       <div>
         <div class="quote-number">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div>
@@ -2633,6 +2706,7 @@ function renderQuote(quote, dealer, addr) {
         ${fulfillOrderButtonHtml}
         ${reminderFlagHtml()}
         ${addReminderButtonHtml}
+        ${createReturnMemoButtonHtml}
         ${downloadButtonsHtml}
         ${receiptButtonHtml}
       </div>
@@ -2961,6 +3035,219 @@ async function loadReminderFlag() {
   _rmCheckFailed = false;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+ * CB-93 — 退貨(RETURN MEMO / Store Credit)
+ *
+ * 🔴 授權出口(CB-82 缺陷二定版原則的實作):
+ *    「這張單有沒有退貨」正是典型的「查不到就當成沒有」邏輯 ——
+ *    在純 PostgREST + RLS 之下,「被 policy 擋」與「真的沒資料」完全同形
+ *    (200 / [] / count 0 / error null),應用層分不出來。
+ *    → get_quote_store_credit_count() 為 SECURITY DEFINER,繞過 RLS 取真實筆數;
+ *      呼叫者非 admin 且非本單 dealer 時【拋錯】而不是回 0。
+ *    → 前端再把 RPC 的筆數與 RLS 實際讀到的列數【比對】。不一致即降級。
+ *      這一步正好能抓到 CB-82 當年抓不到的「policy 設錯」。
+ *
+ * 🔴 第三種降級來源:載到舊版 pdf-builder.js。
+ *    F-168 已登記兩個載入點皆無 ?v= —— promote 後最多 10 分鐘內,新頁面可能
+ *    配到舊 builder:註記與 memo 頁被靜默忽略,而且不報錯。
+ *    → 以能力常數 _STORE_CREDIT_CONTRACT 正向偵測,讀不到一律視為降級。
+ * ═══════════════════════════════════════════════════════════════════════ */
+async function loadStoreCredits() {
+  _stcActive = [];
+  _stcVoided = [];
+  _stcDegraded = false;
+  _stcDegradedWhy = '';
+
+  if (!_quote || !_quote.id) return;
+
+  const degrade = function (why) {
+    _stcDegraded = true;
+    _stcDegradedWhy = why;
+    _stcActive = [];
+    _stcVoided = [];
+    console.error('[CB-93] store credit unavailable:', why);
+  };
+
+  // ── ① 授權出口:真實筆數 ────────────────────────────────────────────
+  const { data: cnt, error: cntErr } = await _supabase
+    .rpc('get_quote_store_credit_count', { p_quote_id: _quote.id });
+
+  if (cntErr) { degrade(cntErr.message || 'count rpc failed'); return; }
+
+  const c = Array.isArray(cnt) ? cnt[0] : cnt;
+  const nActive = Number(c && c.active_count) || 0;
+  const nVoided = Number(c && c.voided_count) || 0;
+
+  // 🔴 真的沒有退貨時【提早結束】—— 不發第二支查詢。
+  //    這不是效能考量:少一次查詢就少一個可能失敗、可能被擋的環節。
+  if (nActive === 0 && nVoided === 0) return;
+
+  // ── ② RLS 讀取內容 ──────────────────────────────────────────────────
+  //    dealer 也讀得到自己的單(票面拍板 #3)—— 三份 PDF 在 dealer 端產生,
+  //    要接 memo 頁就必須讀得到內容。Q-12 限制的是【UI 入口】,不是資料權限。
+  const { data: rows, error: rowErr } = await _supabase
+    .from('quote_store_credits')
+    .select('id, memo_number, created_at, reason, merchandise_amount, restocking_fee,' +
+            ' net_store_credit_amount, created_by_name, voided_at, void_reason,' +
+            ' quote_store_credit_lines(line_no, line_kind, quote_item_id, sku_code, style_code,' +
+            ' style_name, sku_desc, sku_type, assemble_status, sub_index, is_custom,' +
+            ' unit_price, discount_amount, description, quantity, credit_unit_amount, line_total)')
+    .eq('quote_id', _quote.id)
+    .order('created_at', { ascending: true });
+
+  if (rowErr) { degrade(rowErr.message || 'select failed'); return; }
+
+  const list = rows || [];
+
+  // 🔴 核心比對:RPC 說幾筆,RLS 就該讀到幾筆。
+  //    不一致代表 policy 出了問題 —— 而那在應用層【沒有其他跡象】。
+  if (list.length !== (nActive + nVoided)) {
+    degrade('row count mismatch: rpc=' + (nActive + nVoided) + ' rls=' + list.length);
+    return;
+  }
+
+  // 🔴 能力常數偵測(F-168):讀不到 = 舊版 builder = 註記會靜默消失。
+  if (!window.ProCraftPDF || window.ProCraftPDF._STORE_CREDIT_CONTRACT !== 1) {
+    degrade('pdf-builder.js is outdated (no _STORE_CREDIT_CONTRACT)');
+    return;
+  }
+
+  // 明細改名為 lines,並依 line_no 排序 —— pdf-builder 的
+  // _normalizeStoreCredits() 要求 lines 為陣列。
+  const shaped = list.map(function (m) {
+    const ls = (m.quote_store_credit_lines || []).slice()
+      .sort(function (a, b) { return Number(a.line_no) - Number(b.line_no); });
+    return Object.assign({}, m, { lines: ls });
+  });
+
+  // 🔴 正向識別(F-35):依 voided_at 分別放進兩個清單,兩邊都是【命中】。
+  _stcActive = shaped.filter(function (m) { return !m.voided_at; });
+  _stcVoided = shaped.filter(function (m) { return !!m.voided_at; });
+}
+
+// ── 註記橫幅(admin + dealer 都看得到;票面拍板 #3)─────────────────────
+// 🔴 dealer 端已 i18n 化 → 文字掛 qd.stc.* (en/es)。
+//    PDF 內的註記則英文硬編碼、不掛標記(CB-62 Q-56:會輸出的不翻)——
+//    兩者刻意不同,勿對齊。
+function storeCreditBannerHtml() {
+  if (_stcDegraded) {
+    return '<div class="stc-degraded">' +
+      escapeHtml(pcTxt('qd.stc.degraded',
+        'Return information for this order is unavailable right now, so document downloads are turned off. Please refresh the page.')) +
+      '</div>';
+  }
+  if (!_stcActive.length) return '';
+
+  const nums = _stcActive.map(function (m) { return m.memo_number; }).join(', ');
+  return '<div class="stc-banner">' +
+    '<div class="stc-banner-body">' +
+      '<div class="stc-banner-title">' + escapeHtml(pcTxt('qd.stc.banner.title', 'Return on File')) + '</div>' +
+      '<div class="stc-banner-msg">' +
+        escapeHtml(pcTxt('qd.stc.banner.msg',
+          'This order has a return. See return memo {nums}.', { nums: nums })) +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// ── memo 清單(admin only,英文硬編碼)──────────────────────────────────
+// 🔴 作廢的【也列出來】,並標示 VOID —— 留痕的價值在於看得到。
+//    對外(PDF / 註記)則完全不出現,兩者不衝突(S1-Q1)。
+function storeCreditSectionHtml() {
+  if (!_isAdmin) return '';
+  if (_stcDegraded) return '';
+  if (!_stcActive.length && !_stcVoided.length) return '';
+
+  const rowHtml = function (m, isVoid) {
+    const net = Number(m.net_store_credit_amount);
+    const isDue = net > 0;
+    const amt = (isDue ? '$' : '-$') + Math.abs(net).toFixed(2);
+    const fee = Number(m.restocking_fee);
+
+    const acts = isVoid ? '' :
+      '<div class="stc-acts">' +
+        '<button type="button" class="stc-mini" onclick="downloadStoreCreditMemo(\'' + m.id + '\')">Download</button>' +
+        '<button type="button" class="stc-mini danger" onclick="voidStoreCredit(\'' + m.id + '\')">Void</button>' +
+      '</div>';
+
+    return '<div class="stc-row' + (isVoid ? ' void' : '') + '">' +
+      '<div class="stc-no">' + escapeHtml(m.memo_number) +
+        (isVoid ? ' <span class="stc-tag-void">VOID</span>' : '') + '</div>' +
+      '<div class="stc-meta">' +
+        formatDateTime(m.created_at) + '  ·  Issued by ' + escapeHtml(m.created_by_name || '—') + '<br>' +
+        escapeHtml(m.reason || '—') +
+        (isVoid ? '<br><span style="color:var(--error);">Voided: ' + escapeHtml(m.void_reason || '—') + '</span>' : '') +
+      '</div>' +
+      '<div class="stc-amt">' +
+        '<span class="' + (isDue ? 'due' : '') + '">' + amt + '</span>' +
+        (fee ? '<div style="font-size:11px;color:var(--muted);">incl. fee $' + fee.toFixed(2) + '</div>' : '') +
+      '</div>' + acts +
+    '</div>';
+  };
+
+  return '<div class="stc-section">' +
+    '<div class="stc-section-head">' +
+      '<span class="stc-section-title">Return Memos</span>' +
+      '<span class="stc-section-note">Internal list — dealers see the memo only as pages attached to their documents.</span>' +
+    '</div>' +
+    _stcActive.map(function (m) { return rowHtml(m, false); }).join('') +
+    _stcVoided.map(function (m) { return rowHtml(m, true); }).join('') +
+  '</div>';
+}
+
+// ── 單獨下載一張 memo(admin only)──────────────────────────────────────
+// 🔴 Q-12 定版:dealer【不可】單獨下載 —— 單獨的 memo 脫離原單就沒有脈絡,
+//    一張只寫「退了 3 個櫃體、−$1,050」的 PDF,dealer 拿到也不知道對應哪一筆。
+//    dealer 透過三份原單 PDF 附帶看到,那樣自帶脈絡。
+async function downloadStoreCreditMemo(memoId) {
+  if (!_isAdmin || !_quote || !_dealer) return;
+  const m = _stcActive.find(function (x) { return x.id === memoId; });
+  if (!m) return;
+
+  try {
+    const doc = await ProCraftPDF.buildStoreCreditMemoPdf(
+      buildQuoteDataForPdf(), _dealer, [m], { stamp: { mode: 'download', user: _me } }
+    );
+    doc.save(ProCraftPDF.getStoreCreditMemoPdfFilename(m.memo_number));
+  } catch (err) {
+    console.error('[CB-93] memo pdf failed:', err);
+    alert('Sorry — we could not prepare this return memo. Please refresh and try again.');
+  }
+}
+
+// ── 作廢(admin only)────────────────────────────────────────────────────
+// 🔴 作廢【不刪除】,且不可撤回。釋出的數量會回補給後續退貨。
+async function voidStoreCredit(memoId) {
+  if (!_isAdmin) return;
+  const m = _stcActive.find(function (x) { return x.id === memoId; });
+  if (!m) return;
+
+  const reason = window.prompt(
+    'Void return memo ' + m.memo_number + '?\n\n' +
+    'The record is kept and the returned quantity is released. This cannot be undone.\n\n' +
+    'Reason for voiding:'
+  );
+  if (reason === null) return;
+  if (!reason.trim()) {
+    alert('A reason is required to void a return memo.');
+    return;
+  }
+
+  const { error } = await _supabase.rpc('void_store_credit', {
+    p_memo_id: memoId, p_void_reason: reason.trim(),
+  });
+
+  if (error) {
+    // 🔴 原樣顯示 —— RPC 的訊息可讀(含「已作廢」這種情況),
+    //    換成「操作失敗」會把診斷資訊丟掉。
+    alert('Could not void this return memo: ' + (error.message || 'unexpected error'));
+    return;
+  }
+
+  await loadStoreCredits();
+  renderQuote(_quote, _dealer, _addr);
+}
+
 // ══ F-118 同步單元:reminderFlagHtml() ═══════════════════════════════════
 //   本函式共有【兩份】平行實作,判斷規則必須逐字一致:
 //     ① admin-quotes.html   — 資料來源:_rmOpen / _rmClear 兩個 Set
@@ -3204,11 +3491,25 @@ async function _buildAndSaveDraftQuotePdf(isInternal) {
   doc.save(filename);
 }
 
+// ── CB-93:降級時擋下下載(Q-9 = A / S1-Q2)────────────────────────────
+// 🔴 為什麼擋而不是「照出但不帶註記」:Invoice / Packing List 少了退貨註記,
+//    倉庫可能照【原數量】出貨 —— 那是實體後果,不是顯示問題。
+// 🔴 範圍限定在降級:沒有退貨的一般單完全不受影響。
+// 🔴 Receipt 也擋(S1-Q2):三份現在是同一個家族,少了註記是同一種缺失。
+function storeCreditBlocksDownload() {
+  if (!_stcDegraded) return false;
+  alert(pcTxt('qd.stc.degraded',
+    'Return information for this order is unavailable right now, so document downloads are turned off. Please refresh the page.'));
+  return true;
+}
+
 async function downloadPackingList() {
   if (!_quote || !_dealer) return;
+  if (storeCreditBlocksDownload()) return;
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildPackingListPdf(
-    quoteDataForPdf, _dealer, _addr, { stamp: { mode: 'download', user: _me } }
+    quoteDataForPdf, _dealer, _addr,
+    { stamp: { mode: 'download', user: _me }, storeCredits: _stcActive }
   );
   const filename = ProCraftPDF.getPdfFilename('packing-list', {
     poNumber:       _quote.po_number || 'Quote',
@@ -3219,9 +3520,11 @@ async function downloadPackingList() {
 
 async function downloadInvoice() {
   if (!_quote || !_dealer) return;
+  if (storeCreditBlocksDownload()) return;   // CB-93
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildInvoicePdf(
-    quoteDataForPdf, _dealer, _addr, { markupPercent: 0, stamp: { mode: 'download', user: _me } }
+    quoteDataForPdf, _dealer, _addr,
+    { markupPercent: 0, stamp: { mode: 'download', user: _me }, storeCredits: _stcActive }
   );
   const filename = ProCraftPDF.getPdfFilename('invoice', {
     poNumber:       _quote.po_number || 'Quote',
@@ -3236,6 +3539,7 @@ async function downloadInvoice() {
 // fee/total_paid 讀 payment 列存值,不現算;confirmed_at ?? created_at 為 B2 fallback。
 async function downloadReceipt() {
   if (!_quote || !_dealer) return;
+  if (storeCreditBlocksDownload()) return;   // CB-93
 
   const { data: pays, error: payErr } = await _supabase
     .from('payments')
@@ -3273,7 +3577,10 @@ async function downloadReceipt() {
   let doc;
   try {
     doc = await ProCraftPDF.buildReceiptPdf(
-      quoteDataForPdf, _dealer, _addr, { markupPercent: 0, receipt, stamp: { mode: 'download', user: _me } }
+      quoteDataForPdf, _dealer, _addr,
+      // CB-93:memo 頁接在 CB-45 對帳斷言【之後】—— 斷言在 _finalizeWithTotals
+      //   內已跑完,memo 金額不進 quotes,對帳不受影響。
+      { markupPercent: 0, receipt, stamp: { mode: 'download', user: _me }, storeCredits: _stcActive }
     );
   } catch (err) {
     // CB-45 對帳斷言 fail-loud:live grand 與付款當時 base_amount 不一致 → 不出憑證。
