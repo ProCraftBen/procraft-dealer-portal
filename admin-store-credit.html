@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Create Return Memo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+      --amber:      #B45309;
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+    .page { max-width: 1240px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); }
+    .page-note { margin-bottom: 20px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+
+    .back-link { font-size: 12px; color: var(--green-dark); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .back-link:hover { border-color: var(--gold); }
+
+    /* 🔴 致命錯誤的呈現:整頁只剩橫幅,表單【不渲染】。
+       不可只顯示訊息卻留著表單 —— admin 會照填、照送,然後拿到一個
+       看不懂的錯誤。fail-closed 比 fail-loud-but-usable 更適合寫入頁。 */
+    .fatal { display: none; padding: 16px 20px; border: 1px solid var(--error); border-left-width: 4px;
+             border-radius: 4px; background: #FDF2F0; color: var(--error); font-size: 13px; line-height: 1.6; }
+    .fatal.show { display: block; }
+
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 18px; }
+    .card-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8;
+                   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .card-body { padding: 18px 20px; }
+
+    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px 24px; }
+    .meta-label { font-size: 9px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+    .meta-value { font-size: 14px; color: var(--text); }
+
+    .overflow-x { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 12px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500;
+               letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    .num { text-align: right; white-space: nowrap; }
+    .sku { font-weight: 500; color: var(--green-dark); }
+    .sub { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 2px; }
+
+    /* 🔴 Asm 必須是【獨立欄】:S-19 實證同一張已付款單上,同一 SKU 可能
+       以 ASSEMBLED 與 RTA 各存在一列(PDC09080)。擠進副標會被掃過去,
+       admin 就會退錯那一列 —— 而金額看起來完全正常。 */
+    .asm { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 500;
+           letter-spacing: 0.06em; background: rgba(62,90,66,0.09); color: var(--green-dark); white-space: nowrap; }
+
+    .qty-input { width: 72px; height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px;
+                 font-family: 'DM Sans', sans-serif; font-size: 13px; text-align: right; color: var(--text); background: var(--white); }
+    .qty-input:focus { outline: none; border-color: var(--gold); }
+    .qty-input:disabled { background: #F2F0EA; color: var(--muted); cursor: not-allowed; }
+    .qty-input.over { border-color: var(--error); background: #FDF2F0; }
+
+    .row-done td { background: #FAFAF8; color: var(--muted); }
+    .done-tag { font-size: 11px; color: var(--muted); }
+
+    .text-input, .money-input { height: 36px; border: 1px solid var(--border); border-radius: 3px; padding: 0 10px;
+                                font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); }
+    .text-input:focus, .money-input:focus { outline: none; border-color: var(--gold); }
+    .money-input { width: 120px; text-align: right; }
+    textarea.text-input { width: 100%; height: 76px; padding: 8px 10px; line-height: 1.5; resize: vertical; }
+    .field-label { display: block; font-size: 9px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase;
+                   color: var(--muted); margin-bottom: 5px; }
+    .req { color: var(--gold); }
+    .field-hint { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+
+    .btn { height: 36px; border-radius: 3px; padding: 0 16px; font-family: 'DM Sans', sans-serif; font-size: 11px;
+           font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; border: 1px solid transparent; }
+    .btn-primary { background: var(--green-dark); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--green-mid); }
+    .btn-primary:disabled { opacity: 0.45; cursor: default; }
+    .btn-ghost { background: transparent; color: var(--muted); border-color: var(--border); }
+    .btn-ghost:hover { color: var(--text); }
+    .btn-sm { height: 30px; padding: 0 12px; font-size: 10px; }
+    .btn-link { background: none; border: none; color: var(--error); font-size: 11px; cursor: pointer; padding: 0; }
+
+    .totals { margin-left: auto; width: 320px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+    .totals-row .lbl { color: var(--muted); }
+    .totals-sep { border-top: 1px solid var(--border); margin: 6px 0; }
+    .totals-net { display: flex; justify-content: space-between; padding: 8px 0 0; font-size: 15px; font-weight: 500; color: var(--green-dark); }
+    .totals-net.due { color: var(--amber); }
+    /* 🔴 預覽字樣不可省:金額的權威在 DB(Q-14=A)。
+       少了這一句,admin 會以為畫面上的數字就是最終存下去的數字。 */
+    .totals-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
+    .actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--green-dark); color: #fff; padding: 12px 20px;
+             border-radius: 4px; font-size: 12px; z-index: 999; display: none; max-width: 460px; line-height: 1.5; }
+    .toast.show { display: block; }
+    .toast.err { background: var(--error); }
+
+    .empty-state { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<div id="pcd-nav" data-page="quotes"></div>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">Create Return Memo</div>
+    <a class="back-link" id="backLink" href="admin-quotes.html">&larr; Back to order</a>
+  </div>
+
+  <!-- 🔴 邊界寫進 UI(比照 admin-reminders 的做法)。
+       三句缺一不可:不可刪、只能作廢、金流不在 portal ——
+       少寫任何一句,日後都會有人問而查不到答案。 -->
+  <div class="page-note">
+    A return memo cannot be edited or deleted once created. If it is wrong, void it and create a new one.
+    Voiding keeps the record and releases the returned quantity. The actual store credit is handled in QuickBooks; this portal does not track the balance.
+  </div>
+
+  <div class="fatal" id="fatal"></div>
+
+  <div id="formWrap" style="display:none;">
+
+    <!-- 原單摘要 -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Original Order</span></div>
+      <div class="card-body">
+        <div class="meta-grid">
+          <div><div class="meta-label">SO #</div><div class="meta-value" id="mPo">—</div></div>
+          <div><div class="meta-label">Dealer</div><div class="meta-value" id="mDealer">—</div></div>
+          <div><div class="meta-label">Job Name</div><div class="meta-value" id="mJob">—</div></div>
+          <div><div class="meta-label">Status</div><div class="meta-value" id="mStatus">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 品項 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Items on this order</span>
+        <span class="field-hint" style="margin:0;">Enter the quantity to return. Available = Ordered &minus; already credited.</span>
+      </div>
+      <div class="overflow-x">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU / Description</th>
+              <th>Style</th>
+              <th>Asm</th>
+              <th class="num">Unit Credit</th>
+              <th class="num">Ordered</th>
+              <th class="num">Credited</th>
+              <th class="num">Available</th>
+              <th class="num">Return Qty</th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- manual 行 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Additional lines</span>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addManualRow()">+ Add line</button>
+      </div>
+      <div class="card-body">
+        <!-- 🔴 說明它是【補充出口】而非常規做法(票面拍板 #9)。
+             不寫的話,admin 會拿它來繞過數量上限 —— manual 行不受上限約束。 -->
+        <div class="field-hint" style="margin:0 0 12px;">
+          For items the system cannot map to a line above. Additional lines are not checked against the ordered quantity, so use them only when necessary.
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="num">Qty</th>
+                <th class="num">Unit Credit</th>
+                <th class="num">Line Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="manualBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="manualEmpty">No additional lines.</div>
+      </div>
+    </div>
+
+    <!-- 原因 / 費用 / 合計 -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Reason &amp; fees</span></div>
+      <div class="card-body">
+        <div style="display:flex; gap:28px; flex-wrap:wrap;">
+          <div style="flex:1 1 360px; min-width:280px;">
+            <label class="field-label" for="reason">Reason for return <span class="req">*</span></label>
+            <textarea class="text-input" id="reason" maxlength="500"
+                      placeholder="Why is this being returned?"></textarea>
+            <div class="field-hint">This is printed on the RETURN MEMO given to the dealer.</div>
+
+            <label class="field-label" for="fee" style="margin-top:16px;">Restocking fee</label>
+            <input class="money-input" id="fee" type="number" min="0" step="0.01" value="" placeholder="0.00"
+                   oninput="recalc()"/>
+            <div class="field-hint">Leave empty for none. Hidden on the memo when zero.</div>
+          </div>
+
+          <div style="flex:0 0 340px;">
+            <div class="totals">
+              <div class="totals-row"><span class="lbl">Merchandise</span><span id="tMerch">$0.00</span></div>
+              <div class="totals-row" id="tFeeRow" style="display:none;"><span class="lbl">Restocking Fee</span><span id="tFee">$0.00</span></div>
+              <div class="totals-sep"></div>
+              <div class="totals-net" id="tNetRow"><span id="tNetLabel">Store Credit Issued</span><span id="tNet">$0.00</span></div>
+              <div class="totals-note">
+                Preview only. Final amounts are calculated and stored by the server from the original order.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-ghost" id="cancelLink" href="admin-quotes.html" style="line-height:36px; text-decoration:none;">Cancel</a>
+      <button class="btn btn-primary" id="submitBtn" type="button" onclick="submitMemo()" disabled>Create Return Memo</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div id="pcd-footer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/navigator.js?v=cb62c"></script>
+<script src="components/footer.js?v=cb62c"></script>
+<!-- CB-93:mod 文字格式化沿用 pdf-builder 的既有 helper(見下方 modsText 註解)。
+     本頁【不產生 PDF】,故不需要 jsPDF —— pdf-builder.js 的 jsPDF 取用
+     全在函式內部,單純載入不會觸發。
+     🔴 新增檔案無舊快取問題,依 F-112 判準不帶 ?v=;pdf-builder.js 本身
+        無 ?v= 已登記為 F-168,本檔沿用現況不順手修(範圍紀律)。 -->
+<script src="pdf-builder.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+ * CB-93  admin-store-credit.html — 建立退貨紀錄(RETURN MEMO)
+ *
+ * 🔴 本頁【不載入】components/i18n.js —— admin 頁一律英文硬編碼,
+ *    且不掛任何 i18n 標記(F-25 死標記同類)。
+ *
+ * 🔴 資料來源【只有一個】:RPC get_quote_item_credit_summary()。
+ *    刻意不走「RPC 取數量 + RLS 取 quote_items」兩路併用 ——
+ *    兩個來源各自可能被擋,混用時前端得判斷四種組合,而其中一種
+ *    (品項讀到、數量被擋)正好長得像「這張單沒退過東西」。
+ *    在純 PostgREST + RLS 之下,「被 policy 擋」與「沒資料」完全同形
+ *    (200 / [] / count 0 / error null)—— CB-82 缺陷二。
+ *
+ * 🔴 前端的數量檢查只是 UX。真正的權威有兩層,都在 DB:
+ *      ① create_store_credit() 的狀態守衛與品項歸屬驗證
+ *      ② trg_store_credit_line_limit 的數量上限(quote_items 行鎖下計算)
+ *    前端擋不住的,DB 會擋;前端擋得住的,只是讓 admin 早點知道。
+ *
+ * 🔴 金額不在前端算。送出時只送 quote_item_id + quantity ——
+ *    單價一律由 create_store_credit() 從 quote_items 重新快照(Q-1)。
+ *    畫面上的數字是【預覽】,並已在 UI 上明說。
+ *    ⚠️ 不呼叫 round2():F-71 / F-165 已登記有 4 份複製、2 種演算法,
+ *       這裡再抄一份就是第 5 份。預覽用 toFixed(顯示用途,DOC-1 允許)。
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+const { createClient } = window.supabase;
+const _supabase = createClient(window.SB_URL, window.SB_KEY);
+
+let _quoteId  = null;
+let _items    = [];        // get_quote_item_credit_summary() 的回傳,原樣保留
+let _manual   = [];        // { key, description, quantity, unit_amount }
+let _manualSeq = 0;
+// 🔴 送出中旗標:連點兩次會建出兩張 memo,而兩張都是合法的、都不可刪。
+//    DB 層擋不了這種重複 —— 它們的內容確實不同(seq 不同),不違反任何約束。
+let _submitting = false;
+
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.add('show');
+  setTimeout(function () { t.classList.remove('show'); }, 5000);
+}
+
+// 🔴 致命錯誤 = 表單【不渲染】。
+//    只顯示訊息卻留著表單的話,admin 會照填照送,然後拿到一個看不懂的錯誤。
+function fatal(msg) {
+  const el = document.getElementById('fatal');
+  el.textContent = msg;
+  el.classList.add('show');
+  document.getElementById('formWrap').style.display = 'none';
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function money(n) {
+  const v = Number(n);
+  return (isFinite(v) ? v : 0).toFixed(2);
+}
+
+// ── mod 文字 ─────────────────────────────────────────────────────────────
+// 🔴 為什麼要顯示 mods:S-19 實證同一張已付款單上,同一 SKU 可能以
+//    ASSEMBLED / RTA 各存在一列;再加上 mods 不同,肉眼分不出要退哪一列。
+//    退錯列的症狀是金額看起來完全正常 —— 沒有任何跡象。
+// 🔴 標籤與數值的格式化【沿用 pdf-builder 的既有 helper】,不自寫一份:
+//    _isHiddenMod / _displayModLabel / _formatModValue 三支已匯出。
+//    ⚠️ 這裡的【組裝方式】與 _buildModsText() 不同(那支要處理 PDF 的
+//       換行、notes 表與價格欄),但格式化的單一真相仍在 pdf-builder。
+function modsText(row) {
+  const P = window.ProCraftPDF;
+  const mods = Array.isArray(row.modifications) ? row.modifications : [];
+  if (!P || !mods.length) return '';
+  const parts = [];
+  mods.forEach(function (m) {
+    if (P._isHiddenMod(m)) return;
+    const label = P._displayModLabel(m);
+    const val   = P._formatModValue(m && m.value);
+    parts.push(val ? (label + ': ' + val) : label);
+  });
+  return parts.join('  ·  ');
+}
+
+// ── 讀取 ─────────────────────────────────────────────────────────────────
+async function loadQuoteHeader() {
+  // 🔴 error 與「查無此單」分開處理 —— 兩者原因不同,訊息也該不同。
+  const { data, error } = await _supabase
+    .from('quotes')
+    .select('id, po_number, job_name, status, dealer_id')
+    .eq('id', _quoteId)
+    .maybeSingle();
+
+  if (error) {
+    fatal('Could not load this order: ' + (error.message || 'unexpected error') +
+          '. Please refresh; if it keeps failing, do not create the memo from this page.');
+    return null;
+  }
+  if (!data) {
+    fatal('Order not found. Check the link you used to get here.');
+    return null;
+  }
+
+  let company = '—';
+  if (data.dealer_id) {
+    const { data: d } = await _supabase
+      .from('dealers').select('company_name').eq('id', data.dealer_id).maybeSingle();
+    if (d && d.company_name) company = d.company_name;
+  }
+
+  document.getElementById('mPo').textContent     = data.po_number || '—';
+  document.getElementById('mJob').textContent    = data.job_name || '—';
+  document.getElementById('mStatus').textContent = data.status || '—';
+  document.getElementById('mDealer').textContent = company;
+
+  const href = 'quote-detail.html?id=' + encodeURIComponent(_quoteId);
+  document.getElementById('backLink').href   = href;
+  document.getElementById('cancelLink').href = href;
+  return data;
+}
+
+async function loadItems() {
+  const { data, error } = await _supabase
+    .rpc('get_quote_item_credit_summary', { p_quote_id: _quoteId });
+
+  if (error) {
+    // 🔴 RPC 內部對非 admin / 非法狀態 / 查無單 都是【真正的 error】,
+    //    不是空陣列 —— 所以這裡可以直接把訊息給 admin 看,它是可讀的。
+    fatal('Cannot create a return memo for this order: ' +
+          (error.message || 'unexpected error'));
+    return false;
+  }
+
+  const rows = data || [];
+  if (rows.length === 0) {
+    // 🔴 RPC 在單不存在時會拋錯,所以走到這裡的空集合【只可能】是
+    //    「這張單沒有品項」。這是資料異常,不是正常狀態。
+    fatal('This order has no items, so there is nothing to return.');
+    return false;
+  }
+
+  _items = rows;
+  renderItems();
+  return true;
+}
+
+// ── 渲染 ─────────────────────────────────────────────────────────────────
+function renderItems() {
+  const body = document.getElementById('itemsBody');
+  let html = '';
+
+  _items.forEach(function (r, idx) {
+    const avail = Number(r.available_quantity);
+    const done  = !(avail > 0);
+    const mods  = modsText(r);
+
+    html +=
+      '<tr class="' + (done ? 'row-done' : '') + '">' +
+        '<td>' +
+          '<div class="sku">' + escapeHtml(r.sku_code || '—') +
+            (r.is_custom ? ' <span class="asm">CUSTOM</span>' : '') + '</div>' +
+          (r.sku_desc ? '<div class="sub">' + escapeHtml(r.sku_desc) + '</div>' : '') +
+          (mods ? '<div class="sub">' + escapeHtml(mods) + '</div>' : '') +
+        '</td>' +
+        '<td>' + escapeHtml(r.style_code || '—') +
+          (r.style_name ? '<div class="sub">' + escapeHtml(r.style_name) + '</div>' : '') + '</td>' +
+        '<td><span class="asm">' + escapeHtml(r.assemble_status || '—') + '</span></td>' +
+        '<td class="num">$' + money(r.credit_unit_amount) + '</td>' +
+        '<td class="num">' + Number(r.ordered_quantity) + '</td>' +
+        '<td class="num">' + Number(r.credited_quantity) + '</td>' +
+        '<td class="num">' + avail + '</td>' +
+        '<td class="num">' +
+          (done
+            ? '<span class="done-tag">Fully credited</span>'
+            : '<input class="qty-input" type="number" min="0" step="1" max="' + avail + '"' +
+              ' id="q' + idx + '" value="" placeholder="0" oninput="onQtyInput(' + idx + ')"/>') +
+        '</td>' +
+      '</tr>';
+  });
+
+  body.innerHTML = html;
+  recalc();
+}
+
+function renderManual() {
+  const body  = document.getElementById('manualBody');
+  const empty = document.getElementById('manualEmpty');
+  if (_manual.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    recalc();
+    return;
+  }
+  empty.style.display = 'none';
+
+  let html = '';
+  _manual.forEach(function (m) {
+    const total = (Number(m.quantity) || 0) * (Number(m.unit_amount) || 0);
+    html +=
+      '<tr>' +
+        '<td><input class="text-input" style="width:100%;" type="text" maxlength="200"' +
+          ' value="' + escapeHtml(m.description) + '"' +
+          ' placeholder="What is being credited?"' +
+          ' oninput="onManualInput(\'' + m.key + '\', \'description\', this.value)"/></td>' +
+        '<td class="num"><input class="qty-input" type="number" min="1" step="1"' +
+          ' value="' + escapeHtml(m.quantity) + '"' +
+          ' oninput="onManualInput(\'' + m.key + '\', \'quantity\', this.value)"/></td>' +
+        '<td class="num"><input class="money-input" type="number" min="0" step="0.01"' +
+          ' value="' + escapeHtml(m.unit_amount) + '"' +
+          ' oninput="onManualInput(\'' + m.key + '\', \'unit_amount\', this.value)"/></td>' +
+        '<td class="num">-$' + money(total) + '</td>' +
+        '<td class="num"><button class="btn-link" type="button"' +
+          ' onclick="removeManualRow(\'' + m.key + '\')">Remove</button></td>' +
+      '</tr>';
+  });
+  body.innerHTML = html;
+  recalc();
+}
+
+function addManualRow() {
+  _manualSeq += 1;
+  _manual.push({ key: 'm' + _manualSeq, description: '', quantity: '1', unit_amount: '' });
+  renderManual();
+}
+
+function removeManualRow(key) {
+  _manual = _manual.filter(function (m) { return m.key !== key; });
+  renderManual();
+}
+
+function onManualInput(key, field, value) {
+  const m = _manual.find(function (x) { return x.key === key; });
+  if (!m) return;
+  m[field] = value;
+  // 🔴 只重算合計,【不】重繪 —— 重繪會讓輸入游標跳回開頭,
+  //    而那看起來像是頁面壞掉。Line Total 欄因此在此手動更新。
+  const row = document.getElementById('manualBody');
+  if (row) {
+    const idx = _manual.findIndex(function (x) { return x.key === key; });
+    const tds = row.rows[idx] ? row.rows[idx].cells : null;
+    if (tds && tds[3]) {
+      tds[3].textContent = '-$' + money((Number(m.quantity) || 0) * (Number(m.unit_amount) || 0));
+    }
+  }
+  recalc();
+}
+
+function onQtyInput(idx) {
+  const el = document.getElementById('q' + idx);
+  if (!el) return;
+  const avail = Number(_items[idx].available_quantity);
+  const v = Number(el.value);
+  // 🔴 超量【標紅但不自動修正】—— 自動改成上限會讓 admin 以為自己輸入對了,
+  //    而他真正想退的數量與實際送出的數量不同,且沒有任何提示。
+  el.classList.toggle('over', el.value !== '' && (v > avail || v < 0));
+  recalc();
+}
+
+// ── 合計預覽 ─────────────────────────────────────────────────────────────
+function recalc() {
+  let merch = 0;
+  let hasLine = false;
+  let hasError = false;
+
+  _items.forEach(function (r, idx) {
+    const el = document.getElementById('q' + idx);
+    if (!el || el.value === '') return;
+    const q = Number(el.value);
+    if (!isFinite(q) || q < 0 || Math.floor(q) !== q) { hasError = true; return; }
+    if (q === 0) return;
+    if (q > Number(r.available_quantity)) { hasError = true; return; }
+    hasLine = true;
+    merch += Number(r.credit_unit_amount) * q;
+  });
+
+  _manual.forEach(function (m) {
+    const q = Number(m.quantity);
+    const a = Number(m.unit_amount);
+    const descOk = String(m.description || '').trim() !== '';
+    const qOk = isFinite(q) && q > 0 && Math.floor(q) === q;
+    const aOk = isFinite(a) && a >= 0 && m.unit_amount !== '';
+    if (!descOk || !qOk || !aOk) { hasError = true; return; }
+    hasLine = true;
+    merch += a * q;
+  });
+
+  const feeRaw = document.getElementById('fee').value;
+  const fee = feeRaw === '' ? 0 : Number(feeRaw);
+  const feeOk = isFinite(fee) && fee >= 0;
+  if (!feeOk) hasError = true;
+
+  const net = -merch + (feeOk ? fee : 0);
+
+  document.getElementById('tMerch').textContent = '-$' + money(merch);
+  document.getElementById('tFeeRow').style.display = (feeOk && fee !== 0) ? 'flex' : 'none';
+  document.getElementById('tFee').textContent = '$' + money(feeOk ? fee : 0);
+
+  // 🔴 net > 0 代表 fee 超過退貨額 → dealer 反而要補錢,標籤必須改(Q-8)。
+  //    仍印 Store Credit Issued 會讓一個「要收錢」的數字看起來像「給 credit」。
+  const isDue = net > 0;
+  document.getElementById('tNetRow').classList.toggle('due', isDue);
+  document.getElementById('tNetLabel').textContent = isDue ? 'Balance Due' : 'Store Credit Issued';
+  document.getElementById('tNet').textContent = (isDue ? '$' : '-$') + money(Math.abs(net));
+
+  const reasonOk = document.getElementById('reason').value.trim() !== '';
+  document.getElementById('submitBtn').disabled =
+    _submitting || hasError || !hasLine || !reasonOk;
+}
+
+// ── 送出 ─────────────────────────────────────────────────────────────────
+function buildLines() {
+  const lines = [];
+
+  _items.forEach(function (r, idx) {
+    const el = document.getElementById('q' + idx);
+    if (!el || el.value === '') return;
+    const q = Number(el.value);
+    if (!isFinite(q) || q <= 0) return;
+    // 🔴 只送 id 與數量。價格【不送】—— 由 create_store_credit() 從
+    //    quote_items 重新快照。前端送不進價格,也就竄改不了金額;
+    //    前端若因快取拿到舊價,也不會靜默退錯錢。
+    lines.push({
+      line_kind:     'quote_item',
+      quote_item_id: r.quote_item_id,
+      quantity:      q,
+    });
+  });
+
+  _manual.forEach(function (m) {
+    lines.push({
+      line_kind:   'manual',
+      description: String(m.description || '').trim(),
+      quantity:    Number(m.quantity),
+      unit_amount: Number(m.unit_amount),
+    });
+  });
+
+  return lines;
+}
+
+// 🔴 小數位檢查看【輸入字串】,不看浮點運算結果。
+//    用 fee*100 是否為整數來判斷會踩浮點誤差:10.07*100 = 1007.0000000000001,
+//    一個合法輸入被判成非法,而使用者完全看不出為什麼。
+function decimalsOf(raw) {
+  const m = String(raw == null ? '' : raw).match(/\.(\d+)\s*$/);
+  return m ? m[1].length : 0;
+}
+
+async function submitMemo() {
+  if (_submitting) return;
+
+  const lines = buildLines();
+  if (lines.length === 0) {
+    showToast('Enter at least one quantity before creating the memo.', true);
+    return;
+  }
+
+  const reason  = document.getElementById('reason').value.trim();
+  const feeRaw  = document.getElementById('fee').value;
+  const fee     = feeRaw === '' ? 0 : Number(feeRaw);
+
+  // 🔴 小數位在前端先擋一次。DB 也會擋(拋錯,不靜默取整),
+  //    但在這裡擋能讓 admin 當下就改,不用讀一串英文錯誤。
+  if (!isFinite(fee) || fee < 0 || decimalsOf(feeRaw) > 2) {
+    showToast('Restocking fee must be a number with at most 2 decimal places.', true);
+    return;
+  }
+
+  const badManual = _manual.find(function (m) { return decimalsOf(m.unit_amount) > 2; });
+  if (badManual) {
+    showToast('Additional line amounts must have at most 2 decimal places.', true);
+    return;
+  }
+
+  const n = lines.filter(function (l) { return l.line_kind === 'quote_item'; }).length;
+  const ok = window.confirm(
+    'Create a return memo for this order?\n\n' +
+    n + ' item line(s)' +
+    (lines.length - n > 0 ? ' and ' + (lines.length - n) + ' additional line(s)' : '') +
+    (fee > 0 ? '\nRestocking fee: $' + money(fee) : '') +
+    '\n\nThis cannot be edited or deleted afterwards. It can only be voided.'
+  );
+  if (!ok) return;
+
+  _submitting = true;
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  const { data, error } = await _supabase.rpc('create_store_credit', {
+    p_quote_id:       _quoteId,
+    p_reason:         reason,
+    p_restocking_fee: fee,
+    p_lines:          lines,
+  });
+
+  if (error) {
+    // 🔴 原樣顯示伺服器訊息 —— RPC 與 trigger 的錯誤都寫成可讀的英文,
+    //    含品項 id、原數量、已退數量。換成「操作失敗」會把診斷資訊丟掉。
+    _submitting = false;
+    btn.disabled = false;
+    btn.textContent = 'Create Return Memo';
+    showToast('Could not create the return memo: ' + (error.message || 'unexpected error'), true);
+    recalc();
+    return;
+  }
+
+  // RPC 回 TABLE,PostgREST 給的是陣列。
+  const row = Array.isArray(data) ? data[0] : data;
+  const memoNo = (row && row.memo_number) || '';
+
+  // 🔴 成功後【不】還原 _submitting —— 頁面即將離開,還原只會製造
+  //    「已經建好了卻還能再按一次」的空窗。
+  btn.textContent = 'Created';
+  showToast('Return memo ' + memoNo + ' created.');
+  setTimeout(function () {
+    window.location.href = 'quote-detail.html?id=' + encodeURIComponent(_quoteId);
+  }, 900);
+}
+
+// ── init ─────────────────────────────────────────────────────────────────
+async function init() {
+  // 守衛寫在本頁,與其他 admin 頁同模式 —— navigator.js 不負責導向。
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (!session) { window.location.href = 'login.html'; return; }
+
+  const { data: me } = await _supabase
+    .from('dealers').select('role').eq('id', session.user.id).single();
+  if (!['admin', 'super_admin'].includes(me && me.role)) {
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  _quoteId = params.get('quote_id');
+
+  if (!_quoteId) {
+    fatal('No order was specified. Open this page from the order you want to create a return memo for.');
+    return;
+  }
+
+  const header = await loadQuoteHeader();
+  if (!header) return;
+
+  const okItems = await loadItems();
+  if (!okItems) return;
+
+  document.getElementById('formWrap').style.display = 'block';
+  document.getElementById('reason').addEventListener('input', recalc);
+  renderManual();
+  recalc();
+}
+
+init();
+</script>
+</body>
+</html>
