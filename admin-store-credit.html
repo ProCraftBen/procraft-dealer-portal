@@ -177,7 +177,7 @@
     <div class="card">
       <div class="card-header">
         <span class="card-title">Items on this order</span>
-        <span class="field-hint" style="margin:0;">Enter the quantity to return. Available = Ordered &minus; already credited.</span>
+        <span class="field-hint" style="margin:0;">Unit Credit = Unit Price &minus; Discount. Available = Ordered &minus; already credited.</span>
       </div>
       <div class="overflow-x">
         <table>
@@ -186,6 +186,11 @@
               <th>SKU / Description</th>
               <th>Style</th>
               <th>Asm</th>
+              <!-- 🔴 原價與折扣【分開列】,不只列折後價:
+                   admin 要能把畫面上的數字與原單對起來。只給折後價的話,
+                   對不上原單就只能猜是折扣還是填錯,而兩者都不會報錯。 -->
+              <th class="num">Unit Price</th>
+              <th class="num">Discount</th>
               <th class="num">Unit Credit</th>
               <th class="num">Ordered</th>
               <th class="num">Credited</th>
@@ -470,7 +475,13 @@ function renderItems() {
         '<td>' + escapeHtml(r.style_code || '—') +
           (r.style_name ? '<div class="sub">' + escapeHtml(r.style_name) + '</div>' : '') + '</td>' +
         '<td><span class="asm">' + escapeHtml(r.assemble_status || '—') + '</span></td>' +
-        '<td class="num">$' + money(r.credit_unit_amount) + '</td>' +
+        '<td class="num">$' + money(r.unit_price) + '</td>' +
+        // 折扣為 0 時顯示破折號,不顯示 -$0.00 —— 後者會被誤讀成「有折扣」。
+        '<td class="num">' + (Number(r.discount_amount) !== 0
+            ? '-$' + money(r.discount_amount) : '&mdash;') + '</td>' +
+        // 🔴 這一欄才是實際退的金額(Q-1:unit_price − discount_amount)。
+        //    粗體區別於左邊兩欄的參考值。
+        '<td class="num" style="font-weight:500;">$' + money(r.credit_unit_amount) + '</td>' +
         '<td class="num">' + Number(r.ordered_quantity) + '</td>' +
         '<td class="num">' + Number(r.credited_quantity) + '</td>' +
         '<td class="num">' + avail + '</td>' +
