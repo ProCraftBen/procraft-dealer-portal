@@ -668,7 +668,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/i18n.js?v=cb93"></script>
+<script src="components/i18n.js?v=cb93b"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <!-- CB-82: Reminder 表單 modal(與 admin-reminders.html 共用同一份)。
@@ -3145,6 +3145,13 @@ function storeCreditBannerHtml() {
       '<div class="stc-banner-msg">' +
         escapeHtml(pcTxt('qd.stc.banner.msg',
           'This order has a return. See return memo {nums}.', { nums: nums })) +
+        // 🔴 dealer 不能單獨下載 memo(Q-12)—— 不講的話他會去找一個
+        //    不存在的按鈕。這一行說明它附在三份文件的尾端。
+        //    🔴 新增 key,【不改】既有 key 的文字 —— 改文字會在 diff 出現
+        //       「修改行」,違反 F-152 的只增不改紀律。
+        '<br>' +
+        escapeHtml(pcTxt('qd.stc.banner.where',
+          'The return memo is attached at the end of your Invoice, Packing List and Receipt \u2014 download any of them to see it.')) +
       '</div>' +
     '</div>' +
   '</div>';
