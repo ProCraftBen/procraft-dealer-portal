@@ -70,6 +70,17 @@
        不進 <thead>，避開 CB-60a 可能新增的分頁列。 */
     .rm-degraded { display: none; padding: 10px 20px; border-bottom: 1px solid var(--border); background: #FFFBEB; color: #92400E; font-size: 12px; line-height: 1.5; }
     .rm-degraded.show { display: block; }
+    /* CB-93: 退貨(RETURN MEMO)標示。
+       🔴 刻意【不新增欄位】,徽章放進 PO 格 —— 新增欄位要同步改 <thead>、
+          LIST_COLSPAN、skeleton 列三處,而三者漂移只會讓版面歪掉,【不報錯】。
+       🔴 顏色刻意避開 .rm-flag 的紅(未處理 reminder)與綠(已處理)——
+          同一列可能同時出現兩種標示,顏色撞了會被誤讀成同一件事。 */
+    .rsc-flag { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; line-height: 1; vertical-align: middle; text-decoration: none; color: #B45309; background: rgba(180,83,9,0.13); cursor: pointer; transition: opacity 0.15s; }
+    .rsc-flag:hover { opacity: 0.72; }
+    /* 🔴 與 .rm-degraded 分開的橫幅:兩支 RPC 各自可能失敗,
+       共用一個元素會讓先寫的訊息被後寫的蓋掉,而那不報錯。 */
+    .rsc-degraded { display: none; padding: 10px 20px; border-bottom: 1px solid var(--border); background: #FFFBEB; color: #92400E; font-size: 12px; line-height: 1.5; }
+    .rsc-degraded.show { display: block; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); }
@@ -502,6 +513,7 @@
       <span class="table-count" id="tableCount"></span>
     </div>
     <div class="rm-degraded" id="rmDegraded"></div>
+    <div class="rsc-degraded" id="rscDegraded"></div>
     <div class="overflow-x">
       <table>
         <thead>
@@ -1016,6 +1028,18 @@ const _rmClear = new Set();   // status = 'solved'  → 綠 ✓
 //    ③ Fulfilled 的 confirm 改為【無法確認】文案。
 let _rmDegraded = false;
 
+// ── CB-93: 退貨標示 ────────────────────────────────────────────────
+// 🔴 只收【有效】(active_count > 0)的單。全部作廢的單不進集合 ——
+//    與 S1-Q1 一致:作廢代表文件無效,對外回到與「沒有 memo」相同的狀態。
+//    ⚠️ 已知代價:清單上分不出「從未退貨」與「退過但已作廢」。
+//       後者在 quote-detail 的 memo 清單看得到。
+// 🔴 不帶 quote id 條件(同 CB-82 的理由):避開 .in() 的 URL 長度上限,
+//    且與 CB-60a 的分頁交集為零。
+const _rscActive = new Set();
+// 🔴 與 _rmDegraded 分開:兩支 RPC 各自可能失敗,共用旗標會讓
+//    一支壞掉時另一支的標示也一起消失,而使用者看不出是哪一支的問題。
+let _rscDegraded = false;
+
 // ── CB-38 ─────────────────────────────────────────────────────────
 // currentUserId / currentUserRole:決定 Sales filter 的 default 值
 // salesList:role IN ('admin','super_admin'),用來建 Sales dropdown
@@ -1161,6 +1185,7 @@ async function init() {
   //    ⚠️ 已知代價：他人在別頁新增 reminder 後，本頁需重新整理才會出現標示。
   //       需求為「一眼看到哪張單有狀況」，接受。
   await loadReminderFlags();
+  await loadStoreCreditFlags();
 
   initSortOptions();   // CB-60a M3:須在 loadQuotes 之前,否則首次載入無排序值
   await loadQuotes();
@@ -1234,6 +1259,81 @@ async function loadReminderFlags() {
       bar.classList.remove('show');
     }
   }
+}
+
+// ══ CB-93: 退貨標示載入 ═══════════════════════════════════════════
+// 形態【刻意】比照 CB-82 的 loadReminderFlags() —— 同樣的兩態降級偵測,
+// 同樣的 SECURITY DEFINER RPC。不自創寫法。
+//
+// 【為什麼需要授權出口】在純 PostgREST + RLS 之下,「被 policy 擋」與
+// 「真的沒資料」完全同形(200 / [] / count 0 / error null)。
+// get_store_credit_flags() 為 SECURITY DEFINER 且內部自行 is_admin() 檢查,
+// 非 admin 拋 42501 → 前端拿到的是【真正的 error】,分得出來。
+//
+// 兩態(皆不產生錯誤訊息以外的跡象):
+//   ① error 非 null        → 無權限 / 網路 / 函式不存在
+//   ② count ≠ rows.length  → PostgREST max-rows 截斷
+//
+// 🔴 任一態成立 → _rscDegraded = true,橫幅現身、所有標示不渲染。
+//    【如何辨識它發生了】:看到橫幅 = 機制正常運作中。
+//    若畫面既無標示也無橫幅,才是真的沒有退貨。
+async function loadStoreCreditFlags() {
+  _rscActive.clear();
+  _rscDegraded = false;
+
+  const { data, error, count } = await _supabase
+    .rpc('get_store_credit_flags', {}, { count: 'exact' });
+
+  const fail = function (why) {
+    _rscDegraded = true;
+    console.error('[CB-93] store credit flags unavailable:', why);
+  };
+
+  if (error) {
+    fail(error);
+  } else {
+    const rows = data || [];
+    if (count != null && count !== rows.length) {
+      fail('row count mismatch (max-rows truncation)');
+    } else {
+      // 🔴 正向識別(F-35):只有【明確】active_count > 0 才入集合。
+      //    不寫「不是 0 就算有」—— 那在欄位缺失時會把 undefined 算成有。
+      rows.forEach(function (r) {
+        if (Number(r.active_count) > 0) _rscActive.add(r.quote_id);
+      });
+    }
+  }
+
+  const bar = document.getElementById('rscDegraded');
+  if (bar) {
+    if (_rscDegraded) {
+      _rscActive.clear();
+      bar.textContent = 'Return flags unavailable \u2014 this page cannot show which orders '
+                      + 'have returns. Please refresh to retry.';
+      bar.classList.add('show');
+    } else {
+      bar.textContent = '';
+      bar.classList.remove('show');
+    }
+  }
+}
+
+// ══ CB-93: storeCreditFlagHtml() ══════════════════════════════════
+// 🔴 規則(quote-detail 的註記橫幅必須遵守同一條,形式不同但判斷一致):
+//      active_count > 0 → 顯示; 否則(含全部作廢)→ 不顯示;
+//      降級時一律【不渲染】。
+//    不一致的症狀:同一張單在清單有標示、進到詳情卻說沒有退貨,且不報錯。
+// 🔴 降級時集合已清空 → 本函式自然回空字串,不需額外判斷。
+function storeCreditFlagHtml(quote) {
+  const id = quote && quote.id;
+  if (!id) return '';
+  if (!_rscActive.has(id)) return '';
+
+  // 🔴 onclick 必須 stopPropagation —— 整列掛了 toggleDetail,
+  //    不擋冒泡的話點連結會同時展開/收合該列(B-5 同型陷阱)。
+  return ' <a class="rsc-flag" href="quote-detail.html?id=' + id + '"'
+       + ' onclick="event.stopPropagation()"'
+       + ' title="This order has a return \u2014 click to review">R</a>';
 }
 
 // ══ F-118 同步單元:reminderFlagHtml() ═══════════════════════════════════
@@ -2145,7 +2245,7 @@ function renderTable() {
     html +=
       '<tr class="' + rowClass + '" onclick="toggleDetail(' + idx + ')">' +
         '<td>' +
-            '<div class="td-po">' + escapeHtml(q.po_number || q.draft_number || '—') + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
+            '<div class="td-po">' + escapeHtml(q.po_number || q.draft_number || '—') + storeCreditFlagHtml(q) + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
             (q.po_number && q.draft_number ? '<div style="font-size:10px;color:var(--muted);">Draft ID: ' + escapeHtml(q.draft_number) + '</div>' : '') +
         '</td>' +
         '<td><div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
