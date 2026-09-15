@@ -109,6 +109,33 @@
     .toast.err { background: var(--error); }
 
     .empty-state { padding: 28px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+    /* 🔴 B-8 修正:原本小數位只在 submitMemo() 內檢查,而按鈕 disabled 時
+       那支根本不會執行 —— 使用者看到的是「按鈕灰掉但不知道為什麼」。
+       那是靜默失敗的形狀:擋住了,卻沒說原因。
+       修法:檢查移進 recalc(),欄位標紅並在送出鈕旁說明缺什麼。 */
+    .money-input.bad, .qty-input.bad, .text-input.bad { border-color: var(--error); background: #FDF2F0; }
+    .field-err { display: none; font-size: 11px; line-height: 1.5; color: var(--error); margin-top: 5px; }
+    .field-err.show { display: block; }
+    .submit-hint { flex: 1; font-size: 11px; line-height: 1.5; color: var(--error); text-align: right; }
+
+    /* ── 說明 modal(載入時顯示一次)──────────────────────────────
+       🔴 刻意放在【表單頁】而非 quote-detail 攔截點擊:
+          quote-detail 沒有 modal 基礎設施(唯一的 modal 是 CB-82 的
+          reminder-modal,那是專用元件),搬一套進一個已上線的 3623 行
+          檔案等於為了一段說明文字承擔迴歸風險。
+          使用者感受幾乎相同:點按鈕 → 換頁 → 說明跳出,尚未填任何東西。 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(20,28,24,0.45); display: none;
+                     align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: var(--white); border-radius: 5px; max-width: 520px; width: 100%;
+                 padding: 24px 26px; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--green-dark); margin-bottom: 14px; }
+    .modal-list { margin: 0 0 20px; padding: 0; list-style: none; }
+    .modal-list li { position: relative; padding-left: 18px; margin-bottom: 11px; font-size: 13px; line-height: 1.65; }
+    .modal-list li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px;
+                             border-radius: 50%; background: var(--gold); }
+    .modal-actions { display: flex; justify-content: flex-end; }
   </style>
 </head>
 <body>
@@ -198,6 +225,7 @@
           </table>
         </div>
         <div class="empty-state" id="manualEmpty">No additional lines.</div>
+        <div class="field-err" id="manualErr"></div>
       </div>
     </div>
 
@@ -216,6 +244,7 @@
             <input class="money-input" id="fee" type="number" min="0" step="0.01" value="" placeholder="0.00"
                    oninput="recalc()"/>
             <div class="field-hint">Leave empty for none. Hidden on the memo when zero.</div>
+            <div class="field-err" id="feeErr"></div>
           </div>
 
           <div style="flex:0 0 340px;">
@@ -234,8 +263,26 @@
     </div>
 
     <div class="actions">
+      <!-- 🔴 送出鈕 disabled 時必須說明【缺什麼】——
+           灰掉卻不講原因,使用者只會反覆點它。 -->
+      <span class="submit-hint" id="submitHint"></span>
       <a class="btn btn-ghost" id="cancelLink" href="admin-quotes.html" style="line-height:36px; text-decoration:none;">Cancel</a>
       <button class="btn btn-primary" id="submitBtn" type="button" onclick="submitMemo()" disabled>Create Return Memo</button>
+    </div>
+  </div>
+</div>
+
+<!-- 說明 modal:載入成功後顯示一次。內容為業主指定的三點。 -->
+<div class="modal-overlay" id="introModal">
+  <div class="modal-box">
+    <div class="modal-title">Before you create a return memo</div>
+    <ul class="modal-list">
+      <li>A return memo is an internal record. The original order keeps its status, its quantities and its totals &mdash; nothing on it changes.</li>
+      <li>Item prices here do <strong>not</strong> include modification fees or assembly fees.</li>
+      <li>Any discount applied on the original order is already taken into account &mdash; the credit shown is the discounted price the dealer actually paid.</li>
+    </ul>
+    <div class="modal-actions">
+      <button class="btn btn-primary" type="button" onclick="closeIntro()">Got it</button>
     </div>
   </div>
 </div>
@@ -518,34 +565,71 @@ function onQtyInput(idx) {
 function recalc() {
   let merch = 0;
   let hasLine = false;
-  let hasError = false;
+  // 🔴 B-8 修正:改為蒐集【具體原因】,不再只有一個 hasError 布林。
+  //    布林只夠決定按鈕灰不灰,不夠告訴使用者要改哪裡 ——
+  //    而「擋住了卻不說原因」與「靜默放行」是同一類問題的兩面。
+  const problems = [];
 
   _items.forEach(function (r, idx) {
     const el = document.getElementById('q' + idx);
     if (!el || el.value === '') return;
     const q = Number(el.value);
-    if (!isFinite(q) || q < 0 || Math.floor(q) !== q) { hasError = true; return; }
+    if (!isFinite(q) || q < 0 || Math.floor(q) !== q) {
+      problems.push('Return quantities must be whole numbers of 0 or more.');
+      return;
+    }
     if (q === 0) return;
-    if (q > Number(r.available_quantity)) { hasError = true; return; }
+    if (q > Number(r.available_quantity)) {
+      problems.push('One or more return quantities are higher than what is still available.');
+      return;
+    }
     hasLine = true;
     merch += Number(r.credit_unit_amount) * q;
   });
 
+  let manualErr = '';
   _manual.forEach(function (m) {
     const q = Number(m.quantity);
     const a = Number(m.unit_amount);
     const descOk = String(m.description || '').trim() !== '';
     const qOk = isFinite(q) && q > 0 && Math.floor(q) === q;
     const aOk = isFinite(a) && a >= 0 && m.unit_amount !== '';
-    if (!descOk || !qOk || !aOk) { hasError = true; return; }
+    if (!descOk || !qOk || !aOk) {
+      manualErr = 'Every additional line needs a description, a quantity of 1 or more, and an amount.';
+      return;
+    }
+    // 🔴 小數位在此就擋。DB 會拋錯(不靜默取整),但使用者該在按下去之前知道。
+    if (decimalsOf(m.unit_amount) > 2) {
+      manualErr = 'Additional line amounts can have at most 2 decimal places.';
+      return;
+    }
     hasLine = true;
     merch += a * q;
   });
+  const manualErrEl = document.getElementById('manualErr');
+  if (manualErrEl) {
+    manualErrEl.textContent = manualErr;
+    manualErrEl.classList.toggle('show', !!manualErr);
+  }
+  if (manualErr) problems.push(manualErr);
 
-  const feeRaw = document.getElementById('fee').value;
-  const fee = feeRaw === '' ? 0 : Number(feeRaw);
-  const feeOk = isFinite(fee) && fee >= 0;
-  if (!feeOk) hasError = true;
+  const feeEl   = document.getElementById('fee');
+  const feeRaw  = feeEl.value;
+  const fee     = feeRaw === '' ? 0 : Number(feeRaw);
+  let   feeErr  = '';
+  if (feeRaw !== '') {
+    if (!isFinite(fee)) feeErr = 'Restocking fee must be a number.';
+    else if (fee < 0)   feeErr = 'Restocking fee cannot be negative.';
+    else if (decimalsOf(feeRaw) > 2) feeErr = 'Restocking fee can have at most 2 decimal places.';
+  }
+  const feeOk = (feeErr === '');
+  feeEl.classList.toggle('bad', !feeOk);
+  const feeErrEl = document.getElementById('feeErr');
+  if (feeErrEl) {
+    feeErrEl.textContent = feeErr;
+    feeErrEl.classList.toggle('show', !!feeErr);
+  }
+  if (feeErr) problems.push(feeErr);
 
   const net = -merch + (feeOk ? fee : 0);
 
@@ -561,8 +645,16 @@ function recalc() {
   document.getElementById('tNet').textContent = (isDue ? '$' : '-$') + money(Math.abs(net));
 
   const reasonOk = document.getElementById('reason').value.trim() !== '';
+  if (!hasLine)   problems.push('Enter at least one return quantity.');
+  if (!reasonOk)  problems.push('Enter a reason for the return.');
+
   document.getElementById('submitBtn').disabled =
-    _submitting || hasError || !hasLine || !reasonOk;
+    _submitting || problems.length > 0;
+
+  // 🔴 只顯示【第一個】原因:一次列五條會被略過不讀,
+  //    而使用者改完一項就會看到下一項,順序上自然。
+  const hint = document.getElementById('submitHint');
+  if (hint) hint.textContent = _submitting ? '' : (problems[0] || '');
 }
 
 // ── 送出 ─────────────────────────────────────────────────────────────────
@@ -617,8 +709,9 @@ async function submitMemo() {
   const feeRaw  = document.getElementById('fee').value;
   const fee     = feeRaw === '' ? 0 : Number(feeRaw);
 
-  // 🔴 小數位在前端先擋一次。DB 也會擋(拋錯,不靜默取整),
-  //    但在這裡擋能讓 admin 當下就改,不用讀一串英文錯誤。
+  // 🔴 以下兩項在 recalc() 已擋(按鈕會 disabled),此處【保留為防呆】——
+  //    正常路徑走不到。若真的走到了,代表 recalc 與此處的判斷漂移了,
+  //    而那種漂移不會報錯,只會讓一個不該送出的表單送出去。
   if (!isFinite(fee) || fee < 0 || decimalsOf(feeRaw) > 2) {
     showToast('Restocking fee must be a number with at most 2 decimal places.', true);
     return;
@@ -707,6 +800,14 @@ async function init() {
   document.getElementById('reason').addEventListener('input', recalc);
   renderManual();
   recalc();
+
+  // 🔴 只在【資料載入成功後】才顯示說明 ——
+  //    致命錯誤時表單不渲染,那時彈一個「建立前須知」只會讓人更困惑。
+  document.getElementById('introModal').classList.add('show');
+}
+
+function closeIntro() {
+  document.getElementById('introModal').classList.remove('show');
 }
 
 init();
