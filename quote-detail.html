@@ -111,6 +111,9 @@
     /* CB-55 / CB-59: Fulfilled 按鈕。吃 Q-4 拍板的 --status-order-completed,與 badge 同色。 */
     .btn-action.order-fulfill { background: var(--status-order-completed); color: #fff; }
     .btn-action.order-fulfill:hover { background: #115E59; }
+    /* CB-92: Void & Close 按鈕。破壞性操作以紅色外框區隔,hover 才填色。 */
+    .btn-action.order-void { background: transparent; color: #B91C1C; border: 1px solid #B91C1C; }
+    .btn-action.order-void:hover { background: #B91C1C; color: #fff; }
 
     /* ── Returned Reason Banner ── */
     .return-banner {
@@ -677,6 +680,8 @@
 <script src="components/footer.js?v=cb62c"></script>
 <!-- CB-55:需 window.SB_URL,必須排在 config.js 之後 -->
 <script src="components/order-complete.js"></script>
+<!-- CB-92:已付款單作廢改單 modal。新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
+<script src="components/order-close.js"></script>
 <script>
 // ── CB-36: Edit Internal Draft → 重新進入 admin-draft 流程(1→2→mod→3)──
 // 比照 admin-quotes 的 createDraftForDealer():對齊 adminDraftDealerId(確保 new-quote
@@ -798,6 +803,10 @@ const FULFILL_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48
 // ── CB-82: Add Reminder 按鈕的 inner HTML ──
 // 與上方兩支同形：只用於建立按鈕，不負責還原。
 const REMINDER_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg> Add Reminder';
+
+// ── CB-92: Void & Close 按鈕的 inner HTML ──
+// 與上方同形:只用於建立按鈕。失敗還原由 order-close.js 處理(modal 內重試)。
+const VOID_CLOSE_BTN_INNER = '<svg viewBox="0 0 24 24"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg> Void &amp; Close';
 // ─────────────────────────────────────────────────────────────────────────
 // F-COL-ABBREVIATIONS (2026-05-21) — Display-only shortenings to prevent
 // 7-/11-letter labels from wrapping in narrow table columns.
@@ -2263,6 +2272,28 @@ function renderQuote(quote, dealer, addr) {
       </a>`
     : '';
 
+  // ── CB-92: Void Paid Order & Close(super_admin 專屬)───────────────────
+  // 🔴 正向識別(F-35):列出【允許】的狀態,與 close_paid_order() 前態守衛一致。
+  // 🔴 此處只決定「要不要渲染」,不是安全邊界 ——
+  //    真正的授權在 close_paid_order() 的 is_super_admin(),
+  //    OP/OC → Closed 另由 trg_block_closed_quote_change 限定只能經該 RPC。
+  // 🔴 角色讀 _me.role,不改 _me 的形狀 —— _me 會進 PDF stamp(CB-93 byte-identical 紅線)。
+  // 🔴 admin 專屬元素一律英文硬編碼、不掛 i18n 標記(CB-62 Q-5 / CB-66 定版)。
+  const canVoidCloseOrder = !!(_me && _me.role === 'super_admin') &&
+    ['Order Processing', 'Order Completed'].includes(quote.status);
+  const voidCloseOrderButtonHtml = canVoidCloseOrder
+    ? `<button type="button" id="voidCloseOrderBtn" class="btn-action order-void" onclick="voidCloseOrder()">${VOID_CLOSE_BTN_INNER}</button>`
+    : '';
+
+  // ── CB-92: 分類顯示(admin 專屬,Q-10)────────────────────────────────
+  // 只有 CB-92 作廢的 Closed 單才有值;付款前關單(NULL)不顯示此欄。
+  // 顯示名由 order-close.js map;模組未載入時原樣顯示 DB 值,不隱藏(顯示 ≠ 值)。
+  const closeReasonTypeInfoHtml = (_isAdmin && quote.status === 'Closed' && quote.close_reason_type)
+    ? `<div><div class="info-label">Close Reason</div><div class="info-value">${escapeHtml(
+        window.ProCraftOrderClose ? window.ProCraftOrderClose.closeReasonLabel(quote.close_reason_type) : quote.close_reason_type
+      )}</div></div>`
+    : '';
+
 // ── Ship To 區塊(5 檔鏡像同一份 resolver)──
   const PROCRAFT_PICKUP_LINES = [
     'ProCraft Cabinetry DC LLC',
@@ -2707,6 +2738,7 @@ function renderQuote(quote, dealer, addr) {
         ${reminderFlagHtml()}
         ${addReminderButtonHtml}
         ${createReturnMemoButtonHtml}
+        ${voidCloseOrderButtonHtml}
         ${downloadButtonsHtml}
         ${receiptButtonHtml}
       </div>
@@ -2725,6 +2757,7 @@ function renderQuote(quote, dealer, addr) {
           <div><div class="info-label">${escapeHtml(pcTxt('qd.field.logistic', 'Logistic'))}</div><div class="info-value" style="text-transform:capitalize;">${escapeHtml(quote.logistic_type||'—')}</div></div>
           <div><div class="info-label">${escapeHtml(pcTxt('qd.field.status', 'Status'))}</div><div class="info-value"><span class="status-badge ${sc}" style="font-size:10px;">${statusText}</span></div></div>
           <div><div class="info-label">${escapeHtml(pcTxt('qd.field.fulfillment_date', 'Fulfillment Date'))}</div><div class="info-value">${formatDateOnly(quote.fulfillment_date)}</div></div>
+          ${closeReasonTypeInfoHtml}
         </div>
       </div>
     </div>
@@ -2970,6 +3003,28 @@ async function fulfillOrder() {
     hasOpenReminder:     _rmOpenCount > 0,
     reminderCheckFailed: _rmCheckFailed,
     onDone:   function () { window.location.reload(); }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CB-92: Void Paid Order & Close — Order Processing / Order Completed → Closed
+//        + confirmed payment → cancelled(單一交易,RPC close_paid_order)
+//
+// 實作全部在 components/order-close.js。此處只把本頁 context 交給模組。
+// 🔴 模組未載入時明確告知,不靜默無反應(按鈕在、點了沒事 = 沉默的失敗)。
+// ─────────────────────────────────────────────────────────────────────────
+async function voidCloseOrder() {
+  if (!_quote) return;
+  if (!window.ProCraftOrderClose) {
+    alert('The void tool failed to load (components/order-close.js). Please reload the page and try again.');
+    return;
+  }
+  await window.ProCraftOrderClose.run({
+    supabase:     _supabase,
+    quote:        _quote,
+    isSuperAdmin: !!(_me && _me.role === 'super_admin'),
+    buttonEl:     document.getElementById('voidCloseOrderBtn'),
+    onDone:       function () { window.location.reload(); }
   });
 }
 
