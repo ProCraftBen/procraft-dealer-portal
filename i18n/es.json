@@ -186,6 +186,7 @@
   "qd.receipt.err_build": "Lo sentimos: tuvimos un problema al preparar este recibo. Contáctenos y lo resolveremos.",
   "qd.stc.banner.title": "Devolución registrada",
   "qd.stc.banner.msg": "Este pedido tiene una devolución. Consulte la nota de devolución {nums}.",
+  "qd.stc.banner.where": "La nota de devolución se adjunta al final de su factura, lista de empaque y recibo \u2014 descargue cualquiera de ellas para verla.",
   "qd.stc.degraded": "La información de devoluciones de este pedido no está disponible en este momento, por lo que las descargas de documentos están desactivadas. Actualice la página.",
   "qd.err.no_id": "No se proporcionó ningún ID de cotización.",
   "qd.err.not_found": "No se encontró la cotización.",
