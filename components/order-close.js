@@ -11,14 +11,14 @@
  *      任何一項鏡像與 DB 不一致時,以 RPC 的結果為準。
  *
  * ── 自動帶入項(Q-16)───────────────────────────────────────────────────
- *   金額 / 付款方式 / 處理人 / 日期 在 modal 中【唯讀】顯示,
- *   並明確標示 "Auto-filled — cannot be edited"(主 PM 要求)。
- *   🔴 寫入 DB 的說明由 RPC 從 DB 重新讀值組合,不採用本模組顯示的值。
- *      畫面上的 Preview 只是預覽。
+ *   金額 / 付款方式 / 處理人 / 日期 由 RPC 從 DB 讀值組合進 cancellation_reason。
+ *   🔴 Stage 3 精簡(業主 2026-09-15):modal 【不再顯示】自動帶入區與 Preview,
+ *      只保留四項:This cannot be undone. / 分類 / 作廢原因 / 輸入本單 PO#。
+ *      自動帶入項既不顯示也不可輸入,Q-16「須標示自動帶入」的顧慮隨之消失。
  *
  * ── 畫面與 DB 的對帳(Q-7)────────────────────────────────────────────
- *   modal 顯示的 confirmed payment id 會作為 p_payment_id 送出。
- *   RPC 斷言兩者相同,不同即 RAISE(40001)—— 作廢的必定是操作者看到的那筆。
+ *   開啟時讀到的 confirmed payment id 會作為 p_payment_id 送出。
+ *   RPC 斷言兩者相同,不同即 RAISE(40001)—— 開啟 modal 後若 payment 被他人變更,不會作廢到另一筆。
  *
  * ── 重量級把關(Q-9,對齊 CB-76 Q-36)───────────────────────────────────
  *   須輸入【本單】PO# 完全相符,Void 按鈕才會啟用。
@@ -87,74 +87,42 @@
     return Array.from(s).length;
   }
 
-  // 與 RPC to_char(..., 'FM999,999,999,990.00') 相同的呈現。
-  function formatAmount(n) {
-    var v = Number(n);
-    if (!isFinite(v)) return String(n);
-    return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  // 美東當日 YYYY-MM-DD(與 RPC 的 America/New_York 一致;不走 toISOString 的 UTC)。
-  function todayNewYorkISO() {
-    try {
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit'
-      }).format(new Date());
-    } catch (e) {
-      return '';
-    }
-  }
-
   function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
     var css = ''
+      // 🔴 Stage 3 修正:不再讓 box 內部捲動(限高 + 內捲在實機上仍會裁掉按鈕)。
+      //    改由遮罩層捲動:box 以 margin:auto 置中;比視窗高時從頂端開始排,
+      //    整個 modal 隨遮罩捲動 —— 按鈕在任何視窗高度下都捲得到。
       + '.pcvc-overlay{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.55);'
-      + 'display:flex;align-items:center;justify-content:center;padding:20px;'
-      + 'font-family:inherit;-webkit-font-smoothing:antialiased;}'
-      // 🔴 Stage 3 修正:column flex 的子項預設 min-height:auto,body 不會縮到比內容矮,
-      //    內容一長就把 foot 擠出 box(box 有 overflow:hidden → Void 按鈕被裁掉)。
-      //    head / foot 固定不縮,body 以 min-height:0 允許收縮並自行捲動。
-      + '.pcvc-box{background:#fff;border-radius:10px;width:100%;max-width:520px;'
-      + 'box-shadow:0 20px 50px rgba(15,23,42,.28);overflow:hidden;'
-      + 'max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);'
-      + 'display:flex;flex-direction:column;}'
-      + '.pcvc-head{flex:0 0 auto;padding:20px 24px 14px;border-bottom:1px solid #E5E7EB;}'
+      + 'display:flex;justify-content:center;padding:20px;overflow-y:auto;'
+      + '-webkit-overflow-scrolling:touch;font-family:inherit;-webkit-font-smoothing:antialiased;}'
+      + '.pcvc-box{background:#fff;border-radius:10px;width:100%;max-width:460px;margin:auto 0;'
+      + 'box-shadow:0 20px 50px rgba(15,23,42,.28);}'
+      + '.pcvc-head{padding:18px 22px 12px;border-bottom:1px solid #E5E7EB;}'
       + '.pcvc-title{margin:0;font-size:17px;font-weight:600;color:#0F172A;letter-spacing:-.01em;}'
       + '.pcvc-sub{margin:4px 0 0;font-size:12px;color:#64748B;}'
-      + '.pcvc-body{flex:1 1 auto;min-height:0;padding:18px 24px;overflow-y:auto;'
-      + '-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}'
-      + '.pcvc-section{margin:0 0 18px;}'
+      + '.pcvc-body{padding:16px 22px;}'
+      + '.pcvc-section{margin:0 0 14px;}'
       + '.pcvc-section:last-child{margin-bottom:0;}'
       + '.pcvc-label{display:block;font-size:9px;font-weight:600;letter-spacing:.18em;'
       + 'text-transform:uppercase;color:#64748B;margin-bottom:7px;}'
-      + '.pcvc-auto{border:1px dashed #CBD5E1;border-radius:7px;background:#F8FAFC;padding:10px 12px;}'
-      + '.pcvc-auto-tag{display:inline-block;font-size:10px;font-weight:600;color:#475569;'
-      + 'background:#E2E8F0;border-radius:4px;padding:2px 6px;margin-bottom:8px;}'
-      + '.pcvc-auto-row{display:flex;justify-content:space-between;gap:12px;font-size:13px;'
-      + 'color:#334155;padding:3px 0;}'
-      + '.pcvc-auto-row span:first-child{color:#64748B;}'
-      + '.pcvc-auto-row span:last-child{font-weight:500;text-align:right;}'
       + '.pcvc-input,.pcvc-select,.pcvc-textarea{width:100%;box-sizing:border-box;padding:10px 12px;'
       + 'font-size:14px;font-family:inherit;color:#0F172A;border:1.5px solid #CBD5E1;'
       + 'border-radius:7px;background:#fff;}'
-      + '.pcvc-textarea{min-height:84px;resize:vertical;line-height:1.5;}'
+      + '.pcvc-textarea{min-height:72px;resize:vertical;line-height:1.5;}'
       + '.pcvc-input:focus,.pcvc-select:focus,.pcvc-textarea:focus{outline:none;border-color:#B91C1C;'
       + 'box-shadow:0 0 0 3px rgba(185,28,28,.12);}'
       + '.pcvc-hint{margin:6px 0 0;font-size:11px;color:#64748B;line-height:1.5;}'
       + '.pcvc-count{float:right;}'
-      + '.pcvc-preview{margin:0;padding:10px 12px;border-radius:6px;background:#F1F5F9;'
-      + 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;line-height:1.55;'
-      + 'color:#334155;word-break:break-word;}'
-      + '.pcvc-danger{margin:0 0 18px;padding:10px 12px;border-radius:6px;background:#FEF2F2;'
-      + 'border:1px solid #FECACA;font-size:12px;line-height:1.6;color:#991B1B;}'
-      + '.pcvc-danger ul{margin:6px 0 0;padding-left:18px;}'
-      + '.pcvc-block{margin:0 0 18px;padding:10px 12px;border-radius:6px;background:#FFFBEB;'
+      + '.pcvc-danger{margin:0 0 14px;padding:10px 12px;border-radius:6px;background:#FEF2F2;'
+      + 'border:1px solid #FECACA;font-size:13px;line-height:1.5;color:#991B1B;}'
+      + '.pcvc-block{margin:0 0 14px;padding:10px 12px;border-radius:6px;background:#FFFBEB;'
       + 'border:1px solid #FDE68A;font-size:12px;line-height:1.55;color:#92400E;}'
       + '.pcvc-error{margin:12px 0 0;padding:10px 12px;border-radius:6px;background:#FEF2F2;'
       + 'border:1px solid #FCA5A5;font-size:12px;line-height:1.55;color:#991B1B;white-space:pre-wrap;}'
       + '.pcvc-loading{font-size:13px;color:#64748B;padding:8px 0;}'
-      + '.pcvc-foot{flex:0 0 auto;padding:14px 24px 20px;display:flex;gap:10px;justify-content:flex-end;'
-      + 'border-top:1px solid #E5E7EB;background:#fff;}'
+      + '.pcvc-foot{padding:12px 22px 18px;display:flex;gap:10px;justify-content:flex-end;'
+      + 'border-top:1px solid #E5E7EB;}'
       + '.pcvc-btn{font-family:inherit;font-size:13px;font-weight:500;padding:9px 18px;'
       + 'border-radius:7px;cursor:pointer;border:1px solid transparent;transition:opacity .15s;}'
       + '.pcvc-btn:disabled{opacity:.45;cursor:not-allowed;}'
@@ -176,7 +144,7 @@
    * 🔴 查詢失敗一律列為 blocker(fail-closed),不把「查不到」當成「沒有」。
    * ─────────────────────────────────────────────────────────────────── */
   async function loadContext(supabase, quote) {
-    var ctx = { blockers: [], payment: null, activeCredits: null, actorName: '', today: todayNewYorkISO() };
+    var ctx = { blockers: [], payment: null, activeCredits: null, actorName: '' };
 
     if (!quote.po_number) {
       ctx.blockers.push('This order has no PO number, so it cannot be confirmed for voiding.');
@@ -316,23 +284,7 @@
         }).join('');
 
         body.innerHTML = ''
-          + '<div class="pcvc-danger"><strong>This cannot be undone.</strong><ul>'
-          +   '<li>The order moves to <strong>Closed</strong> permanently.</li>'
-          +   '<li>The confirmed payment below is marked <strong>cancelled</strong> and no longer counts as revenue.</li>'
-          +   '<li>The receipt for this order will no longer be available.</li>'
-          +   '<li>No email is sent. Refunds or price differences are handled outside the portal.</li>'
-          + '</ul></div>'
-
-          + '<div class="pcvc-section">'
-          +   '<span class="pcvc-label">Payment being voided</span>'
-          +   '<div class="pcvc-auto">'
-          +     '<span class="pcvc-auto-tag">Auto-filled — cannot be edited</span>'
-          +     '<div class="pcvc-auto-row"><span>Amount received</span><span>$' + escapeHtml(formatAmount(p.total_paid)) + '</span></div>'
-          +     '<div class="pcvc-auto-row"><span>Payment method</span><span>' + escapeHtml(p.payment_method || 'not recorded') + '</span></div>'
-          +     '<div class="pcvc-auto-row"><span>Voided by</span><span>' + escapeHtml(ctx.actorName) + '</span></div>'
-          +     '<div class="pcvc-auto-row"><span>Date</span><span>' + escapeHtml(ctx.today || '—') + ' (America/New_York)</span></div>'
-          +   '</div>'
-          + '</div>'
+          + '<div class="pcvc-danger"><strong>This cannot be undone.</strong></div>'
 
           + '<div class="pcvc-section">'
           +   '<label class="pcvc-label" for="pcvcType">Close reason type</label>'
@@ -345,14 +297,7 @@
           + '<div class="pcvc-section">'
           +   '<label class="pcvc-label" for="pcvcReason">Void reason <span class="pcvc-count" id="pcvcCount">0 / ' + REASON_MAX + '</span></label>'
           +   '<textarea id="pcvcReason" class="pcvc-textarea" maxlength="' + (REASON_MAX * 2) + '" '
-          +     'placeholder="e.g. Customer changed products after payment. Replaced by PDC09068 (paid in cash). Card payment refund handled in QBO."></textarea>'
-          +   '<p class="pcvc-hint">Write in English — this is saved to the payment record. '
-          +     'If there is a replacement order or a price difference, note it here.</p>'
-          + '</div>'
-
-          + '<div class="pcvc-section">'
-          +   '<span class="pcvc-label">Preview (final text is composed by the server)</span>'
-          +   '<p class="pcvc-preview" id="pcvcPreview"></p>'
+          +     'placeholder="In English, e.g. Customer changed products after payment. Replaced by PDC09068."></textarea>'
           + '</div>'
 
           + '<div class="pcvc-section">'
@@ -366,7 +311,6 @@
         var selType = body.querySelector('#pcvcType');
         var txt     = body.querySelector('#pcvcReason');
         var cnt     = body.querySelector('#pcvcCount');
-        var prev    = body.querySelector('#pcvcPreview');
         var conf    = body.querySelector('#pcvcConfirm');
         var errBox  = body.querySelector('#pcvcError');
 
@@ -387,11 +331,6 @@
           var s = currentState();
           cnt.textContent = s.len + ' / ' + REASON_MAX;
           cnt.style.color = s.len > REASON_MAX ? '#B91C1C' : '';
-          prev.textContent = 'CB-92 void | Type: ' + (s.typeOk ? s.type : '…')
-            + ' | Received: $' + formatAmount(p.total_paid) + ' (' + (p.payment_method || 'not recorded') + ')'
-            + ' | Reason: ' + (s.reason || '…')
-            + ' | By: ' + ctx.actorName
-            + ' | Date: ' + (ctx.today || '…') + ' (America/New_York)';
           btnVoid.disabled = busy || !(s.typeOk && s.reasonOk && s.confirmOk);
         }
 
