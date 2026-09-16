@@ -1894,8 +1894,12 @@ function calcShippingByFormula(subtotal) {
   // 新規格 (2026-06): Shipping 一律由 Sales Team 報價,不再依 subtotal 級距自動算。
   // 一律回 null → 走既有 pending / "Contact Sales Team" 路徑:shipping_cost 存 null、
   // 不計入 Grand Total;admin 之後可在 quote-detail 手填覆寫(override 邏輯不變)。
-  // resolveShippingForDb 的 resuming 分支(oldBracket===newBracket → 保留 oldShipping)
-  // 不受影響,既有單與 admin 值安全。
+  // F-188:本函式【只】負責「沒有既有 shipping 值可沿用」的情境(新單、或
+  //   logistic 由非 shipping 改為 shipping)。既有 shipping 單的值保留由
+  //   resolveShippingForDb() 開頭的 F-188 分支處理,不經過本函式。
+  //   ⚠️ 原註解曾寫「resuming 分支不受影響,既有單與 admin 值安全」—— 該敘述
+  //      只對 Returned 成立;Draft 走非 resuming 分支,自此回傳 null,
+  //      dealer 一存檔即靜默清除 admin 填的運費(F-188 根因)。
   // 廢棄的舊級距保留註解供歷史參考:
   //   <=3000 → null / <=6000 → ×0.15 / <=9000 → ×0.12 / <=12000 → ×0.10 / >12000 → 0
   return null;
@@ -1907,6 +1911,21 @@ function resolveShippingForDb(opts) {
   const newDeliveryFee= opts.newDeliveryFee;
   const isResuming    = !!opts.isResuming;
 
+  // ── F-188 (Q-1 = A): 既有 shipping 單 → 原值寫回,不分 Draft / Returned ──
+  //   🔴 必須置於 isResuming 判斷【之前】。原本只有 Returned(isResuming)會讀
+  //      _existingShippingCost;Draft 走非 resuming 分支 → calcShippingByFormula
+  //      → null,dealer 按一次 Save / Submit 就把 admin 填的運費靜默清除。
+  //   🔴 正向識別(F-35):_existingLogisticType 只來自 DB hydration(init)或
+  //      saveDraft UPDATE 後回填;新單恆為 null,不會誤入本分支。
+  //   🔴 回傳值可為 null —— 既有值本為 pending 則維持 pending(Q-3:NULL ≠ 0)。
+  //   ⚠️ Q-1 = A 為業主決定:dealer 改品項後運費【不】失效。已知代價:
+  //      加大訂單後運費不變屬靜默短收,且 CB-95 的 NULL 檢查擋不到。
+  //      勿為「保險」加回 subtotal / 級距比較 —— 那是被否決的 B / C 案。
+  //   ⚠️ admin override(CB-33)仍於各呼叫端 resolve【之後】套用,admin 輸入優先。
+  if (newLogistic === 'shipping' && _existingLogisticType === 'shipping') {
+    return _existingShippingCost;
+  }
+
   if (!isResuming) {
     if (newLogistic === 'pickup')   return 0;
     if (newLogistic === 'delivery') return newDeliveryFee;
@@ -1916,7 +1935,6 @@ function resolveShippingForDb(opts) {
 
   const oldLogistic = _existingLogisticType;
   const oldShipping = _existingShippingCost;
-  const oldSubtotal = _existingSubtotal;
 
   if (newLogistic === 'pickup') return 0;
 
@@ -1928,13 +1946,10 @@ function resolveShippingForDb(opts) {
   }
 
   if (newLogistic === 'shipping') {
-    if (oldLogistic === 'shipping') {
-      const oldBracket = getShippingBracket(oldSubtotal);
-      const newBracket = getShippingBracket(newSubtotal);
-      if (oldBracket === newBracket) {
-        return oldShipping;
-      }
-    }
+    // F-188:舊為 shipping 的情境已由函式開頭分支處理;走到這裡代表
+    //   logistic 由非 shipping 改為 shipping,無既有值可沿用。
+    //   原本的級距比較(getShippingBracket)已移除 —— Q-1 = A,且其
+    //   _existingSubtotal(SKU 淨額)與 newSubtotal(SKU + mods)口徑不一致。
     return calcShippingByFormula(newSubtotal);
   }
 
@@ -3117,28 +3132,34 @@ function applyTotals(opts) {
           shippingForTotal  = 0;
           shippingLabel     = 'Contact Sales Team';
           shippingNote      = pcTxt('nq3.ship.quoted_separately', '⚠ Shipping fee quoted separately by our Sales Team');
-        } else if (previewShippingForDb === 0 && billingBase > 12000) {
-      shippingForTotal = 0;
-      shippingLabel    = 'FREE';
-      shippingNote     = pcTxt('nq3.ship.free_over_12k', '✓ Free shipping on orders over $12,000');
-    } else if (previewShippingForDb === 0) {
+        } else if (previewShippingForDb === 0) {
+      // F-188 Q-5:移除「Free shipping on orders over $12,000」分支 —— 該規則
+      //   已隨 2026-06 新規格廢止,顯示它等於宣告一個不存在的計價方式。
+      //   ⚠️ i18n key nq3.ship.free_over_12k 保留不刪(F-152)。
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
       shippingNote     = pcTxt('nq3.ship.free_confirmed', '✓ Sales-confirmed free shipping');
     } else {
       shippingForTotal = previewShippingForDb;
       shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
+      // F-188 Q-2 / Q-6 = B:正向識別(F-35)成立才顯示確認文案。
+      //   不再依賴 _isResumingReturned 與級距 —— Draft 同樣會保留 admin 值。
+      //   🔴 已移除「15% / 12% / 10% shipping rate」三行:廢棄計價文案,
+      //      會讓 dealer 以為運費按比例計算(Q-2)。i18n key 保留不刪(F-152)。
+      //   🔴 識別不成立的情境依現行 code 不可達(formula 恆回 null)。若發生,
+      //      只顯示金額、不附確認文案,並 console.error 留下可見訊號(Q-6 = B)。
       const isPreservedAdminValue = (
-        _isResumingReturned &&
         _existingLogisticType === 'shipping' &&
-        getShippingBracket(_existingSubtotal) === getShippingBracket(billingBase) &&
         _existingShippingCost === shippingForTotal
       );
       if (isPreservedAdminValue) {
         shippingNote = pcTxt('nq3.ship.fee_confirmed', '✓ Sales-confirmed shipping fee');
-      } else if (billingBase <= 6000)       shippingNote = pcTxt('nq3.ship.rate_15', '15% shipping rate');
-      else if (billingBase <= 9000)         shippingNote = pcTxt('nq3.ship.rate_12', '12% shipping rate');
-      else if (billingBase <= 12000)        shippingNote = pcTxt('nq3.ship.rate_10', '10% shipping rate');
+      } else {
+        shippingNote = '';
+        console.error('[F-188] unidentified shipping source', {
+          previewShippingForDb, _existingLogisticType, _existingShippingCost
+        });
+      }
     }
   }
 
