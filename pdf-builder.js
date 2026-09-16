@@ -271,15 +271,29 @@
 
   //   ── 標題字寬(依 CB-90 D-1 同法實測:右對齊至 x=200,
   //      左側公司資訊右緣在 x=129.1,故「餘裕」= 200 − 字寬 − 129.1)────────
-  //   'RETURN MEMO'             16pt bold = 42.5mm → x 157.5 ~ 200(餘裕 28.4mm)✅ 無價格版
-  //   'RETURN MEMO (INTERNAL)'  16pt bold = 76.3mm → x 123.7 ~ 200(餘裕 −5.4mm)🔴 溢出
-  //   'RETURN MEMO (INTERNAL)'  13pt bold = 62.0mm → x 138.0 ~ 200(餘裕  8.9mm)🔴 低於門檻
-  //   'RETURN MEMO (INTERNAL)'  12pt bold = 57.2mm → x 142.8 ~ 200(餘裕 13.7mm)✅ 採用
-  //   📌 門檻取 CB-90 採用值 15.9mm 為參考;12pt 的 13.7mm 略低但已列印實測。
+  //   'RETURN MEMO'               16pt bold = 42.5mm → 餘裕 28.4mm  ✅ 無價格版
+  //   'RETURN MEMO (INTERNAL)'    16pt bold = 76.3mm → 餘裕 −5.4mm  🔴 溢出
+  //   'RETURN MEMO (INTERNAL)'    12pt bold = 57.2mm → 餘裕 13.7mm  (初版,已棄用)
+  //   'RETURN MEMO (WITH PRICE)'  13pt bold = 65.8mm → 餘裕  5.1mm  🔴 太擠
+  //   'RETURN MEMO (WITH PRICE)'  12pt bold = 60.7mm → 餘裕 10.2mm  ✅ 採用
+  //   📌 門檻取 CB-90 採用值 15.9mm 為參考;12pt 的 10.2mm 低於它,已列印實測。
   //   ⚠️ 日後若改動標題文字或 header 左側內容,須以同法重算 —— 溢出不會報錯,
-  //      只會被裁掉,而被裁掉的正好是 (INTERNAL) 這個最關鍵的字。
-  const SC_DOC_TITLE_INTERNAL      = 'RETURN MEMO (INTERNAL)';
+  //      只會被裁掉,而被裁掉的正好是 (WITH PRICE) 這個最關鍵的字。
+  //
+  //   🔴 文字由 (INTERNAL) 改為 (WITH PRICE)(業主要求,PM 追認):
+  //      防誤寄靠的是【看得懂】,不是術語一致。dealer 不必知道 Internal
+  //      是什麼意思,看到「有價格」就知道這份不能給屋主。
+  //      ⚠️ 代價:memo 與 Draft Quote 的命名不再平行(後者仍用 Internal)。
+  const SC_DOC_TITLE_INTERNAL      = 'RETURN MEMO (WITH PRICE)';
   const SC_DOC_TITLE_SIZE_INTERNAL = 12;
+
+  //   🔴 memo 的檔名標記【自己一份】,不複用 CB-90 的 FILENAME_INTERNAL_TAG ——
+  //      那個常數 Draft Quote 也在用,改它會連帶改掉 Draft Quote 的檔名,
+  //      而那是動既有已上線物件。兩者自此分家。
+  //   🔴 與 PDF 內頁標題【必須一致】:標題說 WITH PRICE、檔名說 Internal 的話,
+  //      dealer 要對照「哪一份給誰」時得多做一次轉換,而轉換錯了不會報錯。
+  //   🔴 不翻譯(CB-62 Q-56:會輸出的不翻;檔名為輸出物)。
+  const SC_FILENAME_PRICED_TAG     = ' - With Price';
 
   //   ── S1-Q4 = 乙案:第一頁 Order Note 下方,單行粗體彩色,不加框不加底色。
   //   🔴 三案都【不壓縮表格】—— 列高、字級、欄寬一律不動,_drawItemTable 零改動。
@@ -2996,10 +3010,10 @@ return total;
   //      內頁標題改不掉,列印出來也在。
   //   🔴 正向識別(F-35):只有 internal === true 才加標,預設不加。
   //   🔴 'Internal' 不翻譯(CB-62 Q-56:會輸出的不翻;檔名為輸出物)。
-  //   🔴 複用既有 FILENAME_INTERNAL_TAG,不新增常數 —— 兩處各自定義
-  //      同一個字串,改了一處而漏另一處不會報錯。
+  //   🔴 使用 memo 專屬的 SC_FILENAME_PRICED_TAG,【不】複用 CB-90 的
+  //      FILENAME_INTERNAL_TAG —— 那個 Draft Quote 也在用(見常數區說明)。
   function getStoreCreditMemoPdfFilename(memoNumber, internal) {
-    const _tag = (internal === true) ? FILENAME_INTERNAL_TAG : '';
+    const _tag = (internal === true) ? SC_FILENAME_PRICED_TAG : '';
     return `ProCraft DC - Return Memo${_tag} - ${memoNumber || 'Memo'}.pdf`;
   }
 
