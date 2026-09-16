@@ -101,6 +101,10 @@
                 text-transform: uppercase; color: var(--green-dark); cursor: pointer; }
     .stc-mini:hover { background: var(--cream); }
     .stc-mini.danger { color: var(--error); }
+    /* 🔴 CB-96:無價格版(給屋主)用實心 —— 兩顆按鈕只差一個 (Internal),
+       視覺上必須分得出哪一顆是安全預設。與 CB-90 Draft 雙版本同一邏輯。 */
+    .stc-mini.primary { background: var(--green-dark); color: #fff; border-color: var(--green-dark); }
+    .stc-mini.primary:hover { background: var(--green-mid); }
     .btn-action.review-resubmit { background: var(--status-returned); color: #fff; }
     .btn-action.review-resubmit:hover { background: #c66a30; }
     .btn-action.admin-edit { background: var(--gold); color: #fff; }
@@ -671,7 +675,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/i18n.js?v=cb93b"></script>
+<script src="components/i18n.js?v=cb96"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <!-- CB-82: Reminder 表單 modal(與 admin-reminders.html 共用同一份)。
@@ -3311,20 +3315,33 @@ function storeCreditBannerHtml() {
         //    🔴 新增 key,【不改】既有 key 的文字 —— 改文字會在 diff 出現
         //       「修改行」,違反 F-152 的只增不改紀律。
         '<br>' +
+        // 🔴 CB-96:本 key 的文字【必須修改】—— 拆 attach 後原句
+        //    「memo 附在三份文件尾端」變成【錯的】,而一句指向不存在功能的
+        //    說明文字不會報錯。這是 F-152「只增不改」的一次性具名例外。
         escapeHtml(pcTxt('qd.stc.banner.where',
-          'The return memo is attached at the end of your Invoice, Packing List and Receipt \u2014 download any of them to see it.')) +
+          'Download the return memo from the Return Memos section below.')) +
       '</div>' +
     '</div>' +
   '</div>';
 }
 
-// ── memo 清單(admin only,英文硬編碼)──────────────────────────────────
-// 🔴 作廢的【也列出來】,並標示 VOID —— 留痕的價值在於看得到。
-//    對外(PDF / 註記)則完全不出現,兩者不衝突(S1-Q1)。
+// ── memo 清單 ───────────────────────────────────────────────────────────
+// 🔴 CB-96:本區改為 admin + dealer 【共用】(推翻 CB-93 Q-12「dealer 不可
+//    單獨下載」)。業主理由:dealer 的客戶會過來拿貨或換貨,dealer 需要紙本
+//    給屋主,而三份原單 PDF 已不再 attach memo。
+//    → 因此本區是 CB-96 之後【唯一】的 memo 取得路徑。
+//
+// 🔴 admin 與 dealer 的差別只有兩處,其餘完全相同:
+//      作廢的 memo → 只有 admin 看得到(對 dealer 顯示一張無效憑證只會造成誤解)
+//      Void 按鈕   → admin only
+//    刻意【不】做成兩個平行函式 —— 兩份實作必然漂移,而漂移後
+//    dealer 看到的與 admin 以為 dealer 看到的不一致,不會報錯。
+//
+// 🔴 本區對 dealer 可見 → 文字掛 i18n(en/es);Void 是 admin 專屬,英文硬編碼。
+//    PDF 內的文字仍不進 i18n(CB-62 Q-56:會輸出的不翻)。
 function storeCreditSectionHtml() {
-  if (!_isAdmin) return '';
   if (_stcDegraded) return '';
-  if (!_stcActive.length && !_stcVoided.length) return '';
+  if (!_stcActive.length && !(_isAdmin && _stcVoided.length)) return '';
 
   const rowHtml = function (m, isVoid) {
     const net = Number(m.net_store_credit_amount);
@@ -3332,11 +3349,24 @@ function storeCreditSectionHtml() {
     const amt = (isDue ? '$' : '-$') + Math.abs(net).toFixed(2);
     const fee = Number(m.restocking_fee);
 
-    const acts = isVoid ? '' :
-      '<div class="stc-acts">' +
-        '<button type="button" class="stc-mini" onclick="downloadStoreCreditMemo(\'' + m.id + '\')">Download</button>' +
-        '<button type="button" class="stc-mini danger" onclick="voidStoreCredit(\'' + m.id + '\')">Void</button>' +
-      '</div>';
+    // 🔴 CB-96:兩顆下載按鈕。
+    //    無價格版 = 給屋主,用【實心】;有價格版 = dealer 內部,用 secondary。
+    //    與 CB-90 Draft 雙版本同一邏輯:安全的那一版是視覺預設。
+    //    ⚠️ 兩顆並列而非一顆加選單 —— 本頁沒有 dealer 可用的 modal 基礎設施
+    //       (唯一的 modal 是 admin 專用的 reminder-modal),移植屬範圍擴張。
+    const dlButtons = isVoid ? '' :
+      '<button type="button" class="stc-mini primary" onclick="downloadStoreCreditMemo(\'' + m.id + '\', false)">' +
+        escapeHtml(pcTxt('qd.stc.btn.download', 'Return Memo')) + '</button>' +
+      '<button type="button" class="stc-mini" onclick="downloadStoreCreditMemo(\'' + m.id + '\', true)">' +
+        escapeHtml(pcTxt('qd.stc.btn.download_internal', 'Return Memo (Internal)')) + '</button>';
+
+    const voidButton = (!isVoid && _isAdmin)
+      ? '<button type="button" class="stc-mini danger" onclick="voidStoreCredit(\'' + m.id + '\')">Void</button>'
+      : '';
+
+    const acts = (dlButtons || voidButton)
+      ? '<div class="stc-acts">' + dlButtons + voidButton + '</div>'
+      : '';
 
     return '<div class="stc-row' + (isVoid ? ' void' : '') + '">' +
       '<div class="stc-no">' + escapeHtml(m.memo_number) +
@@ -3353,33 +3383,57 @@ function storeCreditSectionHtml() {
     '</div>';
   };
 
+  // 🔴 說明文字告訴 dealer【哪一份給誰】—— 不寫的話,兩顆長得很像的按鈕
+  //    只差一個 (Internal),誤印有價格版給屋主的後果不可逆。
+  //    這是第三道防線(第一道檔名、第二道 PDF 內頁標題)。
   return '<div class="stc-section">' +
     '<div class="stc-section-head">' +
-      '<span class="stc-section-title">Return Memos</span>' +
-      '<span class="stc-section-note">Internal list — dealers see the memo only as pages attached to their documents.</span>' +
+      '<span class="stc-section-title">' +
+        escapeHtml(pcTxt('qd.stc.section.title', 'Return Memos')) + '</span>' +
+      '<span class="stc-section-note">' +
+        escapeHtml(pcTxt('qd.stc.section.note',
+          'Return Memo has no prices — give this one to the homeowner. The Internal copy shows prices; keep it for your records.')) +
+      '</span>' +
     '</div>' +
     _stcActive.map(function (m) { return rowHtml(m, false); }).join('') +
-    _stcVoided.map(function (m) { return rowHtml(m, true); }).join('') +
+    (_isAdmin ? _stcVoided.map(function (m) { return rowHtml(m, true); }).join('') : '') +
   '</div>';
 }
 
-// ── 單獨下載一張 memo(admin only)──────────────────────────────────────
-// 🔴 Q-12 定版:dealer【不可】單獨下載 —— 單獨的 memo 脫離原單就沒有脈絡,
-//    一張只寫「退了 3 個櫃體、−$1,050」的 PDF,dealer 拿到也不知道對應哪一筆。
-//    dealer 透過三份原單 PDF 附帶看到,那樣自帶脈絡。
-async function downloadStoreCreditMemo(memoId) {
-  if (!_isAdmin || !_quote || !_dealer) return;
+// ── 單獨下載一張 memo(CB-96:admin + dealer 皆可,兩個版本)──────────────
+// 🔴 internal === true 才是有價格版。正向識別(F-35)——
+//    任何其他值(undefined / null / 'true' 字串)一律走【無價格版】,
+//    也就是安全的那一版。誤傳的後果是「少印資訊」,不是「多印價格」。
+// 🔴 常數讀 ProCraftPDF._SC_VARIANT_INTERNAL,不在本檔硬寫 'internal'
+//    (魔術字串散落的問題,F-66 同型)。
+async function downloadStoreCreditMemo(memoId, internal) {
+  if (!_quote || !_dealer) return;
   const m = _stcActive.find(function (x) { return x.id === memoId; });
   if (!m) return;
 
+  // 🔴 載到舊版 pdf-builder.js 時必須擋下(F-168:兩個載入點皆無 ?v=)。
+  //    舊版沒有 variant 參數 → 會【靜默印出有價格的內容】,
+  //    而使用者按的是「給屋主」那一顆。這是本票最危險的靜默失敗。
+  if (!window.ProCraftPDF || ProCraftPDF._SC_VARIANT_INTERNAL === undefined) {
+    alert(pcTxt('qd.stc.outdated',
+      'This page needs to be refreshed before return memos can be downloaded. Please reload and try again.'));
+    return;
+  }
+
+  const _isInternal = (internal === true);
   try {
     const doc = await ProCraftPDF.buildStoreCreditMemoPdf(
-      buildQuoteDataForPdf(), _dealer, [m], { stamp: { mode: 'download', user: _me } }
+      buildQuoteDataForPdf(), _dealer, [m],
+      {
+        stamp: { mode: 'download', user: _me },
+        variant: _isInternal ? ProCraftPDF._SC_VARIANT_INTERNAL : undefined,
+      }
     );
-    doc.save(ProCraftPDF.getStoreCreditMemoPdfFilename(m.memo_number));
+    doc.save(ProCraftPDF.getStoreCreditMemoPdfFilename(m.memo_number, _isInternal));
   } catch (err) {
-    console.error('[CB-93] memo pdf failed:', err);
-    alert('Sorry — we could not prepare this return memo. Please refresh and try again.');
+    console.error('[CB-96] memo pdf failed:', err);
+    alert(pcTxt('qd.stc.pdf_error',
+      'Sorry — we could not prepare this return memo. Please refresh and try again.'));
   }
 }
 
@@ -3664,6 +3718,22 @@ async function _buildAndSaveDraftQuotePdf(isInternal) {
 //    倉庫可能照【原數量】出貨 —— 那是實體後果,不是顯示問題。
 // 🔴 範圍限定在降級:沒有退貨的一般單完全不受影響。
 // 🔴 Receipt 也擋(S1-Q2):三份現在是同一個家族,少了註記是同一種缺失。
+// ── CB-96:下載三份 PDF 時的提醒 ────────────────────────────────────────
+// 🔴 memo 已不再 attach 進這三份文件(業主裁定)。使用者若不知道,會以為
+//    下載到的就是全部 —— 而少了 memo 不會有任何跡象。
+// 🔴 只提醒,【不阻擋】。業主原話:「他如果不下載就是他的選擇」。
+// 🔴 降級時【不呼叫本函式】—— 那時三份下載本來就已被擋下
+//    (Q-6′),而且資料不可信時不該給任何斷言:跳一個「此單有 Return Memo」
+//    卻其實讀不到資料,那是在說謊。
+function storeCreditDownloadNotice() {
+  if (_stcDegraded) return;          // 防呆:正常路徑已由呼叫端擋下
+  if (!_stcActive.length) return;
+  const nums = _stcActive.map(function (m) { return m.memo_number; }).join(', ');
+  alert(pcTxt('qd.stc.alert',
+    'This order has a return memo ({nums}). It is not part of this document — download it separately from the Return Memos section below.',
+    { nums: nums }));
+}
+
 function storeCreditBlocksDownload() {
   if (!_stcDegraded) return false;
   alert(pcTxt('qd.stc.degraded',
@@ -3674,6 +3744,7 @@ function storeCreditBlocksDownload() {
 async function downloadPackingList() {
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;
+  storeCreditDownloadNotice();   // CB-96
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildPackingListPdf(
     quoteDataForPdf, _dealer, _addr,
@@ -3689,6 +3760,7 @@ async function downloadPackingList() {
 async function downloadInvoice() {
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;   // CB-93
+  storeCreditDownloadNotice();               // CB-96
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildInvoicePdf(
     quoteDataForPdf, _dealer, _addr,
@@ -3708,6 +3780,7 @@ async function downloadInvoice() {
 async function downloadReceipt() {
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;   // CB-93
+  storeCreditDownloadNotice();               // CB-96
 
   const { data: pays, error: payErr } = await _supabase
     .from('payments')
