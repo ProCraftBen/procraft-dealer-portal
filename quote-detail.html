@@ -675,7 +675,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
-<script src="components/i18n.js?v=cb96"></script>
+<script src="components/i18n.js?v=cb96b"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <!-- CB-82: Reminder 表單 modal(與 admin-reminders.html 共用同一份)。
@@ -3358,7 +3358,7 @@ function storeCreditSectionHtml() {
       '<button type="button" class="stc-mini primary" onclick="downloadStoreCreditMemo(\'' + m.id + '\', false)">' +
         escapeHtml(pcTxt('qd.stc.btn.download', 'Return Memo')) + '</button>' +
       '<button type="button" class="stc-mini" onclick="downloadStoreCreditMemo(\'' + m.id + '\', true)">' +
-        escapeHtml(pcTxt('qd.stc.btn.download_internal', 'Return Memo (Internal)')) + '</button>';
+        escapeHtml(pcTxt('qd.stc.btn.download_internal', 'Return Memo (with price)')) + '</button>';
 
     const voidButton = (!isVoid && _isAdmin)
       ? '<button type="button" class="stc-mini danger" onclick="voidStoreCredit(\'' + m.id + '\')">Void</button>'
@@ -3392,7 +3392,7 @@ function storeCreditSectionHtml() {
         escapeHtml(pcTxt('qd.stc.section.title', 'Return Memos')) + '</span>' +
       '<span class="stc-section-note">' +
         escapeHtml(pcTxt('qd.stc.section.note',
-          'Return Memo has no prices — give this one to the homeowner. The Internal copy shows prices; keep it for your records.')) +
+          'Return Memo has no prices — give this one to the homeowner. The copy with prices is for your records only.')) +
       '</span>' +
     '</div>' +
     _stcActive.map(function (m) { return rowHtml(m, false); }).join('') +
