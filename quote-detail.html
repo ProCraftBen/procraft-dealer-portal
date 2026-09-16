@@ -682,6 +682,8 @@
 <script src="components/order-complete.js"></script>
 <!-- CB-92:已付款單作廢改單 modal。新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
 <script src="components/order-close.js"></script>
+<!-- CB-95:Confirm Stock 前置檢查的 delivery 勾選 modal。新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
+<script src="components/stock-release-check.js"></script>
 <script>
 // ── CB-36: Edit Internal Draft → 重新進入 admin-draft 流程(1→2→mod→3)──
 // 比照 admin-quotes 的 createDraftForDealer():對齊 adminDraftDealerId(確保 new-quote
@@ -2861,6 +2863,17 @@ async function saveShipping() {
     input.focus();
     return;
   }
+  // F-189 ③(CB-95 Q-10′ = B):只接受純數字、最多 2 位小數;保留下方 toFixed。
+  //   🔴 取代原 round2 方案:本檔依 F-66 / 取整(PM Q-14=A)定版不新增 round2 複製。
+  //   實證:≤ 2 位小數輸入下,toFixed 與 step3 round2 結果 0 筆差異(200,001 筆);
+  //     grand 差額逐分驗證 0 筆差異 → 與 grand_total 原始寫入端同值。
+  //   擋下 12.345(原本被靜默取整)、1e2(原本存成 100)、-0(原本通過非負檢查)。
+  //   正向識別:符合格式才放行(F-35)。
+  if (!/^\d+(\.\d{1,2})?$/.test(raw)) {
+    showError('Please enter the fee as a plain number with at most 2 decimal places (for example 125 or 125.50).');
+    input.focus();
+    return;
+  }
 
   // CB-13 (Approach A): 改運費只把運費差額換進快照 grand,絕不重算折扣
   // (重算會抹掉 grand 裡內含的歷史促銷)。折扣維持快照原狀。
@@ -2882,15 +2895,27 @@ async function saveShipping() {
   saveBtn.textContent = 'Saving...';
 
   try {
-    const { error } = await _supabase
+    // F-189 ①②(CB-95 核准併入):status 守衛 + count:'exact'。
+    //   🔴 RLS 擋下時 error 為 null(HTTP 200、0 列)—— 不檢查 count 會把本地快照
+    //      改成新值並重繪:畫面顯示已存、DB 未變。count !== 1 一律視為未存,不動 _quote。
+    //   status 白名單複用 SHIPPING_EDIT_ALLOWED_STATUSES(單一來源,正向列舉)。
+    const { error, count } = await _supabase
       .from('quotes')
       .update({
         shipping_cost: newShippingRounded,
         grand_total:   newGrand,
-      })
-      .eq('id', _quote.id);
+      }, { count: 'exact' })
+      .eq('id', _quote.id)
+      .in('status', SHIPPING_EDIT_ALLOWED_STATUSES);
 
     if (error) throw error;
+    if (count !== 1) {
+      console.error('[saveShipping] update matched', count, 'row(s); not saved.');
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      showError('Shipping fee was not saved. This order\'s status has changed or you don\'t have permission. Please reload the page and try again.');
+      return;
+    }
 
     _quote.shipping_cost = newShippingRounded;
     _quote.grand_total   = newGrand;
@@ -2924,6 +2949,86 @@ async function releaseStock() {
   const btn = document.getElementById('releaseStockBtn');
   if (btn && btn.disabled) return;   // mid-flight 防呆:連點只算一次
 
+  // ───────────────────────────────────────────────────────────────────────
+  // CB-95: Confirm Stock 前置檢查(插入段;既有 confirm() 以下除 UPDATE 追加一行外不動)
+  //   ① 重新讀取(Q-2 B):閘門一律用 DB 現值判斷,不用頁面快照 _quote。
+  //      🔴 讀取失敗 / 查無資料(含 RLS 隱藏)→ 擋下(Q-2a fail-closed):
+  //         「查不到」不等於「沒問題」(CB-82 缺陷二)。
+  //   ② 運費 NULL → 擋下(Q-1 A:三種 logistic 都擋)。
+  //      🔴 NULL = 沒填;0 = 已確認(免運 / 自取),放行(決定 #3 / #4)。
+  //         禁用 falsy 判斷(!x、parseFloat(x || 0) 會把 0 一起擋掉);
+  //         也不可用顯示值判斷(fmt(null) 輸出 $0.00)。
+  //      訊息依 logistic 正向分流;未知值走通用訊息,一律擋下(F-35)。
+  //   ③ delivery → 勾選 modal(需求 ②,components/stock-release-check.js)。
+  //      正向識別 === 'delivery'。不留痕(決定 #6)。
+  //   ④ 下方 UPDATE 追加 .not('shipping_cost', 'is', null)(Q-2 C 豁免,僅此一行):
+  //      讀取後到寫入前運費若被改成 NULL,count = 0,不放行。
+  //   已知殘餘(Q-11 A):讀取後到寫入前 logistic_type 被改,勾選可能少跳一次;
+  //     與金額無關,④ 仍有效。
+  //   已知文案缺口(F-198 / Q-12 A):④ 攔下時沿用既有 count = 0 文案(只提 status);
+  //     reload 後再按,會由 ② 給出正確的運費訊息。
+  // ───────────────────────────────────────────────────────────────────────
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Checking...'; }
+  let fresh = null;
+  try {
+    const rd = await _supabase
+      .from('quotes')
+      .select('status, logistic_type, shipping_cost')
+      .eq('id', _quote.id)
+      .maybeSingle();
+    if (rd.error) throw rd.error;
+    fresh = rd.data;
+  } catch (readErr) {
+    console.error('[CB-95] pre-check read failed:', readErr);
+    fresh = null;
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = RELEASE_BTN_INNER; }
+
+  if (!fresh) {
+    alert('Could not verify this order\'s current details. Nothing was changed.\n\n'
+      + 'Please reload the page and try again.');
+    return;
+  }
+
+  if (fresh.status !== 'Stock Review') {
+    alert('This order is no longer in Stock Review. It may have been changed by someone else.\n\nRefreshing now.');
+    window.location.reload();
+    return;
+  }
+
+  if (fresh.shipping_cost === null || fresh.shipping_cost === undefined) {
+    let feeMsg;
+    if (fresh.logistic_type === 'shipping') {
+      feeMsg = 'Shipping fee has not been entered for this order. Nothing was changed.\n\n'
+        + 'Click "✎ Set Fee" in the order totals to enter it (use 0 for free shipping), then click Confirm Stock again.';
+    } else if (fresh.logistic_type === 'delivery') {
+      feeMsg = 'Delivery fee has not been entered for this order. Nothing was changed.\n\n'
+        + 'Click "✎ Edit Fee" in the order totals to enter it, then click Confirm Stock again.';
+    } else if (fresh.logistic_type === 'pickup') {
+      feeMsg = 'This pickup order has no fee recorded. Pickup orders should have a $0 fee, and it cannot be edited on this page. Nothing was changed.\n\n'
+        + 'Please contact the portal administrator before confirming stock.';
+    } else {
+      feeMsg = 'This order has no fee recorded and an unrecognized delivery method ("' + String(fresh.logistic_type) + '"). Nothing was changed.\n\n'
+        + 'Please contact the portal administrator before confirming stock.';
+    }
+    alert(feeMsg);
+    return;
+  }
+
+  if (fresh.logistic_type === 'delivery') {
+    if (!window.ProCraftStockReleaseCheck
+        || typeof window.ProCraftStockReleaseCheck.confirmDelivery !== 'function') {
+      alert('The delivery confirmation could not be loaded. Nothing was changed.\n\n'
+        + 'Please reload the page and try again.');
+      return;
+    }
+    const deliveryOk = await window.ProCraftStockReleaseCheck.confirmDelivery({
+      poLabel: _quote.po_number || _quote.draft_number || 'This order'
+    });
+    if (deliveryOk !== true) return;
+  }
+  // ── CB-95 插入段結束 ────────────────────────────────────────────────────
+
   const poLabel = _quote.po_number || _quote.draft_number || 'This order';
   const ok = confirm(
     'Confirm all items are in stock and release this order for payment?\n\n'
@@ -2940,7 +3045,8 @@ async function releaseStock() {
       .from('quotes')
       .update({ status: 'Pending' }, { count: 'exact' })
       .eq('id', _quote.id)
-      .eq('status', 'Stock Review');
+      .eq('status', 'Stock Review')
+      .not('shipping_cost', 'is', null);   // CB-95 Q-2 C:運費 NULL → count = 0,不放行
     if (upd.error) throw upd.error;
     if (upd.count === 0) {
       alert('This order is no longer in Stock Review. It may have been changed by someone else.\n\nRefreshing now.');
