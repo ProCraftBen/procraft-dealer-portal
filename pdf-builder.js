@@ -253,6 +253,34 @@
   const SC_DOC_TITLE     = 'RETURN MEMO';
   const SC_NUMBER_LABEL  = 'Memo #';
 
+  // ── CB-96:RETURN MEMO 雙版本 ────────────────────────────────────────────
+  //   無價格版(預設)= 給屋主的那一份;有價格版(internal)= dealer 內部留存。
+  //
+  //   🔴 刻意【不】沿用 showPrices —— 那個名字在本檔已有 19 處,是
+  //      _drawItemTable / _drawTotals 用來區分 Packing List 與 Invoice 的
+  //      既有參數。沿用即同名不同義(F-25),兩個「要不要顯示價格」的概念
+  //      會纏在一起。variant 是不同維度的名字。
+  //
+  //   🔴 正向識別(F-35):只有【精確等於】本常數才是有價格版。
+  //      → 預設(不傳 / undefined / 任何其他值)一律是【無價格版】,
+  //        也就是安全的那一版。誤傳的後果是「少印資訊」而非「多印價格」。
+  //   🔴 魔術字串只出現在這裡一次;呼叫端一律讀 ProCraftPDF._SC_VARIANT_INTERNAL。
+  //   🔴 不得用顯示文字(documentTitle)判斷 —— CB-90 的教訓:
+  //      _initDocAndDrawTop 曾用 documentTitle === 'DRAFT QUOTE',標題一改就靜默失效。
+  const SC_VARIANT_INTERNAL = 'internal';
+
+  //   ── 標題字寬(依 CB-90 D-1 同法實測:右對齊至 x=200,
+  //      左側公司資訊右緣在 x=129.1,故「餘裕」= 200 − 字寬 − 129.1)────────
+  //   'RETURN MEMO'             16pt bold = 42.5mm → x 157.5 ~ 200(餘裕 28.4mm)✅ 無價格版
+  //   'RETURN MEMO (INTERNAL)'  16pt bold = 76.3mm → x 123.7 ~ 200(餘裕 −5.4mm)🔴 溢出
+  //   'RETURN MEMO (INTERNAL)'  13pt bold = 62.0mm → x 138.0 ~ 200(餘裕  8.9mm)🔴 低於門檻
+  //   'RETURN MEMO (INTERNAL)'  12pt bold = 57.2mm → x 142.8 ~ 200(餘裕 13.7mm)✅ 採用
+  //   📌 門檻取 CB-90 採用值 15.9mm 為參考;12pt 的 13.7mm 略低但已列印實測。
+  //   ⚠️ 日後若改動標題文字或 header 左側內容,須以同法重算 —— 溢出不會報錯,
+  //      只會被裁掉,而被裁掉的正好是 (INTERNAL) 這個最關鍵的字。
+  const SC_DOC_TITLE_INTERNAL      = 'RETURN MEMO (INTERNAL)';
+  const SC_DOC_TITLE_SIZE_INTERNAL = 12;
+
   //   ── S1-Q4 = 乙案:第一頁 Order Note 下方,單行粗體彩色,不加框不加底色。
   //   🔴 三案都【不壓縮表格】—— 列高、字級、欄寬一律不動,_drawItemTable 零改動。
   //      業主原話是「可以壓縮第一頁的表格沒關係」,但實測:Order Note 與
@@ -2402,6 +2430,11 @@ return total;
     });
 
     // ── CB-93:deferPageChrome ─────────────────────────────────────────
+    //   🔴 CB-96 起為【死碼】(F-1xx 已登記):三份 PDF 不再 attach memo 頁,
+    //      因此沒有任何呼叫端會傳 true。
+    //      依 CB-96 Q-10(比照 CB-95 Q-7 對 getShippingBracket() 的處置)
+    //      保留不刪 —— 移除它要動兩支既有 finalize 的簽名,風險高於留著。
+    //      ⚠️ 若日後恢復 attach,這段仍然可用;請勿「順手清掉」。
     //   🔴 有退貨時,頁尾綠條與頁碼必須等 memo 頁【全部接上之後】才畫 ——
     //      兩者都是「逐頁 setPage + getNumberOfPages()」的迴圈(F-81 已修),
     //      先畫的話 memo 頁會沒有綠條、頁碼也會停在 memo 頁之前的總數。
@@ -2418,6 +2451,7 @@ return total;
    * 改動 15: T&C 變窄,右側加 Assembled 數量 summary。
    */
   function _finalizePackingListWithTcAndNotes(args) {
+    // CB-96:deferPageChrome 自本票起為死碼,保留不刪(理由見 _finalizeWithTotals)。
     const { doc, quoteData, headerContext, tableEndY, notes, deferPageChrome } = args;
     const { pageW, margin } = LAYOUT;
 
@@ -2475,7 +2509,8 @@ return total;
     //        改它等於用後來的事重寫過去的紀錄。」
     //      → 因此 _drawItemTable 的呼叫【一個字都不改】。
     const _sc = _normalizeStoreCredits(options.storeCredits);
-    const { doc, logoImg, y, headerContext } = await _initDocAndDrawTop(
+    // CB-96:logoImg 不再需要(memo 頁已不在本文件內接上)。
+    const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'PACKING LIST',
       undefined, undefined,          // isDraftDoc / documentTitleSize 維持預設
@@ -2491,17 +2526,16 @@ return total;
         headerContext:    headerContext,
       });
 
-    _finalizePackingListWithTcAndNotes({
-      doc, quoteData, headerContext, tableEndY, notes,
-      deferPageChrome: _sc.list.length > 0,   // CB-93
-    });
-
-    // CB-93:memo 頁接在原單之後,頁尾與頁碼【最後】才畫 → 頁碼全文件連續。
-    if (_sc.list.length > 0) {
-      _drawStoreCreditMemoPages(doc, { memos: _sc.list, quoteData, dealer, logoImg });
-      _drawFooterBar(doc);
-      _addPageNumbers(doc);
-    }
+    // ── CB-96:拆除 memo 頁 attach ─────────────────────────────────────
+    //   業主裁定:三份 PDF 不再自動接上 memo。改為下載時以 alert 提醒,
+    //   由 dealer 自行決定印哪一個版本給誰(有價格 / 無價格)。
+    //   🔴 註記【保留】(Q-3′):Packing List 是倉庫的揀貨單,
+    //      註記是告訴倉庫「這張單有退貨」的唯一紙面訊號 ——
+    //      拿掉的話,替代品只剩螢幕上的 alert,而 alert 印不出來。
+    //   📌 Q-3 初裁為「不傳註記」,理由是「dealer 最可能拿這張給屋主」;
+    //      該理由查證後不成立 —— 本頁按鈕受 F9 限制為 admin only,
+    //      dealer 在 portal 上拿不到 Packing List。詳見交付說明的事實更正紀錄。
+    _finalizePackingListWithTcAndNotes({ doc, quoteData, headerContext, tableEndY, notes });
 
     _drawStamp(doc, options.stamp);   // CB-50
     return doc;
@@ -2513,8 +2547,8 @@ return total;
    */
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
-    const _sc = _normalizeStoreCredits(options.storeCredits);   // CB-93
-    const { doc, logoImg, y, headerContext } = await _initDocAndDrawTop(
+    const _sc = _normalizeStoreCredits(options.storeCredits);   // CB-93 / CB-96
+    const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'INVOICE',
       undefined, undefined,
@@ -2535,15 +2569,8 @@ return total;
       headerContext, tableEndY, notes,
       showPrices: true, markupPercent,
       hideDiscount: false,           // CB-47
-      deferPageChrome: _sc.list.length > 0,   // CB-93
     });
-
-    // CB-93:memo 頁接在原單之後,頁尾與頁碼【最後】才畫 → 頁碼全文件連續。
-    if (_sc.list.length > 0) {
-      _drawStoreCreditMemoPages(doc, { memos: _sc.list, quoteData, dealer, logoImg });
-      _drawFooterBar(doc);
-      _addPageNumbers(doc);
-    }
+    // CB-96:拆除 memo 頁 attach(理由同 buildPackingListPdf)。註記保留。
 
     _drawStamp(doc, options.stamp);   // CB-50
     return doc;
@@ -2558,8 +2585,8 @@ return total;
    */
   async function buildReceiptPdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0, receipt = null } = options;
-    const _sc = _normalizeStoreCredits(options.storeCredits);   // CB-93
-    const { doc, logoImg, y, headerContext } = await _initDocAndDrawTop(
+    const _sc = _normalizeStoreCredits(options.storeCredits);   // CB-93 / CB-96
+    const { doc, y, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'RECEIPT',
       undefined, undefined,
@@ -2581,17 +2608,8 @@ return total;
       showPrices: true, markupPercent,
       hideDiscount: false,           // CB-47
       receipt,
-      deferPageChrome: _sc.list.length > 0,   // CB-93
     });
-
-    // CB-93:memo 頁接在【CB-45 對帳斷言之後】才接 ——
-    //   斷言在 _finalizeWithTotals 內已跑完,memo 金額不進 quotes,
-    //   對帳不受影響(決議互斥檢查第 8 項)。
-    if (_sc.list.length > 0) {
-      _drawStoreCreditMemoPages(doc, { memos: _sc.list, quoteData, dealer, logoImg });
-      _drawFooterBar(doc);
-      _addPageNumbers(doc);
-    }
+    // CB-96:拆除 memo 頁 attach(理由同 buildPackingListPdf)。註記保留。
 
     _drawStamp(doc, options.stamp);   // CB-50
     return doc;
@@ -2701,7 +2719,11 @@ return total;
   //   _addPageNumbers / _drawStamp / LAYOUT / COLORS。
   function _drawStoreCreditMemoPages(doc, context) {
     const { pageW, margin, headerH } = LAYOUT;
-    const { memos, quoteData, dealer, logoImg } = context;
+    const { memos, quoteData, dealer, logoImg, isInternal } = context;
+
+    // 🔴 CB-96:單一判斷點。整支函式其餘地方一律讀這個布林,不再各自比對 ——
+    //    散落的比對只要漏改一處,那一處就會印出價格,而且不會報錯。
+    const _priced = (isInternal === true);
 
     memos.forEach(function (m) {
       doc.addPage();
@@ -2716,8 +2738,11 @@ return total;
         jobName:           quoteData.job_name || '—',
         salesName:         quoteData.sales_name || null,
         date:              m.created_at ? new Date(m.created_at) : new Date(),
-        documentTitle:     SC_DOC_TITLE,
-        documentTitleSize: DOC_TITLE_SIZE_DEFAULT,
+        // CB-96:有價格版標題加 (INTERNAL) 並降到 12pt(見常數區的字寬計算)。
+        //   🔴 這是【防誤寄的第二道防線】:檔名可以被改,PDF 內頁標題改不掉,
+        //      列印出來也在。第一道是檔名的 ' - Internal'(CB-90 Q-5 同法)。
+        documentTitle:     _priced ? SC_DOC_TITLE_INTERNAL : SC_DOC_TITLE,
+        documentTitleSize: _priced ? SC_DOC_TITLE_SIZE_INTERNAL : DOC_TITLE_SIZE_DEFAULT,
       };
       _drawHeader(doc, hc);
 
@@ -2758,57 +2783,80 @@ return total;
       y += 6;
 
       // ── 退貨原因 ───────────────────────────────────────────────────
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(...COLORS.muted);
-      doc.text('REASON FOR RETURN', margin, y);
-      y += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(30, 30, 30);
-      const rLines = doc.splitTextToSize(String(m.reason || '—'), pageW - margin * 2);
-      rLines.forEach(function (ln) { doc.text(ln, margin, y); y += 5; });
-      y += 3;
+      //   🔴 CB-96:無價格版【整區移除】,連標籤一起 ——
+      //      業主:原因可能含內部脈絡(「就算是客戶反悔到最後決定寫上去也 OK」),
+      //      不該出現在給屋主的那一份。
+      //      只留標籤而不印內容是更糟的做法:屋主會問「原因是什麼」。
+      if (_priced) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...COLORS.muted);
+        doc.text('REASON FOR RETURN', margin, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(30, 30, 30);
+        const rLines = doc.splitTextToSize(String(m.reason || '—'), pageW - margin * 2);
+        rLines.forEach(function (ln) { doc.text(ln, margin, y); y += 5; });
+        y += 3;
+      }
 
       // ── 品項表 ─────────────────────────────────────────────────────
       //   🔴 底部邊界 22 與既有四處共用同一條底線(CB-69 已統一到 275)。
+      // 🔴 CB-96:金額四欄【只在有價格版才產生】。
+      //    不是產生後再隱藏 —— 那樣值仍在 PDF 的文字層裡,選取或複製得出來,
+      //    而「看不到」不等於「不存在」。這裡是從 body 就不放進去。
       const body = (m.lines || []).map(function (l, idx) {
         const isItem = (l.line_kind === 'quote_item');
         const desc = isItem
           ? [l.sku_code, l.style_code, l.sku_desc].filter(Boolean).join('  ·  ')
           : String(l.description || '—');
         const asm = isItem ? (l.assemble_status || '') : '';
+        const row = [String(idx + 1), desc, asm, String(l.quantity)];
+        if (!_priced) return row;
+
         const unit = Number(l.unit_price);
         const disc = Number(l.discount_amount);
-        return [
-          String(idx + 1),
-          desc,
-          asm,
-          String(l.quantity),
+        return row.concat([
           isItem && isFinite(unit) ? '$' + unit.toFixed(2) : '',
           isItem && isFinite(disc) && disc !== 0 ? '-$' + disc.toFixed(2) : '',
           '$' + Number(l.credit_unit_amount).toFixed(2),
           '-$' + Math.abs(Number(l.line_total)).toFixed(2),
-        ];
+        ]);
       });
+
+      // 🔴 欄寬必須【分開定義】,不可沿用有價格版再砍四欄:
+      //    有價格版八欄加總 8+68+16+12+21+20+22+23 = 190mm(= 版心寬)。
+      //    直接砍掉後四欄只剩 104mm,表格會縮在左半邊,看起來像壞掉。
+      //    無價格版重新分配:10+132+26+22 = 190mm。
+      //    (Description 給 132mm —— 樣本 'B12 · ESC · Base cabinet with full
+      //     overlay door' 在 8.5pt 為 65.0mm,留足兩倍餘裕給長描述不換行;
+      //     Asm 26mm > 'ASSEMBLED' 的 18.2mm。)
+      const _head = _priced
+        ? ['#', 'Description', 'Asm', 'Qty', 'Unit Price', 'Discount', 'Credit/Unit', 'Line Total']
+        : ['#', 'Description', 'Asm', 'Qty'];
+      const _cols = _priced
+        ? { 0: { cellWidth: 8,  halign: 'right' },
+            1: { cellWidth: 68 },
+            2: { cellWidth: 16 },
+            3: { cellWidth: 12, halign: 'right' },
+            4: { cellWidth: 21, halign: 'right' },
+            5: { cellWidth: 20, halign: 'right' },
+            6: { cellWidth: 22, halign: 'right' },
+            7: { cellWidth: 23, halign: 'right' } }
+        : { 0: { cellWidth: 10,  halign: 'right' },
+            1: { cellWidth: 132 },
+            2: { cellWidth: 26 },
+            3: { cellWidth: 22, halign: 'right' } };
 
       doc.autoTable({
         startY: y,
-        head: [['#', 'Description', 'Asm', 'Qty', 'Unit Price', 'Discount', 'Credit/Unit', 'Line Total']],
+        head: [_head],
         body: body,
         margin: { left: margin, right: margin, top: headerH + 10, bottom: 22 },
         styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
         headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-        columnStyles: {
-          0: { cellWidth: 8,  halign: 'right' },
-          1: { cellWidth: 68 },
-          2: { cellWidth: 16 },
-          3: { cellWidth: 12, halign: 'right' },
-          4: { cellWidth: 21, halign: 'right' },
-          5: { cellWidth: 20, halign: 'right' },
-          6: { cellWidth: 22, halign: 'right' },
-          7: { cellWidth: 23, halign: 'right' },
-        },
+        columnStyles: _cols,
         didDrawPage: function (data) {
           if (data.pageNumber > 1) _drawHeader(doc, hc);
         },
@@ -2817,9 +2865,12 @@ return total;
       y = doc.lastAutoTable.finalY + 8;
 
       // ── 合計 ───────────────────────────────────────────────────────
+      //   🔴 CB-96:無價格版【整區移除】—— Merchandise / Restocking Fee /
+      //      Store Credit Issued 三項都是價格資訊,業主指定不得出現在屋主那一份。
       //   🔴 Restocking Fee 為 0 時【整行隱藏】(業主指定)。
       //   🔴 net > 0 代表 fee 超過退貨額、dealer 反而要補錢 →
       //      改印 Balance Due,不可仍印 Store Credit Issued(Q-8)。
+      if (_priced) {
       const merch = Number(m.merchandise_amount);
       const fee   = Number(m.restocking_fee);
       const net   = Number(m.net_store_credit_amount);
@@ -2852,8 +2903,12 @@ return total;
       doc.text(netIsCredit ? 'Store Credit Issued' : 'Balance Due', labelX, y, { align: 'right' });
       doc.text((netIsCredit ? '-$' : '$') + Math.abs(net).toFixed(2), valueX, y, { align: 'right' });
       y += 10;
+      }   // end if (_priced) — 合計區
 
       // ── Issued by(S1-Q5)───────────────────────────────────────────
+      //   🔴 CB-96 Q-11:【兩版都印】。header 本來就印 Sales 姓名,
+      //      再印 Issued by 不構成新增揭露(與 CB-74 D-11 一致:
+      //      Draft Quote 已曝露業務姓名給終端客戶,業主已接受)。
       //   🔴 印【姓名】,不印角色 —— 業主理由:開單者與 sales 不同時看得出來。
       //      姓名取自 memo 的快照欄,不是即時 join;開單者離職被刪帳號後
       //      仍印得出來(見 created_by_name 的 COMMENT)。
@@ -2865,9 +2920,12 @@ return total;
   }
 
   /**
-   * CB-93:單獨下載 RETURN MEMO(admin 專用入口;dealer 只能透過原單三份 PDF 附帶看到)
-   *   🔴 與「接在原單後面」共用同一支 _drawStoreCreditMemoPages() ——
-   *      兩份平行實作必然漂移,而漂移後兩個入口印出不同內容【不會報錯】。
+   * CB-93 / CB-96:單獨下載 RETURN MEMO。
+   *   CB-96 起 admin 與 dealer 皆可下載,且分為兩個版本:
+   *     options.variant 省略                        → 無價格版(給屋主)
+   *     options.variant = SC_VARIANT_INTERNAL      → 有價格版(dealer 內部)
+   *   🔴 預設是無價格版 —— 誤傳的後果是「少印資訊」,不是「多印價格」。
+   *   🔴 CB-96 起這是【唯一】的 memo 輸出路徑(三份 PDF 已不再 attach)。
    */
   async function buildStoreCreditMemoPdf(quoteData, dealer, memos, options = {}) {
     const { jsPDF } = window.jspdf;
@@ -2887,7 +2945,11 @@ return total;
     // 🔴 _drawStoreCreditMemoPages() 每張 memo 都先 addPage() ——
     //    獨立文件的第 1 頁因此會是空白頁,必須刪掉。
     //    改成「第一張不 addPage」會讓兩個入口的邏輯分岔,寧可在此刪。
-    _drawStoreCreditMemoPages(doc, { memos: norm.list, quoteData, dealer, logoImg });
+    // 🔴 正向識別:只有精確等於常數才是有價格版(見 SC_VARIANT_INTERNAL 的註解)。
+    _drawStoreCreditMemoPages(doc, {
+      memos: norm.list, quoteData, dealer, logoImg,
+      isInternal: (options.variant === SC_VARIANT_INTERNAL),
+    });
     doc.deletePage(1);
 
     _drawFooterBar(doc);
@@ -2925,8 +2987,20 @@ return total;
 
   // CB-93:另寫一支,【不】在 getPdfFilename 內加分支 ——
   //   那支是四個既有型別共用的,加分支等於動既有物件。
-  function getStoreCreditMemoPdfFilename(memoNumber) {
-    return `ProCraft DC - Return Memo - ${memoNumber || 'Memo'}.pdf`;
+  //
+  // CB-96:雙版本檔名。
+  //   🔴 'Internal' 緊接 'Return Memo' 之後,不可後移到結尾 ——
+  //      dealer 在檔案總管的窄欄位下只看得到前半段,放結尾會被截斷,
+  //      就失去「寄出去之前就發現」的整個設計目的(CB-90 Q-4 同法)。
+  //      檔名是第一道防線,PDF 內頁標題 (INTERNAL) 是第二道 —— 檔名可以被改,
+  //      內頁標題改不掉,列印出來也在。
+  //   🔴 正向識別(F-35):只有 internal === true 才加標,預設不加。
+  //   🔴 'Internal' 不翻譯(CB-62 Q-56:會輸出的不翻;檔名為輸出物)。
+  //   🔴 複用既有 FILENAME_INTERNAL_TAG,不新增常數 —— 兩處各自定義
+  //      同一個字串,改了一處而漏另一處不會報錯。
+  function getStoreCreditMemoPdfFilename(memoNumber, internal) {
+    const _tag = (internal === true) ? FILENAME_INTERNAL_TAG : '';
+    return `ProCraft DC - Return Memo${_tag} - ${memoNumber || 'Memo'}.pdf`;
   }
 
   // ----------------------------------------
@@ -2984,6 +3058,9 @@ return total;
     //      讀不到代表載到舊版 pdf-builder.js(F-168:兩個載入點皆無 ?v=),
     //      此時註記與 memo 頁會靜默消失 → 呼叫端須判定降級並擋下下載。
     _STORE_CREDIT_CONTRACT:        STORE_CREDIT_CONTRACT,
+    // 🔴 CB-96:呼叫端一律讀本常數,不得在自己的檔案裡硬寫 'internal'
+    //    (魔術字串散落的問題,F-66 同型)。
+    _SC_VARIANT_INTERNAL:          SC_VARIANT_INTERNAL,
     _drawStoreCreditNotice:        _drawStoreCreditNotice,
     _drawStoreCreditMemoPages:     _drawStoreCreditMemoPages,
     _normalizeStoreCredits:        _normalizeStoreCredits,
