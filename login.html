@@ -227,6 +227,33 @@
     }
     .btn-apply:hover { border-color: var(--gold); color: #a8862f; background: rgba(201,168,76,0.04); }
 
+    /* ── F-205 | ④ Request Portal Access ─────────────────────────────
+       層級:① .btn-login(實心深綠)> ④ 本區(淡綠)> ⑤ .btn-apply(中性邊框)。
+       疊在 .btn-apply 之上,只覆寫顏色與間距 ——【.btn-apply 本身不動】(Q-7 = H-1)。
+       ⚠️ :hover 必須另寫:.btn-apply:hover(0,2,0)權重高於 .btn-apply--portal(0,1,0),
+          不寫的話 hover 會變回 ⑤ 的金色。
+       📌 西語不需另加覆寫:按鈕繼承 html[lang="es"] .btn-apply 的 letter-spacing,
+          且 "SOLICITAR ACCESO AL PORTAL" 與既有 ⑤ 同為 26 字元。 */
+    .portal-access-prompt {
+      margin: 0 0 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+      text-align: center;
+    }
+    .btn-apply--portal {
+      background: rgba(74,107,79,0.08);
+      border-color: var(--green-mid);
+      color: var(--green-dark);
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .btn-apply--portal:hover {
+      background: rgba(74,107,79,0.14);
+      border-color: var(--green-dark);
+      color: var(--green-dark);
+    }
+
     .card-footer {
       margin-top: 30px;
       padding-top: 20px;
@@ -323,6 +350,9 @@
       <button class="btn-login" id="loginBtn" data-i18n="login.btn.sign_in">Sign In</button>
 
       <div class="divider-or"><span data-i18n="login.divider_or">or</span></div>
+      <!-- F-205: ④ already a ProCraft dealer, no portal account → external n8n form (new tab) -->
+      <p class="portal-access-prompt" data-i18n="login.portal_access.prompt">Already a ProCraft dealer but don't have a portal login?</p>
+      <a href="https://benprocraftdc.app.n8n.cloud/form/e22a9b52-9d03-4fe8-8e47-843e194a0c93" target="_blank" rel="noopener" class="btn-apply btn-apply--portal" data-i18n="login.btn.request_portal_access">Request Portal Access</a>
       <a href="https://dc.procraftcabinetry.com/become-a-dealer/" target="_blank" class="btn-apply" data-i18n="login.btn.apply_dealer">Apply to Become a Dealer</a>
 
       <div class="card-footer" data-i18n="login.footer.copyright">© 2026 ProCraft Cabinetry DC · All rights reserved</div>
