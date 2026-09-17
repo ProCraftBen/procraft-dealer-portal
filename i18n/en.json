@@ -20,6 +20,8 @@
   "login.btn.sign_in": "Sign In",
   "login.divider_or": "or",
   "login.btn.apply_dealer": "Apply to Become a Dealer",
+  "login.portal_access.prompt": "Already a ProCraft dealer but don't have a portal login?",
+  "login.btn.request_portal_access": "Request Portal Access",
 
   "login.footer.copyright": "© {year} ProCraft Cabinetry DC · All rights reserved",
 
