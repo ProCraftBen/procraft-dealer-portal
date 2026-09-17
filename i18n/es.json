@@ -20,6 +20,8 @@
   "login.btn.sign_in": "Iniciar sesión",
   "login.divider_or": "o",
   "login.btn.apply_dealer": "Solicitar ser distribuidor",
+  "login.portal_access.prompt": "¿Ya es distribuidor ProCraft pero no tiene acceso al portal?",
+  "login.btn.request_portal_access": "Solicitar acceso al portal",
 
   "login.footer.copyright": "© {year} ProCraft Cabinetry DC · Todos los derechos reservados",
 
