@@ -52,15 +52,10 @@
     .td-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
     .badge-active { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(22,163,74,0.1); color: #16A34A; }
     .badge-inactive { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; background: rgba(107,114,128,0.1); color: #6B7280; }
-    /* CB-76: account_type badge。僅非 dealer 的三種類別顯示(見 ACCOUNT_TYPE_BADGE)。 */
-    .badge-acct { display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 2px; font-size: 10px; font-weight: 500; letter-spacing: 0.04em; }
-    .badge-acct.acct-internal_account { background: rgba(107,114,128,0.12); color: #4B5563; }
-        /* Location 用藍綠(#0F766E,沿用 send-followup-email 的 BRAND.completed),
-       與 trial 的橘色明確分開 —— 兩者原本都是暖色,並排時難以分辨。
-       語意:Location = 資訊性/內部工具;Trial = 暫時性/需注意。 */
-    .badge-acct.acct-location         { background: rgba(15,118,110,0.12);  color: #0F766E; }
-    .badge-acct.acct-trial            { background: rgba(224,123,57,0.14);  color: #C2410C; }
-    .badge-acct.acct-unknown          { background: rgba(192,57,43,0.12);   color: #C0392B; }
+    /* CB-97:.badge-acct 系列已移至 components/account-type.js(單一真相),
+       由該檔以 STYLE_ID 守衛自行注入,本頁與 admin-quotes.html 共用。
+       🔴 勿在此重新宣告 —— 兩份樣式的漂移不會報錯,只會讓兩頁的 badge
+       慢慢長得不一樣。原有的配色說明已隨數值一併移入該檔。 */
     .btn-edit { font-size: 11px; color: var(--gold); background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; margin-right: 6px; }
     .btn-edit:hover { opacity: 0.7; }
     .btn-toggle { font-size: 11px; background: none; border: 1px solid var(--border); border-radius: 3px; padding: 5px 10px; cursor: pointer; transition: opacity 0.2s; color: var(--muted); }
@@ -322,9 +317,10 @@
               <option value="dealer">Dealer</option>
               <option value="internal_account">Internal Account</option>
               <option value="location">Location</option>
+              <option value="project">Project</option>
               <option value="trial">Trial</option>
             </select>
-            <span class="form-hint">Dealer = normal. Internal Account = internal marker only. Location = all emails suppressed. Trial = cannot submit orders.</span>
+            <span class="form-hint">Dealer = normal. Internal Account = internal marker only. Location = all emails suppressed. Project = all emails suppressed. Trial = cannot submit orders.</span>
           </div>
         </div>
       </div>
@@ -543,6 +539,7 @@ LSG-W3030     $400.00   -$40.00  (Rule 1)                    =  $360.00</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="components/account-type.js?v=cb97"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <script src="components/footer.js?v=cb62c"></script>
 <script>
@@ -996,7 +993,18 @@ const LIST_COLSPAN = 6;
 //      停信的真相來源永遠是 EF 內的那四份。本常數只決定 toast 說什麼。
 //   🔴 未來開放 Location portal 時,五處必須一起改;漏掉這一處的症狀是
 //      「信寄出去了但 toast 說沒寄」,方向與現在相反,同樣是假訊息。
-const EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI = ['location'];
+const EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI = ['location', 'project'];
+// 🔴 CB-97 實查更正:'project' 的完整副本清單為【六處】,不是五處 ——
+//      ①send-quote-email        EMAIL_SUPPRESSED_ACCOUNT_TYPES
+//      ②send-payment-email      EMAIL_SUPPRESSED_ACCOUNT_TYPES
+//      ③send-followup-email     EMAIL_SUPPRESSED_ACCOUNT_TYPES
+//      ④create-dealer           EMAIL_SUPPRESSED_ACCOUNT_TYPES
+//      ⑤create-dealer           VALID_ACCOUNT_TYPES  ← 值域驗證,非停信,最易漏
+//      ⑥本檔                    EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI
+//    ⚠️ 那四支 EF 檔內的註解只列了 ①~⑤,漏了本檔 —— 登記 F-217。
+//       以【本清單】為準。
+//    ⚠️ send-change-request 刻意【沒有】停信判斷,且刻意不 select
+//       account_type,讓該判斷在結構上加不上去 —— 勿「順手對齊」。
 
 // ── CB-76: account_type badge ────────────────────────────────────────────
 //   🔴 正向識別(F-35):以三種例外查表命中才渲染。
@@ -1005,22 +1013,16 @@ const EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI = ['location'];
 //      或反過來把該顯示的漏掉,而且不報錯。
 //   'dealer' 刻意不在表中 → 自然不顯示(佔全表近 100%,顯示等於雜訊)。
 //   查無對應 → 以 acct-unknown 印出【DB 原值】,壞掉看得見。
-const ACCOUNT_TYPE_BADGE = {
-  internal_account: 'Internal Account',
-  location:         'Location',
-  trial:            'Trial',
-};
-
+// CB-97:map 與渲染函式已移至 components/account-type.js(單一真相),
+//   供本頁與 admin-quotes.html 共用。呼叫端一律經由本轉接函式,
+//   不直接碰 window.ProCraftAccountType —— 日後若改用別的機制,
+//   只需動這一行。
+//   🔴 抽出的只有 badge 的【顯示】。EMAIL_SUPPRESSED_ACCOUNT_TYPES_UI
+//      刻意留在上方本檔內:兩者都以 account_type 為鍵,但用途無關 ——
+//      前者決定「長什麼樣」,後者決定「toast 說什麼」。併在一起會讓人
+//      誤以為 F-211 的副本問題已解決,它沒有。
 function renderAccountTypeBadge(accountType) {
-  if (accountType === 'dealer') return '';
-  const label = ACCOUNT_TYPE_BADGE[accountType];
-  if (label) {
-    return '<div><span class="badge-acct acct-' + accountType + '">' + label + '</span></div>';
-  }
-  // 未知值(含 null / '')—— 不靜默略過,印出來讓人看到資料有問題。
-  const raw = (accountType === null || accountType === undefined || accountType === '')
-    ? '(none)' : String(accountType);
-  return '<div><span class="badge-acct acct-unknown">⚠ ' + raw.replace(/[<>&"]/g, '') + '</span></div>';
+  return window.ProCraftAccountType.render(accountType);
 }
 
 // 🟢 通用(判斷依據):error / 無資料 / 無符合 三態的【區分邏輯】通用,
