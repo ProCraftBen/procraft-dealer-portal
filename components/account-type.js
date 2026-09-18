@@ -80,17 +80,21 @@
   // ── 顯示名 map ────────────────────────────────────────────────────
   //   🔴 key 為 DB 的 canonical 值(小寫底線,CB-76 Q-1 = A),
   //      value 為顯示名。兩者可分離 —— DB 值不得為了顯示而改動。
-  //   🔴 'dealer' 刻意不在表中(佔全表 87.6%,顯示等於雜訊)。
-  //      ⚠️ CB-76 原註解寫「近 100%」;CB-97 實查 production 為 120/137
-  //         = 87.6%,例外率 12.4%。結論不變(badge 仍勝過整欄),
-  //         但原本的理由已不精確,故一併更正。
+  //   🔴 'dealer' 在表中,但 render() 仍不顯示它 —— 早退在查表之前。
+  //      兩個用途共用同一張表:
+  //        render() badge → dealer 早退回 '',只有例外類型看得見
+  //        label()  整欄   → 五種都要印,dealer 也要
+  //      🔴 刻意【不】拆成兩張表:兩張表必然漂移,而漂移的症狀是
+  //         某一頁的顯示名與另一頁不同,不報錯。
+  //      ⚠️ 因此「dealer 不顯示 badge」這件事由 render() 的早退保證,
+  //         【不是】由它缺席於本表保證。移除那行早退會讓 badge 全面出現。
   var BADGE = {
+    dealer:           'Dealer',       // CB-97:整欄用;render() 不會走到這裡
     internal_account: 'Internal Account',
     location:         'Location',
     project:          'Project',      // CB-97
     trial:            'Trial'
   };
-
   // ── 樣式注入 ──────────────────────────────────────────────────────
   //   數值逐字複製自 admin-dealers.html 的既有 .badge-acct 區塊,
   //   未做任何「順手優化」—— U2 移除該頁本地 CSS 後,輸出必須維持不變。
@@ -139,25 +143,35 @@
     var open   = inline ? '' : '<div>';
     var close  = inline ? '' : '</div>';
 
-    var label = BADGE[accountType];
-    if (label) {
-      return open + '<span class="badge-acct acct-' + accountType + extra + '">'
-           + label + '</span>' + close;
-    }
+    var known = BADGE[accountType];
+    var cls   = known ? ('acct-' + accountType) : 'acct-unknown';
+    // 🔴 文字一律經由 label() —— badge 與整欄共用同一個derivation,
+    //    兩者的顯示名不可能不一致。輸出與抽出前逐字相同。
+    return open + '<span class="badge-acct ' + cls + extra + '">'
+         + label(accountType) + '</span>' + close;
+  }
 
-    // 未知值(含 null / '')—— 不靜默略過,印出來讓人看到資料有問題。
-    // 🔴 剝除法沿用 CB-76 原碼,未改為 escapeHtml:
-    //    本函式不依賴任何外部 helper(escapeHtml 受份數管制,CB-95 L-1),
-    //    且此路徑的值域受 dealers_account_type_check 約束,不是自由文字。
+  // ── 整欄用的純文字顯示名(CB-97 Q-11 = B)──────────────────────────
+  //   render() 回傳 badge 的 HTML;本函式只回文字,供 admin-quotes 的
+  //   Account Type 欄使用。
+  //   🔴 'dealer' 在此【會】回傳 'Dealer' —— 與 render() 的早退不同,
+  //      那是刻意的:整欄要印滿,badge 只標例外。
+  //   未知值(含 null / '')→ 印警示 + DB 原值,壞掉看得見。
+  //   🔴 剝除法沿用 CB-76 原碼,未改為 escapeHtml:
+  //      本檔不依賴任何外部 helper(escapeHtml 受份數管制,CB-95 L-1),
+  //      且此路徑的值域受 dealers_account_type_check 約束,不是自由文字。
+  function label(accountType) {
+    var known = BADGE[accountType];
+    if (known) return known;
     var raw = (accountType === null || accountType === undefined || accountType === '')
       ? '(none)' : String(accountType);
-    return open + '<span class="badge-acct acct-unknown' + extra + '">&#9888; '
-         + raw.replace(/[<>&"]/g, '') + '</span>' + close;
+    return '&#9888; ' + raw.replace(/[<>&"]/g, '');
   }
 
   window.ProCraftAccountType = {
     BADGE:        BADGE,
     render:       render,
+    label:        label,
     ensureStyles: ensureStyles
   };
 })();
