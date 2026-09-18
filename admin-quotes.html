@@ -2349,8 +2349,9 @@ function renderTable() {
         //   🔴 不新增欄位,LIST_COLSPAN 維持 9(決議 7)。
         //   📌 dealer 查無時為 {},account_type 為 undefined →
         //      component 印出 ⚠ (none)。那是刻意的:壞掉看得見。
-        '<td>' + window.ProCraftAccountType.render(dealer.account_type, { lead: true }) +
-          '<div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
+        //   🔴 inline(不是 lead):badge 與公司名同一行。非 dealer 類型佔
+        //      14%,若每一列都獨立一行,是用 100% 的版面高度換 14% 的資訊。
+        '<td><div class="td-dealer">' + window.ProCraftAccountType.render(dealer.account_type, { inline: true }) + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
         '<td class="td-sales">' + renderSalesCell(dealer.assigned_sales_id) + '</td>' +
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
