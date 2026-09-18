@@ -46,8 +46,16 @@
  *       的 company/contact 之後使用 —— 與 CB-76 原輸出【逐字相同】。
  *
  *   window.ProCraftAccountType.render(accountType, { lead: true })
- *     → badge 在【上方】(margin-bottom),供 admin-quotes 的 Dealer 格首
- *       使用(CB-97 Q-4 = A)。
+ *     → badge 在【上方】(margin-bottom),獨立一行。目前無呼叫端,保留備用。
+ *
+ *   window.ProCraftAccountType.render(accountType, { inline: true })
+ *     → 不含外層 <div>,badge 與後續文字【同一行】,供 admin-quotes 的
+ *       Dealer 格首使用(CB-97 Q-4 = A,位置細化)。
+ *     🔴 選 inline 而非 lead 的理由:非 dealer 類型佔 14%,若每一列都多
+ *        一行,是用 100% 的版面高度換 14% 的資訊。inline 只在 badge 存在
+ *        時佔用水平空間,不存在時完全不影響版面。
+ *     ⚠️ 代價:公司名過長時 badge 會把名字擠到換行,該列反而更高。
+ *        那是例外中的例外(14% × 長名),優於現在的一律加高。
  *
  *   🔴 lead 以【額外 class】實作,不改動 .badge-acct 基礎樣式 ——
  *      改基礎樣式會讓 admin-dealers 的既有版面跟著位移,而本票對該檔的
@@ -96,6 +104,9 @@
       /* 🔴 lead:badge 在上方時把 margin 翻面。只加不改,
             未帶此 class 的既有呼叫端輸出完全不變。 */
       '.badge-acct.acct-lead { margin-top: 0; margin-bottom: 3px; }',
+      /* 🔴 inline:同一行使用,清掉 margin-top 並在右側留間隔。
+         只加不改,未帶此 class 的既有呼叫端輸出完全不變。 */
+      '.badge-acct.acct-inline { margin: 0 6px 0 0; }',
       '.badge-acct.acct-internal_account { background: rgba(107,114,128,0.12); color: #4B5563; }',
       /* Location 用藍綠(#0F766E,沿用 send-followup-email 的 BRAND.completed),
          與 trial 的橘色明確分開 —— 兩者原本都是暖色,並排時難以分辨。
@@ -119,13 +130,19 @@
     // 與下方的查表【不衝突】:它排除的是「正常」,查表命中的是「例外」。
     if (accountType === 'dealer') return '';
 
-    var lead  = !!(opts && opts.lead);
-    var extra = lead ? ' acct-lead' : '';
+    var inline = !!(opts && opts.inline);
+    var lead   = !!(opts && opts.lead);
+    // 🔴 inline 優先:兩者同時給時 lead 的上下 margin 沒有意義(同一行內
+    //    沒有上下)。不報錯、不拋例外 —— 這是呼叫端的筆誤,不是資料問題,
+    //    而讓 badge 消失或整頁壞掉都比靜默忽略更糟。
+    var extra  = inline ? ' acct-inline' : (lead ? ' acct-lead' : '');
+    var open   = inline ? '' : '<div>';
+    var close  = inline ? '' : '</div>';
 
     var label = BADGE[accountType];
     if (label) {
-      return '<div><span class="badge-acct acct-' + accountType + extra + '">'
-           + label + '</span></div>';
+      return open + '<span class="badge-acct acct-' + accountType + extra + '">'
+           + label + '</span>' + close;
     }
 
     // 未知值(含 null / '')—— 不靜默略過,印出來讓人看到資料有問題。
@@ -134,8 +151,8 @@
     //    且此路徑的值域受 dealers_account_type_check 約束,不是自由文字。
     var raw = (accountType === null || accountType === undefined || accountType === '')
       ? '(none)' : String(accountType);
-    return '<div><span class="badge-acct acct-unknown' + extra + '">&#9888; '
-         + raw.replace(/[<>&"]/g, '') + '</span></div>';
+    return open + '<span class="badge-acct acct-unknown' + extra + '">&#9888; '
+         + raw.replace(/[<>&"]/g, '') + '</span>' + close;
   }
 
   window.ProCraftAccountType = {
