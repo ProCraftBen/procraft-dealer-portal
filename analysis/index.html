@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Revenue — ProCraft Analysis</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   CB-91 analysis/index.html — Revenue dashboard
+   🔴 Standalone by design: no navigator.js / footer.js / lang-switch.js /
+      i18n.js, no i18n markers, no links out of /analysis/.
+      The only route out is the authorization redirect.
+   🔴 Read-only: this page never writes to any table and never calls
+      record_page_view() — its own visits are deliberately unrecorded.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ground:      #FBFBF9;
+  --surface:     #FFFFFF;
+  --ink:         #23282A;
+  --ink-soft:    #61696B;
+  --ink-faint:   #949B9C;
+  --rule:        #DCDFDA;
+  --paid:        #2F5D50;   /* Order Processing + Order Completed */
+  --unpaid:      #A9B4AD;   /* submitted, not yet in the bank      */
+  --draft:       #D3D9D3;   /* never submitted                     */
+  --flag:        #8A6D24;   /* maturity / exclusion notes          */
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.wrap { max-width: 1260px; margin: 0 auto; padding: 0 28px 64px; }
+
+/* ── masthead ─────────────────────────────────────────────────────── */
+.masthead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+  padding: 26px 0 18px;
+  border-bottom: 1px solid var(--rule);
+}
+.masthead h1 {
+  margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em;
+}
+.masthead .stamp { font-size: 13px; color: var(--ink-faint); }
+
+/* ── hero ─────────────────────────────────────────────────────────── */
+.hero { padding: 34px 0 30px; border-bottom: 1px solid var(--rule); }
+.hero .figure {
+  font-size: clamp(38px, 6vw, 62px);
+  font-weight: 600; letter-spacing: -0.025em; line-height: 1.02;
+  margin: 0;
+}
+.hero .figure-note {
+  margin: 6px 0 22px; font-size: 14px; color: var(--ink-soft);
+}
+
+.composition {
+  display: flex; height: 13px; width: 100%; overflow: hidden;
+  background: var(--rule);
+}
+.composition span { display: block; height: 100%; }
+.composition .seg-paid   { background: var(--paid); }
+.composition .seg-unpaid { background: var(--unpaid); }
+.composition .seg-draft  { background: var(--draft); }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 26px;
+  margin-top: 14px;
+}
+.legend div { display: flex; align-items: baseline; gap: 8px; font-size: 13.5px; }
+.legend i {
+  width: 10px; height: 10px; flex: none; border-radius: 1px;
+  transform: translateY(1px);
+}
+.legend b { font-weight: 600; }
+.legend em { font-style: normal; color: var(--ink-faint); }
+
+/* ── layout ───────────────────────────────────────────────────────── */
+.body { display: grid; grid-template-columns: 236px 1fr; gap: 42px; padding-top: 28px; }
+@media (max-width: 900px) { .body { grid-template-columns: 1fr; gap: 28px; } }
+
+/* ── filters ──────────────────────────────────────────────────────── */
+.filters h2 {
+  margin: 0 0 14px; font-size: 13px; font-weight: 600; color: var(--ink-soft);
+}
+.field { margin-bottom: 15px; }
+.field label {
+  display: block; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 5px;
+}
+.field select, .field input[type="date"] {
+  width: 100%; padding: 7px 8px; font: inherit; font-size: 13.5px;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 2px;
+}
+.field select:focus-visible, .field input:focus-visible, button:focus-visible {
+  outline: 2px solid var(--paid); outline-offset: 1px;
+}
+.dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.seg-toggle { display: flex; border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
+.seg-toggle button {
+  flex: 1; padding: 7px 0; font: inherit; font-size: 13.5px;
+  background: var(--surface); color: var(--ink-soft);
+  border: 0; cursor: pointer;
+}
+.seg-toggle button + button { border-left: 1px solid var(--rule); }
+.seg-toggle button[aria-pressed="true"] { background: var(--paid); color: #fff; }
+
+.reset {
+  margin-top: 4px; padding: 7px 12px; font: inherit; font-size: 13.5px;
+  background: none; color: var(--ink-soft);
+  border: 1px solid var(--rule); border-radius: 2px; cursor: pointer;
+}
+.reset:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+/* ── charts ───────────────────────────────────────────────────────── */
+.panel { margin-bottom: 34px; }
+.panel h3 {
+  margin: 0 0 3px; font-size: 15px; font-weight: 600;
+}
+.panel .sub { margin: 0 0 14px; font-size: 13px; color: var(--ink-faint); }
+.canvas-box { position: relative; height: 252px; }
+
+.notice {
+  padding: 11px 14px; margin-bottom: 20px;
+  font-size: 13.5px; line-height: 1.45;
+  background: var(--surface);
+  border: 1px solid var(--rule); border-left: 3px solid var(--flag);
+}
+.notice.hidden { display: none; }
+
+.empty {
+  padding: 54px 20px; text-align: center; color: var(--ink-soft);
+  border: 1px dashed var(--rule);
+}
+.empty.hidden { display: none; }
+
+/* ── footnotes ────────────────────────────────────────────────────── */
+.footnotes {
+  margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--rule);
+  font-size: 12.5px; color: var(--ink-faint); line-height: 1.7;
+}
+.footnotes p { margin: 0 0 4px; }
+
+/* ── gate ─────────────────────────────────────────────────────────── */
+#gate {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 70vh; padding: 24px; text-align: center;
+  color: var(--ink-soft); font-size: 14.5px;
+}
+#gate.hidden, #app.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div id="gate">Checking access…</div>
+
+<div id="app" class="hidden">
+  <div class="wrap">
+
+    <div class="masthead">
+      <h1>Revenue</h1>
+      <div class="stamp" id="stamp"></div>
+    </div>
+
+    <div class="hero">
+      <p class="figure" id="heroFigure">—</p>
+      <p class="figure-note" id="heroNote"></p>
+
+      <div class="composition" id="composition" aria-hidden="true">
+        <span class="seg-paid"   id="segPaid"   style="width:0%"></span>
+        <span class="seg-unpaid" id="segUnpaid" style="width:0%"></span>
+        <span class="seg-draft"  id="segDraft"  style="width:0%"></span>
+      </div>
+
+      <div class="legend">
+        <div><i style="background:var(--paid)"></i>
+             <span>In the bank <b id="legPaid">—</b> <em id="legPaidSub"></em></span></div>
+        <div><i style="background:var(--unpaid)"></i>
+             <span>Sent, not paid <b id="legUnpaid">—</b> <em id="legUnpaidSub"></em></span></div>
+        <div><i style="background:var(--draft)"></i>
+             <span>Never sent <b id="legDraft">—</b> <em id="legDraftSub"></em></span></div>
+      </div>
+    </div>
+
+    <div class="body">
+
+      <aside class="filters">
+        <h2>Filters</h2>
+
+        <div class="field">
+          <label for="fFrom">Date range</label>
+          <div class="dates">
+            <input type="date" id="fFrom" aria-label="From date"/>
+            <input type="date" id="fTo"   aria-label="To date"/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="fSales">Sales rep</label>
+          <select id="fSales"><option value="">All</option></select>
+        </div>
+
+        <div class="field">
+          <label for="fCustomer">Customer</label>
+          <select id="fCustomer"><option value="">All</option></select>
+        </div>
+
+        <div class="field">
+          <label for="fStatus">Order status</label>
+          <select id="fStatus"><option value="">All</option></select>
+        </div>
+
+        <div class="field">
+          <label for="fType">Customer type</label>
+          <select id="fType"><option value="">All</option></select>
+        </div>
+
+        <div class="field">
+          <label id="granLabel">Group by</label>
+          <div class="seg-toggle" role="group" aria-labelledby="granLabel">
+            <button type="button" id="granDay"  aria-pressed="true">Day</button>
+            <button type="button" id="granWeek" aria-pressed="false">Week</button>
+          </div>
+        </div>
+
+        <button type="button" class="reset" id="reset">Clear filters</button>
+      </aside>
+
+      <main>
+        <div class="notice hidden" id="notice"></div>
+        <div class="empty  hidden" id="empty"></div>
+
+        <section class="panel" id="panelCount">
+          <h3>Quotes raised</h3>
+          <p class="sub" id="subCount"></p>
+          <div class="canvas-box"><canvas id="chartCount"></canvas></div>
+        </section>
+
+        <section class="panel" id="panelValue">
+          <h3>Value raised</h3>
+          <p class="sub" id="subValue"></p>
+          <div class="canvas-box"><canvas id="chartValue"></canvas></div>
+        </section>
+
+        <div class="footnotes" id="footnotes"></div>
+      </main>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Constants — every one of these is a Stage 0 finding, not a guess.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// 🔴 F-174: all date grouping is US Eastern. Grouping on the raw UTC date
+//    pushes any order raised after 20:00 ET into the following day.
+const TZ = 'America/New_York';
+
+// 🔴 Q-16: "in the bank" is a status test, not a payments join. Every
+//    Order Processing quote in production has a confirmed payment (36/36),
+//    and every Order Completed one does too (17/17). No other status has one.
+const PAID_STATUSES = ['Order Processing', 'Order Completed'];
+
+// 🔴 Q-19: Stage 0 measured created_at → confirmed payment across 53 paid
+//    quotes: p50 = 2 days, p90 = 8, max = 24. Quotes still unpaid after 8
+//    days are stuck, not in flight. Quotes raised inside this window have
+//    not had time to be paid, so their paid share is meaningless.
+//    ⚠️ This is a constant measured on 2026-09-18, not a live calculation.
+//       Re-measure when the business rhythm changes.
+const MATURITY_DAYS = 8;
+
+// 🔴 F-160: generate_draft_number reuses numbers from deleted quotes, so
+//    draft_number is not unique. Everything here keys on quotes.id.
+
+// Display names differ from stored values (CB-62: never translate stored
+// values). The map is display-only; the stored value is what we filter on.
+const STATUS_LABEL = {
+  'Returned': 'Revising',
+  'Pending':  'Waiting for Payment'
+};
+
+const ACCOUNT_TYPE_LABEL = {
+  'dealer':           'Dealer',
+  'internal_account': 'Internal customer',
+  'location':         'Location',
+  'project':          'Project',
+  'trial':            'Trial'
+};
+
+const EMPLOYEE_TYPE = 'Employee account';
+const NO_CUSTOMER   = '__none__';
+const PAGE_SIZE     = 1000;
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Dates — ET everywhere, as YYYY-MM-DD strings.
+   String comparison of YYYY-MM-DD is chronological, so the filter bounds
+   and the bucket keys are compared in exactly the same units. This is what
+   keeps the filter edge and the grouping edge from landing a day apart.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const ET_DATE = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit'
+});
+const ET_STAMP = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hour12: false
+});
+
+function etDay(iso) { return ET_DATE.format(new Date(iso)); }
+function todayET()  { return ET_DATE.format(new Date()); }
+
+// Anchor at UTC noon so adding days never trips over a DST boundary.
+function asDate(s) { return new Date(s + 'T12:00:00Z'); }
+function shift(s, days) {
+  const d = asDate(s);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function daysBetween(a, b) {
+  return Math.round((asDate(b) - asDate(a)) / 86400000);
+}
+function eachDay(from, to) {
+  const out = [];
+  if (daysBetween(from, to) < 0) return out;
+  for (let d = from; ; d = shift(d, 1)) {
+    out.push(d);
+    if (d === to) break;
+    if (out.length > 4000) break;   // structural guard, never expected
+  }
+  return out;
+}
+function mondayOf(s) {
+  const d = asDate(s);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+function money(n) {
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+function pct(part, whole) {
+  if (!whole) return '0%';
+  return (part / whole * 100).toFixed(1).replace(/\.0$/, '') + '%';
+}
+function prettyDay(s) {
+  return asDate(s).toLocaleDateString('en-US',
+    { timeZone: 'UTC', month: 'short', day: 'numeric' });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Supabase
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const sb = window.supabase.createClient(window.SB_URL, window.SB_KEY);
+
+const gate = document.getElementById('gate');
+const app  = document.getElementById('app');
+
+function stopWith(message) {
+  gate.textContent = message;
+  gate.classList.remove('hidden');
+  app.classList.add('hidden');
+}
+
+/* Paged read. PostgREST caps a response at 1000 rows and returns no error
+   when it truncates, so a single select would silently go short the moment
+   quotes crosses that line — about two months out at the current rate. */
+async function readAll(table, columns) {
+  const rows = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await sb
+      .from(table).select(columns)
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(table + ': ' + error.message);
+    rows.push.apply(rows, data);
+    if (data.length < PAGE_SIZE) return rows;
+    if (from > 200000) return rows;   // structural guard
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const state = {
+  quotes: [], dealers: new Map(), credits: new Map(),
+  excludedVoid: 0, earliest: null,
+  gran: 'day',
+  chartCount: null, chartValue: null
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Access
+   ═══════════════════════════════════════════════════════════════════════ */
+
+async function enter() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.replace('../login.html'); return false; }
+
+  const { data: me, error } = await sb
+    .from('dealers').select('role').eq('id', session.user.id).single();
+
+  // 🔴 CB-82 defect 2: a role read blocked by RLS is indistinguishable from
+  //    a missing row. Failing closed is correct here — the cost of a wrong
+  //    "no" is a redirect, the cost of a wrong "yes" is exposure.
+  if (error || !me || me.role !== 'super_admin') {
+    window.location.replace('../index.html');
+    return false;
+  }
+
+  // 🔴 CB-82 authorization exit. get_quote_stats() raises 42501 when the
+  //    caller is not an admin, so it answers "am I allowed to read?" without
+  //    reading any of the tables this page reports on. Once it succeeds,
+  //    an empty result below means the data really is empty — which a bare
+  //    select could never establish, since RLS returns 200 with [].
+  const probe = await sb.rpc('get_quote_stats');
+  if (probe.error) {
+    stopWith('Your account cannot read order data. Ask a super admin to check your role.');
+    return false;
+  }
+  return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Load
+   ═══════════════════════════════════════════════════════════════════════ */
+
+async function load() {
+  const [quotes, dealers, credits] = await Promise.all([
+    readAll('quotes',  'id,dealer_id,status,close_reason_type,grand_total,created_at'),
+    // 🔴 Q-1=B: pricing columns (multipliers, tax_rate, the nine assembly
+    //    fees) are deliberately not selected. This page does not need them
+    //    and they should not reach the browser.
+    readAll('dealers', 'id,company_name,contact_name,role,account_type,assigned_sales_id'),
+    readAll('quote_store_credits', 'id,quote_id,net_store_credit_amount,voided_at')
+  ]);
+
+  dealers.forEach(d => state.dealers.set(d.id, d));
+
+  // 🔴 CB-93: net_store_credit_amount is stored negative, matching
+  //    quotes.account_credit_amount. It is added, never subtracted.
+  // 🔴 A voided memo is a return that was taken back. Deducting it would
+  //    charge the customer twice.
+  credits.forEach(c => {
+    if (c.voided_at) return;
+    const v = Number(c.net_store_credit_amount) || 0;
+    state.credits.set(c.quote_id, (state.credits.get(c.quote_id) || 0) + v);
+  });
+
+  // 🔴 Q-15(a): a Closed quote carrying close_reason_type was voided out of
+  //    Order Processing / Order Completed and reissued as a new quote. Both
+  //    quotes exist, so counting the old one double-counts the same job.
+  //    Voided ≠ lost: a Cancelled quote is business that went away once, and
+  //    it stays in the base.
+  const kept = [];
+  quotes.forEach(q => {
+    if (q.status === 'Closed' && q.close_reason_type) { state.excludedVoid++; return; }
+    const day = etDay(q.created_at);
+    kept.push({
+      id: q.id,
+      dealerId: q.dealer_id || null,
+      status: q.status || '(no status)',
+      day: day,
+      amount: (Number(q.grand_total) || 0) + (state.credits.get(q.id) || 0),
+      paid: PAID_STATUSES.indexOf(q.status) !== -1
+    });
+    if (!state.earliest || day < state.earliest) state.earliest = day;
+  });
+  state.quotes = kept;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Classification
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// 🔴 F-213: account_type alone is ambiguous — of the 16 internal_account
+//    rows, 9 are admin / super_admin staff and 7 are internal customers.
+//    Crossing it with role separates them instead of merging two unlike
+//    things under one label (Q-17).
+// 🔴 F-35: an account_type we have never seen shows its own stored value
+//    rather than falling into an "Other" bucket, so a new type is visible
+//    the day it appears instead of hiding inside a catch-all.
+function customerType(dealer) {
+  if (!dealer) return 'Unassigned';
+  if (dealer.role === 'admin' || dealer.role === 'super_admin') return EMPLOYEE_TYPE;
+  return ACCOUNT_TYPE_LABEL[dealer.account_type] || (dealer.account_type || '(no type)');
+}
+
+function dealerName(dealer) {
+  if (!dealer) return 'Unassigned';
+  return dealer.company_name || dealer.contact_name || '(unnamed)';
+}
+
+function statusLabel(v) { return STATUS_LABEL[v] || v; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Filters
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const el = id => document.getElementById(id);
+
+function buildFilters() {
+  // Sales reps: the assigned_sales_id values actually in use.
+  const salesIds = new Set();
+  state.dealers.forEach(d => { if (d.assigned_sales_id) salesIds.add(d.assigned_sales_id); });
+  const sales = Array.from(salesIds)
+    .map(id => ({ id: id, name: dealerName(state.dealers.get(id)) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  sales.forEach(s => el('fSales').add(new Option(s.name, s.id)));
+
+  // Customers: every dealer account, with its quote count, so an account
+  // with nothing in it is visibly empty before it is chosen (Q-20).
+  const counts = new Map();
+  let unassigned = 0;
+  state.quotes.forEach(q => {
+    if (!q.dealerId) { unassigned++; return; }
+    counts.set(q.dealerId, (counts.get(q.dealerId) || 0) + 1);
+  });
+  const customers = [];
+  state.dealers.forEach(d => {
+    if (d.role === 'admin' || d.role === 'super_admin') {
+      if (!counts.get(d.id)) return;   // staff accounts only if they hold quotes
+    }
+    customers.push({ id: d.id, name: dealerName(d), n: counts.get(d.id) || 0 });
+  });
+  customers.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  customers.forEach(c => {
+    el('fCustomer').add(new Option(c.name + ' (' + c.n + ')', c.id));
+  });
+  // 🔴 Q-28: quotes.dealer_id is nullable. Production holds none today, but
+  //    without this option such a quote would vanish from every customer
+  //    view without leaving a trace.
+  if (unassigned) {
+    el('fCustomer').add(new Option('Unassigned (' + unassigned + ')', NO_CUSTOMER));
+  }
+
+  const statuses = Array.from(new Set(state.quotes.map(q => q.status))).sort();
+  statuses.forEach(s => el('fStatus').add(new Option(statusLabel(s), s)));
+
+  const types = new Set();
+  state.quotes.forEach(q => types.add(customerType(state.dealers.get(q.dealerId))));
+  Array.from(types).sort().forEach(t => el('fType').add(new Option(t, t)));
+
+  el('fFrom').value = state.earliest || todayET();
+  el('fTo').value   = todayET();
+  el('fFrom').min = el('fTo').min = state.earliest || '';
+}
+
+function currentFilters() {
+  return {
+    from:     el('fFrom').value || state.earliest || todayET(),
+    to:       el('fTo').value   || todayET(),
+    sales:    el('fSales').value,
+    customer: el('fCustomer').value,
+    status:   el('fStatus').value,
+    type:     el('fType').value
+  };
+}
+
+function applyFilters(f) {
+  return state.quotes.filter(q => {
+    if (q.day < f.from || q.day > f.to) return false;
+    if (f.status && q.status !== f.status) return false;
+
+    const d = q.dealerId ? state.dealers.get(q.dealerId) : null;
+
+    if (f.customer) {
+      if (f.customer === NO_CUSTOMER) { if (q.dealerId) return false; }
+      else if (q.dealerId !== f.customer) return false;
+    }
+    if (f.sales && (!d || d.assigned_sales_id !== f.sales)) return false;
+    if (f.type && customerType(d) !== f.type) return false;
+    return true;
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Aggregation
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function aggregate(rows, f) {
+  const days = eachDay(f.from, f.to);
+  const keyOf = state.gran === 'week' ? mondayOf : (s => s);
+
+  // Every bucket in the range is created up front, including the ones with
+  // nothing in them. Handing the chart only the days that have data lets it
+  // close the gaps, which reads as steady daily activity that never happened.
+  const order = [];
+  const map = new Map();
+  days.forEach(d => {
+    const k = keyOf(d);
+    if (!map.has(k)) { map.set(k, { key: k, last: d, count: 0, countPaid: 0, value: 0, valuePaid: 0 }); order.push(k); }
+    else { map.get(k).last = d; }
+  });
+
+  rows.forEach(q => {
+    const b = map.get(keyOf(q.day));
+    if (!b) return;
+    b.count += 1;
+    b.value += q.amount;
+    if (q.paid) { b.countPaid += 1; b.valuePaid += q.amount; }
+  });
+
+  return order.map(k => map.get(k));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Charts
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// Shades the buckets that are still inside the maturity window, so the flat
+// paid share at the right-hand end reads as "too soon to tell" rather than
+// as a collapse in trading.
+const maturityBand = {
+  id: 'maturityBand',
+  beforeDatasetsDraw: function (chart) {
+    const start = chart.$maturityStart;
+    if (start === undefined || start === null || start < 0) return;
+    const xs = chart.scales.x, area = chart.chartArea;
+    if (!xs || !area) return;
+    const n = (xs.getLabels && xs.getLabels().length) || 0;
+    if (!n || start >= n) return;
+
+    const half = (area.right - area.left) / n / 2;
+    const left = Math.max(xs.getPixelForValue(start) - half, area.left);
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(138,109,36,0.06)';
+    ctx.fillRect(left, area.top, area.right - left, area.bottom - area.top);
+    ctx.strokeStyle = 'rgba(138,109,36,0.45)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(left, area.top);
+    ctx.lineTo(left, area.bottom);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
+function chartOptions(isMoney) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    animation: false,
+    interaction: { mode: 'index', intersect: false },
+    scales: {
+      x: { stacked: true, grid: { display: false },
+           ticks: { color: '#949B9C', maxRotation: 0, autoSkipPadding: 16 } },
+      y: { stacked: true, beginAtZero: true,
+           border: { display: false },
+           grid: { color: '#ECEEEA' },
+           ticks: {
+             color: '#949B9C', precision: isMoney ? undefined : 0,
+             callback: function (v) { return isMoney ? money(v) : v; }
+           } }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#23282A', padding: 10, displayColors: true,
+        callbacks: {
+          label: function (c) {
+            const v = c.parsed.y;
+            return c.dataset.label + ': ' + (isMoney ? money(v) : v);
+          }
+        }
+      }
+    }
+  };
+}
+
+function drawChart(existing, canvasId, buckets, paidKey, totalKey, isMoney, maturityStart) {
+  const labels = buckets.map(b => prettyDay(b.key));
+  const paid   = buckets.map(b => b[paidKey]);
+  const rest   = buckets.map(b => b[totalKey] - b[paidKey]);
+
+  if (existing) {
+    existing.data.labels = labels;
+    existing.data.datasets[0].data = paid;
+    existing.data.datasets[1].data = rest;
+    existing.$maturityStart = maturityStart;
+    existing.update();
+    return existing;
+  }
+
+  const c = new Chart(document.getElementById(canvasId), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: 'In the bank',   data: paid, backgroundColor: '#2F5D50', borderWidth: 0 },
+        { label: 'Not yet paid',  data: rest, backgroundColor: '#A9B4AD', borderWidth: 0 }
+      ]
+    },
+    options: chartOptions(isMoney),
+    plugins: [maturityBand]
+  });
+  c.$maturityStart = maturityStart;
+  c.update();
+  return c;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Render
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function render() {
+  const f = currentFilters();
+  const rows = applyFilters(f);
+
+  let total = 0, paidValue = 0, draftValue = 0;
+  let nPaid = 0, nDraft = 0;
+  rows.forEach(q => {
+    total += q.amount;
+    if (q.paid) { paidValue += q.amount; nPaid++; }
+    if (q.status === 'Draft') { draftValue += q.amount; nDraft++; }
+  });
+  const unpaidSent = total - paidValue - draftValue;
+
+  el('heroFigure').textContent = money(total);
+  el('heroNote').textContent =
+    rows.length.toLocaleString('en-US') + ' quotes raised' +
+    (rows.length ? ', ' + prettyDay(f.from) + ' to ' + prettyDay(f.to) : '');
+
+  // 🔴 Q-23: the headline figure is everything raised, drafts included.
+  //    It is only honest next to this bar — three quarters of it has never
+  //    been sent to a customer, and the bar says so before anyone reads a
+  //    second number.
+  const safe = total > 0 ? total : 1;
+  el('segPaid').style.width   = Math.max(paidValue, 0)  / safe * 100 + '%';
+  el('segUnpaid').style.width = Math.max(unpaidSent, 0) / safe * 100 + '%';
+  el('segDraft').style.width  = Math.max(draftValue, 0) / safe * 100 + '%';
+
+  el('legPaid').textContent      = money(paidValue);
+  el('legPaidSub').textContent   = pct(paidValue, total) + ' · ' + nPaid + ' quotes';
+  el('legUnpaid').textContent    = money(unpaidSent);
+  el('legUnpaidSub').textContent = pct(unpaidSent, total) + ' · ' +
+                                   (rows.length - nPaid - nDraft) + ' quotes';
+  el('legDraft').textContent     = money(draftValue);
+  el('legDraftSub').textContent  = pct(draftValue, total) + ' · ' + nDraft + ' quotes';
+
+  // ── empty and conflicting-filter states ────────────────────────────
+  const empty = el('empty');
+  const panelsOn = rows.length > 0;
+  el('panelCount').style.display = panelsOn ? '' : 'none';
+  el('panelValue').style.display = panelsOn ? '' : 'none';
+
+  if (!panelsOn) {
+    empty.classList.remove('hidden');
+    // 🔴 L-1 conflict 3: all nine staff accounts have no assigned_sales_id,
+    //    so this pair of filters can never return anything. Left as a blank
+    //    chart it would read as "this rep sold nothing".
+    empty.textContent = (f.type === EMPLOYEE_TYPE && f.sales)
+      ? 'No quotes match. Employee accounts have no sales rep assigned, so this combination is always empty.'
+      : 'No quotes match these filters. Widen the date range or clear a filter.';
+  } else {
+    empty.classList.add('hidden');
+  }
+
+  // ── maturity ───────────────────────────────────────────────────────
+  // 🔴 L-1 conflict 2: the window is anchored to today, never to the filter
+  //    range. A range that sits wholly inside it gets a sentence instead of
+  //    a shaded chart, because shading everything says nothing.
+  const cutoff = shift(todayET(), -MATURITY_DAYS);
+  const buckets = panelsOn ? aggregate(rows, f) : [];
+  let maturityStart = -1;
+  for (let i = 0; i < buckets.length; i++) {
+    if (buckets[i].last > cutoff) { maturityStart = i; break; }
+  }
+
+  const notice = el('notice');
+  if (panelsOn && maturityStart === 0) {
+    notice.classList.remove('hidden');
+    notice.textContent =
+      'Everything in this range was raised within the last ' + MATURITY_DAYS +
+      ' days. Quotes typically reach payment in 2 days and nine in ten are paid ' +
+      'within ' + MATURITY_DAYS + ', so the paid share here is not yet meaningful.';
+  } else if (panelsOn && maturityStart > 0) {
+    notice.classList.remove('hidden');
+    notice.textContent =
+      'The shaded area covers the last ' + MATURITY_DAYS + ' days. Quotes raised ' +
+      'there have not had time to be paid, so a low paid share is expected and is ' +
+      'not a drop in trading.';
+  } else {
+    notice.classList.add('hidden');
+  }
+
+  if (panelsOn) {
+    const band = maturityStart === 0 ? -1 : maturityStart;
+    el('subCount').textContent = 'Each bar is one ' + state.gran + ', by the date the quote was raised (US Eastern).';
+    el('subValue').textContent = 'Order value including returns, ' + (state.gran === 'week' ? 'by week' : 'by day') + '.';
+    state.chartCount = drawChart(state.chartCount, 'chartCount', buckets, 'countPaid', 'count', false, band);
+    state.chartValue = drawChart(state.chartValue, 'chartValue', buckets, 'valuePaid', 'value', true,  band);
+  }
+
+  renderFootnotes();
+}
+
+function renderFootnotes() {
+  const parts = [];
+  parts.push('<p>In the bank means Order Processing or Order Completed. ' +
+             'Every quote in those two statuses has a confirmed payment; no other status does.</p>');
+  parts.push('<p>Returns are included at their net value. Voided return memos are not deducted.</p>');
+  if (state.excludedVoid) {
+    parts.push('<p>' + state.excludedVoid + ' voided ' +
+               (state.excludedVoid === 1 ? 'quote is' : 'quotes are') +
+               ' left out. These were cancelled out of production and reissued as new quotes, ' +
+               'so counting both would count the same job twice.</p>');
+  }
+  if (state.earliest) {
+    parts.push('<p>Orders start ' + prettyDay(state.earliest) +
+               ', when the portal went live. Anything before that is in Fishbowl, not here.</p>');
+  }
+  el('footnotes').innerHTML = parts.join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Wiring
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function setGran(g) {
+  state.gran = g;
+  el('granDay').setAttribute('aria-pressed',  String(g === 'day'));
+  el('granWeek').setAttribute('aria-pressed', String(g === 'week'));
+  if (state.chartCount) { state.chartCount.destroy(); state.chartCount = null; }
+  if (state.chartValue) { state.chartValue.destroy(); state.chartValue = null; }
+  render();
+}
+
+function wire() {
+  ['fFrom', 'fTo', 'fSales', 'fCustomer', 'fStatus', 'fType']
+    .forEach(id => el(id).addEventListener('change', render));
+  el('granDay').addEventListener('click',  () => setGran('day'));
+  el('granWeek').addEventListener('click', () => setGran('week'));
+  el('reset').addEventListener('click', function () {
+    ['fSales', 'fCustomer', 'fStatus', 'fType'].forEach(id => { el(id).value = ''; });
+    el('fFrom').value = state.earliest || todayET();
+    el('fTo').value   = todayET();
+    render();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Boot
+   ═══════════════════════════════════════════════════════════════════════ */
+
+(async function boot() {
+  try {
+    if (!(await enter())) return;
+    await load();
+
+    if (!state.quotes.length) {
+      stopWith('No orders found. If you expect data here, check that you are on the right environment (' +
+               (window.SB_ENV || 'unknown') + ').');
+      return;
+    }
+
+    buildFilters();
+    wire();
+
+    el('stamp').textContent =
+      (window.SB_ENV === 'production' ? '' : window.SB_ENV + ' · ') +
+      'Data as of ' + ET_STAMP.format(new Date()).replace(',', '') + ' ET';
+
+    gate.classList.add('hidden');
+    app.classList.remove('hidden');
+    render();
+  } catch (e) {
+    console.error('[CB-91]', e);
+    stopWith('Could not load order data: ' + (e && e.message ? e.message : 'unknown error') +
+             '. Reload the page; if it keeps failing, the database may be unreachable.');
+  }
+})();
+
+})();
+</script>
+</body>
+</html>
