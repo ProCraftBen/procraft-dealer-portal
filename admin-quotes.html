@@ -162,9 +162,16 @@
     tbody tr.row-returned:hover { background: rgba(224,123,57,0.08) !important; }
     tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
     .td-po { font-weight: 500; color: var(--green-dark); font-size: 13px; }
-    /* CB-97:Account Type 欄。nowrap 避免 "Internal Account" 被折成兩行
-       而把整列撐高 —— 該值是本欄最長的字串。 */
-    .td-acct { white-space: nowrap; font-size: 12px; color: var(--muted); }
+    /* CB-97:Account Type 欄。
+       🔴 刻意【允許換行】並縮 padding —— 本欄最寬的不是內容,是表頭:
+          "ACCOUNT TYPE" 在 9px + 0.15em 字距下約 90px,而 thead th 帶
+          全域 nowrap。加上 32px 的 padding,這一欄原本吃掉約 120px,
+          把最右的動作欄擠出可視範圍。
+       ⚠️ 允許換行不會撐高列 —— Dealer 欄本來就是多行的,本欄折成
+          兩行仍在既有列高之內。原本加 nowrap 的顧慮不成立。 */
+    .td-acct, .th-acct { white-space: normal; padding-left: 8px; padding-right: 8px; }
+    .td-acct { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .th-acct { max-width: 62px; }
     .td-dealer { font-weight: 500; }
     .td-dealer-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
     /* CB-38.1: Sales 欄 */
@@ -553,7 +560,7 @@
                  「type」概念,單寫 Type 日後要猜是哪一個。
                  與 DB 欄位 dealers.account_type、admin-dealers 的欄位
                  標籤完全一致,查起來不用轉換。 -->
-            <th>Account Type</th>
+           <th class="th-acct">Account Type</th>
             <th>Dealer</th>
             <th>Sales</th>
             <th>Date</th>
