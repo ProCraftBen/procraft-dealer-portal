@@ -162,6 +162,9 @@
     tbody tr.row-returned:hover { background: rgba(224,123,57,0.08) !important; }
     tbody td { padding: 12px 16px; font-size: 12px; vertical-align: middle; }
     .td-po { font-weight: 500; color: var(--green-dark); font-size: 13px; }
+    /* CB-97:Account Type 欄。nowrap 避免 "Internal Account" 被折成兩行
+       而把整列撐高 —— 該值是本欄最長的字串。 */
+    .td-acct { white-space: nowrap; font-size: 12px; color: var(--muted); }
     .td-dealer { font-weight: 500; }
     .td-dealer-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
     /* CB-38.1: Sales 欄 */
@@ -545,6 +548,12 @@
         <thead>
           <tr>
             <th>PO # / Job Name</th>
+            <!-- CB-97 Q-12/Q-13:欄名用 Account Type 而非 Type ——
+                 本表已有 status / logistic type / payment method 多個
+                 「type」概念,單寫 Type 日後要猜是哪一個。
+                 與 DB 欄位 dealers.account_type、admin-dealers 的欄位
+                 標籤完全一致,查起來不用轉換。 -->
+            <th>Account Type</th>
             <th>Dealer</th>
             <th>Sales</th>
             <th>Date</th>
@@ -556,12 +565,14 @@
           </tr>
         </thead>
         <tbody id="quotesBody">
-          <tr><td colspan="9"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
+          <tr><td colspan="10"><div class="loading-rows"><div class="loading-row"></div><div class="loading-row"></div><div class="loading-row"></div></div></td></tr>
         </tbody>
       </table>
       <!-- CB-60a M2:分頁列。
-           🔴 刻意置於 </table> 之後,【不進 <thead>】—— CB-82 的 LIST_COLSPAN = 9
-              註解已預留此約定,兩票因此不衝突。欄位數不變,LIST_COLSPAN 維持 9。 -->
+           🔴 刻意置於 </table> 之後,【不進 <thead>】—— CB-82 的 LIST_COLSPAN
+              註解已預留此約定,兩票因此不衝突。
+              ⚠️ CB-97 新增 Account Type 欄,LIST_COLSPAN 已由 9 改為 10。
+                 本分頁列不在表格內,不受影響。 -->
       <div class="pager" id="quotesPager">
         <span class="pager-info" id="pagerInfo"></span>
         <button class="pager-btn" id="pagerPrev" type="button">Prev</button>
@@ -757,7 +768,10 @@ let allQuotes = [], allDealers = {};
 //    版面歪掉【但不報錯】。用常數而非字面值，是為了讓「改欄位數」與
 //    「改 colspan」無法脫鉤 —— 兩者分開寫必然漂移（沿用 F-30 LIST_COLSPAN 先例）。
 //    ⚠️ 上方 <thead> 的 skeleton 列是靜態 HTML，無法套常數，改欄位數時要一併手改。
-const LIST_COLSPAN = 9;
+// 🔴 CB-97:9 → 10(新增 Account Type 欄,置於 PO 與 Dealer 之間)。
+//    改這個常數時必須同時改 <thead> 的 <th> 數量與 skeleton 列的
+//    colspan 字面值 —— 三者漂移只會讓版面歪掉,【不報錯】(F-210)。
+const LIST_COLSPAN = 10;
 
 // ══ CB-60a M2:分頁 ══════════════════════════════════════════════════════
 // 🟡 頁大小具名常數(繼承 F-30 的紀律,值本頁自定)。
@@ -2349,9 +2363,18 @@ function renderTable() {
         //   🔴 不新增欄位,LIST_COLSPAN 維持 9(決議 7)。
         //   📌 dealer 查無時為 {},account_type 為 undefined →
         //      component 印出 ⚠ (none)。那是刻意的:壞掉看得見。
-        //   🔴 inline(不是 lead):badge 與公司名同一行。非 dealer 類型佔
-        //      14%,若每一列都獨立一行,是用 100% 的版面高度換 14% 的資訊。
-        '<td><div class="td-dealer">' + window.ProCraftAccountType.render(dealer.account_type, { inline: true }) + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
+        // CB-97 ③:Account Type 獨立成欄(Q-11 = B / Q-13),置於 PO 與 Dealer 之間。
+        //   🔴 決議 4(badge)與決議 7(不改 LIST_COLSPAN)已由業主推翻 ——
+        //      badge 放在 Dealer 格內會把公司名擠成兩行(Dealer 欄為 auto
+        //      layout,寬度本就緊),列高反而增加,可讀性更差。
+        //   🔴 五種類型全部印出,含 dealer —— label() 與 badge 共用同一張
+        //      顯示名表,兩處不可能不一致。
+        //   🔴 資料源【必須】是 allDealers[q.dealer_id],不可用 q.dealers ——
+        //      後者是 Account Type 篩選啟用時才掛上的條件式 embed,
+        //      未篩選時不存在。誤用的症狀是「未篩選時整欄空白」,不報錯。
+        //   📌 dealer 查無時為 {} → label(undefined) 印 ⚠ (none)。刻意的。
+        '<td class="td-acct">' + window.ProCraftAccountType.label(dealer.account_type) + '</td>' +
+        '<td><div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
         '<td class="td-sales">' + renderSalesCell(dealer.assigned_sales_id) + '</td>' +
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
