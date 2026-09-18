@@ -423,7 +423,11 @@
 <!-- 7-card stats: Total / Draft / Revising / Stock Review / Waiting / Payment Processing / Order Processing -->
   <div class="stats-bar">
     <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-label">Total</div></div>
-    <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft</div></div>
+    <!-- CB-97 Q-10:標籤加 (all)。①拆分後,Status 篩選器的 Draft 只回【已通知】的草稿,
+         而本卡計的仍是全部 Draft(含 Internal)。同一個詞在兩處指不同集合,
+         使用者會以為單子不見了。🔴 只改顯示標籤 —— get_quote_stats() 與
+         statsScope 的全表範圍(CB-60a Q-20 / Q-26)完全不動。 -->
+    <div class="stat-card"><div class="stat-num draft-num" id="statDraft">—</div><div class="stat-label">Draft (all)</div></div>
     <div class="stat-card"><div class="stat-num returned-num" id="statReturned">—</div><div class="stat-label" data-pc-status-short="Returned">Revising</div></div>
     <div class="stat-card"><div class="stat-num" id="statStockReview" style="color:var(--status-stock-review)">—</div><div class="stat-label">Stock Review</div></div>
     <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--status-pending)">—</div><div class="stat-label" data-pc-status-short="Pending">Waiting</div></div>
@@ -441,6 +445,10 @@
       <label class="filter-label">Status</label>
       <select class="filter-select" id="filterStatus">
         <option value="">All Statuses</option>
+                <!-- CB-97 ①:Draft 拆分。🔴 Internal Draft 不是 quotes.status 的值,
+             是 status='Draft' + admin_notified_at IS NULL 的組合(CB-36)。
+             value 用哨兵字串,刻意不與任何 DB status 值碰撞。 -->
+        <option value="__internal_draft__">Internal Draft</option>
         <option value="Draft">Draft</option>
         <option value="Returned" data-pc-status-label="Returned">Revising</option>
         <option value="Stock Review">Stock Review</option>
@@ -450,6 +458,24 @@
         <option value="Order Completed">Order Completed</option>
         <option value="Closed">Closed</option>
         <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+    <!-- CB-97 ②:Account Type filter。置於 Status 之後、Sales 之前 ——
+         粒度由粗到細,沿用 CB-38 的漏斗順序。
+         🔴 五值為正向列舉(F-35),不寫負向排除:未來新增第六種類別時,
+            負向寫法會讓它自動落進某一類而無人察覺;正向寫法會漏掉它,
+            而漏掉看得見。
+         ⚠️ 與 Status 的組合矛盾(如 Internal Draft × Account Type)
+            刻意不處理,讓它回 0 列(決議 3,業主明確)。 -->
+    <div class="filter-group">
+      <label class="filter-label">Account Type</label>
+      <select class="filter-select" id="filterAccountType">
+        <option value="">All Account Types</option>
+        <option value="dealer">Dealer</option>
+        <option value="internal_account">Internal Account</option>
+        <option value="location">Location</option>
+        <option value="project">Project</option>
+        <option value="trial">Trial</option>
       </select>
     </div>
     <!-- CB-38:Sales filter。options 由 init() 動態填入。
@@ -677,6 +703,7 @@
 <!-- F-174:日期時區單一來源(ET 日界換算 + 顯示)。
      必須排在下方 inline script 之前 —— formatDate() 與 buildQuotesQuery() 都依賴它。 -->
 <script src="components/date-utils.js?v=f174"></script>
+<script src="components/account-type.js?v=cb97"></script>
 <script>
 const SUPABASE_URL  = window.SB_URL;
 const SUPABASE_ANON = window.SB_KEY;
@@ -1464,6 +1491,39 @@ function emptyStateMessage() {
                   : 'No quotes from this sales\u2019 dealers.';
 }
 
+// ══ CB-97:Internal Draft 的單一定義來源 ════════════════════════════════
+// 🔴 CB-36 定義:Internal Draft = status 'Draft' 且 admin_notified_at IS NULL
+//    (admin 代建、尚未通知 dealer)。與 dealers.account_type 【無關】——
+//    票面原本以為畫面上的 INTERNAL 來自 account_type='internal_account',
+//    實查推翻:production 兩定義命中 22 vs 6,舊說法漏接 16 張且不報錯。
+//
+// 🔴 CB-97 Q-2:顯示端(renderTable 的 status cell)與篩選端
+//    (buildQuotesQuery)必須同源。但一個是 JS 述詞、一個是 PostgREST
+//    條件,【無法】共用同一個運算式 —— 本常數把欄位名與狀態字串收斂成
+//    一份,剩下的 null 判斷兩邊各寫一次。這不是完全的單一真相,是可做到
+//    的最好程度;兩處已互相指認。
+//    ⚠️ 改動任一處,另一處必須同步:
+//         顯示端 → renderTable() 的 isInternalDraft(q)
+//         篩選端 → buildQuotesQuery() 的 status 分派
+//       不同步的症狀是「畫面顯示 INTERNAL 但篩 Internal Draft 找不到」,
+//       而且不報錯。
+//
+// ⚠️ 同一條規則在系統中另有兩份 PostgREST 表述,本票【不動】:
+//      dashboard.html L294 / quotes.html L525
+//        .or('admin_notified_at.not.is.null,status.neq.Draft')
+//      (dealer 端可見性過濾)。登記 F-214。
+//
+// 🔴 哨兵值刻意用雙底線包夾,確保不與任何 quotes.status 值碰撞。
+const INTERNAL_DRAFT_FILTER_VALUE = '__internal_draft__';
+const INTERNAL_DRAFT_RULE = { status: 'Draft', column: 'admin_notified_at' };
+
+function isInternalDraft(q) {
+  // == null 同時涵蓋 null 與 undefined —— 沿用 CB-36 原碼的比較方式,
+  // 不改為 ===:舊資料或 select 欄位缺席時,undefined 應視同未通知。
+  return q.status === INTERNAL_DRAFT_RULE.status
+      && q[INTERNAL_DRAFT_RULE.column] == null;
+}
+
 // ══ CB-60a M2:查詢建構抽出 ══════════════════════════════════════════════
 // 🔴 抽成獨立函式的理由是【技術必要】,不是整理:PGRST103 超界時必須用
 //    同一組篩選條件重跑一次,而 supabase-js 的 query builder 一經 await
@@ -1471,16 +1531,47 @@ function emptyStateMessage() {
 // ⚠️ 篩選邏輯沿用原碼,除搜尋淨化外未做行為變更。
 //    搜尋淨化已於 M4 改為 sanitizeSearch() + 雙引號包裹。
 function buildQuotesQuery(salesDealerIds) {
+  const status      = document.getElementById('filterStatus').value;
+  const dealer      = document.getElementById('filterDealer').value;
+  const accountType = document.getElementById('filterAccountType').value;
+  const from        = document.getElementById('filterFrom').value;
+  const to          = document.getElementById('filterTo').value;
+
+  // ── CB-97 ②:跨表篩選(Q-3 = A 案)────────────────────────────────────
+  //   🔴 embed 為【條件式】—— 未選 Account Type 時 select 維持原樣。
+  //      理由:dealers!inner 的失效模式是【靜默漏列】(dealer_id 為空或
+  //      FK 懸空的單會無聲消失)。無條件掛上等於讓每一次清單載入都承擔
+  //      那個風險;條件式把風險限縮在篩選啟用的那一次。
+  //      📌 staging 實測(CB-97 Stage 0,十一項邊界):embed 不丟列、
+  //         雙欄排序、.range() 分頁、status_rank computed column、
+  //         .or() 搜尋、count:'exact' 全部通過,含兩項反向對照。
+  //      📌 production 前提:237 單、dealer_id 空值 0、FK 懸空 0。
+  //         🔴 無機制保證,Stage 3 須納入該查詢(F-212)。
+  //   🔴 不限定 role='dealer'(Q-9):加了會製造「篩選結果靜默少列」的
+  //      隱藏條件。現況 0 列差異,正是不該引入它的時機。
+  const selectCols = accountType
+    ? '*, quote_items(*), dealers!inner(account_type)'
+    : '*, quote_items(*)';
+
   let query = _supabase
     .from('quotes')
-    .select('*, quote_items(*)', { count: 'exact' });
+    .select(selectCols, { count: 'exact' });
 
-  const status = document.getElementById('filterStatus').value;
-  const dealer = document.getElementById('filterDealer').value;
-  const from   = document.getElementById('filterFrom').value;
-  const to     = document.getElementById('filterTo').value;
+  if (accountType) query = query.eq('dealers.account_type', accountType);
 
-  if (status) query = query.eq('status', status);
+  // ── CB-97 ①:status 分派 ─────────────────────────────────────────────
+  //   前兩支走 CB-36 的組合條件,其餘八個狀態沿用原路徑,零行為變更。
+  //   ⚠️ 'Draft' 的語意已變:拆分後只回【已通知】的草稿
+  //      (production 由 123 張變 101 張)。已列入業務端知會清單。
+  if (status === INTERNAL_DRAFT_FILTER_VALUE) {
+    query = query.eq('status', INTERNAL_DRAFT_RULE.status)
+                 .is(INTERNAL_DRAFT_RULE.column, null);
+  } else if (status === INTERNAL_DRAFT_RULE.status) {
+    query = query.eq('status', INTERNAL_DRAFT_RULE.status)
+                 .not(INTERNAL_DRAFT_RULE.column, 'is', null);
+  } else if (status) {
+    query = query.eq('status', status);
+  }
   if (dealer) query = query.eq('dealer_id', dealer);
   if (salesDealerIds) query = query.in('dealer_id', salesDealerIds);
   // 🔴 F-174:ET 日界換算 + 半開區間 [start, end)。
@@ -2117,7 +2208,9 @@ function renderTable() {
     let statusCellHtml = '';
     if (isDraft) {
       // CB-36: admin_notified_at IS NULL → Internal(admin 未通知 dealer);否則 Draft(已通知,等同 dealer 可見)
-      if (q.admin_notified_at == null) {
+      // 🔴 CB-97 Q-2:判斷抽出為 isInternalDraft(),與 buildQuotesQuery()
+      //    的 status 分派同源。改這裡就要改那裡,反之亦然。
+      if (isInternalDraft(q)) {
         statusCellHtml = '<td><span class="status-badge-internal">Internal</span></td>';
       } else {
         statusCellHtml = '<td><span class="status-badge-draft">Draft</span></td>';
@@ -2248,7 +2341,16 @@ function renderTable() {
             '<div class="td-po">' + escapeHtml(q.po_number || q.draft_number || '—') + storeCreditFlagHtml(q) + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
             (q.po_number && q.draft_number ? '<div style="font-size:10px;color:var(--muted);">Draft ID: ' + escapeHtml(q.draft_number) + '</div>' : '') +
         '</td>' +
-        '<td><div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
+        // CB-97 ③:account_type badge,Dealer 格首(Q-4 = A)。
+        //   🔴 資料源【必須】是 allDealers[q.dealer_id],不可用 q.dealers ——
+        //      後者是 Account Type 篩選啟用時才掛上的條件式 embed,
+        //      未篩選時不存在。誤用的症狀是「未篩選時 badge 全部消失」,
+        //      而且不報錯。(Stage 1 決議互斥檢查 M-1)
+        //   🔴 不新增欄位,LIST_COLSPAN 維持 9(決議 7)。
+        //   📌 dealer 查無時為 {},account_type 為 undefined →
+        //      component 印出 ⚠ (none)。那是刻意的:壞掉看得見。
+        '<td>' + window.ProCraftAccountType.render(dealer.account_type, { lead: true }) +
+          '<div class="td-dealer">' + escapeHtml(dealer.company_name || '—') + '</div><div class="td-dealer-sub">' + escapeHtml(dealer.contact_name || '') + '</div></td>' +
         '<td class="td-sales">' + renderSalesCell(dealer.assigned_sales_id) + '</td>' +
         '<td class="td-date">' + formatDate(q.created_at) + '</td>' +
         totalCellHtml +
@@ -2926,6 +3028,9 @@ function applyFilters() { _listState.page = 0; loadQuotes(); }
 function resetFilters() {
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterDealer').value = '';
+  // 🔴 CB-97:漏掉這一行的症狀是「按了 Reset 但 Account Type 仍生效」,
+  //    而按鈕顯示已重設 —— 不報錯。
+  document.getElementById('filterAccountType').value = '';
   document.getElementById('filterFrom').value   = '';
   document.getElementById('filterTo').value     = '';
   document.getElementById('filterSearch').value = '';
