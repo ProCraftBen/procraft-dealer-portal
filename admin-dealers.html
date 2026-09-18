@@ -2199,7 +2199,13 @@ async function saveDealer() {
         //    console.log 刻意不含密碼(log 是永久的,密碼重設後舊值仍在)。
         //    alert 會擋住直到按確認 —— 這正是此訊息需要的重量。
         //    與 Q-36 的 confirm() 同一家族,零新增 DOM。
-        alert('Dealer created \u2014 Location account.\n\n'
+        // 🔴 CB-97:類型名改為動態 —— 原文案寫死 Location,project 帳號
+        //    會被告知錯誤的類型。訊息其餘內容(密碼不可回復、重設途徑)
+        //    對兩種類型皆正確,只有名稱需要跟著值走。
+        //    顯示名取自 components/account-type.js 的 label(),與列表 badge
+        //    共用同一張表 —— 同一個帳號在兩處不可能顯示成不同類型。
+        alert('Dealer created \u2014 '
+            + window.ProCraftAccountType.label(fields.account_type) + ' account.\n\n'
             + 'No welcome email was sent, so the generated password was never '
             + 'delivered and is NOT recoverable.\n\n'
             + 'To let anyone sign in to this account, reset the password via\n'
