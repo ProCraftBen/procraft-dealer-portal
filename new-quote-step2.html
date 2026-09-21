@@ -1410,6 +1410,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="components/i18n.js?v=cb80"></script>
+<script src="components/price-mask.js?v=cb98"></script>
 <script src="components/quote-flow-header.js?v=1.5"></script>
 <script>
 const { createClient } = supabase;
@@ -1569,12 +1570,20 @@ async function init() {
   // the loaded `dealer` object is a DIFFERENT user (admin creating
   // a draft for a dealer).
   const { data: meRow } = await _supabase
-    .from('dealers').select('is_active, role').eq('id', session.user.id).single();
+    .from('dealers').select('is_active, role, account_type').eq('id', session.user.id).single();
   if (!meRow?.is_active) {
     await _supabase.auth.signOut();
     window.location.href = 'login.html';
     return;
   }
+  // ── 🔴 CB-98:金額遮罩的 viewer 餵入 ──
+  // 必須傳 meRow(登入者),【不可】傳 dealer —— admin 代客建單時 dealer 是
+  // 目標 dealer(Q-1 = A)。account_type 已加入上方 select。
+  // 🔴 不加 if (window.ProCraftPriceMask) 防護(Q-11 = A)。
+  // 📌 本頁所有金額渲染(renderSkuTable / renderCart)都在此之後才會帶資料執行;
+  //    在此之前若有渲染,isHidden() 的初值為 true(fail-closed)。
+  window.ProCraftPriceMask.setViewer(meRow);
+
   currentUserRole = (meRow.role || 'dealer').toLowerCase();
   isAdminViewer   = currentUserRole === 'admin' || currentUserRole === 'super_admin';
 
@@ -2277,8 +2286,8 @@ function renderSkuTable() {
               <td class="td-code">${sku.sku_code}${sku.needs_confirmation ? ' ⚠️' : ''} ${stockTag}</td>
               <td class="td-desc">${sku.description}</td>
               <td>${typeTag}</td>
-              <td class="td-price">$${unitPrice}</td>
-              <td style="font-size:12px;color:var(--muted);">${asmAvailable ? `$${asmFee.toFixed(2)}` : '—'}</td>
+              <td class="td-price">${window.ProCraftPriceMask.mask('$' + unitPrice)}</td>
+              <td style="font-size:12px;color:var(--muted);">${asmAvailable ? window.ProCraftPriceMask.mask(`$${asmFee.toFixed(2)}`) : '—'}</td>
               <td>
                 <div class="td-actions">
                   <button class="qty-btn" onclick="chgQty('${sku.sku_code}',-1)"${disAttr}>−</button>
@@ -3078,11 +3087,11 @@ function renderCart() {
       <div class="cart-item-top">
         <div style="flex:1; min-width:0;">
           <div class="cart-item-name">${nameLine}</div>
-          <div class="cart-item-detail">${formatAssembleStatus(item.type)} · $${item.unit_price.toFixed(2)}/ea${item.assemble_fee > 0 ? ` · Assemble: +$${item.assemble_fee.toFixed(2)}/ea` : ''}</div>
+          <div class="cart-item-detail">${formatAssembleStatus(item.type)} · ${window.ProCraftPriceMask.mask(`$${item.unit_price.toFixed(2)}/ea`)}${item.assemble_fee > 0 ? ` · Assemble: ${window.ProCraftPriceMask.mask(`+$${item.assemble_fee.toFixed(2)}/ea`)}` : ''}</div>
           ${qtyControls}
         </div>
         <div class="cart-item-right">
-          <div class="cart-item-price">$${(item.unit_price * item.quantity).toFixed(2)}</div>
+          <div class="cart-item-price">${window.ProCraftPriceMask.mask(`$${(item.unit_price * item.quantity).toFixed(2)}`)}</div>
           ${editBtn}
           ${removeBtn}
         </div>
@@ -3093,7 +3102,7 @@ function renderCart() {
   // Show subtotal + assemble fee breakdown
   const footerEl = document.getElementById('cartFooter');
   footerEl.style.display='block';
-  document.getElementById('cartTotal').textContent=`$${subtotal.toFixed(2)}`;
+  document.getElementById('cartTotal').textContent = window.ProCraftPriceMask.mask(`$${subtotal.toFixed(2)}`);
   
   // Add/update assemble fee row
   let asmRow = document.getElementById('cartAssembleRow');
@@ -3108,7 +3117,7 @@ function renderCart() {
     const _asmL = document.createElement('span');
     _asmL.textContent = pcTxt('nq2.cart.assemble_fee', 'Assemble Fee (est.)');
     const _asmR = document.createElement('span');
-    _asmR.textContent = '+$' + assembleTotal.toFixed(2);
+    _asmR.textContent = window.ProCraftPriceMask.mask('+$' + assembleTotal.toFixed(2));
     asmRow.appendChild(_asmL);
     asmRow.appendChild(_asmR);
     asmRow.style.display='flex';
