@@ -1036,6 +1036,7 @@ color: var(--green-dark);
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="components/i18n.js?v=cb62c"></script>
+<script src="components/price-mask.js?v=cb98"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="pdf-builder.js"></script>
@@ -2190,8 +2191,16 @@ async function init() {
   _isResumingReturned = !!(step1Data && step1Data.isResumingReturned);
 
   const { data: meRow } = await _supabase
-    .from('dealers').select('is_active, role, company_name').eq('id', session.user.id).single();
+    .from('dealers').select('is_active, role, company_name, account_type').eq('id', session.user.id).single();
   if (!meRow?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+
+  // ── 🔴 CB-98:金額遮罩的 viewer 餵入 ──
+  // 必須傳 meRow(登入者),【不可】傳 dealer —— dealer 是被報價的 dealer,
+  // admin 代建 / 編輯 trial 的單時,admin 必須看到金額(Q-1 = A)。
+  // ⚠️ 同檔的 isTrialDealer() 判斷的是 dealer(單主),回答的是另一個問題,
+  //    【不可】拿來判斷遮罩(M-1)。
+  // 🔴 不加 if (window.ProCraftPriceMask) 防護(Q-11 = A)。
+  window.ProCraftPriceMask.setViewer(meRow);
 
   const isAdminRole = meRow?.role === 'admin' || meRow?.role === 'super_admin';
 
@@ -2568,11 +2577,11 @@ function renderDiscountRows(discountTotal, netSubtotalDisplay) {
   document.getElementById('discountBreakdown').innerHTML = list.map(function (r) {
     return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
       <span>${escapeHtml(r.rule_name || 'Discount')}</span>
-      <span style="color:#8B6914;">−$${round2(r.discount_total).toFixed(2)}</span></div>`;
+      <span style="color:#8B6914;">${window.ProCraftPriceMask.mask(`−$${round2(r.discount_total).toFixed(2)}`)}</span></div>`;
   }).join('');
 
-  document.getElementById('totalDiscount').textContent    = `−$${discountTotal.toFixed(2)}`;
-  document.getElementById('totalSubtotalNet').textContent = `$${netSubtotalDisplay.toFixed(2)}`;
+  document.getElementById('totalDiscount').textContent    = window.ProCraftPriceMask.mask(`−$${discountTotal.toFixed(2)}`);
+  document.getElementById('totalSubtotalNet').textContent = window.ProCraftPriceMask.mask(`$${netSubtotalDisplay.toFixed(2)}`);
 }
 
 function renderAsmBreakdown(byType, showPrices, containerId) {
@@ -2582,7 +2591,7 @@ function renderAsmBreakdown(byType, showPrices, containerId) {
   if (!entries.length) { el.innerHTML = ''; return; }
   el.innerHTML = entries.map(t => {
     const row = byType[t];
-    const priceStr = showPrices ? `<span style="color:#8B6914;">+$${row.total.toFixed(2)}</span>` : '';
+    const priceStr = showPrices ? `<span style="color:#8B6914;">${window.ProCraftPriceMask.mask(`+$${row.total.toFixed(2)}`)}</span>` : '';
     return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
       <span>${t} &nbsp;×${row.qty}</span>${priceStr}</div>`;
   }).join('');
@@ -2744,10 +2753,10 @@ function renderModsBreakdown(modBreakdown, containerId) {
   let html = rows.map(function (r) {
     const lbl = escapeHtml(r.label + (r.hasExcludedMaterial ? laborSuffix : ''));
     return `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:2px 0;">
-      <span>${lbl}</span><span style="color:#8B6914;">+$${r.fee.toFixed(2)}</span></div>`;
+      <span>${lbl}</span><span style="color:#8B6914;">${window.ProCraftPriceMask.mask(`+$${r.fee.toFixed(2)}`)}</span></div>`;
   }).join('');
   html += `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:4px 0 0;border-top:1px solid var(--border);margin-top:2px;">
-    <span>Total</span><span style="color:#8B6914;">+$${modBreakdown.modsDisplayTotal.toFixed(2)}</span></div>`;
+    <span>Total</span><span style="color:#8B6914;">${window.ProCraftPriceMask.mask(`+$${modBreakdown.modsDisplayTotal.toFixed(2)}`)}</span></div>`;
   el.innerHTML = html;
 }
 
@@ -2959,11 +2968,11 @@ function buildItemRowsHtml(markupPct) {
             const trClass = isFirstSub ? '' : 'sub-continuation';
 
             const modFeeCellHtml = modFeeTotal > 0
-              ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
+              ? `<span class="td-modfee">${window.ProCraftPriceMask.mask(`+$${modFeeTotal.toFixed(2)}`)}</span>`
               : '<span style="color:var(--muted);">—</span>';
 
             const asmFeeCellHtml = asmFeeTotal > 0
-              ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
+              ? `<span style="color:var(--muted);">${window.ProCraftPriceMask.mask(`+$${asmFeeTotal.toFixed(2)}`)}</span>`
               : '<span style="color:var(--muted);">—</span>';
 
             rows.push(`
@@ -2974,10 +2983,10 @@ function buildItemRowsHtml(markupPct) {
                 <td class="td-sku">${skuCellHtml}</td>
                 <td class="td-desc">${descCellHtml}</td>
                 <td style="font-size:12px;">${assembledHtml}</td>
-                <td class="td-right">$${markedUnitPrice.toFixed(2)}</td>
+                <td class="td-right">${window.ProCraftPriceMask.mask(`$${markedUnitPrice.toFixed(2)}`)}</td>
                 <td class="td-right">${modFeeCellHtml}</td>
                 <td class="td-right">${asmFeeCellHtml}</td>
-                <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+                <td class="td-right td-total">${window.ProCraftPriceMask.mask(`$${lineTotal.toFixed(2)}`)}</td>
               </tr>`);
 
             // ── CB-25 改動 B:mapping SKU 獨立 row,緊跟父 row,編號 parentNum.N ──
@@ -2993,7 +3002,7 @@ function buildItemRowsHtml(markupPct) {
               //   Assemble Fee 沿用父 row 慣例 > 0 ? '+$X' : '—'(Q-3,0 為合法值)。
               //   兩者皆硬編碼英文,與父 row 一致,不掛 i18n key(CB-62 Q-5)。
               const mapAsmCellHtml = map.asm > 0
-                ? `<span style="color:var(--muted);">+$${map.asm.toFixed(2)}</span>`
+                ? `<span style="color:var(--muted);">${window.ProCraftPriceMask.mask(`+$${map.asm.toFixed(2)}`)}</span>`
                 : '<span style="color:var(--muted);">—</span>';
 
               rows.push(`
@@ -3004,10 +3013,10 @@ function buildItemRowsHtml(markupPct) {
                   <td class="td-sku">${mapSkuCell}</td>
                   <td class="td-desc">${mapDescCell}</td>
                   <td style="font-size:12px;">Yes</td>
-                  <td class="td-right">$${map.unit.toFixed(2)}</td>
+                  <td class="td-right">${window.ProCraftPriceMask.mask(`$${map.unit.toFixed(2)}`)}</td>
                   <td class="td-right"><span style="color:var(--muted);">—</span></td>
                   <td class="td-right">${mapAsmCellHtml}</td>
-                  <td class="td-right td-total">$${map.total.toFixed(2)}</td>
+                  <td class="td-right td-total">${window.ProCraftPriceMask.mask(`$${map.total.toFixed(2)}`)}</td>
                 </tr>`);
             });
           });
@@ -3138,7 +3147,9 @@ function applyTotals(opts) {
       //   ⚠️ i18n key nq3.ship.free_over_12k 保留不刪(F-152)。
       shippingForTotal = 0;
       shippingLabel    = 'FREE';
-      shippingNote     = pcTxt('nq3.ship.free_confirmed', '✓ Sales-confirmed free shipping');
+      // 🔴 CB-98 Q-14:隱藏時不渲染此附註 —— 標籤 FREE 已遮為 —,附註若照印
+      //    「Sales-confirmed free shipping」等於把遮掉的資訊用文字再說一次。
+      shippingNote     = window.ProCraftPriceMask.isHidden() ? '' : pcTxt('nq3.ship.free_confirmed', '✓ Sales-confirmed free shipping');
     } else {
       shippingForTotal = previewShippingForDb;
       shippingLabel    = `$${shippingForTotal.toFixed(2)}`;
@@ -3176,7 +3187,7 @@ function applyTotals(opts) {
   const _subNetDisplay   = round2(skuSubtotalR + mappingMaterialTotal);
   const _subGrossDisplay = round2(skuSubtotalGrossR + mappingMaterialTotal);
   document.getElementById('totalSubtotal').textContent =
-    `$${(discountTotalR > 0 ? _subGrossDisplay : _subNetDisplay).toFixed(2)}`;
+    window.ProCraftPriceMask.mask(`$${(discountTotalR > 0 ? _subGrossDisplay : _subNetDisplay).toFixed(2)}`);
   renderDiscountRows(discountTotalR, _subNetDisplay);
   // CB-70: 三行的顯示/隱藏 + 即時防呆。skuSubtotalR 就是落庫的 quotes.subtotal
   //   (見 saveDraft 的 _t47s.net),故與 DB 的 chk_quotes_adjusted_subtotal_nonneg
@@ -3194,7 +3205,7 @@ function applyTotals(opts) {
 
   if (assembleTotalR > 0) {
     document.getElementById('assembleRow').style.display = 'block';
-    document.getElementById('totalAssemble').textContent = `+$${assembleTotalR.toFixed(2)}`;
+    document.getElementById('totalAssemble').textContent = window.ProCraftPriceMask.mask(`+$${assembleTotalR.toFixed(2)}`);
     const byType = calcAsmByType(step2Data, _ct);   // CB-72:_ct = 整單 construction(mapping SKU 反查用)
     renderAsmBreakdown(byType, true, 'assembleBreakdown');
   } else {
@@ -3202,31 +3213,41 @@ function applyTotals(opts) {
   }
 
   const shipEl = document.getElementById('totalShipping');
-  shipEl.textContent = shippingLabel;
+  // 🔴 CB-98 Q-10:運費在【顯示點】集中遮罩,而非逐一改上方 6 個賦值分支。
+  //    理由:日後新增的運費分支會【自動】被遮(fail-closed);逐分支包裝的話,
+  //    漏包新分支 = 靜默露價。唯一例外是正向列舉的 'Contact Sales Team'
+  //    (不含金額,trial 本就該聯絡業務)。FREE 依 Q-10 一併隱藏為 —。
+  //    ⚠️ 若日後把 'Contact Sales Team' 改掛 i18n,此處比對會失配 → 該標籤
+  //       對 trial 顯示為 —(可見、無害),屆時同步改這裡。
+  shipEl.textContent = (shippingLabel === 'Contact Sales Team')
+    ? shippingLabel
+    : window.ProCraftPriceMask.mask(shippingLabel);
   shipEl.classList.toggle('tbd', isPendingShipping);
   document.getElementById('shippingNote').innerHTML = isPendingShipping
     ? `<span style="color:#E07B39;font-size:11px;">${shippingNote}</span>`
     : `<span style="color:var(--green-mid);font-size:11px;">${shippingNote}</span>`;
 
   if (dealer?.tax_exempt) {
-    document.getElementById('totalTax').textContent = '$0.00';
+    // CB-98:tax_exempt 的 $0.00 是【實際渲染值】,不是 Q-7 的靜態佔位 ——
+    //   不包的話 trial 若為免稅帳號,Stage 3 掃描會命中。對非 trial 輸出不變。
+    document.getElementById('totalTax').textContent = window.ProCraftPriceMask.mask('$0.00');
     document.getElementById('taxNote').innerHTML = '<span class="tax-exempt">✓ Tax exempt</span>';
   } else {
-    document.getElementById('totalTax').textContent = `$${tax.toFixed(2)}`;
+    document.getElementById('totalTax').textContent = window.ProCraftPriceMask.mask(`$${tax.toFixed(2)}`);
     // F-TAX: note shows tax rate + taxable base hint when mods are partially taxable
     const taxRateLabel = `${(taxRate * 100).toFixed(2)}% tax rate`;
     if (modsSubtotal > 0 && taxableModsSubtotal !== modsSubtotal) {
       const nonTaxableMods = modsSubtotal - taxableModsSubtotal;
       document.getElementById('taxNote').innerHTML =
         `${taxRateLabel}<br>` +
-        `<span style="color:#7A8C82;">Taxable base: $${taxBase.toFixed(2)} ` +
-        `(excludes $${nonTaxableMods.toFixed(2)} non-taxable mods)</span>`;
+        `<span style="color:#7A8C82;">Taxable base: ${window.ProCraftPriceMask.mask(`$${taxBase.toFixed(2)}`)} ` +
+        `(excludes ${window.ProCraftPriceMask.mask(`$${nonTaxableMods.toFixed(2)}`)} non-taxable mods)</span>`;
     } else {
       document.getElementById('taxNote').textContent = taxRateLabel;
     }
   }
 
-  document.getElementById('totalGrand').textContent = `$${grand.toFixed(2)}`;
+  document.getElementById('totalGrand').textContent = window.ProCraftPriceMask.mask(`$${grand.toFixed(2)}`);
   document.getElementById('pendingGrandNote').style.display = isPendingShipping ? 'block' : 'none';
 
   let noteEl = document.getElementById('markupNote');
@@ -4644,6 +4665,11 @@ function confirmSubmitFromModal() {
 //      詳見 CB-76 Q-4 / Q-14 的同源論證。
 //
 //   🔴 正向識別(F-35):以 === 'trial' 命中,而非排除其他值。
+//
+//   🔴 CB-98 M-2:同檔的金額遮罩(window.ProCraftPriceMask)是 fail-closed,
+//      與本函式【相反】。那是設計,不是遺漏 —— 本函式有 DB trigger 兜底,
+//      遮罩是純顯示層、沒有任何兜底。禁止「順手對齊」成同一種(F-66 §8)。
+//      且兩者判斷的對象不同:本函式看 dealer(單主),遮罩看 viewer(登入者)。
 function isTrialDealer() {
   return !!(dealer && dealer.account_type === 'trial');
 }
@@ -4801,9 +4827,11 @@ function renderAdjustmentRows(adj, subtotalR) {
 
     // 顯示:負值 −$X.XX(同 Total Discount)、正值 +$X.XX(同 Assemble Fee)、
     //   0 不加號(避免出現「−$0.00」這種讀起來像有折讓的空值)。
+    // CB-98:非零值經遮罩。v === 0 時非 admin 整行 display:none(見上方 show),
+    //   trial 不是 admin,故 '$0.00' 對 trial 不可見,維持 Q-7 不改。
     val.textContent = (v === 0)
       ? '$0.00'
-      : (v < 0 ? `−$${Math.abs(v).toFixed(2)}` : `+$${v.toFixed(2)}`);
+      : window.ProCraftPriceMask.mask(v < 0 ? `−$${Math.abs(v).toFixed(2)}` : `+$${v.toFixed(2)}`);
   });
 
   // 🔴 此處【沒有】單欄正負防呆,是設計不是遺漏(CB-70 Q-16):
@@ -4982,6 +5010,19 @@ function updateMarkupPreview() {
 //      無法判斷 true 是哪一版,而寫錯的代價是「dealer 把含折扣的檔寄給屋主」,
 //      不可逆。具名函式讓誤讀在結構上不可能發生。
 function openPdfVariantModal() {
+  // 🔴 CB-98 Q-5:trial viewer 擋在 modal 入口 —— 兩個出口(Customer / Internal)
+  //    都只能經由這個 modal 進入,守衛放這裡即涵蓋兩者。按鈕不隱藏、不導離,
+  //    在原頁說明(沿用 CB-76 Q-27 的 errorMsg 機制,本頁沒有 toast)。
+  //    判準用 isHidden()(viewer),【不可】用 isTrialDealer()(單主)—— M-1。
+  //    🔴 不在 pdf-builder.js 內擋:它收到的 dealer 是單主,會誤傷 admin(M-10)。
+  if (window.ProCraftPriceMask.isHidden()) {
+    const tErr = document.getElementById('errorMsg');
+    tErr.textContent = pcTxt('trial.block.pdf',
+      'PDF downloads are not available for trial accounts. Contact ProCraft to activate your account.');
+    tErr.classList.add('show');
+    tErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   const m = document.getElementById('pdfVariantModal');
   if (m) m.classList.add('show');
 }
