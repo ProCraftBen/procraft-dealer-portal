@@ -676,6 +676,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="components/i18n.js?v=cb96b"></script>
+<script src="components/price-mask.js?v=cb98"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <!-- CB-82: Reminder 表單 modal(與 admin-reminders.html 共用同一份)。
@@ -1734,11 +1735,11 @@ function buildItemRowsHtml(groupedItems) {
             const trClass = isFirstSub ? '' : 'sub-continuation';
 
             const modFeeCellHtml = modFeeTotal > 0
-              ? `<span class="td-modfee">+$${modFeeTotal.toFixed(2)}</span>`
+              ? `<span class="td-modfee">${window.ProCraftPriceMask.mask(`+$${modFeeTotal.toFixed(2)}`)}</span>`
               : '<span style="color:var(--muted);">—</span>';
 
             const asmFeeCellHtml = asmFeeTotal > 0
-              ? `<span style="color:var(--muted);">+$${asmFeeTotal.toFixed(2)}</span>`
+              ? `<span style="color:var(--muted);">${window.ProCraftPriceMask.mask(`+$${asmFeeTotal.toFixed(2)}`)}</span>`
               : '<span style="color:var(--muted);">—</span>';
 
             rows.push(`
@@ -1749,10 +1750,10 @@ function buildItemRowsHtml(groupedItems) {
                 <td class="td-sku">${skuCellHtml}</td>
                 <td class="td-desc">${descCellHtml}</td>
                 <td style="font-size:12px;">${assembledHtml}</td>
-                <td class="td-right">$${item.unit_price.toFixed(2)}</td>
+                <td class="td-right">${window.ProCraftPriceMask.mask(`$${item.unit_price.toFixed(2)}`)}</td>
                 <td class="td-right">${modFeeCellHtml}</td>
                 <td class="td-right">${asmFeeCellHtml}</td>
-                <td class="td-right td-total">$${lineTotal.toFixed(2)}</td>
+                <td class="td-right td-total">${window.ProCraftPriceMask.mask(`$${lineTotal.toFixed(2)}`)}</td>
               </tr>`);
 
             // ── CB-25 改動 B:mapping SKU 獨立 row,緊跟父 row,編號 parentNum.N ──
@@ -1768,7 +1769,7 @@ function buildItemRowsHtml(groupedItems) {
               //   Assemble Fee 沿用父 row 慣例 > 0 ? '+$X' : '—'(Q-3,0 為合法值)。
               //   兩者皆硬編碼英文,與父 row 一致,不掛 i18n key(CB-62 Q-5)。
               const mapAsmCellHtml = map.asm > 0
-                ? `<span style="color:var(--muted);">+$${map.asm.toFixed(2)}</span>`
+                ? `<span style="color:var(--muted);">${window.ProCraftPriceMask.mask(`+$${map.asm.toFixed(2)}`)}</span>`
                 : '<span style="color:var(--muted);">—</span>';
 
               rows.push(`
@@ -1779,10 +1780,10 @@ function buildItemRowsHtml(groupedItems) {
                   <td class="td-sku">${mapSkuCell}</td>
                   <td class="td-desc">${mapDescCell}</td>
                   <td style="font-size:12px;">Yes</td>
-                  <td class="td-right">$${map.unit.toFixed(2)}</td>
+                  <td class="td-right">${window.ProCraftPriceMask.mask(`$${map.unit.toFixed(2)}`)}</td>
                   <td class="td-right"><span style="color:var(--muted);">—</span></td>
                   <td class="td-right">${mapAsmCellHtml}</td>
-                  <td class="td-right td-total">$${map.total.toFixed(2)}</td>
+                  <td class="td-right td-total">${window.ProCraftPriceMask.mask(`$${map.total.toFixed(2)}`)}</td>
                 </tr>`);
             });
           });
@@ -1815,7 +1816,13 @@ async function init() {
     return;
   }
 
-  const { data: me } = await _supabase.from('dealers').select('company_name, role').eq('id', session.user.id).single();
+  const { data: me } = await _supabase.from('dealers').select('company_name, role, account_type').eq('id', session.user.id).single();
+  // ── 🔴 CB-98:金額遮罩的 viewer 餵入 ──
+  // 必須傳 me(登入者),【不可】傳 dealer —— dealer 是單主;admin 檢視 trial 的單時
+  // 金額必須正常顯示(Q-1 = A)。本頁此查詢沒有 is_active 檢查,me 可能為 null ——
+  // null 時 setViewer() 判為隱藏(Q-2 fail-closed),不需在此另做處理。
+  // 🔴 不加 if (window.ProCraftPriceMask) 防護(Q-11 = A)。
+  window.ProCraftPriceMask.setViewer(me);
   const isAdmin = ['admin','super_admin'].includes(me?.role);
   _isAdmin = isAdmin;
 
@@ -2410,7 +2417,7 @@ function renderQuote(quote, dealer, addr) {
   const adjRow = function (labelKey, labelEn, v) {
     if (v === 0) return '';
     // 負值 −$X.XX(同 Total Discount)、正值 +$X.XX(同 Assemble Fee)。
-    const shown = (v < 0) ? ('−' + fmt(Math.abs(v))) : ('+' + fmt(v));
+    const shown = window.ProCraftPriceMask.mask((v < 0) ? ('−' + fmt(Math.abs(v))) : ('+' + fmt(v)));
     return `<div class="total-row">
         <span class="total-label">${escapeHtml(pcTxt(labelKey, labelEn))}</span>
         <span class="total-val" style="color:#8B6914;">${shown}</span>
@@ -2426,17 +2433,17 @@ function renderQuote(quote, dealer, addr) {
         <div class="asm-breakdown">
           ${appliedRules.map(function (r) {
             return `<div class="asm-breakdown-row"><span>${escapeHtml(r.rule_name || pcTxt('qd.sum.discount', 'Discount'))}</span>` +
-                   `<span style="color:#8B6914;">−${fmt(r.discount_total)}</span></div>`;
+                   `<span style="color:#8B6914;">${window.ProCraftPriceMask.mask('−' + fmt(r.discount_total))}</span></div>`;
           }).join('')}
         </div>
       </div>
       <div class="total-row">
         <span class="total-label">Total Discount</span>
-        <span class="total-val" style="color:#8B6914;">−${fmt(discountTotal)}</span>
+        <span class="total-val" style="color:#8B6914;">${window.ProCraftPriceMask.mask('−' + fmt(discountTotal))}</span>
       </div>
       <div class="total-row">
         <span class="total-label">Subtotal After Discount</span>
-        <span class="total-val">${fmt(subtotalNetDisp)}</span>
+        <span class="total-val">${window.ProCraftPriceMask.mask(fmt(subtotalNetDisp))}</span>
       </div>`
     : '';
 
@@ -2489,11 +2496,11 @@ function renderQuote(quote, dealer, addr) {
   const asmBreakdownHtml = assembleTotal > 0
     ? `<div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;justify-content:space-between;padding-bottom:4px;">
-          <span class="total-label">${escapeHtml(pcTxt('nq3.col.assemble_fee', 'Assemble Fee'))}</span><span class="total-val" style="color:#8B6914;">+${fmt(assembleTotal)}</span>
+          <span class="total-label">${escapeHtml(pcTxt('nq3.col.assemble_fee', 'Assemble Fee'))}</span><span class="total-val" style="color:#8B6914;">${window.ProCraftPriceMask.mask('+' + fmt(assembleTotal))}</span>
         </div>
         <div class="asm-breakdown">
           ${TYPE_ORDER.filter(t=>byType[t]).map(t=>
-            `<div class="asm-breakdown-row"><span>${shortType(t)} ×${byType[t].qty}</span><span>+${fmt(byType[t].total)}</span></div>`
+            `<div class="asm-breakdown-row"><span>${shortType(t)} ×${byType[t].qty}</span><span>${window.ProCraftPriceMask.mask('+' + fmt(byType[t].total))}</span></div>`
           ).join('')}
         </div>
       </div>`
@@ -2509,9 +2516,9 @@ function renderQuote(quote, dealer, addr) {
           <!-- CB-75:依項目聚合。🔴 不再印 ×qty —— 同一 label 可能橫跨多個櫃體、
                各自 qty 不同,加總後沒有可解釋的語意。label 來自 DB 需 escapeHtml。 -->
           ${modBreakdown.rows.map(r=>
-            `<div class="asm-breakdown-row"><span>${escapeHtml(r.label + (r.hasExcludedMaterial ? pcTxt('nq3.sum.mods_labor_suffix', ' (labor)') : ''))}</span><span style="color:#8B6914;">+${fmt(r.fee)}</span></div>`
+            `<div class="asm-breakdown-row"><span>${escapeHtml(r.label + (r.hasExcludedMaterial ? pcTxt('nq3.sum.mods_labor_suffix', ' (labor)') : ''))}</span><span style="color:#8B6914;">${window.ProCraftPriceMask.mask('+' + fmt(r.fee))}</span></div>`
           ).join('')}
-          <div class="asm-breakdown-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:4px;"><span>${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</span><span style="color:#8B6914;">+${fmt(modBreakdown.modsDisplayTotal)}</span></div>
+          <div class="asm-breakdown-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:4px;"><span>${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</span><span style="color:#8B6914;">${window.ProCraftPriceMask.mask('+' + fmt(modBreakdown.modsDisplayTotal))}</span></div>
         </div>
       </div>`
     : '';
@@ -2544,10 +2551,10 @@ function renderQuote(quote, dealer, addr) {
     shippingRowHtml = `
       <div class="total-row">
         <span class="total-label">
-          ${escapeHtml(pcTxt('nq3.sum.shipping', 'Shipping'))}${freeShip ? ' <span class="free-tag">' + escapeHtml(pcTxt('qd.ship.free', '✓ Free')) + '</span>' : ''}
+          ${escapeHtml(pcTxt('nq3.sum.shipping', 'Shipping'))}${(freeShip && !window.ProCraftPriceMask.isHidden()) ? ' <span class="free-tag">' + escapeHtml(pcTxt('qd.ship.free', '✓ Free')) + '</span>' : ''}
           ${adminEditLink}
         </span>
-        <span class="total-val">${freeShip ? 'FREE' : fmt(quote.shipping_cost)}</span>
+        <span class="total-val">${window.ProCraftPriceMask.mask(freeShip ? 'FREE' : fmt(quote.shipping_cost))}</span>
       </div>`;
   }
 
@@ -2571,7 +2578,7 @@ function renderQuote(quote, dealer, addr) {
     taxRowHtml = `
       <div class="total-row">
         <span class="total-label">${escapeHtml(pcTxt('nq3.sum.tax', 'Tax'))} <span class="exempt-tag">${escapeHtml(pcTxt('qd.tax.exempt', '✓ Exempt'))}</span></span>
-        <span class="total-val">${fmt(quote.tax_amount)}</span>
+        <span class="total-val">${window.ProCraftPriceMask.mask(fmt(quote.tax_amount))}</span>
       </div>`;
   } else {
     // Build tax detail note (if mods are partially taxable)
@@ -2582,13 +2589,13 @@ function renderQuote(quote, dealer, addr) {
       //    漏加的話這一行會直接印出一個與 tax_amount 對不起來的數字給 dealer 看 ——
       //    是本檔唯一會把稅基【明文顯示】的地方,不是內部計算。
       const taxBase = skuSubtotal + taxableMods + adjSum;
-      taxDetailHtml = `<div class="tax-note-detail">Taxable base: ${fmt(taxBase)} (excludes ${fmt(nonTaxableMods)} non-taxable mods)</div>`;
+      taxDetailHtml = `<div class="tax-note-detail">Taxable base: ${window.ProCraftPriceMask.mask(fmt(taxBase))} (excludes ${window.ProCraftPriceMask.mask(fmt(nonTaxableMods))} non-taxable mods)</div>`;
     }
     taxRowHtml = `
       <div class="total-row" style="flex-direction:column;align-items:stretch;gap:0;">
         <div style="display:flex;justify-content:space-between;">
           <span class="total-label">Tax</span>
-          <span class="total-val">${fmt(quote.tax_amount)}</span>
+          <span class="total-val">${window.ProCraftPriceMask.mask(fmt(quote.tax_amount))}</span>
         </div>
         ${taxDetailHtml}
       </div>`;
@@ -2800,7 +2807,7 @@ function renderQuote(quote, dealer, addr) {
       ${notesTableHtml}
 
       <div class="totals">
-        <div class="total-row"><span class="total-label">${escapeHtml(pcTxt('nq3.sum.subtotal', 'Subtotal'))}</span><span class="total-val">${fmt(discountTotal > 0 ? subtotalGrossDisp : subtotalNetDisp)}</span></div>
+        <div class="total-row"><span class="total-label">${escapeHtml(pcTxt('nq3.sum.subtotal', 'Subtotal'))}</span><span class="total-val">${window.ProCraftPriceMask.mask(fmt(discountTotal > 0 ? subtotalGrossDisp : subtotalNetDisp))}</span></div>
         ${discountRowsHtml}
         ${adjustmentRowsHtml}
         ${modsRowHtml}
@@ -2809,7 +2816,7 @@ function renderQuote(quote, dealer, addr) {
         ${shippingEditorHtml}
         ${taxRowHtml}
         <div class="total-row grand">
-          <span class="total-label">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="total-val">${fmt(quote.grand_total)}</span>
+          <span class="total-label">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="total-val">${window.ProCraftPriceMask.mask(fmt(quote.grand_total))}</span>
         </div>
         ${pendingFootnote}
       </div>
@@ -3346,7 +3353,7 @@ function storeCreditSectionHtml() {
   const rowHtml = function (m, isVoid) {
     const net = Number(m.net_store_credit_amount);
     const isDue = net > 0;
-    const amt = (isDue ? '$' : '-$') + Math.abs(net).toFixed(2);
+    const amt = window.ProCraftPriceMask.mask((isDue ? '$' : '-$') + Math.abs(net).toFixed(2));
     const fee = Number(m.restocking_fee);
 
     // 🔴 CB-96:兩顆下載按鈕。
@@ -3378,7 +3385,7 @@ function storeCreditSectionHtml() {
       '</div>' +
       '<div class="stc-amt">' +
         '<span class="' + (isDue ? 'due' : '') + '">' + amt + '</span>' +
-        (fee ? '<div style="font-size:11px;color:var(--muted);">incl. fee $' + fee.toFixed(2) + '</div>' : '') +
+        (fee ? '<div style="font-size:11px;color:var(--muted);">incl. fee ' + window.ProCraftPriceMask.mask('$' + fee.toFixed(2)) + '</div>' : '') +
       '</div>' + acts +
     '</div>';
   };
@@ -3407,6 +3414,7 @@ function storeCreditSectionHtml() {
 // 🔴 常數讀 ProCraftPDF._SC_VARIANT_INTERNAL,不在本檔硬寫 'internal'
 //    (魔術字串散落的問題,F-66 同型)。
 async function downloadStoreCreditMemo(memoId, internal) {
+  if (priceMaskBlocksDownload()) return;   // CB-98 Q-5
   if (!_quote || !_dealer) return;
   const m = _stcActive.find(function (x) { return x.id === memoId; });
   if (!m) return;
@@ -3683,10 +3691,12 @@ function buildQuoteDataForPdf() {
 //   ⚠ 本頁的 markupPercent 本來就恆為 0(本頁無 markup 欄位),
 //     故有折扣版在本頁與 step3 產出的金額一致。
 async function downloadDraftQuote() {
+  if (priceMaskBlocksDownload()) return;   // CB-98 Q-5
   await _buildAndSaveDraftQuotePdf(false);
 }
 
 async function downloadDraftQuoteInternal() {
+  if (priceMaskBlocksDownload()) return;   // CB-98 Q-5
   await _buildAndSaveDraftQuotePdf(true);
 }
 
@@ -3734,6 +3744,25 @@ function storeCreditDownloadNotice() {
     { nums: nums }));
 }
 
+// ── 🔴 CB-98 Q-5:trial viewer 擋下全部 PDF 下載 ────────────────────────
+// 由 5 支函式(7 顆按鈕)在【首行】呼叫:downloadDraftQuote / downloadDraftQuoteInternal /
+//   downloadInvoice / downloadReceipt / downloadStoreCreditMemo(2 顆共用)。
+//   downloadPackingList 不呼叫 —— 該按鈕只在 _isAdmin 時渲染,dealer 不可見。
+// 🔴 按鈕不隱藏、不導離,按下在原頁說明(Q-5 = B,沿用 CB-76 Q-9)。
+// 🔴 說明機制沿用本頁既有的「擋下載」先例 storeCreditBlocksDownload()(alert)。
+//    【不用】showError() —— 它會把整頁 pageContent 換成錯誤畫面,等於導離。
+// 🔴 判準用 isHidden()(viewer),【不可】用單主 _dealer.account_type —— admin 檢視
+//    trial 的單時必須能下載(Q-1 / M-1)。
+// 🔴 不在 pdf-builder.js 內擋:它收到的 dealer 是單主,會誤傷 admin(M-10)。
+// 📌 轉換路徑(trial 被改回一般 dealer 前已有非 Draft 單)確實存在,
+//    admin-dealers 為此設有警示 —— 一旦發生而未擋,就是靜默露價。
+function priceMaskBlocksDownload() {
+  if (!window.ProCraftPriceMask.isHidden()) return false;
+  alert(pcTxt('trial.block.pdf',
+    'PDF downloads are not available for trial accounts. Contact ProCraft to activate your account.'));
+  return true;
+}
+
 function storeCreditBlocksDownload() {
   if (!_stcDegraded) return false;
   alert(pcTxt('qd.stc.degraded',
@@ -3758,6 +3787,7 @@ async function downloadPackingList() {
 }
 
 async function downloadInvoice() {
+  if (priceMaskBlocksDownload()) return;   // CB-98 Q-5
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;   // CB-93
   storeCreditDownloadNotice();               // CB-96
@@ -3778,6 +3808,7 @@ async function downloadInvoice() {
 //     order confirmed_at desc limit 1 為防呆)。dealer RLS 可讀自己的 payments。
 // fee/total_paid 讀 payment 列存值,不現算;confirmed_at ?? created_at 為 B2 fallback。
 async function downloadReceipt() {
+  if (priceMaskBlocksDownload()) return;   // CB-98 Q-5
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;   // CB-93
   storeCreditDownloadNotice();               // CB-96
