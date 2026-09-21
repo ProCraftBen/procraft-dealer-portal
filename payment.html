@@ -186,6 +186,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script src="components/i18n.js?v=cb62c"></script>
+<script src="components/price-mask.js?v=cb98"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <script src="components/footer.js?v=cb62c"></script>
 <script>
@@ -276,7 +277,7 @@ function quoteStripHtml() {
     <div class="quote-strip">
       <div class="qs-item"><div class="qs-label">${escapeHtml(pcTxt('nq3.field.po_number', 'PO Number'))}</div><div class="qs-value po">${po}</div></div>
       <div class="qs-item"><div class="qs-label">${escapeHtml(pcTxt('nq3.field.job_name', 'Job Name'))}</div><div class="qs-value">${job}</div></div>
-      <div class="qs-item"><div class="qs-label">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</div><div class="qs-value total">${fmt(quote.grand_total)}</div></div>
+      <div class="qs-item"><div class="qs-label">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</div><div class="qs-value total">${window.ProCraftPriceMask.mask(fmt(quote.grand_total))}</div></div>
     </div>`;
 }
 
@@ -312,8 +313,13 @@ async function init() {
 
   // 2. dealer 守門(對齊 quotes.html)
   const { data: me } = await _supabase
-    .from('dealers').select('role, is_active').eq('id', userId).single();
+    .from('dealers').select('role, is_active, account_type').eq('id', userId).single();
   if (!me?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+  // ── 🔴 CB-98:金額遮罩的 viewer 餵入(必須在 reloadData() / 任何渲染之前)──
+  // 本頁僅【轉換帳號】可達:trial 的單只能是 Draft(DB trigger),要進付款頁
+  // 必須是改設為 trial 前就已送出的單。admin 會被導去 admin.html。
+  // 🔴 不加 if (window.ProCraftPriceMask) 防護(Q-11 = A)。
+  window.ProCraftPriceMask.setViewer(me);
   if (['admin', 'super_admin'].includes(me?.role)) { window.location.href = 'admin.html'; return; }
 
   // 3. quote_id
@@ -422,27 +428,27 @@ function renderMethodSelect() {
           <input type="radio" name="pm" value="card"/>
           <div class="mo-head">
             <span class="mo-name"><span class="mo-radio"></span>Credit / Debit Card</span>
-            <span class="mo-total">${fmt(card.total)}</span>
+            <span class="mo-total">${window.ProCraftPriceMask.mask(fmt(card.total))}</span>
           </div>
-          <div class="mo-fee">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: card.pct }))}: ${fmt(card.fee)} &nbsp;•&nbsp; ${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}: ${fmt(card.total)}</div>
+          <div class="mo-fee">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: card.pct }))}: ${window.ProCraftPriceMask.mask(fmt(card.fee))} &nbsp;•&nbsp; ${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}: ${window.ProCraftPriceMask.mask(fmt(card.total))}</div>
         </label>
 
         <label class="method-opt" data-method="ach">
           <input type="radio" name="pm" value="ach"/>
           <div class="mo-head">
             <span class="mo-name"><span class="mo-radio"></span>ACH Bank Transfer</span>
-            <span class="mo-total">${fmt(ach.total)}</span>
+            <span class="mo-total">${window.ProCraftPriceMask.mask(fmt(ach.total))}</span>
           </div>
-          <div class="mo-fee">Transaction Fee (${ach.pct}%): ${fmt(ach.fee)} &nbsp;•&nbsp; Total to Pay: ${fmt(ach.total)}</div>
+          <div class="mo-fee">Transaction Fee (${ach.pct}%): ${window.ProCraftPriceMask.mask(fmt(ach.fee))} &nbsp;•&nbsp; Total to Pay: ${window.ProCraftPriceMask.mask(fmt(ach.total))}</div>
         </label>
 
         <label class="method-opt" data-method="check">
           <input type="radio" name="pm" value="check"/>
           <div class="mo-head">
             <span class="mo-name"><span class="mo-radio"></span>Check</span>
-            <span class="mo-total">${fmt(check.total)}</span>
+            <span class="mo-total">${window.ProCraftPriceMask.mask(fmt(check.total))}</span>
           </div>
-          <div class="mo-fee">${escapeHtml(pcTxt('pay.no_fee_total', 'No Fee  •  Total to Pay: {total}', { total: fmt(check.total) }))}</div>
+          <div class="mo-fee">${escapeHtml(pcTxt('pay.no_fee_total', 'No Fee  •  Total to Pay: {total}', { total: window.ProCraftPriceMask.mask(fmt(check.total)) }))}</div>
         </label>
       </div>
 
@@ -490,9 +496,9 @@ function renderCardAch(method) {
 
       <div class="amount-rows">
         <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}</span><span class="val">${methodLabel(method)}</span></div>
-        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(f.base)}</span></div>
-        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${fmt(f.fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}</span><span class="val">${fmt(f.total)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.base))}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.fee))}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.total))}</span></div>
       </div>
 
       <div class="qb-note">${instructionHtml(method)} ${escapeHtml(pcTxt('pay.qb_note', 'The transaction fee shown reflects QuickBooks Payments processing costs.'))}</div>
@@ -532,7 +538,7 @@ function openPayConfirm(method, f) {
   if (!overlay) { submitSimplifiedPayment(method, f); return; }
   _pendingProceed = { method: method, f: f };
   document.getElementById('payConfirmAmount').innerHTML =
-    `${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}: <strong>${escapeHtml(methodLabel(method))}</strong><br/>${escapeHtml(pcTxt('pay.amount_due_label', 'Amount Due:'))} <strong>${fmt(f.total)}</strong>`;
+    `${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}: <strong>${escapeHtml(methodLabel(method))}</strong><br/>${escapeHtml(pcTxt('pay.amount_due_label', 'Amount Due:'))} <strong>${window.ProCraftPriceMask.mask(fmt(f.total))}</strong>`;
   overlay.classList.add('show');
   const ok = document.getElementById('btnPayConfirmOk');
   if (ok) ok.focus();
@@ -604,13 +610,13 @@ function renderCheckSimple() {
         <div class="lbl">${escapeHtml(pcTxt('pay.check.payable_to', 'Make Check Payable To'))}</div>
         <div class="val">ProCraft Cabinetry DC LLC</div>
       </div>
-      <div class="check-help">${escapeHtml(pcTxt('pay.check.write_before', 'Please write the check for'))} <strong>${fmt(f.total)}</strong> ${escapeHtml(pcTxt('pay.check.write_after', 'payable to'))} <strong>ProCraft Cabinetry DC LLC</strong>.</div>
+      <div class="check-help">${escapeHtml(pcTxt('pay.check.write_before', 'Please write the check for'))} <strong>${window.ProCraftPriceMask.mask(fmt(f.total))}</strong> ${escapeHtml(pcTxt('pay.check.write_after', 'payable to'))} <strong>ProCraft Cabinetry DC LLC</strong>.</div>
 
       <div class="amount-rows">
         <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}</span><span class="val">${methodLabel('check')}</span></div>
-        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(f.base)}</span></div>
-        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${fmt(f.fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}</span><span class="val">${fmt(f.total)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.base))}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.fee))}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.total_to_pay', 'Total to Pay'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.total))}</span></div>
       </div>
 
       <div class="qb-note">${instructionHtml('check')}</div>
@@ -752,9 +758,9 @@ function renderInstruction(method, f) {
 
       <div class="amount-rows">
         <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.method', 'Payment Method'))}</span><span class="val">${methodLabel(method)}</span></div>
-        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(f.base)}</span></div>
-        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${fmt(f.fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.amount_due', 'Amount Due'))}</span><span class="val">${fmt(f.total)}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.base))}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: f.pct }))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.fee))}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('pay.row.amount_due', 'Amount Due'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(f.total))}</span></div>
       </div>
 
       <div class="btn-row" style="justify-content:center;">
@@ -843,7 +849,7 @@ function renderCheck() {
         <div class="val">ProCraft Cabinetry DC LLC</div>
       </div>
       <div class="check-help">
-        ${escapeHtml(pcTxt('pay.check.write_before', 'Please write the check for'))} <strong>${fmt(quote.grand_total)}</strong> ${escapeHtml(pcTxt('pay.check.write_after', 'payable to'))}
+        ${escapeHtml(pcTxt('pay.check.write_before', 'Please write the check for'))} <strong>${window.ProCraftPriceMask.mask(fmt(quote.grand_total))}</strong> ${escapeHtml(pcTxt('pay.check.write_after', 'payable to'))}
         <strong>ProCraft Cabinetry DC LLC</strong>${escapeHtml(pcTxt('pay.check.write_after_upload', ', then upload a clear photo or scan of the front of the check below.'))}
       </div>
 
@@ -1051,10 +1057,10 @@ const refreshCls  = contBtn ? 'btn btn-ghost' : 'btn btn-primary';
   // grand 行刻意用 "Total" 而非 "Total Paid" —— 此畫面 payment status 正是
   // processing,錢尚未確認收到;若後續失敗退回可再付,"Paid" 即為錯誤陳述。
   const amountRowsHtml = _canBreakdown
-    ? `<div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${fmt(_base)}</span></div>
-        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: _pct }))}</span><span class="val">${fmt(_fee)}</span></div>
-        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</span><span class="val">${fmt(_paid)}</span></div>`
-    : `<div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.amount', 'Amount'))}</span><span class="val">${fmt(p.total_paid)}</span></div>`;
+    ? `<div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('nq3.sum.order_total', 'Order Total'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(_base))}</span></div>
+        <div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.fee', 'Transaction Fee ({pct}%)', { pct: _pct }))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(_fee))}</span></div>
+        <div class="amount-row grand"><span class="lbl">${escapeHtml(pcTxt('nq3.col.total', 'Total'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(_paid))}</span></div>`
+    : `<div class="amount-row"><span class="lbl">${escapeHtml(pcTxt('pay.row.amount', 'Amount'))}</span><span class="val">${window.ProCraftPriceMask.mask(fmt(p.total_paid))}</span></div>`;
 
   root().innerHTML = `
     ${backLinkHtml()}
