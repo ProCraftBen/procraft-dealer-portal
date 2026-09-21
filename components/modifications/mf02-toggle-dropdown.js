@@ -6,6 +6,15 @@
  *
  * 結構上 = MF03 (toggle) + MF05 (dropdown) 的組合體
  *
+ * CB-98 變更 (2026/9/21):trial 帳號金額遮罩
+ *   ✅ buildCostDisplayHTML() 的兩種顯示字串(「$25 × 2 = $50.00」與「+$50.00」)
+ *      一律經 window.ProCraftPriceMask.mask() 包裝,隱藏時整段顯示為 —
+ *      (拆解式也整段遮:單價與倍率一起露出,等於露出單價)
+ *   🔴 calculateCost() 與 mf-change 事件的 cost【不動】—— 那是資料,不是顯示
+ *   🔴 本檔依賴 components/price-mask.js,且【不做】缺席防護(CB-98 Q-11 = A)。
+ *      new-quote-modifications.html 必須在本檔【之前】載入 price-mask.js;
+ *      缺席時 drawUI() 拋 TypeError,Modal 當場壞掉 —— 優於靜默露價。
+ *
  * E4.1 變更:
  *   ❌ 舊:window.MF.MF02.render(container, mf_params, value)  (單例)
  *   ✅ 新:const inst = window.MF.MF02.create(container, mf_params, value)
@@ -138,9 +147,9 @@
         typeof multiplier === 'number' && multiplier > 1;
 
       if (hasMultiplierBreakdown) {
-        return `<span style="margin-left:8px;color:#666;font-size:13px;">$${unitPrice.toFixed(2)} × ${multiplier} = $${state.cost.toFixed(2)}</span>`;
+        return `<span style="margin-left:8px;color:#666;font-size:13px;">${window.ProCraftPriceMask.mask(`$${unitPrice.toFixed(2)} × ${multiplier} = $${state.cost.toFixed(2)}`)}</span>`;
       }
-      return `<span style="margin-left:8px;color:#666;font-size:13px;">+$${state.cost.toFixed(2)}</span>`;
+      return `<span style="margin-left:8px;color:#666;font-size:13px;">${window.ProCraftPriceMask.mask(`+$${state.cost.toFixed(2)}`)}</span>`;
     }
 
     function drawUI() {
