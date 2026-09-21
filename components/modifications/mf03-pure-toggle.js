@@ -4,6 +4,16 @@
  * Modification 元件:純開關 toggle,無 dropdown/input/cost 分支
  * 業務範例:Roll Out Tray、Matching Interior、Prep For Glass、Soft Close
  *
+ * CB-98 變更 (2026/9/21):trial 帳號金額遮罩
+ *   ✅ 兩條 render 路徑的 +$cost 一律經 window.ProCraftPriceMask.mask() 包裝:
+ *        render()         一般 toggle / qty_selector 模式
+ *        renderRequired() CB-12 required Yes/No 模式
+ *      🔴 兩處是【各自獨立】的字串,改一處必須檢查另一處。
+ *   🔴 calculateCost() 與 mf-change 事件的 cost【不動】—— 那是資料,不是顯示
+ *   🔴 本檔依賴 components/price-mask.js,且【不做】缺席防護(CB-98 Q-11 = A)。
+ *      new-quote-modifications.html 必須在本檔【之前】載入 price-mask.js;
+ *      缺席時 render() 拋 TypeError,Modal 當場壞掉 —— 優於靜默露價。
+ *
  * E4.1 變更:
  *   ❌ 舊:window.MF.MF03.render(container, mf_params, value)  (單例)
  *   ✅ 新:const inst = window.MF.MF03.create(container, mf_params, value)
@@ -236,7 +246,7 @@
 
       // 顯示用 cost,$0 不顯示金額(避免 UI 雜亂)
       const costDisplay = state.cost > 0
-        ? `<span style="margin-left:8px;color:#666;font-size:13px;">+$${state.cost.toFixed(2)}</span>`
+        ? `<span style="margin-left:8px;color:#666;font-size:13px;">${window.ProCraftPriceMask.mask(`+$${state.cost.toFixed(2)}`)}</span>`
         : '';
 
       // F-BINDING-GROUP: 鎖定時的視覺差異
@@ -348,7 +358,7 @@
       const isLocked = state.locked;
 
       const costDisplay = state.cost > 0
-        ? `<span style="margin-left:8px;color:#666;font-size:13px;">+$${state.cost.toFixed(2)}</span>`
+        ? `<span style="margin-left:8px;color:#666;font-size:13px;">${window.ProCraftPriceMask.mask(`+$${state.cost.toFixed(2)}`)}</span>`
         : '';
 
       const lockedReasonHTML = (isLocked && state.lockReason)
