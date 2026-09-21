@@ -1623,12 +1623,16 @@
 <script src="config.js"></script>
 <script src="components/i18n.js?v=cb88"></script>
 <script src="components/quote-flow-header.js?v=1.5"></script>
+<!-- 🔴 CB-98:price-mask.js 必須在 mf01~mf05【之前】載入 —— 那五支元件在
+     render 時直接呼叫 window.ProCraftPriceMask,且刻意不做缺席防護(Q-11 = A)。
+     mf01~mf05 因 CB-98 改版 bump 至 ?v=cb98;mf06 / mf07 未改,維持 cb62c。 -->
+<script src="components/price-mask.js?v=cb98"></script>
 
-<script src="components/modifications/mf01-skin.js?v=cb62c"></script>
-<script src="components/modifications/mf02-toggle-dropdown.js?v=cb62c"></script>
-<script src="components/modifications/mf03-pure-toggle.js?v=cb62c"></script>
-<script src="components/modifications/mf04-toggle-number.js?v=cb62c"></script>
-<script src="components/modifications/mf05-pure-dropdown.js?v=cb62c"></script>
+<script src="components/modifications/mf01-skin.js?v=cb98"></script>
+<script src="components/modifications/mf02-toggle-dropdown.js?v=cb98"></script>
+<script src="components/modifications/mf03-pure-toggle.js?v=cb98"></script>
+<script src="components/modifications/mf04-toggle-number.js?v=cb98"></script>
+<script src="components/modifications/mf05-pure-dropdown.js?v=cb98"></script>
 <script src="components/modifications/mf06-text-only.js?v=cb62c"></script>
 <script src="components/modifications/mf07-super.js?v=cb62c"></script>
 <script>
@@ -1890,7 +1894,7 @@ function renderBundleMaterialLine(row, mat) {
   line.innerHTML =
     '<span class="bm-sku">' + esc(mat.mapping_sku) + '</span>' +
     '<span class="bm-sep">·</span><span class="bm-qty">Qty ' + mat.mapping_qty + '</span>' +
-    '<span class="bm-sep">·</span><span class="bm-mat">Material $' + (mat.material_cost || 0).toFixed(2) + '</span>';
+    '<span class="bm-sep">·</span><span class="bm-mat">Material ' + window.ProCraftPriceMask.mask('$' + (mat.material_cost || 0).toFixed(2)) + '</span>';
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1925,7 +1929,7 @@ function renderBaseCostLine(row, cost, flatCost) {
     ? cost
     : ((typeof flatCost === 'number' && isFinite(flatCost)) ? flatCost : 0);
   if (!(shown > 0)) return;
-  span.textContent = pcTxt('nqm.ro.base_cost', 'Base cost:') + ' +$' + shown.toFixed(2);
+  span.textContent = pcTxt('nqm.ro.base_cost', 'Base cost:') + ' ' + window.ProCraftPriceMask.mask('+$' + shown.toFixed(2));
 }
 // ═══════════════════════════════════════════════════════════════════
 // CB-72: 金額取整 helper —— round2()
@@ -2915,9 +2919,12 @@ function onMainPageAssemblyToggle(key, newType) {
     }
 
     const newFee = getAssembleFeeForItem(dealer, item);
+    // 🔴 CB-98 Q-6:原生 confirm() 不在 DOM 內,自動掃描抓不到,Stage 3 須人工驗證。
+    //    走 maskKey() 整句換文案 —— mask() 會產出 "An assembly fee of $— per unit"(M-9)。
     const feeNote = newFee > 0
-      ? pcTxt('nqm.confirm.fee_yes', 'An assembly fee of ${fee} per unit will apply.',
-              { fee: newFee.toFixed(2) })
+      ? window.ProCraftPriceMask.maskKey('nqm.confirm.fee_yes_hidden', 'An assembly fee per unit will apply.',
+          pcTxt('nqm.confirm.fee_yes', 'An assembly fee of ${fee} per unit will apply.',
+                { fee: newFee.toFixed(2) }))
       : pcTxt('nqm.confirm.fee_no', 'No assembly fee applies for this SKU type.');
     const ok = confirm(
       pcTxt('nqm.confirm.to_asm', 'Switch "{sku}" to Assembled?', { sku: item.sku_code }) +
@@ -3168,7 +3175,7 @@ function setRunningTotalDOM(label, total) {
   const valueEl = document.getElementById('mfRunningTotalValue');
   if (labelEl) labelEl.textContent = label;
   if (!valueEl) return;
-  valueEl.textContent = '$' + total.toFixed(2);
+  valueEl.textContent = window.ProCraftPriceMask.mask('$' + total.toFixed(2));
   if (total > 0) valueEl.classList.remove('zero');
   else valueEl.classList.add('zero');
 }
@@ -3227,7 +3234,7 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
   labelDiv.appendChild(labelText);
   const costSpan = document.createElement('span');
   costSpan.className = 'mf-row-label-cost';
-  costSpan.textContent = savedCost > 0 ? '+$' + savedCost.toFixed(2) : pcTxt('nqm.ro.included', 'Included');
+  costSpan.textContent = savedCost > 0 ? window.ProCraftPriceMask.mask('+$' + savedCost.toFixed(2)) : pcTxt('nqm.ro.included', 'Included');
   labelDiv.appendChild(costSpan);
   row.appendChild(labelDiv);
 
@@ -3244,7 +3251,7 @@ function renderReadOnlyAdminRow(wrap, rule, idx, savedEntry, subRef) {
   if (savedCost > 0) {
     const costPill = document.createElement('div');
     costPill.className = 'mf-readonly-cost';
-    costPill.textContent = '+$' + savedCost.toFixed(2);
+    costPill.textContent = window.ProCraftPriceMask.mask('+$' + savedCost.toFixed(2));
     bodyDiv.appendChild(costPill);
   }
   row.appendChild(bodyDiv);
@@ -3374,7 +3381,7 @@ function renderMf04Combined(wrap, rules, savedByIdx, subRef, pairIdx) {
     const cfg = cfgFor(selectedDir);
     const cost = costFor(selectedDir);
     const valAttr = (currentValue !== null) ? ('value="' + currentValue + '"') : '';
-    const costHtml = cost > 0 ? '<div class="mf04-cost">+$' + cost.toFixed(2) + '</div>' : '';
+    const costHtml = cost > 0 ? '<div class="mf04-cost">' + window.ProCraftPriceMask.mask('+$' + cost.toFixed(2)) + '</div>' : '';
     areaEl.innerHTML =
       '<label class="mf04-input-label">' + esc(cfg.inputLabel) + ':</label>' +
       '<div class="mf04-input-row">' +
@@ -3532,7 +3539,7 @@ function renderMfElements(rules, savedByIdx, subRef) {
     let costHtml;
     if (isAdminOnly) costHtml = '<span class="mf-row-label-cost admin-only">Admin Only</span>';
     else if (hasUnitMultiplier) costHtml = '';
-    else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">' + esc(pcTxt('nqm.ro.base_cost', 'Base cost:')) + ' +$' + baseCost.toFixed(2) + '</span>';
+    else if (baseCost > 0) costHtml = '<span class="mf-row-label-cost">' + esc(pcTxt('nqm.ro.base_cost', 'Base cost:')) + ' ' + window.ProCraftPriceMask.mask('+$' + baseCost.toFixed(2)) + '</span>';
     else costHtml = '<span class="mf-row-label-cost">Included</span>';
 
     const labelDiv = document.createElement('div');
@@ -4556,8 +4563,11 @@ function handleMfSave() {
   refreshAfterCartChange();
   const skuCode = item.sku_code;
   closeMfModalSilent();
-  showToast(pcTxt('nqm.toast.configured', '{sku} configured — ${amount}',
-    { sku: skuCode, amount: totalLineCost.toFixed(2) }));
+  // 🔴 CB-98 Q-6:toast 會自動消失,Stage 3 須人工驗證。走 maskKey(),隱藏版仍報 SKU。
+  showToast(window.ProCraftPriceMask.maskKey('nqm.toast.configured_hidden', '{sku} configured',
+    pcTxt('nqm.toast.configured', '{sku} configured — ${amount}',
+      { sku: skuCode, amount: totalLineCost.toFixed(2) }),
+    { sku: skuCode }));
 }
 
 function handleMfSkip() {
@@ -4914,7 +4924,7 @@ function renderModsTotalBar() {
   const valueEl = document.getElementById('modsTotalBarValue');
   if (!valueEl) return;
   const total = calculateAllModificationsTotal();
-  valueEl.textContent = '$' + total.toFixed(2);
+  valueEl.textContent = window.ProCraftPriceMask.mask('$' + total.toFixed(2));
   if (total > 0) valueEl.classList.remove('zero');
   else valueEl.classList.add('zero');
 }
@@ -5157,7 +5167,8 @@ function confirmSwap() {
 }
 
 function openSwapConfirmPopup(impact) {
-  const f = function (n) { return '$' + n.toFixed(2); };
+  // 🔴 CB-98:八格新舊金額全經 f() 輸出,在此集中遮罩。
+  const f = function (n) { return window.ProCraftPriceMask.mask('$' + n.toFixed(2)); };
   document.getElementById('swapConfirmFromTo').textContent =
     impact.currentStyle.style_code + ' → ' + impact.newStyle.style_code;
   document.getElementById('swapConfirmOldUnit').textContent  = f(impact.oldUnit);
@@ -5177,7 +5188,7 @@ function openSwapConfirmPopup(impact) {
   if (Math.abs(d) < 0.005)  diffText = '$0.00';
   else if (d > 0)           diffText = '+$' + d.toFixed(2);
   else                      diffText = '-$' + Math.abs(d).toFixed(2);
-  diffEl.textContent = diffText;
+  diffEl.textContent = window.ProCraftPriceMask.mask(diffText);
   diffEl.className   = 'swap-confirm-diff';
   noteEl.textContent = '';
   noteEl.className   = 'swap-confirm-note';
@@ -5281,12 +5292,19 @@ async function init() {
   if (!session) { window.location.href = 'login.html'; return; }
 
   const { data: meRow } = await _supabase
-    .from('dealers').select('is_active, role').eq('id', session.user.id).single();
+    .from('dealers').select('is_active, role, account_type').eq('id', session.user.id).single();
   if (!meRow?.is_active) {
     await _supabase.auth.signOut();
     window.location.href = 'login.html';
     return;
   }
+
+  // ── 🔴 CB-98:金額遮罩的 viewer 餵入 ──
+  // 必須傳 meRow(登入者),【不可】傳下方載入的 dealer —— admin 編輯他人草稿時
+  // dealer 是單主(Q-1 = A)。account_type 已加入上方 select。
+  // 🔴 不加 if (window.ProCraftPriceMask) 防護(Q-11 = A)。
+  // 📌 mf01~mf05 與本頁所有金額渲染都在此之後才帶資料執行;此前 isHidden() 為 true。
+  window.ProCraftPriceMask.setViewer(meRow);
 
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
