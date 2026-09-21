@@ -433,6 +433,7 @@
 <script src="config.js"></script>
 <script src="components/status-label.js?v=1.1"></script>
 <script src="components/i18n.js?v=cb62c"></script>
+<script src="components/price-mask.js?v=cb98"></script>
 <script src="components/lang-switch.js?v=cb62c"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <script src="components/footer.js?v=cb62c"></script>
@@ -497,8 +498,12 @@ async function init() {
   if (!session) { window.location.href = 'login.html'; return; }
   userId = session.user.id;
 
-  const { data: me } = await _supabase.from('dealers').select('role, is_active, company_name').eq('id', userId).single();
+  const { data: me } = await _supabase.from('dealers').select('role, is_active, company_name, account_type').eq('id', userId).single();
   if (!me?.is_active) { await _supabase.auth.signOut(); window.location.href = 'login.html'; return; }
+  // ── 🔴 CB-98:金額遮罩的 viewer 餵入(必須在 loadQuotes() 之前)──
+  // 本頁 admin 會被導去 admin.html,實際 viewer 只有 dealer 類帳號。
+  // 🔴 不加 if (window.ProCraftPriceMask) 防護(Q-11 = A)。
+  window.ProCraftPriceMask.setViewer(me);
   if (['admin','super_admin'].includes(me?.role)) { window.location.href = 'admin.html'; return; }
 
   // 🔴 先移除 data-i18n 再寫入:此後 i18n.js 不再碰此節點,
@@ -653,7 +658,7 @@ function renderTable(quotes) {
             <div class="action-required-tag">${escapeHtml(pcTxt('quotes.row.action_required', '\u26A0 Action Required'))}</div>
           </td>
           <td class="td-date">${formatDate(q.created_at)}</td>
-          <td class="td-amount r">${fmt(q.grand_total)}</td>
+          <td class="td-amount r">${window.ProCraftPriceMask.mask(fmt(q.grand_total))}</td>
           <td><span class="status-badge ${sc}">${statusText}</span></td>
           <td class="arrow-cell">→</td>
         </tr>`;
@@ -668,7 +673,7 @@ function renderTable(quotes) {
             <div class="td-job">${safeJob}</div>
           </td>
           <td class="td-date">${formatDate(q.created_at)}</td>
-          <td class="td-amount r">${fmt(q.grand_total)}</td>
+          <td class="td-amount r">${window.ProCraftPriceMask.mask(fmt(q.grand_total))}</td>
           <td><span class="status-badge ${sc}">${statusText}</span></td>
           <td class="draft-actions-cell">
             <a class="btn-pay-now" href="payment.html?quote_id=${q.id}" onclick="event.stopPropagation()">${escapeHtml(pcTxt('quotes.row.pay_now', 'Pay Now'))}</a>
@@ -684,7 +689,7 @@ function renderTable(quotes) {
           <div class="td-job">${safeJob}</div>
         </td>
         <td class="td-date">${formatDate(q.created_at)}</td>
-        <td class="td-amount r">${fmt(q.grand_total)}</td>
+        <td class="td-amount r">${window.ProCraftPriceMask.mask(fmt(q.grand_total))}</td>
         <td><span class="status-badge ${sc}">${statusText}</span></td>
         <td class="arrow-cell">→</td>
       </tr>`;
