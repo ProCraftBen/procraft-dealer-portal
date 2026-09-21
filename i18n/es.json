@@ -781,7 +781,7 @@
   "nqm.confirm.remove": "¿Eliminar \"{sku}\" de su cotización?",
   "nqm.confirm.to_asm": "¿Cambiar \"{sku}\" a Ensamblado?",
   "nqm.confirm.fee_yes": "Se aplicará un cargo por ensamblaje de ${fee} por unidad.",
-    "nqm.confirm.fee_yes_hidden": "Se aplicará un cargo por ensamblaje por unidad.",
+  "nqm.confirm.fee_yes_hidden": "Se aplicará un cargo por ensamblaje por unidad.",
   "nqm.confirm.fee_no": "No se aplica cargo por ensamblaje para este tipo de SKU.",
   "nqm.confirm.to_asm_tail": "Podrá configurar las modificaciones después del cambio.",
   "nqm.confirm.to_rta": "¿Cambiar \"{sku}\" a Sin ensamblar?",
