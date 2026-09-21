@@ -4,6 +4,13 @@
  * Modification 元件:必選下拉選單,無 toggle,無預設值
  * 業務範例:Hinge Side(Left / Right)
  *
+ * CB-98 變更 (2026/9/21):trial 帳號金額遮罩
+ *   ✅ label 旁的 +$cost 經 window.ProCraftPriceMask.mask() 包裝
+ *   🔴 calculateCost() 與 mf-change 事件的 cost【不動】—— 那是資料,不是顯示
+ *   🔴 本檔依賴 components/price-mask.js,且【不做】缺席防護(CB-98 Q-11 = A)。
+ *      new-quote-modifications.html 必須在本檔【之前】載入 price-mask.js;
+ *      缺席時 render() 拋 TypeError,Modal 當場壞掉 —— 優於靜默露價。
+ *
  * E4.1 變更:
  *   ❌ 舊:window.MF.MF05.render(container, mf_params, value)  (單例)
  *   ✅ 新:const inst = window.MF.MF05.create(container, mf_params, value)
@@ -73,7 +80,7 @@
 
       // 顯示用 cost,$0 不顯示金額
       const costDisplay = state.cost > 0
-        ? `<span style="margin-left:8px;color:#666;font-size:13px;">+$${state.cost.toFixed(2)}</span>`
+        ? `<span style="margin-left:8px;color:#666;font-size:13px;">${window.ProCraftPriceMask.mask(`+$${state.cost.toFixed(2)}`)}</span>`
         : '';
 
       // 第一個永遠是「-- Please select --」(value="",代表未選)
