@@ -22,6 +22,14 @@
  *     "none" = dealer 進入 modal 並決定不貼 (modification_status: configured)
  *     Skip   = dealer 完全跳過該 SKU (modification_status: skipped, modifications: [])
  *
+ * CB-98 變更 (2026/9/21):trial 帳號金額遮罩
+ *   ✅ 顯示用的金額字串一律經 window.ProCraftPriceMask.mask() 包裝
+ *      (header 的 +$ / from +$,以及 Left / Right / Both 三個選項的括號金額)
+ *   🔴 calculateCost() 與 mf-change 事件的 cost【不動】—— 那是資料,不是顯示
+ *   🔴 本檔依賴 components/price-mask.js,且【不做】缺席防護(CB-98 Q-11 = A)。
+ *      new-quote-modifications.html 必須在本檔【之前】載入 price-mask.js;
+ *      缺席時 drawUI() 拋 TypeError,Modal 當場壞掉 —— 優於靜默露價。
+ *
  * E4.1 變更:
  *   ❌ 舊:window.MF.MF01.render(container, mf_params, value)  (單例)
  *   ✅ 新:const inst = window.MF.MF01.create(container, mf_params, value)
@@ -117,9 +125,9 @@
       // 計算當前 cost(顯示在 header 上方)
       const currentCost = calculateCost();
       const costDisplay = currentCost > 0
-        ? `<span style="margin-left:8px;color:#666;font-size:13px;">+$${currentCost.toFixed(2)}</span>`
+        ? `<span style="margin-left:8px;color:#666;font-size:13px;">${window.ProCraftPriceMask.mask(`+$${currentCost.toFixed(2)}`)}</span>`
         : (state.cost > 0
-            ? `<span style="margin-left:8px;color:#666;font-size:13px;">from +$${state.cost.toFixed(2)}</span>`
+            ? `<span style="margin-left:8px;color:#666;font-size:13px;">${window.ProCraftPriceMask.mask(`from +$${state.cost.toFixed(2)}`)}</span>`
             : '');
 
       // 計算每個選項的 cost
@@ -140,19 +148,19 @@
 
       const optionLeftHTML = `
         <option value="left" ${state.current_value === 'left' ? 'selected' : ''}>
-          ${leftLabel}${state.cost > 0 ? ` ($${costLeft.toFixed(2)})` : ''}
+          ${leftLabel}${state.cost > 0 ? ` (${window.ProCraftPriceMask.mask(`$${costLeft.toFixed(2)}`)})` : ''}
         </option>
       `;
 
       const optionRightHTML = `
         <option value="right" ${state.current_value === 'right' ? 'selected' : ''}>
-          ${rightLabel}${state.cost > 0 ? ` ($${costRight.toFixed(2)})` : ''}
+          ${rightLabel}${state.cost > 0 ? ` (${window.ProCraftPriceMask.mask(`$${costRight.toFixed(2)}`)})` : ''}
         </option>
       `;
 
       const optionBothHTML = `
         <option value="both" ${state.current_value === 'both' ? 'selected' : ''}>
-          ${bothLabel}${state.cost > 0 ? ` ($${costBoth.toFixed(2)})` : ''}
+          ${bothLabel}${state.cost > 0 ? ` (${window.ProCraftPriceMask.mask(`$${costBoth.toFixed(2)}`)})` : ''}
         </option>
       `;
 
