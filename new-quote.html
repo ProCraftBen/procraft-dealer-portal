@@ -492,10 +492,15 @@
     <div class="field" id="deliveryDistanceField" style="display:none;">
       <label data-i18n="nq1.field.delivery_distance">Delivery Distance</label>
       <select id="deliveryDistance" style="width:100%;height:44px;border:1px solid var(--border);border-radius:3px;padding:0 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--white);">
-        <option value="150" data-i18n="nq1.distance.0_30">0-30 mins — $150</option>
-        <option value="250" data-i18n="nq1.distance.30_60">30-60 mins — $250</option>
-        <option value="350">1 hr - 2 hr — $350</option>
-        <option value="500">2 hr - 3 hr — $500</option>
+        <!-- 🔴 CB-98:四個 option 的靜態預設【一律為隱藏版】(fail-closed,Q-2)。
+             含價文字只在 init() 經 setViewer() 確認 viewer 非 trial 後,由
+             applyDistanceOptionMask() 換上。含價文字的唯一來源是該函式上方的
+             DISTANCE_OPTIONS 表 —— 請勿在此處改回含價文字。
+             ⚠️ value 屬性仍是金額(F12 可見),屬業主已接受範圍。 -->
+        <option value="150" data-i18n="nq1.distance.0_30_hidden">0-30 mins</option>
+        <option value="250" data-i18n="nq1.distance.30_60_hidden">30-60 mins</option>
+        <option value="350" data-i18n="nq1.distance.1_2_hidden">1 hr - 2 hr</option>
+        <option value="500" data-i18n="nq1.distance.2_3_hidden">2 hr - 3 hr</option>
       </select>
     </div>
     <div id="shippingTierNote" style="display:none;font-size:12px;color:var(--muted);margin-top:8px;">
@@ -652,6 +657,7 @@
 <script src="config.js"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7PvXRsQ5r5KAIyLYQ1uZvgdaqGQ_pkA0&libraries=places"></script>
 <script src="components/i18n.js?v=cb62c"></script>
+<script src="components/price-mask.js?v=cb98"></script>
 <script src="components/quote-flow-header.js?v=1.5"></script>
 <script>
   const { createClient } = supabase;
@@ -961,6 +967,14 @@
     }
 
     currentUser = me;
+
+    // ── 🔴 CB-98:金額遮罩的 viewer 餵入 ──
+    // 必須傳 me(登入者),【不可】傳 dealer —— 下方 admin 代客情境會把 dealer
+    // 換成目標 dealer,而遮罩依「誰在看」決定,不依「單屬於誰」(Q-1 = A)。
+    // me 來自 select('*'),已含 account_type。
+    // 🔴 不加 if (window.ProCraftPriceMask) 防護(Q-11 = A):模組缺席就讓它拋錯。
+    window.ProCraftPriceMask.setViewer(me);
+    applyDistanceOptionMask();
     isAdminViewer = me?.role === 'admin' || me?.role === 'super_admin';
 
     // ── CB-62 Q-43 / DOC-1 §10:dealer/admin 共用頁,admin 一律英文 ──
@@ -1377,7 +1391,43 @@
     renderAddresses();
   }
 
-  
+// ═══════════════════════════════════════════════════════════════════
+// 🔴 CB-98|配送距離下拉的金額遮罩
+// ═══════════════════════════════════════════════════════════════════
+// 為何換 data-i18n 屬性、而非只改 textContent:
+//   i18n.js 在字典初次載入與每次切換語言時,都會呼叫 pcApplyI18n(document)
+//   依【data-i18n 屬性】重寫所有節點文字。只改 textContent 的話,字典一載入
+//   或一切語言,含價文字就會被【靜默蓋回來】。
+// 為何靜態 HTML 預設為隱藏版:
+//   本頁沒有載入遮罩,init() 的 viewer 查詢回來之前表單即可操作。若預設含價,
+//   trial 在那段時間選 Delivery 就會看到價格。預設隱藏 → 最壞情況只是一般
+//   dealer 在查詢期間短暫看到不含價的選項(可見、無害)。
+// 1_2 / 2_3 的正常版維持現行的硬編碼英文、不掛 data-i18n —— 與 CB-98 之前
+//   行為完全相同。補上正常版 i18n key 屬 F-223,不在本票範圍。
+const DISTANCE_OPTIONS = [
+  { value: '150', hiddenKey: 'nq1.distance.0_30_hidden',  hiddenFb: '0-30 mins',   normalKey: 'nq1.distance.0_30',  normalFb: '0-30 mins — $150' },
+  { value: '250', hiddenKey: 'nq1.distance.30_60_hidden', hiddenFb: '30-60 mins',  normalKey: 'nq1.distance.30_60', normalFb: '30-60 mins — $250' },
+  { value: '350', hiddenKey: 'nq1.distance.1_2_hidden',   hiddenFb: '1 hr - 2 hr', normalKey: null,                 normalFb: '1 hr - 2 hr — $350' },
+  { value: '500', hiddenKey: 'nq1.distance.2_3_hidden',   hiddenFb: '2 hr - 3 hr', normalKey: null,                 normalFb: '2 hr - 3 hr — $500' }
+];
+
+function applyDistanceOptionMask() {
+  const sel = document.getElementById('deliveryDistance');
+  const hidden = window.ProCraftPriceMask.isHidden();
+  DISTANCE_OPTIONS.forEach(function (d) {
+    const opt = sel.querySelector('option[value="' + d.value + '"]');
+    if (hidden) {
+      opt.setAttribute('data-i18n', d.hiddenKey);
+      opt.textContent = pcTxt(d.hiddenKey, d.hiddenFb);
+    } else if (d.normalKey) {
+      opt.setAttribute('data-i18n', d.normalKey);
+      opt.textContent = pcTxt(d.normalKey, d.normalFb);
+    } else {
+      opt.removeAttribute('data-i18n');
+      opt.textContent = d.normalFb;
+    }
+  });
+}
 // 既有 draft 相容:若存的 delivery_fee 不在目前選單(改價後的舊單),
 // 動態補一個 option 保住原金額,避免下拉變未選取 → goNext 讀到 NaN → 靜默變 $0。
 function setDeliveryDistanceValue(fee) {
@@ -1389,7 +1439,10 @@ function setDeliveryDistanceValue(fee) {
     const opt = document.createElement('option');
     opt.value = val;
     const _fee = (parseFloat(fee) || 0).toFixed(0);
-    opt.textContent = pcTxt('nq1.distance.previous', 'Previous delivery fee — ${fee}', { fee: _fee }).replace('{fee}', _fee);
+    // 🔴 CB-98:整句換文案走 maskKey() —— mask() 會產出 "Previous delivery fee — $—"(M-9)。
+    opt.textContent = window.ProCraftPriceMask.maskKey(
+      'nq1.distance.previous_hidden', 'Previous delivery fee',
+      pcTxt('nq1.distance.previous', 'Previous delivery fee — ${fee}', { fee: _fee }).replace('{fee}', _fee));
     sel.appendChild(opt);
   }
   sel.value = val;
