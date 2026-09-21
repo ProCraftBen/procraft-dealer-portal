@@ -1,7 +1,15 @@
 /* ──────────────────────────────────────────────────────────────────────
- * ProCraft Dealer Portal — Price Mask (CB-98 U1, v1.0)
+ * ProCraft Dealer Portal — Price Mask (CB-98 U1, v1.1)
  *
  * trial 帳號的【金額顯示遮罩】的唯一真相來源。
+ *
+ * ── 版本紀錄 ──────────────────────────────────────────────────────────
+ *   v1.0  初版。
+ *   v1.1  僅改註解,程式邏輯與 v1.0 逐字相同(上線前修正,無呼叫端,
+ *         不涉 ?v= bump):
+ *         · 🔴 更正:v1.0 誤將 nq3.ship.free_over_12k 列為 isHidden() 用例。
+ *           該行已由 F-188 Q-5 自 step3 移除,全 repo 無渲染點,本票無需處理。
+ *         · Q-13 拍板紀錄寫入 setViewer()。
  * 由 new-quote / step2 / modifications / step3 / quote-detail / quotes /
  * payment 七頁,以及 mf01~mf05 五支 modification 元件共用。
  *
@@ -109,7 +117,7 @@
  *     各頁在【既有的】viewer 查詢回傳後立即呼叫。同步,無回傳。
  *
  *   window.ProCraftPriceMask.isHidden()   → boolean
- *     供 PDF 守衛與條件渲染使用(例如 free_over_12k 整行不渲染)。
+ *     供 PDF 守衛與條件渲染使用。
  *
  *   window.ProCraftPriceMask.mask(str)    → string
  *     隱藏時回 '—',否則原字串原樣回傳。絕大多數呼叫端用這支。
@@ -131,9 +139,8 @@
  *     new-quote-modifications.html  toast           nqm.toast.configured
  *     new-quote.html                配送距離下拉四個 option
  *     new-quote.html                nq1.distance.previous
- *   (step3 的 nq3.ship.free_over_12k 兩者皆不用 —— 以 isHidden() 判斷後
- *    【整行不渲染】。理由見 Q-10:免運門檻與 FREE 標籤同性質,只遮一邊會
- *    出現「看不到門檻、卻看得到已達標」的矛盾畫面。)
+ *   (⚠️ 交接文件列的 step3 nq3.ship.free_over_12k 不在此列,也不在任何
+ *    清單內 —— 該行已由 F-188 Q-5 移除,i18n key 依 F-152 保留但無渲染點。)
  *
  * ── 🔴 絕對不可包裝的位置 ────────────────────────────────────────────
  *   以下 toFixed(2) 的產物【直接寫入 DB】,不是顯示。包裝會寫壞儲存值:
@@ -187,12 +194,12 @@
     //      · meRow 為 null / undefined   → 查詢出錯或回傳空值
     //      · account_type 屬性不存在      → 該頁 select 漏加欄位
     //
-    //    🔴 CB-98 Q-13 待拍板:DB 該欄為 NULL 時,typeof 為 'object' 不是
-    //       'undefined',會落到下方 ② 的相等比對 → false → 【顯示】。
-    //       本版完全照 Stage 1 核准內容實作,未擴大判斷 ——
-    //       擴大屬「改變失敗策略」,是四類例外之一。
-    //       若 Q-13 裁定擴大,改法為下一行加上 || meRow.account_type == null
-    //       (寬鬆相等,同時涵蓋 null 與 undefined)。
+    //    📌 CB-98 Q-13 = 維持(2026-09-21):【不】另判 account_type 為 NULL。
+    //       實查兩環境 dealers.account_type 皆為 NOT NULL、DEFAULT 'dealer'、
+    //       CHECK 限定五值,NULL 列數 0 → NULL 在結構上不可能出現。
+    //       🔴 前提是上述約束。若日後有人放寬 NOT NULL,NULL 會落到 ② 的
+    //          相等比對 → false → 【顯示】。屆時須重開 Q-13,
+    //          改法為下一行加上 || meRow.account_type == null。
     if (!meRow || typeof meRow.account_type === 'undefined') {
       _hidden = true;
       return;
