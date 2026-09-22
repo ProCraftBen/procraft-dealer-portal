@@ -773,6 +773,37 @@ return total;
     return (quoteData.shipping_cost === null || quoteData.shipping_cost === undefined);
   }
 
+  // ── CB-99:Totals 運費行標籤(依 logistic_type)────────────────────────
+  //   🔴 正向列舉三值(F-35 / CB-99 Q-1 = A):=== 'pickup' / 'delivery' /
+  //      'shipping';未命中才落到中性 'Logistics Fee',並 console.error
+  //      留下可見訊號 —— 絕不靜默套用三者之一。
+  //   🔴 只決定【標籤文字】,不參與任何金額、FREE / pending 判斷(CB-99 #5)。
+  //   🔴 PDF 為輸出物,文字不進 i18n(CB-62 Q-56)→ 英文硬編碼。
+  //   🔴 使用時求值(CB-62 #8):由 _drawTotals 在繪製當下呼叫,不做頂層常數。
+  //   ⚠️ 同義表述族(F-235):同一份「logistic → 運費標籤」對照另有 4 處,
+  //      無共用函式、須手動保持一致(CB-99 Q-2 = A / Q-9):
+  //        · new-quote-step3.html   applyTotals()
+  //        · quote-detail.html      renderQuote() 內 feeRowLabelFor()
+  //        · admin-quotes.html      renderTable()(totals-mini 區塊)
+  //        · send-quote-email EF    feeLabelFor()(buildTotalsBlock 使用)
+  //   ⚠️ 已知限制(CB-99 Q-12):兩個呼叫端的 buildQuoteDataForPdf() 會先把
+  //      logistic_type 以 `|| 'pickup'` 補值(F-229),故 NULL 到不了這裡、
+  //      會印成 'Pickup Fee';非空的未知值則會正確落到 'Logistics Fee'。
+  //   📐 字寬(CB-90 D-1 做法;helvetica,標籤 8pt normal / 值 8pt bold):
+  //      標籤欄 totalsX = pageW − margin − 70 → 標籤與值共用 70mm。
+  //        'Shipping Fee'  16.48mm   'Delivery Fee'  15.75mm
+  //        'Pickup Fee'    14.03mm   'Logistics Fee' 16.54mm
+  //      最寬值 'Contact Sales Team'(bold)26.39mm
+  //      最擠組合(保守取最寬標籤)16.54 + 26.39 = 42.93mm → 餘裕 27.07mm ✅
+  //      (參照:同欄既有 'Transaction Fee (3.5%)' 28.98mm)
+  function _feeRowLabel(logisticType) {
+    if (logisticType === 'pickup')   return 'Pickup Fee';
+    if (logisticType === 'delivery') return 'Delivery Fee';
+    if (logisticType === 'shipping') return 'Shipping Fee';
+    console.error('[CB-99] _feeRowLabel: unrecognized logistic_type', logisticType);
+    return 'Logistics Fee';
+  }
+
   // ----------------------------------------
   // PDF 區塊繪製函式
   // ----------------------------------------
@@ -1802,6 +1833,7 @@ return total;
       showPrices = true,
       startY,
       receipt = null,          // CB-45: 僅產 Receipt 時傳入;Invoice/Draft 為 null
+      logisticType,            // CB-99: 原值,不預設 —— 未傳 → undefined → 'Logistics Fee'(可見)
     } = context;
 
     const totalsX = pageW - margin - 70;
@@ -1923,10 +1955,11 @@ return total;
     }
 
     // ── Shipping ──
+    // CB-99:標籤依 logistic_type(見 _feeRowLabel);下方值的分支一律不動。
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
-    doc.text('Shipping', totalsX, y);
+    doc.text(_feeRowLabel(logisticType), totalsX, y);
 
     if (!showPrices) {
       doc.setTextColor(40, 40, 40);
@@ -2441,6 +2474,9 @@ return total;
       pendingShipping,
       showPrices, startY: y,
       receipt,               // CB-45: null 時 _drawTotals receipt 區塊不執行
+      // 🔴 CB-99:必須傳 quoteData 的原值,不可用本函式上方已套 `|| 'pickup'`
+      //    的 logisticType 變數 —— 那會讓未知值被靜默當成 pickup(Q-1)。
+      logisticType: quoteData.logistic_type,
     });
 
     // ── CB-93:deferPageChrome ─────────────────────────────────────────
