@@ -761,7 +761,7 @@ color: var(--green-dark);
       </div>
       <div class="total-row" id="shippingRow">
               <div>
-                <span class="total-label" data-i18n="nq3.sum.shipping">Shipping</span>
+                <span class="total-label" id="shippingRowLabel" data-i18n="nq3.sum.shipping">Shipping</span>
                 <div class="total-note" id="shippingNote"></div>
                 <!-- CB-33: admin 直接設定 shipping fee(僅 admin mode + logistic=shipping) -->
                 <div id="adminShippingWrap" style="display:none;margin-top:6px;align-items:center;gap:6px;">
@@ -1071,6 +1071,9 @@ let _isAdminContext         = false;
 
 let _existingLogisticType = null;
 let _existingShippingCost = null;
+// CB-99:未知 logistic_type 只記一次 console.error(applyTotals 會隨輸入重跑)。
+//   存的是【已記過的值】而非布林 —— 值換成另一個未知值時仍會再記一次。
+let _cb99LoggedUnknownLogistic = null;
 let _existingSubtotal     = null;
 // ── CB-70: 訂單層級調整項的既有值(hydration 自 quotes)──
 //   🔴 三欄為 NOT NULL DEFAULT 0,故此處恆為數字,永不為 null。
@@ -3210,6 +3213,46 @@ function applyTotals(opts) {
     renderAsmBreakdown(byType, true, 'assembleBreakdown');
   } else {
     document.getElementById('assembleRow').style.display = 'none';
+  }
+
+  // ── CB-99:運費行【標籤】依 logistic_type ──────────────────────────────
+  //   🔴 正向列舉三值(F-35 / Q-1 = A);未命中才落到中性 'Logistics Fee',
+  //      並 console.error —— 絕不靜默套用三者之一。
+  //   🔴 讀 step1Data 的【原值】,不用本函式上方已套 `|| 'pickup'` 的
+  //      logisticType —— 那是金額路徑用的(F-229),標籤不得沿用。
+  //   🔴 只改標籤:金額、FREE / pending、CB-98 遮罩的判斷一律不動。
+  //      ⚠️ 下方 CB-98 比對用的 shippingLabel 變數裝的是【值】,與本段無關,
+  //         不得改名或沿用(CB-99 D-5)。
+  //   🔴 同一節點只掛一種標記(CB-62 #1):改寫既有的 data-i18n,不新增第二種;
+  //      改屬性 + 文字兩者同步,語言檔稍後水合時才會解析到同一個 key。
+  //   🔴 使用時求值(CB-62 #8):key 與 fallback 都在本函式內產生,不做頂層常數。
+  //   🔴 不入庫、不進快照、不進 email payload(CB-62 #9):本段兩個變數只活在
+  //      applyTotals 內,buildQuoteDataForPdf() / saveDraft() / 送信 payload 皆未引用。
+  //   ⚠️ 同義表述族(F-235):同一份對照另有 4 處,無共用函式、須手動一致
+  //      (CB-99 Q-2 = A / Q-9):
+  //        · quote-detail.html      renderQuote() 內 feeRowLabelFor()
+  //        · pdf-builder.js         _feeRowLabel()
+  //        · admin-quotes.html      renderTable()(totals-mini 區塊)
+  //        · send-quote-email EF    feeLabelFor()(buildTotalsBlock 使用)
+  const feeRowLogisticRaw = step1Data?.logisticType;
+  let feeRowLabelKey, feeRowLabelFallback;
+  if (feeRowLogisticRaw === 'pickup') {
+    feeRowLabelKey = 'nq3.sum.fee_pickup';   feeRowLabelFallback = 'Pickup Fee';
+  } else if (feeRowLogisticRaw === 'delivery') {
+    feeRowLabelKey = 'nq3.sum.fee_delivery'; feeRowLabelFallback = 'Delivery Fee';
+  } else if (feeRowLogisticRaw === 'shipping') {
+    feeRowLabelKey = 'nq3.sum.fee_shipping'; feeRowLabelFallback = 'Shipping Fee';
+  } else {
+    feeRowLabelKey = 'nq3.sum.fee_other';    feeRowLabelFallback = 'Logistics Fee';
+    if (_cb99LoggedUnknownLogistic !== String(feeRowLogisticRaw)) {
+      _cb99LoggedUnknownLogistic = String(feeRowLogisticRaw);
+      console.error('[CB-99] applyTotals: unrecognized logistic_type', feeRowLogisticRaw);
+    }
+  }
+  const feeRowLabelEl = document.getElementById('shippingRowLabel');
+  if (feeRowLabelEl) {
+    feeRowLabelEl.setAttribute('data-i18n', feeRowLabelKey);
+    feeRowLabelEl.textContent = pcTxt(feeRowLabelKey, feeRowLabelFallback);
   }
 
   const shipEl = document.getElementById('totalShipping');
