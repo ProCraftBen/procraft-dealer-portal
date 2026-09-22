@@ -1008,6 +1008,9 @@ let _salesName = null;   // CB-74: dealer 對應的業務姓名(RPC 取得;null 
 
 // CB-62 Q-57:語言切換重繪用。§4.3 —— 條件問「載入過了嗎」,不是「現在有資料嗎」。
 let _loadState = 'loading';          // 'loading' | 'ready' | 'error'
+// CB-99:未知 logistic_type 只記一次 console.error(renderQuote 會因語言切換重跑)。
+//   存的是【已記過的值】而非布林 —— 值換成另一個未知值時仍會再記一次。
+let _cb99LoggedUnknownLogistic = null;
 let _errKey = null, _errFallback = '';
 
 /**
@@ -2523,6 +2526,33 @@ function renderQuote(quote, dealer, addr) {
       </div>`
     : '';
 
+  // ── CB-99:運費行【標籤】依 logistic_type ──────────────────────────────
+  //   🔴 正向列舉三值(F-35 / Q-1 = A);未命中才落到中性 'Logistics Fee',
+  //      並 console.error —— 絕不靜默套用三者之一。
+  //   🔴 只改標籤:freeShip / pendingShipping / 值 / CB-98 遮罩一律不動。
+  //   🔴 使用時求值(CB-62 #8):本頁掛 pc:i18n-changed 重繪 renderQuote,
+  //      切語言時標籤會跟著重新取字;admin 由 pcForceLang 固定英文。
+  //   🔴 D-4:pending 與非 pending 兩行【共用本函式】—— 修正前 pending 行
+  //      是英文硬編碼、另一行掛 nq3.sum.shipping,兩者做法不一致。
+  //   🔴 只新增 qd.fee.* key,不改既有 key(Q-3 = A / F-152 / F-112)。
+  //   ⚠️ 同義表述族(F-235):同一份對照另有 4 處,無共用函式、須手動一致
+  //      (CB-99 Q-2 = A / Q-9):
+  //        · new-quote-step3.html   applyTotals()
+  //        · pdf-builder.js         _feeRowLabel()
+  //        · admin-quotes.html      renderTable()(totals-mini 區塊)
+  //        · send-quote-email EF    feeLabelFor()(buildTotalsBlock 使用)
+  function feeRowLabelFor(lt) {
+    if (lt === 'pickup')   return pcTxt('qd.fee.pickup',   'Pickup Fee');
+    if (lt === 'delivery') return pcTxt('qd.fee.delivery', 'Delivery Fee');
+    if (lt === 'shipping') return pcTxt('qd.fee.shipping', 'Shipping Fee');
+    if (_cb99LoggedUnknownLogistic !== String(lt)) {
+      _cb99LoggedUnknownLogistic = String(lt);
+      console.error('[CB-99] renderQuote: unrecognized logistic_type', lt);
+    }
+    return pcTxt('qd.fee.other', 'Logistics Fee');
+  }
+  const feeRowLabel = feeRowLabelFor(quote.logistic_type);
+
   // C1: Shipping row — handle pending case + admin edit link
   const freeShip  = !pendingShipping && parseFloat(quote.shipping_cost) === 0 && parseFloat(quote.subtotal) > 0;
   const taxExempt = parseFloat(quote.tax_amount) === 0 && !!(dealer && dealer.tax_exempt);
@@ -2541,7 +2571,7 @@ function renderQuote(quote, dealer, addr) {
     shippingRowHtml = `
       <div class="total-row">
         <span class="total-label">
-          Shipping
+          ${escapeHtml(feeRowLabel)}
           <span class="pending-tag">${escapeHtml(pcTxt('qd.ship.awaiting', '⚠ Awaiting Sales confirmation'))}</span>
           ${adminEditLink}
         </span>
@@ -2551,7 +2581,7 @@ function renderQuote(quote, dealer, addr) {
     shippingRowHtml = `
       <div class="total-row">
         <span class="total-label">
-          ${escapeHtml(pcTxt('nq3.sum.shipping', 'Shipping'))}${(freeShip && !window.ProCraftPriceMask.isHidden()) ? ' <span class="free-tag">' + escapeHtml(pcTxt('qd.ship.free', '✓ Free')) + '</span>' : ''}
+          ${escapeHtml(feeRowLabel)}${(freeShip && !window.ProCraftPriceMask.isHidden()) ? ' <span class="free-tag">' + escapeHtml(pcTxt('qd.ship.free', '✓ Free')) + '</span>' : ''}
           ${adminEditLink}
         </span>
         <span class="total-val">${window.ProCraftPriceMask.mask(freeShip ? 'FREE' : fmt(quote.shipping_cost))}</span>
