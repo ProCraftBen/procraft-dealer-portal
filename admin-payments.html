@@ -2114,38 +2114,89 @@ function pickerOffline() {
   cb102Preview();
 }
 
+// CB-102:寫入 payments 的 method / status —— 具名常數。
+//   🔴 admin_insert_payments 的 WITH CHECK 只有 is_admin()(F-163):這兩欄寫錯,
+//      DB 會照單全收、不報錯。常數是此處唯一的防線(比照 CB-89 PAY_STATUS_ON_SELECT)。
+//   🔴 'offline' 不可加進 PAY_METHOD_OPTIONS —— 那份是 CB-89 代選白名單,offline 刻意排除。
+const CB102_OFFLINE_METHOD = 'offline';
+const CB102_OFFLINE_STATUS = 'confirmed';
+
+// CB-102:CB-45 同一把尺 —— 以「分」為單位的整數比較,容許 1 分。
+//   🔴 必須與 pdf-builder.js _finalizeWithTotals() 的 CB-45 Receipt reconciliation
+//      guard 同式:Math.round(x * 100) 後相減取絕對值,> 1 即不符。
+//      不可改成 float 比較(> 0.01):Math.abs(0.31 - 0.32) === 0.010000000000000009,
+//      剛好差 1 分時會誤判。兩處若要改,必須一起改。
+function cb102CentsDiff(a, b) {
+  return Math.abs(Math.round(Number(a) * 100) - Math.round(Number(b) * 100));
+}
+
 async function doPickerOffline() {
   const q = pickerSelected;
-  const amount = parseFloat(document.getElementById('pkAmount').value);
   const note = (document.getElementById('pkNote').value || '').trim();
   const errEl = document.getElementById('pkError');
   errEl.className = 'modal-error';
-  if (isNaN(amount) || amount <= 0) {
-    errEl.textContent = 'Please enter a valid amount greater than 0.';
+
+  // ① 手續費格式(Q-5 = A)。不合格即中止,尚未寫入任何東西。
+  const parsed = cb102ParseFee(document.getElementById('pkFee').value);
+  if (!parsed.ok) {
+    errEl.textContent = parsed.msg;
     errEl.className = 'modal-error show';
     return;
   }
+
+  // ② 畫面上顯示的 Order Amount(開表單當下的快照)。貨款 > 0 為硬條件(反推 % 要除以它)。
+  const shownBase = round2(q && q.grand_total != null ? q.grand_total : 0);
+  if (!(shownBase > 0)) {
+    errEl.textContent = CB102_BASE_ZERO_MSG;
+    errEl.className = 'modal-error show';
+    return;
+  }
+
   const btn = document.getElementById('pkConfirm');
   btn.disabled = true;
   try {
-    // ① quotes → Order Processing;WHERE 帶 status='Pending' 併發防護(裁決 Q1)
+    // ③ CB-102 Q-2:重讀 grand_total,以 CB-45 的尺比對畫面顯示值。
+    //   🔴 為何必須重讀:畫面上的 Order Amount 本身就來自 grand_total,
+    //      拿快照跟快照比恆等,防呆形同虛設。重讀才擋得住「表單開著期間單子被改」。
+    //   🔴 寫入用【重讀值】,不用快照 —— Receipt 比對的是 live 重算值,越新越近。
+    //   ⚠️ 已知殘餘窗口(Stage 1 R-1,接受):此處重讀與下方 UPDATE 之間若 grand_total
+    //      被改,UPDATE 的守衛只看 status、擋不住;事後由 CB-45 在 Receipt 端 fail-loud 攔下。
+    const fresh = await _supabase.from('quotes')
+      .select('grand_total')
+      .eq('id', q.id)
+      .maybeSingle();
+    if (fresh.error) throw fresh.error;
+    if (!fresh.data || fresh.data.grand_total == null) {
+      throw new Error('Could not read the current order total. Nothing was saved. Please refresh and try again.');
+    }
+    if (cb102CentsDiff(shownBase, fresh.data.grand_total) > 1) {
+      throw new Error('The order total changed since this form was opened (shown ' + money(shownBase) +
+        ', now ' + money(fresh.data.grand_total) + '). Nothing was saved. Please refresh.');
+    }
+
+    // ④ 金額四欄 —— 唯一來源 cb102Split()(不走 computeFeeForSelect 的理由見該函式)。
+    const split = cb102Split(fresh.data.grand_total, parsed.fee);
+    if (!split) throw new Error(CB102_BASE_ZERO_MSG);
+
+    // ⑤ quotes → Order Processing;WHERE 帶 status='Pending' 併發防護(裁決 Q1)
     const upd = await _supabase.from('quotes')
       .update({ status: 'Order Processing' }, { count: 'exact' })
       .eq('id', q.id).eq('status', 'Pending');
     if (upd.error) throw upd.error;
     if (upd.count === 0) throw new Error('訂單狀態已變更,請重新整理。');
 
-    // ② INSERT offline payment(含 offline_note)
+    // ⑥ INSERT offline payment(含 offline_note)
+    //   CB-102:金額四欄全部來自 split;method / status 走具名常數。
     const { data: { session } } = await _supabase.auth.getSession();
     const ins = await _supabase.from('payments')
       .insert({
         quote_id:       q.id,
-        payment_method: 'offline',
-        base_amount:    amount,
-        fee_percentage: 0,
-        fee_amount:     0,
-        total_paid:     amount,
-        status:         'confirmed',
+        payment_method: CB102_OFFLINE_METHOD,
+        base_amount:    split.base,
+        fee_percentage: split.pct,
+        fee_amount:     split.fee,
+        total_paid:     split.total,
+        status:         CB102_OFFLINE_STATUS,
         offline_note:   note || null,
         confirmed_by:   session.user.id,
         confirmed_at:   new Date().toISOString(),
