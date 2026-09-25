@@ -2017,22 +2017,101 @@ function closePendingPicker() {
 }
 
 // ---- Offline(quote 層級)----
+// ═══════════════════════════════════════════════════════════════════
+// CB-102  Record Offline Payment —— Transaction Fee 欄位
+// -------------------------------------------------------------------
+// 業務情境:現場付款(例:debit card 收 1.5%)。舊表單只有一個金額欄,
+//   同仁把「含手續費的實收」填進去 → 手續費被灌進 base_amount →
+//   CB-45 Receipt 對帳斷言擋下,Receipt 印不出來。
+// 本票拆成兩欄(Payment PM 拍板):
+//   Order Amount     唯讀 = round2(grand_total)(Q-2)。應收即 grand_total:
+//                    Record Offline 只處理 Pending 單,store credit 只能建於
+//                    Order Processing / Order Completed(create_store_credit()
+//                    DB 守衛),且系統無部分付款(Stage 0 B2 查證)。
+//   Transaction Fee  admin 直接填【實收金額】(Q-1),不是 %。
+//                    金額四欄的算法與理由見 cb102Split()。
+// F-22 三欄語意不變:base_amount = 貨款、fee_amount = 手續費、total_paid = 實付。
+// ═══════════════════════════════════════════════════════════════════
+
+// CB-102:手續費輸入格式 —— 非負、最多兩位小數,不設上限(Q-5 = A)。
+//   🔴 正向識別(F-35):以字串格式判定【是】合法金額才接受。
+//      不用 parseFloat 的寬鬆解析:parseFloat('1.5abc') === 1.5,會把打錯的輸入
+//      靜默當成數字。也擋掉 '1e2' 這類 input[type=number] 允許的指數寫法。
+//   🔴 空字串不視為 0:input[type=number] 遇到無法解析的輸入時 value 回 '',
+//      把它當 0 會讓打錯字的人靜默記成「無手續費」。
+const CB102_FEE_PATTERN = /^(\d+(\.\d{1,2})?|\.\d{1,2})$/;
+const CB102_FEE_FORMAT_MSG =
+  'Transaction Fee must be 0 or a positive amount with at most 2 decimal places (e.g. 18.76).';
+const CB102_BASE_ZERO_MSG =
+  'This order total is $0.00, so an offline payment cannot be recorded for it.';
+
+function cb102ParseFee(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!CB102_FEE_PATTERN.test(s)) return { ok: false, msg: CB102_FEE_FORMAT_MSG };
+  const fee = Number(s);
+  if (!isFinite(fee) || fee < 0) return { ok: false, msg: CB102_FEE_FORMAT_MSG };
+  return { ok: true, fee: fee };
+}
+
+// CB-102:offline 付款的金額四欄。
+// 🔴 為何【不】走 computeFeeForSelect()(CB-102 Q-1 / 補拍板 2,Payment PM 已拍板):
+//   computeFeeForSelect() 是「用費率算出手續費」:fee = round2(base × pct / 100)。
+//   offline 的手續費是 admin 直接填的【實收金額】—— 可能是固定金額,
+//   也可能只對混合付款的一部分收費(例:cash + debit card),本來就不是由 % 換算。
+//   因此本函式【沒有】「用 % 算 fee」這一步,只有:
+//     total = round2(base + fee)          相加
+//     pct   = round2(fee / base × 100)    反推,【只供顯示】(Receipt 的括號、預覽列)
+//   → 這不是第二份 fee 拆分實作,也不在 F-165 的 round2 同步清單內
+//     (base 與 fee 皆已是兩位小數,相加取整在任何 round2 實作下結果相同)。
+// 🔴 請勿「對齊」成 computeFeeForSelect():那等於改成「由 pct 回算 fee」,
+//    固定金額的手續費會被改掉一分錢,例:$3.00 ÷ $373.12 → 0.8% → 回算 $2.98。
+//    兩條路徑算法不同是【刻意的】,不是 drift。
+// ⚠️ 已知限制(本票接受,另登記 F 票):固定金額手續費在 Receipt 上印的是
+//    等效 %(例:Transaction Fee (0.8%) $3.00),金額本身正確。
+// 🔴 base 必須 > 0:反推 pct 要除以 base。呼叫端已先擋,此處再擋一次(fail-closed)。
+function cb102Split(base, fee) {
+  const b = round2(base);
+  const f = round2(fee);
+  if (!(b > 0)) return null;
+  return { base: b, fee: f, total: round2(b + f), pct: round2(f / b * 100) };
+}
+
+// CB-102:預覽列 —— 與送出共用 cb102ParseFee() + cb102Split(),顯示的就是會寫入的值。
+//   輸入尚未成形(例:打到一半的 '18.')時只顯示破折號,不跳錯誤;錯誤訊息留到送出時。
+//   🔴 此處顯示的是【開表單當下】的 grand_total 快照;送出時會重讀並比對(見 doPickerOffline)。
+function cb102Preview() {
+  const el = document.getElementById('pkFeePreview');
+  if (!el) return;
+  const q = pickerSelected;
+  const base = round2(q && q.grand_total != null ? q.grand_total : 0);
+  const p = cb102ParseFee((document.getElementById('pkFee') || {}).value);
+  const s = p.ok ? cb102Split(base, p.fee) : null;
+  if (!(base > 0)) { el.textContent = CB102_BASE_ZERO_MSG; return; }
+  if (!s) { el.textContent = 'Fee: — · Total Received: —'; return; }
+  el.textContent = 'Fee: ' + money(s.fee) + ' (≈ ' + s.pct.toFixed(2) + '%) · Total Received: ' + money(s.total);
+}
+
 function pickerOffline() {
   const q = pickerSelected;
-  const defaultAmt = (q && q.grand_total != null) ? Number(q.grand_total) : '';
+  const base = round2(q && q.grand_total != null ? q.grand_total : 0);
   document.getElementById('pickerBody').innerHTML =
     '<button class="picker-back" onclick="closePendingPicker()">← Back</button>' +
     '<div class="picker-title" style="margin-bottom:6px;">Record Offline Payment</div>' +
     '<div class="modal-sub">' + escapeHtml(q.po_number || 'This quote') + ' — advances the order to Order Processing and notifies the dealer.</div>' +
-    '<div class="modal-field"><label>Amount (USD)</label>' +
-      '<input type="number" id="pkAmount" min="0" step="0.01" value="' + (defaultAmt === '' ? '' : defaultAmt) + '"/></div>' +
+    '<div class="modal-field"><label>Order Amount (USD)</label>' +
+      '<div style="font-size:14px;color:var(--text);">' + money(base) + '</div>' +
+      '<div class="cb89-note" style="margin:4px 0 0;">Equals the order total and cannot be changed here.</div></div>' +
+    '<div class="modal-field"><label>Transaction Fee (USD)</label>' +
+      '<input type="number" id="pkFee" min="0" step="0.01" value="0" oninput="cb102Preview()"/>' +
+      '<div class="cb89-note" id="pkFeePreview" style="margin:4px 0 0;"></div></div>' +
     '<div class="modal-field"><label>Note (method / reference — saved for audit)</label>' +
-      '<input type="text" id="pkNote" placeholder="e.g. Wire ref #12345"/></div>' +
+      '<input type="text" id="pkNote" placeholder="e.g. debit card, in-person, 1.5%"/></div>' +
     '<div class="modal-error" id="pkError"></div>' +
     '<div class="modal-actions">' +
       '<button class="btn-secondary" onclick="closePendingPicker()">Back</button>' +
       '<button class="btn-primary" id="pkConfirm" onclick="doPickerOffline()">Record Payment</button>' +
     '</div>';
+  cb102Preview();
 }
 
 async function doPickerOffline() {
