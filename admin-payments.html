@@ -393,7 +393,7 @@ const statusLabel = { processing:'Processing', confirmed:'Confirmed', failed:'Fa
 
 // 代選可用的付款方式 —— 🔴 與 payment.html 的 dealer 選單完全一致,不多不少。
 //   payments_payment_method_check 另外允許 'offline',但那是 Record Offline
-//   專用(直接推進 Order Processing、不產生 Receipt),🔴 代選一律不可使用。
+//   專用(錢已收到、直接推進 Order Processing),🔴 代選一律不可使用。
 //   DB 不會擋它 —— 只有這份白名單會。
 //   label 刻意不共用上方的 methodLabel:那份是清單表格的短名(Card / ACH),
 //   此處要讓 super_admin 看到與 dealer 完全相同的字面(顯示 ≠ 值)。
@@ -480,6 +480,9 @@ function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 1
 // CB-89:費率計算 —— 結構與 payment.html 的 computeFee() 逐項對應。
 //   回傳 base 亦經 round2,與 dealer 路徑寫入 payments 的值一致。
 //   🔴 pct 找不到時回 0 而非拋錯:與 dealer 路徑同行為,避免兩邊分岔。
+//   🔴 CB-102:Record Offline【刻意不】呼叫本函式 —— offline 的手續費是 admin 直接填
+//      的實收金額,不是由 % 換算。那條路徑沒有「用 % 算 fee」這一步,不是本函式的
+//      平行實作,請勿「對齊」過來。理由與算法見 cb102Split()。
 function computeFeeForSelect(method, base, feeMap) {
   const pct   = (feeMap && feeMap[method] != null) ? feeMap[method] : 0;
   const fee   = round2(base * (pct / 100));
@@ -1050,7 +1053,7 @@ function renderAwaiting(term) {
       '<td><div class="await-actions">' +
         // CB-89 Q-16:四個動作收進 Actions 選單(見 cb89Actions)。
         //   並排四顆鈕會把列撐得過寬,且 Select Payment Method 與
-        //   Record Offline 外觀相近、後果完全不同(有無 Receipt)——
+        //   Record Offline 外觀相近、後果完全不同(錢收到了沒)——
         //   選單能為每個動作附一行說明,講清楚比排順序有效。
         '<button class="btn-mini" onclick="cb89Actions(\'' + q.id + '\')">Actions</button>' +
       '</div></td>' +
@@ -1078,15 +1081,18 @@ function awaitingResend(id) {
 // -------------------------------------------------------------------
 // 業務情境:客戶人在 office,直接把卡交給 sales。理論流程是客戶自己登入
 //   payment.html 選方式,但他不會為了這件事掏出手機登入。
-// 🔴 為何不能走捷徑直接推到 Order Processing:客戶要的是標示手續費的
-//   Receipt,而那張只有走完 portal 付款流程才會產生。
+// 🔴 為何不能走捷徑直接推到 Order Processing:此時錢【還沒收】。卡要由會計
+//   依 QBO invoice 收款,直接推進等於把未收款的單標成已付款。
+//   (CB-102 前此處寫「Receipt 只有走完 portal 流程才會產生」—— 不正確:
+//    Record Offline 的 confirmed 付款同樣可下載 Receipt,已更正。)
 //
 // 🔴 與同區「Record Offline」的差別 —— 兩顆鈕長得像,結果完全不同:
-//     Record Offline        Pending → Order Processing,payment 直接 confirmed
-//                           【不產生 Receipt】,用於錢已經收到的離線付款。
-//     Select Payment Method Pending → Payment Processing,payment 為 processing
-//                           走完整流程,會產生 Receipt。本函式。
-//   用錯不會報錯 —— 單子照樣前進,只是客戶永遠等不到 Receipt。
+//     Record Offline        Pending → Order Processing,payment 直接 confirmed。
+//                           只用於錢【已經收到】的離線付款;Receipt 可下載,
+//                           手續費為 admin 填的實收金額(CB-102)。
+//     Select Payment Method Pending → Payment Processing,payment 為 processing,
+//                           錢【還沒收】,走 QBO invoice 流程。本函式。
+//   用錯不會報錯 —— 錢沒收的單若走 Record Offline,會被標成已付款、Receipt 照印。
 //
 // 寫入規格來源:Payment PM(CB-89)。dealer 側對應實作在
 //   payment.html 的 submitSimplifiedPayment()。🔴 兩處必須同步維護。
@@ -1238,7 +1244,7 @@ async function awaitingSelectMethod(id) {
 //    一半。改用既有的 #pickerModal 承載 —— 不新增任何 modal DOM。
 // 🔴 每個動作配一行說明,這是本設計的主要收穫:
 //    Select Payment Method 與 Record Offline 外觀相近但後果完全不同
-//    (有無 Receipt),並排時只能靠順序降低誤觸,列成選單才講得清楚。
+//    (錢收到了沒),並排時只能靠順序降低誤觸,列成選單才講得清楚。
 // ⚠️ 已知落差:pickerOffline / pickerResend 的「← Back」會直接關閉視窗,
 //    不會退回本選單。改它要動兩支已上線函式,本票不做。
 // -------------------------------------------------------------------
@@ -1263,7 +1269,7 @@ function cb89Actions(id) {
       '</button>' +
       '<button class="cb89-menu-item" onclick="cb89MenuPick(\'offline\', \'' + safeId + '\')">' +
         '<span class="cb89-menu-title">Record Offline Payment</span>' +
-        '<span class="cb89-menu-desc">Only when the money has already been received outside the portal. Goes straight to Order Processing — no receipt is produced.</span>' +
+        '<span class="cb89-menu-desc">Only when the money has already been received outside the portal. Goes straight to Order Processing; the receipt shows any transaction fee entered here.</span>' +
       '</button>' +
       '<button class="cb89-menu-item" onclick="cb89MenuPick(\'remind\', \'' + safeId + '\')">' +
         '<span class="cb89-menu-title">Send Reminder</span>' +
@@ -2017,56 +2023,186 @@ function closePendingPicker() {
 }
 
 // ---- Offline(quote 層級)----
+// ═══════════════════════════════════════════════════════════════════
+// CB-102  Record Offline Payment —— Transaction Fee 欄位
+// -------------------------------------------------------------------
+// 業務情境:現場付款(例:debit card 收 1.5%)。舊表單只有一個金額欄,
+//   同仁把「含手續費的實收」填進去 → 手續費被灌進 base_amount →
+//   CB-45 Receipt 對帳斷言擋下,Receipt 印不出來。
+// 本票拆成兩欄(Payment PM 拍板):
+//   Order Amount     唯讀 = round2(grand_total)(Q-2)。應收即 grand_total:
+//                    Record Offline 只處理 Pending 單,store credit 只能建於
+//                    Order Processing / Order Completed(create_store_credit()
+//                    DB 守衛),且系統無部分付款(Stage 0 B2 查證)。
+//   Transaction Fee  admin 直接填【實收金額】(Q-1),不是 %。
+//                    金額四欄的算法與理由見 cb102Split()。
+// F-22 三欄語意不變:base_amount = 貨款、fee_amount = 手續費、total_paid = 實付。
+// ═══════════════════════════════════════════════════════════════════
+
+// CB-102:手續費輸入格式 —— 非負、最多兩位小數,不設上限(Q-5 = A)。
+//   🔴 正向識別(F-35):以字串格式判定【是】合法金額才接受。
+//      不用 parseFloat 的寬鬆解析:parseFloat('1.5abc') === 1.5,會把打錯的輸入
+//      靜默當成數字。也擋掉 '1e2' 這類 input[type=number] 允許的指數寫法。
+//   🔴 空字串不視為 0:input[type=number] 遇到無法解析的輸入時 value 回 '',
+//      把它當 0 會讓打錯字的人靜默記成「無手續費」。
+const CB102_FEE_PATTERN = /^(\d+(\.\d{1,2})?|\.\d{1,2})$/;
+const CB102_FEE_FORMAT_MSG =
+  'Transaction Fee must be 0 or a positive amount with at most 2 decimal places (e.g. 18.76).';
+const CB102_BASE_ZERO_MSG =
+  'This order total is $0.00, so an offline payment cannot be recorded for it.';
+
+function cb102ParseFee(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!CB102_FEE_PATTERN.test(s)) return { ok: false, msg: CB102_FEE_FORMAT_MSG };
+  const fee = Number(s);
+  if (!isFinite(fee) || fee < 0) return { ok: false, msg: CB102_FEE_FORMAT_MSG };
+  return { ok: true, fee: fee };
+}
+
+// CB-102:offline 付款的金額四欄。
+// 🔴 為何【不】走 computeFeeForSelect()(CB-102 Q-1 / 補拍板 2,Payment PM 已拍板):
+//   computeFeeForSelect() 是「用費率算出手續費」:fee = round2(base × pct / 100)。
+//   offline 的手續費是 admin 直接填的【實收金額】—— 可能是固定金額,
+//   也可能只對混合付款的一部分收費(例:cash + debit card),本來就不是由 % 換算。
+//   因此本函式【沒有】「用 % 算 fee」這一步,只有:
+//     total = round2(base + fee)          相加
+//     pct   = round2(fee / base × 100)    反推,【只供顯示】(Receipt 的括號、預覽列)
+//   → 這不是第二份 fee 拆分實作,也不在 F-165 的 round2 同步清單內
+//     (base 與 fee 皆已是兩位小數,相加取整在任何 round2 實作下結果相同)。
+// 🔴 請勿「對齊」成 computeFeeForSelect():那等於改成「由 pct 回算 fee」,
+//    固定金額的手續費會被改掉一分錢,例:$3.00 ÷ $373.12 → 0.8% → 回算 $2.98。
+//    兩條路徑算法不同是【刻意的】,不是 drift。
+// ⚠️ 已知限制(本票接受,另登記 F 票):固定金額手續費在 Receipt 上印的是
+//    等效 %(例:Transaction Fee (0.8%) $3.00),金額本身正確。
+// 🔴 base 必須 > 0:反推 pct 要除以 base。呼叫端已先擋,此處再擋一次(fail-closed)。
+function cb102Split(base, fee) {
+  const b = round2(base);
+  const f = round2(fee);
+  if (!(b > 0)) return null;
+  return { base: b, fee: f, total: round2(b + f), pct: round2(f / b * 100) };
+}
+
+// CB-102:預覽列 —— 與送出共用 cb102ParseFee() + cb102Split(),顯示的就是會寫入的值。
+//   輸入尚未成形(例:打到一半的 '18.')時只顯示破折號,不跳錯誤;錯誤訊息留到送出時。
+//   🔴 此處顯示的是【開表單當下】的 grand_total 快照;送出時會重讀並比對(見 doPickerOffline)。
+function cb102Preview() {
+  const el = document.getElementById('pkFeePreview');
+  if (!el) return;
+  const q = pickerSelected;
+  const base = round2(q && q.grand_total != null ? q.grand_total : 0);
+  const p = cb102ParseFee((document.getElementById('pkFee') || {}).value);
+  const s = p.ok ? cb102Split(base, p.fee) : null;
+  if (!(base > 0)) { el.textContent = CB102_BASE_ZERO_MSG; return; }
+  if (!s) { el.textContent = 'Fee: — · Total Received: —'; return; }
+  el.textContent = 'Fee: ' + money(s.fee) + ' (≈ ' + s.pct.toFixed(2) + '%) · Total Received: ' + money(s.total);
+}
+
 function pickerOffline() {
   const q = pickerSelected;
-  const defaultAmt = (q && q.grand_total != null) ? Number(q.grand_total) : '';
+  const base = round2(q && q.grand_total != null ? q.grand_total : 0);
   document.getElementById('pickerBody').innerHTML =
     '<button class="picker-back" onclick="closePendingPicker()">← Back</button>' +
     '<div class="picker-title" style="margin-bottom:6px;">Record Offline Payment</div>' +
     '<div class="modal-sub">' + escapeHtml(q.po_number || 'This quote') + ' — advances the order to Order Processing and notifies the dealer.</div>' +
-    '<div class="modal-field"><label>Amount (USD)</label>' +
-      '<input type="number" id="pkAmount" min="0" step="0.01" value="' + (defaultAmt === '' ? '' : defaultAmt) + '"/></div>' +
+    '<div class="modal-field"><label>Order Amount (USD)</label>' +
+      '<div style="font-size:14px;color:var(--text);">' + money(base) + '</div>' +
+      '<div class="cb89-note" style="margin:4px 0 0;">Equals the order total and cannot be changed here.</div></div>' +
+    '<div class="modal-field"><label>Transaction Fee (USD)</label>' +
+      '<input type="number" id="pkFee" min="0" step="0.01" value="0" oninput="cb102Preview()"/>' +
+      '<div class="cb89-note" id="pkFeePreview" style="margin:4px 0 0;"></div></div>' +
     '<div class="modal-field"><label>Note (method / reference — saved for audit)</label>' +
-      '<input type="text" id="pkNote" placeholder="e.g. Wire ref #12345"/></div>' +
+      '<input type="text" id="pkNote" placeholder="e.g. debit card, in-person, 1.5%"/></div>' +
     '<div class="modal-error" id="pkError"></div>' +
     '<div class="modal-actions">' +
       '<button class="btn-secondary" onclick="closePendingPicker()">Back</button>' +
       '<button class="btn-primary" id="pkConfirm" onclick="doPickerOffline()">Record Payment</button>' +
     '</div>';
+  cb102Preview();
+}
+
+// CB-102:寫入 payments 的 method / status —— 具名常數。
+//   🔴 admin_insert_payments 的 WITH CHECK 只有 is_admin()(F-163):這兩欄寫錯,
+//      DB 會照單全收、不報錯。常數是此處唯一的防線(比照 CB-89 PAY_STATUS_ON_SELECT)。
+//   🔴 'offline' 不可加進 PAY_METHOD_OPTIONS —— 那份是 CB-89 代選白名單,offline 刻意排除。
+const CB102_OFFLINE_METHOD = 'offline';
+const CB102_OFFLINE_STATUS = 'confirmed';
+
+// CB-102:CB-45 同一把尺 —— 以「分」為單位的整數比較,容許 1 分。
+//   🔴 必須與 pdf-builder.js _finalizeWithTotals() 的 CB-45 Receipt reconciliation
+//      guard 同式:Math.round(x * 100) 後相減取絕對值,> 1 即不符。
+//      不可改成 float 比較(> 0.01):Math.abs(0.31 - 0.32) === 0.010000000000000009,
+//      剛好差 1 分時會誤判。兩處若要改,必須一起改。
+function cb102CentsDiff(a, b) {
+  return Math.abs(Math.round(Number(a) * 100) - Math.round(Number(b) * 100));
 }
 
 async function doPickerOffline() {
   const q = pickerSelected;
-  const amount = parseFloat(document.getElementById('pkAmount').value);
   const note = (document.getElementById('pkNote').value || '').trim();
   const errEl = document.getElementById('pkError');
   errEl.className = 'modal-error';
-  if (isNaN(amount) || amount <= 0) {
-    errEl.textContent = 'Please enter a valid amount greater than 0.';
+
+  // ① 手續費格式(Q-5 = A)。不合格即中止,尚未寫入任何東西。
+  const parsed = cb102ParseFee(document.getElementById('pkFee').value);
+  if (!parsed.ok) {
+    errEl.textContent = parsed.msg;
     errEl.className = 'modal-error show';
     return;
   }
+
+  // ② 畫面上顯示的 Order Amount(開表單當下的快照)。貨款 > 0 為硬條件(反推 % 要除以它)。
+  const shownBase = round2(q && q.grand_total != null ? q.grand_total : 0);
+  if (!(shownBase > 0)) {
+    errEl.textContent = CB102_BASE_ZERO_MSG;
+    errEl.className = 'modal-error show';
+    return;
+  }
+
   const btn = document.getElementById('pkConfirm');
   btn.disabled = true;
   try {
-    // ① quotes → Order Processing;WHERE 帶 status='Pending' 併發防護(裁決 Q1)
+    // ③ CB-102 Q-2:重讀 grand_total,以 CB-45 的尺比對畫面顯示值。
+    //   🔴 為何必須重讀:畫面上的 Order Amount 本身就來自 grand_total,
+    //      拿快照跟快照比恆等,防呆形同虛設。重讀才擋得住「表單開著期間單子被改」。
+    //   🔴 寫入用【重讀值】,不用快照 —— Receipt 比對的是 live 重算值,越新越近。
+    //   ⚠️ 已知殘餘窗口(Stage 1 R-1,接受):此處重讀與下方 UPDATE 之間若 grand_total
+    //      被改,UPDATE 的守衛只看 status、擋不住;事後由 CB-45 在 Receipt 端 fail-loud 攔下。
+    const fresh = await _supabase.from('quotes')
+      .select('grand_total')
+      .eq('id', q.id)
+      .maybeSingle();
+    if (fresh.error) throw fresh.error;
+    if (!fresh.data || fresh.data.grand_total == null) {
+      throw new Error('Could not read the current order total. Nothing was saved. Please refresh and try again.');
+    }
+    if (cb102CentsDiff(shownBase, fresh.data.grand_total) > 1) {
+      throw new Error('The order total changed since this form was opened (shown ' + money(shownBase) +
+        ', now ' + money(fresh.data.grand_total) + '). Nothing was saved. Please refresh.');
+    }
+
+    // ④ 金額四欄 —— 唯一來源 cb102Split()(不走 computeFeeForSelect 的理由見該函式)。
+    const split = cb102Split(fresh.data.grand_total, parsed.fee);
+    if (!split) throw new Error(CB102_BASE_ZERO_MSG);
+
+    // ⑤ quotes → Order Processing;WHERE 帶 status='Pending' 併發防護(裁決 Q1)
     const upd = await _supabase.from('quotes')
       .update({ status: 'Order Processing' }, { count: 'exact' })
       .eq('id', q.id).eq('status', 'Pending');
     if (upd.error) throw upd.error;
-    if (upd.count === 0) throw new Error('訂單狀態已變更,請重新整理。');
+    if (upd.count === 0) throw new Error('This order is no longer Pending — its status was changed by someone else. Nothing was saved. Please refresh and try again.');
 
-    // ② INSERT offline payment(含 offline_note)
+    // ⑥ INSERT offline payment(含 offline_note)
+    //   CB-102:金額四欄全部來自 split;method / status 走具名常數。
     const { data: { session } } = await _supabase.auth.getSession();
     const ins = await _supabase.from('payments')
       .insert({
         quote_id:       q.id,
-        payment_method: 'offline',
-        base_amount:    amount,
-        fee_percentage: 0,
-        fee_amount:     0,
-        total_paid:     amount,
-        status:         'confirmed',
+        payment_method: CB102_OFFLINE_METHOD,
+        base_amount:    split.base,
+        fee_percentage: split.pct,
+        fee_amount:     split.fee,
+        total_paid:     split.total,
+        status:         CB102_OFFLINE_STATUS,
         offline_note:   note || null,
         confirmed_by:   session.user.id,
         confirmed_at:   new Date().toISOString(),
