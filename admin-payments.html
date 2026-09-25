@@ -393,7 +393,7 @@ const statusLabel = { processing:'Processing', confirmed:'Confirmed', failed:'Fa
 
 // 代選可用的付款方式 —— 🔴 與 payment.html 的 dealer 選單完全一致,不多不少。
 //   payments_payment_method_check 另外允許 'offline',但那是 Record Offline
-//   專用(直接推進 Order Processing、不產生 Receipt),🔴 代選一律不可使用。
+//   專用(錢已收到、直接推進 Order Processing),🔴 代選一律不可使用。
 //   DB 不會擋它 —— 只有這份白名單會。
 //   label 刻意不共用上方的 methodLabel:那份是清單表格的短名(Card / ACH),
 //   此處要讓 super_admin 看到與 dealer 完全相同的字面(顯示 ≠ 值)。
@@ -1053,7 +1053,7 @@ function renderAwaiting(term) {
       '<td><div class="await-actions">' +
         // CB-89 Q-16:四個動作收進 Actions 選單(見 cb89Actions)。
         //   並排四顆鈕會把列撐得過寬,且 Select Payment Method 與
-        //   Record Offline 外觀相近、後果完全不同(有無 Receipt)——
+        //   Record Offline 外觀相近、後果完全不同(錢收到了沒)——
         //   選單能為每個動作附一行說明,講清楚比排順序有效。
         '<button class="btn-mini" onclick="cb89Actions(\'' + q.id + '\')">Actions</button>' +
       '</div></td>' +
@@ -1081,15 +1081,18 @@ function awaitingResend(id) {
 // -------------------------------------------------------------------
 // 業務情境:客戶人在 office,直接把卡交給 sales。理論流程是客戶自己登入
 //   payment.html 選方式,但他不會為了這件事掏出手機登入。
-// 🔴 為何不能走捷徑直接推到 Order Processing:客戶要的是標示手續費的
-//   Receipt,而那張只有走完 portal 付款流程才會產生。
+// 🔴 為何不能走捷徑直接推到 Order Processing:此時錢【還沒收】。卡要由會計
+//   依 QBO invoice 收款,直接推進等於把未收款的單標成已付款。
+//   (CB-102 前此處寫「Receipt 只有走完 portal 流程才會產生」—— 不正確:
+//    Record Offline 的 confirmed 付款同樣可下載 Receipt,已更正。)
 //
 // 🔴 與同區「Record Offline」的差別 —— 兩顆鈕長得像,結果完全不同:
-//     Record Offline        Pending → Order Processing,payment 直接 confirmed
-//                           【不產生 Receipt】,用於錢已經收到的離線付款。
-//     Select Payment Method Pending → Payment Processing,payment 為 processing
-//                           走完整流程,會產生 Receipt。本函式。
-//   用錯不會報錯 —— 單子照樣前進,只是客戶永遠等不到 Receipt。
+//     Record Offline        Pending → Order Processing,payment 直接 confirmed。
+//                           只用於錢【已經收到】的離線付款;Receipt 可下載,
+//                           手續費為 admin 填的實收金額(CB-102)。
+//     Select Payment Method Pending → Payment Processing,payment 為 processing,
+//                           錢【還沒收】,走 QBO invoice 流程。本函式。
+//   用錯不會報錯 —— 錢沒收的單若走 Record Offline,會被標成已付款、Receipt 照印。
 //
 // 寫入規格來源:Payment PM(CB-89)。dealer 側對應實作在
 //   payment.html 的 submitSimplifiedPayment()。🔴 兩處必須同步維護。
@@ -1241,7 +1244,7 @@ async function awaitingSelectMethod(id) {
 //    一半。改用既有的 #pickerModal 承載 —— 不新增任何 modal DOM。
 // 🔴 每個動作配一行說明,這是本設計的主要收穫:
 //    Select Payment Method 與 Record Offline 外觀相近但後果完全不同
-//    (有無 Receipt),並排時只能靠順序降低誤觸,列成選單才講得清楚。
+//    (錢收到了沒),並排時只能靠順序降低誤觸,列成選單才講得清楚。
 // ⚠️ 已知落差:pickerOffline / pickerResend 的「← Back」會直接關閉視窗,
 //    不會退回本選單。改它要動兩支已上線函式,本票不做。
 // -------------------------------------------------------------------
@@ -1266,7 +1269,7 @@ function cb89Actions(id) {
       '</button>' +
       '<button class="cb89-menu-item" onclick="cb89MenuPick(\'offline\', \'' + safeId + '\')">' +
         '<span class="cb89-menu-title">Record Offline Payment</span>' +
-        '<span class="cb89-menu-desc">Only when the money has already been received outside the portal. Goes straight to Order Processing — no receipt is produced.</span>' +
+        '<span class="cb89-menu-desc">Only when the money has already been received outside the portal. Goes straight to Order Processing; the receipt shows any transaction fee entered here.</span>' +
       '</button>' +
       '<button class="cb89-menu-item" onclick="cb89MenuPick(\'remind\', \'' + safeId + '\')">' +
         '<span class="cb89-menu-title">Send Reminder</span>' +
