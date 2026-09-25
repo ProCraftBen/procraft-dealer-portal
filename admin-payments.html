@@ -2189,7 +2189,7 @@ async function doPickerOffline() {
       .update({ status: 'Order Processing' }, { count: 'exact' })
       .eq('id', q.id).eq('status', 'Pending');
     if (upd.error) throw upd.error;
-    if (upd.count === 0) throw new Error('訂單狀態已變更,請重新整理。');
+    if (upd.count === 0) throw new Error('This order is no longer Pending — its status was changed by someone else. Nothing was saved. Please refresh and try again.');
 
     // ⑥ INSERT offline payment(含 offline_note)
     //   CB-102:金額四欄全部來自 split;method / status 走具名常數。
