@@ -1,772 +1,258 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title data-i18n="login.meta.title">ProCraft Dealer Portal — Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="config.js"></script>
+  <script src="i18n.js"></script>
+  <script>
+    // ── login 專屬 UI 字典(策略 B)──────────────────────────────
+    //   共用 key(footer 等)在 i18n.js;此處只放 login 專屬。
+    //   位置索引已登記於 i18n.js 檔頭。
+    window.FSI18N.addUI({
+      'login.docTitle':       { 'zh-TW': 'FuSang Vision — 登入', 'zh-CN': 'FuSang Vision — 登录', 'en': 'FuSang Vision — Log In', 'ja': 'FuSang Vision — ログイン' },
+      'login.craft':          { 'zh-TW': '紫微斗數', 'zh-CN': '紫微斗数', 'en': 'Zi Wei Dou Shu', 'ja': '紫微斗数' },
+      'login.heroTitle':      {
+        'zh-TW': '不是預知命運，<br>而是<span class="accent">穩健有意識地</span><br>走向嚮往的生活。',
+        'zh-CN': '不是预知命运，<br>而是<span class="accent">稳健有意识地</span><br>走向向往的生活。',
+        'en':    'Not to foresee fate,<br>but to move <span class="accent">steadily and consciously</span><br>toward the life you long for.',
+        'ja':    '運命を予知するより、<br><span class="accent">意識して着実に</span><br>望む人生へと歩むために。'
+      },
+      'login.heroSub':        {
+        'zh-TW': '您的命盤已備妥。<br>以您專屬的能量地圖，理解此刻所在，看見前行方向。',
+        'zh-CN': '您的命盘已备妥。<br>以您专属的能量地图，理解此刻所在，看见前行方向。',
+        'en':    'Your chart is ready.<br>With your own map of energies, see where you stand and where you are headed.',
+        'ja':    'あなたの命盤の準備ができました。<br>あなただけのエネルギーの地図で、今いる場所を知り、進む方向を見つけましょう。'
+      },
+      'login.welcomeBack':    { 'zh-TW': '歡迎回來', 'zh-CN': '欢迎回来', 'en': 'Welcome Back', 'ja': 'おかえりなさい' },
+      'login.title':          { 'zh-TW': '登入', 'zh-CN': '登录', 'en': 'Log In', 'ja': 'ログイン' },
+      'login.subtitle':       { 'zh-TW': '繼續您的能量探索', 'zh-CN': '继续您的能量探索', 'en': 'Continue your exploration', 'ja': 'エネルギーの探究を続けましょう' },
+      'login.email':          { 'zh-TW': '電子郵件', 'zh-CN': '电子邮件', 'en': 'Email', 'ja': 'メールアドレス' },
+      'login.password':       { 'zh-TW': '密碼', 'zh-CN': '密码', 'en': 'Password', 'ja': 'パスワード' },
+      'login.forgot':         { 'zh-TW': '忘記密碼？', 'zh-CN': '忘记密码？', 'en': 'Forgot password?', 'ja': 'パスワードをお忘れですか？' },
+      'login.submit':         { 'zh-TW': '登入', 'zh-CN': '登录', 'en': 'Log In', 'ja': 'ログイン' },
+      'login.loading':        { 'zh-TW': '登入中…', 'zh-CN': '登录中…', 'en': 'Signing in…', 'ja': 'ログイン中…' },
+      'login.sending':        { 'zh-TW': '寄送中…', 'zh-CN': '发送中…', 'en': 'Sending…', 'ja': '送信中…' },
+      'login.noChartQ':       { 'zh-TW': '還沒有命盤？', 'zh-CN': '还没有命盘？', 'en': 'New here?', 'ja': 'まだ命盤をお持ちでない方' },
+      'login.createLink':     { 'zh-TW': '建立您的本命盤', 'zh-CN': '建立您的本命盘', 'en': 'Create your chart', 'ja': 'あなたの本命盤を作成する' },
+      'login.errEmptyFields': { 'zh-TW': '請輸入電子郵件與密碼', 'zh-CN': '请输入电子邮件与密码', 'en': 'Please enter your email and password.', 'ja': 'メールアドレスとパスワードを入力してください。' },
+      'login.errGeneric':     { 'zh-TW': '登入失敗，請確認資料正確', 'zh-CN': '登录失败，请确认资料正确', 'en': 'Sign-in failed. Please check your details.', 'ja': 'ログインに失敗しました。入力内容をご確認ください。' },
+      'login.errBadCreds':    { 'zh-TW': '電子郵件或密碼錯誤', 'zh-CN': '电子邮件或密码错误', 'en': 'Incorrect email or password.', 'ja': 'メールアドレスまたはパスワードが正しくありません。' },
+      'login.errNotConfirmed':{ 'zh-TW': '電子郵件尚未驗證', 'zh-CN': '电子邮件尚未验证', 'en': 'Your email has not been verified yet.', 'ja': 'メールアドレスの確認がまだ完了していません。' },
+      'login.errRetry':       { 'zh-TW': '登入失敗，請稍後再試', 'zh-CN': '登录失败，请稍后再试', 'en': 'Sign-in failed. Please try again later.', 'ja': 'ログインに失敗しました。しばらくしてから再度お試しください。' },
+      'login.errForgotNoEmail':{ 'zh-TW': '請先在上方輸入電子郵件，再點「忘記密碼」', 'zh-CN': '请先在上方输入电子邮件，再点「忘记密码」', 'en': 'Enter your email above first, then tap “Forgot password”.', 'ja': '先に上の欄にメールアドレスを入力してから、「パスワードをお忘れですか？」を押してください。' },
+      'login.errBadEmail':    { 'zh-TW': '電子郵件格式不正確', 'zh-CN': '电子邮件格式不正确', 'en': 'That email address does not look right.', 'ja': 'メールアドレスの形式が正しくありません。' },
+      'login.errResetFail':   { 'zh-TW': '寄送失敗，請稍後再試', 'zh-CN': '发送失败，请稍后再试', 'en': 'Could not send the email. Please try again later.', 'ja': '送信に失敗しました。しばらくしてから再度お試しください。' },
+      'login.resetSent':      { 'zh-TW': '密碼重設連結已寄至您的信箱，請查收（可能在垃圾郵件）。', 'zh-CN': '密码重置链接已发送至您的信箱，请查收（可能在垃圾邮件）。', 'en': 'A password reset link has been sent to your inbox (check spam too).', 'ja': 'パスワード再設定用のリンクをメールでお送りしました。ご確認ください（迷惑メールフォルダに入っている場合があります）。' }
+    });
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FuSang Vision — 登入</title>
+  <!-- v2 視覺（共用版型 §10 公開頁：品牌列 / 主視覺 / 右側卡片）-->
+  <link rel="stylesheet" href="fs-v2.css" />
   <style>
-    /* ── DESIGN PREVIEW ONLY ──────────────────────────────────────────
-       視覺外殼展示用,無任何 auth / reCAPTCHA / config.js。
-       用 Ben 現有 brand tokens,只調 layout + 字級 + 間距。 */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --gold:        #C9A84C;
-      --gold-soft:   #d8bd6e;
-      --green-deep:  #24352a;   /* new: brand panel base, deeper than green-dark */
-      --green-dark:  #3e5a42;
-      --green-mid:   #4a6b4f;
-      --cream:       #F5F2EC;
-      --text:        #2C3A32;
-      --muted:       #7A8C82;
-      --border:      #DDD8CC;
-      --error:       #C0392B;
-    }
-    html, body {
-      min-height: 100%;
-      font-family: 'DM Sans', sans-serif;
-      color: var(--text);
-      background: var(--cream);
-      -webkit-font-smoothing: antialiased;
-    }
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 32px 20px;
-      background:
-        radial-gradient(ellipse 60% 55% at 90% 8%, rgba(201,168,76,0.08) 0%, transparent 60%),
-        radial-gradient(ellipse 50% 50% at 6% 92%, rgba(14,31,22,0.05) 0%, transparent 55%),
-        var(--cream);
-    }
-
-    /* ── Shell: split-screen card ─────────────────────────────────── */
-    .shell {
-      width: 100%;
-      max-width: 920px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-      box-shadow: 0 18px 60px rgba(36,53,42,0.14);
-      animation: fadeUp 0.7s ease forwards;
-    }
-
-    /* ── Left: brand panel (the signature) ────────────────────────── */
-    .brand {
-      position: relative;
-      background:
-        radial-gradient(ellipse 80% 60% at 20% 0%, rgba(201,168,76,0.14) 0%, transparent 55%),
-        linear-gradient(160deg, #2b3f2f 0%, var(--green-deep) 100%);
-      color: #EDE9DF;
-      padding: 48px 44px;
-      display: flex;
-      flex-direction: column;
-    }
-    /* hairline gold frame — the "cabinet inlay" detail */
-    .brand::after {
-      content: '';
-      position: absolute;
-      inset: 18px;
-      border: 1px solid rgba(201,168,76,0.28);
-      border-radius: 3px;
-      pointer-events: none;
-    }
-    .brand-mark {
-      width: 56px; height: 56px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(201,168,76,0.35);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 26px;
-    }
-    .brand-mark img { width: 40px; height: 40px; object-fit: contain; }
-    .brand-eyebrow {
-      font-size: 11px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 20px;
-    }
-    .brand-line {
-      font-family: 'Cormorant Garamond', serif;
-      font-weight: 400;
-      font-size: 38px;
-      line-height: 1.18;
-      color: #F6F2E8;
-      max-width: 12ch;
-    }
-    .brand-line em { color: var(--gold-soft); font-style: italic; }
-    .brand-spacer { flex: 1; min-height: 40px; }
-    .brand-list {
-      display: flex;
-      gap: 26px;
-      padding-top: 22px;
-      border-top: 1px solid rgba(201,168,76,0.22);
-    }
-    .brand-list span {
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: rgba(237,233,223,0.72);
-    }
-
-    /* ── Right: form ──────────────────────────────────────────────── */
-    .form {
-      padding: 56px 52px;
-      display: flex;
-      flex-direction: column;
-    }
-    .form-head { margin-bottom: 30px; }
-    .card-title {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 34px;
-      font-weight: 500;
-      line-height: 1.1;
-      color: var(--green-dark);
-      margin-bottom: 8px;
-    }
-    .card-subtitle { font-size: 14px; color: var(--muted); }
-
-    .error-msg, .info-msg {
-      border-radius: 4px;
-      padding: 11px 14px;
-      font-size: 13px;
-      margin-bottom: 18px;
-      display: none;
-    }
-    .error-msg.show, .info-msg.show { display: block; }
-    .error-msg { background: rgba(192,57,43,0.07); border: 1px solid rgba(192,57,43,0.25); color: var(--error); }
-    .info-msg  { background: rgba(62,90,66,0.06); border: 1px solid rgba(62,90,66,0.22); color: var(--green-dark); }
-
-    .field { margin-bottom: 20px; }
-    .field label {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #58685e;
-      margin-bottom: 8px;
-    }
-    .field input {
-      width: 100%;
-      background: #FAFAF8;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 14px 16px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 16px;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-    }
-    .field input::placeholder { color: #C4C0B8; }
-    .field input:focus {
-      border-color: var(--green-mid);
-      background: #fff;
-      box-shadow: 0 0 0 3px rgba(74,107,79,0.10);
-    }
-    .forgot {
-      display: block;
-      text-align: right;
-      font-size: 13px;
-      color: var(--gold);
-      text-decoration: none;
-      margin-top: -6px;
-      margin-bottom: 26px;
-      transition: color 0.2s;
-    }
-    .forgot:hover { color: #a8862f; text-decoration: underline; }
-
-    .btn-login {
-      width: 100%;
-      background: var(--green-dark);
-      border: none;
-      border-radius: 4px;
-      padding: 16px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #fff;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.05s;
-      min-height: 52px;
-    }
-    .btn-login:hover { background: var(--green-mid); }
-    .btn-login:active { transform: translateY(1px); }
-    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .divider-or { display: flex; align-items: center; gap: 14px; margin: 24px 0; }
-    .divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-    .divider-or span { font-size: 11px; letter-spacing: 0.15em; color: var(--muted); text-transform: uppercase; }
-
-    .btn-apply {
-      width: 100%;
-      background: transparent;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 14px;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #58685e;
-      cursor: pointer;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-      min-height: 52px;
-      text-align: center;
-      display: block;
-      line-height: 24px;
-    }
-    .btn-apply:hover { border-color: var(--gold); color: #a8862f; background: rgba(201,168,76,0.04); }
-
-    /* ── F-205 | ④ Request Portal Access ─────────────────────────────
-       層級:① .btn-login(實心深綠)> ④ 本區(淡綠)> ⑤ .btn-apply(中性邊框)。
-       疊在 .btn-apply 之上,只覆寫顏色與間距 ——【.btn-apply 本身不動】(Q-7 = H-1)。
-       ⚠️ :hover 必須另寫:.btn-apply:hover(0,2,0)權重高於 .btn-apply--portal(0,1,0),
-          不寫的話 hover 會變回 ⑤ 的金色。
-       📌 西語不需另加覆寫:按鈕繼承 html[lang="es"] .btn-apply 的 letter-spacing,
-          且 "SOLICITAR ACCESO AL PORTAL" 與既有 ⑤ 同為 26 字元。 */
-    .portal-access-prompt {
-      margin: 0 0 10px;
-      font-size: 13px;
-      line-height: 1.5;
-      color: var(--muted);
-      text-align: center;
-    }
-    .btn-apply--portal {
-      background: rgba(74,107,79,0.08);
-      border-color: var(--green-mid);
-      color: var(--green-dark);
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-    .btn-apply--portal:hover {
-      background: rgba(74,107,79,0.14);
-      border-color: var(--green-dark);
-      color: var(--green-dark);
-    }
-
-    .card-footer {
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid var(--border);
-      font-size: 11px;
-      color: #A9A69E;
-      text-align: center;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(18px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    @media (prefers-reduced-motion: reduce) { .shell { animation: none; } }
-
-    /* ── Responsive: stack under 780px ────────────────────────────── */
-    /* Mobile: brand panel collapses to a short header band; weight goes to the form */
-    @media (max-width: 780px) {
-      .shell { grid-template-columns: 1fr; max-width: 440px; }
-      .brand { padding: 26px 30px 22px; }
-      .brand::after { inset: 10px; }
-      .brand-mark { width: 44px; height: 44px; margin-bottom: 14px; }
-      .brand-mark img { width: 30px; height: 30px; }
-      .brand-eyebrow { font-size: 10px; margin-bottom: 12px; }
-      .brand-line { font-size: 24px; max-width: 22ch; }
-      .brand-spacer { display: none; }
-      .brand-list { display: none; }   /* drop the row on mobile to keep the band short */
-      .form { padding: 38px 32px; }
-      .card-title { font-size: 30px; }
-    }
-    @media (max-width: 480px) {
-      body { padding: 16px; }
-      .brand { padding: 24px 26px 20px; }
-      .brand-line { font-size: 22px; }
-      .form { padding: 34px 26px; }
-    }
-    /* ── CB-62 | Spanish layout overrides ───────────────────────────────
-       語言專屬微調一律走 html[lang="..."],【不動共用規則】。
-       英文渲染路徑完全不經過這些選擇器 → 英文版面 byte-identical。
-       未來加簡中只需再補一個 html[lang="zh"] 區塊,共用樣式仍不動。
-
-       ⚠️ 每個斷點都要各自寫一份:html[lang="es"] .x 的權重(0,2,1)高於
-          media query 內的 .x(0,1,0),只寫頂層那份會蓋掉 RWD 規則。 */
-    html[lang="es"] .brand-line { max-width: 16ch; font-size: 34px; }
-    html[lang="es"] .btn-apply  { letter-spacing: 0.12em; }
-
-    @media (max-width: 780px) {
-      html[lang="es"] .brand-line { font-size: 22px; max-width: 24ch; }
-    }
-    @media (max-width: 480px) {
-      html[lang="es"] .brand-line { font-size: 20px; }
-      html[lang="es"] .forgot     { font-size: 12px; }
-    }
+    /* login 專屬：只剩細節，版型全在 fs-v2.css §10 */
+    .fs-v2 .login-forgot { display: flex; justify-content: flex-end; margin: -8px 0 20px; }
+    .fs-v2 .login-btn-arrow { font-family: var(--v2-font-latin); font-size: 15px; line-height: 1; transition: transform .2s; }
+    .fs-v2 .login-btn:hover:not(:disabled) .login-btn-arrow { transform: translateX(4px); }
+    @media (prefers-reduced-motion: reduce) { .fs-v2 .login-btn-arrow { transition: none; } }
   </style>
 </head>
-<body>
-  <div class="shell">
-    <!-- LEFT: brand panel -->
-    <div class="brand">
-      <div class="brand-mark">
-        <img src="https://acwgemgpnusworpxxoai.supabase.co/storage/v1/object/public/assets/ProCraft-DC-Logo-white.png" alt="ProCraft DC"/>
+<body class="login-body fs-v2">
+
+<!-- 品牌列（公開頁不放主選單）＋ 語言切換 -->
+<header class="v2-auth-bar">
+  <a class="v2-auth-brand" href="https://fusang-vision.com/" aria-label="FuSang Vision">
+    <img src="assets/fusangvision_trans_graph_only_0706.png" alt="" />
+    <span class="v2-auth-brand-name">FuSang Vision</span>
+  </a>
+  <div class="v2-auth-lang login-lang" id="login-lang" role="group" aria-label="Language">
+    <button type="button" class="login-lang-opt" data-lang="zh-TW" lang="zh-TW">繁中</button>
+    <button type="button" class="login-lang-opt" data-lang="zh-CN" lang="zh-CN">简中</button>
+    <button type="button" class="login-lang-opt" data-lang="en" lang="en">EN</button>
+    <button type="button" class="login-lang-opt" data-lang="ja" lang="ja">日本語</button>
+  </div>
+</header>
+
+<main class="fs-page v2-auth-stage login-page" id="fs-main" tabindex="-1">
+
+  <!-- 左：品牌語（壓在主視覺留白處）-->
+  <div class="v2-auth-intro">
+    <p class="v2-auth-eyebrow"><span data-i18n="login.craft">紫微斗數</span> · FuSang Vision</p>
+    <h2 class="v2-auth-headline" data-i18n-html="login.heroTitle">
+      不是預知命運，<br>而是<span class="accent">穩健有意識地</span><br>走向嚮往的生活。
+    </h2>
+    <p class="v2-auth-lead" data-i18n-html="login.heroSub">
+      您的命盤已備妥。<br>以您專屬的能量地圖，理解此刻所在，看見前行方向。
+    </p>
+  </div>
+
+  <!-- 右：登入卡片 -->
+  <div class="v2-auth-card">
+    <p class="v2-auth-card-eyebrow" data-i18n="login.welcomeBack">Welcome Back</p>
+    <h1 class="v2-auth-title" data-i18n="login.title">登入</h1>
+    <p class="v2-auth-sub" data-i18n="login.subtitle">繼續您的能量探索</p>
+
+    <div id="login-error" class="v2-auth-msg v2-auth-msg--error login-error" role="alert"></div>
+    <div id="login-success" class="v2-auth-msg v2-auth-msg--ok login-success" role="status"></div>
+
+    <form id="login-form" novalidate>
+      <div class="v2-field">
+        <label for="email" data-i18n="login.email">電子郵件</label>
+        <input type="email" id="email" name="email" autocomplete="email" required />
       </div>
-      <div class="brand-eyebrow">ProCraft Cabinetry · DC</div>
-      <div class="brand-line"><span data-i18n="login.brand.tagline_1">Built to last, </span><em data-i18n="login.brand.tagline_2">designed to elevate.</em></div>
-      <div class="brand-spacer"></div>
-      <div class="brand-list">
-        <span data-i18n="login.brand.pillar_configure">Configure</span>
-        <span data-i18n="login.brand.pillar_quote">Quote</span>
-        <span data-i18n="login.brand.pillar_get_paid">Get&nbsp;Paid</span>
+      <div class="v2-field">
+        <label for="password" data-i18n="login.password">密碼</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required />
       </div>
-    </div>
-
-    <!-- RIGHT: form -->
-    <div class="form">
-      <div id="pcd-lang-switch"></div>
-
-      <div class="form-head">
-        <div class="card-title" data-i18n="login.title">Sign In</div>
-        <div class="card-subtitle" data-i18n="login.subtitle">Enter your credentials to access your account.</div>
+      <div class="login-forgot">
+        <a id="forgot-link" class="v2-auth-link" role="button" tabindex="0" data-i18n="login.forgot">忘記密碼？</a>
       </div>
+      <button type="submit" id="login-btn" class="v2-auth-submit login-btn">
+        <span id="login-btn-text" data-i18n="login.submit">登入</span>
+        <span class="login-btn-arrow" aria-hidden="true">→</span>
+      </button>
+    </form>
 
-      <div class="error-msg" id="errorMsg"></div>
-      <div class="info-msg" id="infoMsg"></div>
-
-      <div class="field">
-        <label data-i18n="login.field.email_label">Email Address</label>
-        <input type="email" id="email" placeholder="you@company.com" data-i18n-placeholder="login.field.email_placeholder" autocomplete="email"/>
-      </div>
-      <div class="field">
-        <label data-i18n="login.field.password_label">Password</label>
-        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
-      </div>
-      <a href="#" class="forgot" id="forgotLink" data-i18n="login.forgot_link" onclick="forgotPassword(event)">Forgot password? / First time here?</a>
-      <button class="btn-login" id="loginBtn" data-i18n="login.btn.sign_in">Sign In</button>
-
-      <div class="divider-or"><span data-i18n="login.divider_or">or</span></div>
-      <!-- F-205: ④ already a ProCraft dealer, no portal account → external n8n form (new tab) -->
-      <p class="portal-access-prompt" data-i18n="login.portal_access.prompt">Already a ProCraft dealer but don't have a portal login?</p>
-      <a href="https://benprocraftdc.app.n8n.cloud/form/e22a9b52-9d03-4fe8-8e47-843e194a0c93" target="_blank" rel="noopener" class="btn-apply btn-apply--portal" data-i18n="login.btn.request_portal_access">Request Portal Access</a>
-      <a href="https://dc.procraftcabinetry.com/become-a-dealer/" target="_blank" class="btn-apply" data-i18n="login.btn.apply_dealer">Apply to Become a Dealer</a>
-
-      <div class="card-footer" data-i18n="login.footer.copyright">© 2026 ProCraft Cabinetry DC · All rights reserved</div>
+    <!-- 建立帳號：官網表單（2026-09 起由官網維護）-->
+    <div class="v2-auth-alt">
+      <span data-i18n="login.noChartQ">還沒有命盤？</span><br>
+      <a href="https://fusang-vision.com/pages/create-account" data-i18n="login.createLink">建立您的本命盤</a>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
-  <script src="components/i18n.js?v=cb62c"></script>
-  <script src="components/lang-switch.js?v=cb62c"></script>
-  <script>
-    const { createClient } = supabase;
-    const _supabase = createClient(
-      window.SB_URL,
-      window.SB_KEY
-    );
+</main>
 
-    // ═══════════════════════════════════════════════════════════════════
-    // CB-42 | Google reCAPTCHA v3 Login Gate
-    // -------------------------------------------------------------------
-    // 目的:Intuit / QuickBooks Payments 上架合規要求(CB-43 promote 前置)。
-    //
-    // 流程:頁面載入時預載 reCAPTCHA script(使右下角 badge 顯示,合規必需)
-    //       → 使用者點 Sign In 時才 grecaptcha.execute() 取 token
-    //       → POST verify-recaptcha Edge Function 驗 score
-    //       → 通過才呼叫 Supabase Auth。
-    //
-    // ⚠️ script 預載、token 延後取,兩者必須分開:
-    //    · script 若延後到點擊才載入 → badge 不會出現 → 違反 Google 條款
-    //    · token 若在頁面載入時就取 → 120 秒後過期 → 使用者慢慢打字就失效
-    //
-    // ⚠️ Kill switch(window.RECAPTCHA_ENABLED,定義於 config.js)
-    //    平常必須為 true。設為 false 會完全跳過 reCAPTCHA 驗證,
-    //    僅限以下兩種情況使用:
-    //      1. 緊急:reCAPTCHA 大量誤擋真人,導致 dealer 無法登入
-    //      2. Debug:本地或排錯時暫時關閉
-    //    使用後必須立即開 ticket 追蹤並在修復後改回 true。
-    //
-    // ⚠️ Fail-open 政策(Q-1 決議)
-    //    網路層失敗(script 載入失敗 / timeout / fetch error / HTTP 5xx)
-    //      → 放行,並以 console.error 留下 audit log
-    //    明確拒絕(HTTP 4xx / Google 回 success:false / score 過低)
-    //      → 擋下
-    //    理由:避免 Google 或 Edge Function 故障造成全站無法登入。
-    //
-    // ⚠️ 已知限制(記錄用,非 blocker)
-    //    此為前端 gate。Supabase Auth REST endpoint 本身仍為公開,
-    //    直接呼叫可繞過本驗證。本 ticket 定位為合規勾選項,非安全控制。
-    // ═══════════════════════════════════════════════════════════════════
+<div id="site-footer"></div>
 
-    const RECAPTCHA_SITE_KEY   = window.RECAPTCHA_SITE_KEY || '';
-    const RECAPTCHA_ENABLED    = (window.RECAPTCHA_ENABLED !== false) && !!RECAPTCHA_SITE_KEY;
-    const RECAPTCHA_VERIFY_URL = (window.SB_URL || '') + '/functions/v1/verify-recaptcha';
-    const RECAPTCHA_LOAD_TIMEOUT_MS = 10000;
+<script type="module">
+  import { supabase, getSession } from './components.js';
 
-    // 使用 recaptcha.net 而非 google.com:google.com 在部分地區(中國大陸)
-    // 無法連線,會導致 script 永久 pending。recaptcha.net 為 Google 官方
-    // 替代網域,使用同一組 site key。
-    const RECAPTCHA_HOST = 'https://www.recaptcha.net';
+  const F = window.FSI18N;
 
-    if (!RECAPTCHA_SITE_KEY) {
-      console.error('[CB-42] RECAPTCHA_SITE_KEY not found in config.js — reCAPTCHA gate disabled.');
-    } else if (window.RECAPTCHA_ENABLED === false) {
-      console.error('[CB-42] reCAPTCHA gate is DISABLED via kill switch (RECAPTCHA_ENABLED = false).');
-    }
-
-    function logFailOpen(reason, detail) {
-      console.error('[CB-42] Fail-open triggered', {
-        reason: reason,
-        detail: detail || null,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // 單例 Promise:重複呼叫不會重複插入 script tag。
-    let _recaptchaLoader = null;
-
-    function loadRecaptcha() {
-      if (_recaptchaLoader) return _recaptchaLoader;
-
-      _recaptchaLoader = new Promise(function (resolve, reject) {
-        if (window.grecaptcha && window.grecaptcha.execute) {
-          resolve();
-          return;
-        }
-
-        let settled = false;
-        const timer = setTimeout(function () {
-          if (settled) return;
-          settled = true;
-          reject(new Error('recaptcha_script_timeout'));
-        }, RECAPTCHA_LOAD_TIMEOUT_MS);
-
-        const s = document.createElement('script');
-        s.src   = RECAPTCHA_HOST + '/recaptcha/api.js?render=' + encodeURIComponent(RECAPTCHA_SITE_KEY);
-        s.async = true;
-        s.defer = true;
-
-        s.onload = function () {
-          if (settled) return;
-          if (!window.grecaptcha || !window.grecaptcha.ready) {
-            settled = true;
-            clearTimeout(timer);
-            reject(new Error('recaptcha_object_missing'));
-            return;
-          }
-          window.grecaptcha.ready(function () {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            resolve();
-          });
-        };
-
-        s.onerror = function () {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          reject(new Error('recaptcha_script_error'));
-        };
-
-        document.head.appendChild(s);
-      });
-
-      // 載入失敗時清掉 cache,讓使用者重試時可以再試一次。
-      _recaptchaLoader.catch(function () { _recaptchaLoader = null; });
-
-      return _recaptchaLoader;
-    }
-
-    // 頁面載入即預載 script,讓右下角 reCAPTCHA badge 顯示(Google 條款要求)。
-    // 此處「不」取 token,token 一律在使用者點擊當下才取,避免 120 秒過期。
-    // 預載失敗不擋任何流程,點擊時會自動重試。
-    if (RECAPTCHA_ENABLED) {
-      loadRecaptcha().catch(function (e) {
-        logFailOpen('recaptcha_preload_failed', String((e && e.message) || e));
-      });
-    }
-
-    // 呼叫後端驗證。回傳 { ok, failOpen?, score?, reason? }
-    async function verifyRecaptchaToken(token, action) {
-      let res;
-      try {
-        res = await fetch(RECAPTCHA_VERIFY_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': window.SB_KEY
-          },
-          body: JSON.stringify({ token: token, action: action })
-        });
-      } catch (e) {
-        logFailOpen('verify_network_error', String((e && e.message) || e));
-        return { ok: true, failOpen: true };
-      }
-
-      if (res.status >= 500) {
-        logFailOpen('verify_server_error', 'HTTP ' + res.status);
-        return { ok: true, failOpen: true };
-      }
-
-      if (!res.ok) {
-        console.error('[CB-42] Verification rejected by endpoint', { status: res.status });
-        return { ok: false, reason: 'verify_http_' + res.status };
-      }
-
-      let data;
-      try {
-        data = await res.json();
-      } catch (e) {
-        logFailOpen('verify_invalid_json', String((e && e.message) || e));
-        return { ok: true, failOpen: true };
-      }
-
-      if (data && data.success === true) {
-        return { ok: true, score: data.score };
-      }
-
-      console.error('[CB-42] Verification failed', {
-        score:  data ? data.score : null,
-        reason: data ? data.reason : null
-      });
-      return { ok: false, reason: (data && data.reason) || 'verification_failed' };
-    }
-
-    // 完整 gate:取 token → 驗證。回傳 { ok, ... }
-    async function recaptchaGate(action) {
-      if (!RECAPTCHA_ENABLED) {
-        return { ok: true, skipped: true };
-      }
-
-      let token;
-      try {
-        await loadRecaptcha();
-        token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: action });
-      } catch (e) {
-        logFailOpen('recaptcha_client_error', String((e && e.message) || e));
-        return { ok: true, failOpen: true };
-      }
-
-      if (!token) {
-        logFailOpen('recaptcha_empty_token', 'action=' + action);
-        return { ok: true, failOpen: true };
-      }
-
-      return await verifyRecaptchaToken(token, action);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // Login
-    // ═══════════════════════════════════════════════════════════════════
-
-    const loginBtn   = document.getElementById('loginBtn');
-    const forgotLink = document.getElementById('forgotLink');
-    const errMsg     = document.getElementById('errorMsg');
-    const infoMsg    = document.getElementById('infoMsg');
-
-    let busy = false;
-
-    function showError(text) {
-      infoMsg.classList.remove('show');
-      errMsg.textContent = text;
-      errMsg.classList.add('show');
-    }
-
-    function showInfo(text) {
-      errMsg.classList.remove('show');
-      infoMsg.textContent = text;
-      infoMsg.classList.add('show');
-    }
-
-    function clearMessages() {
-      errMsg.classList.remove('show');
-      infoMsg.classList.remove('show');
-    }
-
-    function setBusy(state, label) {
-      busy = state;
-      loginBtn.disabled     = state;
-      loginBtn.textContent  = label || 'Sign In';
-      forgotLink.style.pointerEvents = state ? 'none' : '';
-      forgotLink.style.opacity       = state ? '0.5' : '';
-    }
-
-    // Enter key support
-    document.getElementById('email').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') document.getElementById('password').focus();
+  // ── 頁內語言切換(只動 UI 字串;此頁無報告內容)──
+  const langBox = document.getElementById('login-lang');
+  function markLang() {
+    const cur = F.getUILang();
+    langBox.querySelectorAll('.login-lang-opt').forEach((b) => {
+      b.classList.toggle('active', b.getAttribute('data-lang') === cur);
     });
-    document.getElementById('password').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && !busy) doLogin();
-    });
-    loginBtn.addEventListener('click', function () {
-      if (!busy) doLogin();
-    });
+    document.title = F.t('login.docTitle');
+  }
+  langBox.querySelectorAll('.login-lang-opt').forEach((b) => {
+    b.addEventListener('click', () => F.setUILang(b.getAttribute('data-lang')));
+  });
+  markLang();
+  window.addEventListener('i18n:changed', markLang);
 
-    // ─────────────────────────────────────────────────────────────────────
-    // CB-53 U4 — 登入後回跳(Guard 3 的 login 端)
-    //
-    // ⚠️ B-14:staging 掛在子目錄 /procraft-dealer-portal-staging/,
-    //    production 在網域根目錄;且 procraftben.github.io 是 GitHub Pages
-    //    共享網域,同帳號每個 repo 共用同一個 origin。因此:
-    //      • 基準必須用 new URL('.', location.href) 執行期推導,絕不硬寫路徑
-    //      • 只比對 origin 不夠 —— 還要求 pathname 以 appBase.pathname 開頭,
-    //        否則同 origin 的跨 repo 跳轉擋不住
-    //
-    // ⚠️ B-03:任一道校驗失敗一律靜默落回預設去處,不提示、不重試。
-    // ⚠️ B-08:profile_completed 閘門不可被 redirect 繞過。
-    // ─────────────────────────────────────────────────────────────────────
-    const CB53_REDIRECT_WHITELIST = ['new-quote-step3.html'];
+  // ── 登入後分流：admin → admin-dashboard.html；其餘 → dashboard.html ──
+  // admin_check RPC 失敗時保守導向 dashboard.html（admin 頁本身仍有後端把關）
+  async function routeAfterAuth() {
+    let target = 'dashboard.html';
+    try {
+      const { data: isAdmin, error } = await supabase.rpc('admin_check');
+      if (!error && isAdmin === true) target = 'admin-dashboard.html';
+    } catch (_) {}
+    window.location.href = target;
+  }
 
-    function cb53GetSafeRedirect() {
-      try {
-        const raw = new URLSearchParams(window.location.search).get('redirect');
-        if (!raw) return null;
-        if (raw.indexOf('..') !== -1) return null;                         // 路徑穿越
-        if (raw.charAt(0) === '/' || raw.charAt(0) === '\\') return null;  // //evil.com、絕對路徑
+  // 已登入直接分流
+  (async () => {
+    const session = await getSession();
+    if (session) await routeAfterAuth();
+  })();
 
-        const appBase = new URL('.', window.location.href);                // B-14: 執行期推導
-        const target  = new URL(raw, appBase);
+  const form = document.getElementById('login-form');
+  const btn = document.getElementById('login-btn');
+  const btnText = document.getElementById('login-btn-text');
+  const errorBox = document.getElementById('login-error');
+  const successBox = document.getElementById('login-success');
+  const forgotLink = document.getElementById('forgot-link');
 
-        if (target.origin !== window.location.origin) return null;
-        if (target.pathname.indexOf(appBase.pathname) !== 0) return null;  // B-14: 前綴校驗
+  function showError(msg) {
+    successBox.classList.remove('active');
+    errorBox.textContent = msg;
+    errorBox.classList.add('active');
+  }
+  function showSuccess(msg) {
+    errorBox.classList.remove('active');
+    successBox.textContent = msg;
+    successBox.classList.add('active');
+  }
+  function clearMessages() {
+    errorBox.classList.remove('active');
+    successBox.classList.remove('active');
+  }
+  function setLoading(loading) {
+    btn.disabled = loading;
+    btnText.textContent = loading ? F.t('login.loading') : F.t('login.submit');
+  }
 
-        const file = target.pathname.slice(appBase.pathname.length);
-        if (CB53_REDIRECT_WHITELIST.indexOf(file) === -1) return null;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearMessages();
 
-        return target.pathname + target.search;                            // 丟棄 hash
-      } catch (_) {
-        return null;
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    if (!email || !password) { showError(F.t('login.errEmptyFields')); return; }
+
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      console.error('Login error:', error);
+      let msg = F.t('login.errGeneric');
+      if (error.message?.toLowerCase().includes('invalid login credentials')) {
+        msg = F.t('login.errBadCreds');
+      } else if (error.message?.toLowerCase().includes('email not confirmed')) {
+        msg = F.t('login.errNotConfirmed');
       }
+      showError(msg);
+      setLoading(false);
+      return;
     }
 
-    // 登入後去處。既有優先序完全不變(admin → profile gate → dashboard),
-    // 只在「admin 預設」與「dashboard 預設」兩處插入 redirect。
-    function cb53ResolveLoginTarget(dealer) {
-      if (['admin','super_admin'].includes(dealer?.role)) {
-        return cb53GetSafeRedirect() || 'admin.html';
-      }
-      if (!dealer?.profile_completed) {
-        return 'dealer-profile.html';        // B-08: 不可被 redirect 繞過
-      }
-      return cb53GetSafeRedirect() || 'dashboard.html';
+    if (data?.session) {
+      await routeAfterAuth();
+    } else {
+      showError(F.t('login.errRetry'));
+      setLoading(false);
+    }
+  });
+
+  // v2：忘記密碼改為可用鍵盤觸發（Enter / 空白鍵）
+  forgotLink.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); forgotLink.click(); }
+  });
+
+  forgotLink.addEventListener('click', async () => {
+    clearMessages();
+    const email = document.getElementById('email').value.trim();
+
+    if (!email) { showError(F.t('login.errForgotNoEmail')); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError(F.t('login.errBadEmail')); return; }
+
+    forgotLink.style.pointerEvents = 'none';
+    forgotLink.textContent = F.t('login.sending');
+
+    const redirectTo = window.location.origin + window.location.pathname.replace(/login\.html$/, '') + 'set-password.html';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+    forgotLink.style.pointerEvents = '';
+    forgotLink.textContent = F.t('login.forgot');
+
+    if (error) {
+      console.error('Reset password error:', error);
+      showError(F.t('login.errResetFail'));
+      return;
     }
 
-    async function doLogin() {
-      if (busy) return;
+    showSuccess(F.t('login.resetSent'));
+  });
+</script>
 
-      const email    = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+<script type="module" src="components.js"></script>
 
-      if (!email || !password) {
-        showError('Please enter your email and password.');
-        return;
-      }
-
-      clearMessages();
-      setBusy(true, 'Verifying...');
-
-      try {
-        // ── CB-42 gate ──
-        const gate = await recaptchaGate('login');
-        if (!gate.ok) {
-          showError('Verification failed. Please refresh the page and try again.');
-          return;
-        }
-
-        loginBtn.textContent = 'Signing in...';
-
-        const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
-
-        if (error) {
-          showError('Invalid email or password. Please try again.');
-          return;
-        }
-
-        const { data: dealer } = await _supabase
-          .from('dealers')
-          .select('role, is_active, profile_completed')
-          .eq('id', data.user.id)
-          .single();
-
-        if (!dealer?.is_active) {
-          await _supabase.auth.signOut();
-          showError('Your account has been deactivated. Please contact ProCraft DC.');
-          return;
-        }
-
-        window.location.href = cb53ResolveLoginTarget(dealer);   // CB-53
-
-      } catch (e) {
-        console.error('[login] Unexpected error', e);
-        showError('Something went wrong. Please try again.');
-      } finally {
-        setBusy(false, 'Sign In');
-      }
-    }
-
-    // Already logged in?
-    _supabase.auth.getSession().then(async function(result) {
-      if (result.data.session) {
-        const { data: dealer } = await _supabase
-          .from('dealers')
-          .select('role, is_active, profile_completed')
-          .eq('id', result.data.session.user.id)
-          .single();
-        if (!dealer?.is_active) {
-          await _supabase.auth.signOut();
-          return;
-        }
-        window.location.href = cb53ResolveLoginTarget(dealer);   // CB-53
-      }
-    });
-
-    // ═══════════════════════════════════════════════════════════════════
-    // Forgot password
-    // reCAPTCHA action = 'forgot_password'(與 login 分開計分)
-    // ═══════════════════════════════════════════════════════════════════
-
-    async function forgotPassword(e) {
-      e.preventDefault();
-      if (busy) return;
-
-      const email = document.getElementById('email').value.trim();
-      if (!email) {
-        showError('Please enter your email address first.');
-        return;
-      }
-
-      clearMessages();
-      setBusy(true, 'Verifying...');
-
-      try {
-        const gate = await recaptchaGate('forgot_password');
-        if (!gate.ok) {
-          showError('Verification failed. Please refresh the page and try again.');
-          return;
-        }
-
-        loginBtn.textContent = 'Sending...';
-
-        await _supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: new URL('reset-password.html', window.location.href).href,
-        });
-
-        showInfo('If this email is registered, a reset link has been sent. Please check your inbox.');
-
-      } catch (err) {
-        console.error('[forgotPassword] Unexpected error', err);
-        showError('Something went wrong. Please try again.');
-      } finally {
-        setBusy(false, 'Sign In');
-      }
-    }
-  </script>
-  <script src="components/login-i18n-bridge.js?v=cb62c"></script>
 </body>
 </html>
