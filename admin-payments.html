@@ -480,6 +480,9 @@ function round2(x) { return Math.round((parseFloat(x || 0) + Number.EPSILON) * 1
 // CB-89:費率計算 —— 結構與 payment.html 的 computeFee() 逐項對應。
 //   回傳 base 亦經 round2,與 dealer 路徑寫入 payments 的值一致。
 //   🔴 pct 找不到時回 0 而非拋錯:與 dealer 路徑同行為,避免兩邊分岔。
+//   🔴 CB-102:Record Offline【刻意不】呼叫本函式 —— offline 的手續費是 admin 直接填
+//      的實收金額,不是由 % 換算。那條路徑沒有「用 % 算 fee」這一步,不是本函式的
+//      平行實作,請勿「對齊」過來。理由與算法見 cb102Split()。
 function computeFeeForSelect(method, base, feeMap) {
   const pct   = (feeMap && feeMap[method] != null) ? feeMap[method] : 0;
   const fee   = round2(base * (pct / 100));
