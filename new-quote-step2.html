@@ -2204,6 +2204,77 @@ function getMsrpForGroup(sku, grp) {
   return isNaN(n) ? null : n;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CB-104 (2026-09-28): hide SKUs per door style — skus_*.ignore_door_style
+//
+// WHAT: a SKU whose ignore_door_style (text[] of door_styles.style_code)
+//   contains the active door style is not rendered in the SKU table —
+//   the whole row, price included. Display-only, THIS PAGE ONLY (ticket
+//   #7). Applies to every role, admin / super_admin included (Q-1);
+//   admins who need the combo use a Custom Item.
+//
+// 🔴 NOT A SECURITY RULE — WRITES ARE DELIBERATELY NOT BLOCKED (#5).
+//   Owner decision: this is a commercial preference. Already-saved Drafts
+//   (loadDraftItems), Custom Items, admin paths and the modifications page
+//   "Swap Door Style" (F-302) can still produce these combos; they price
+//   and check out normally, with no error. Do NOT add a guard to
+//   addToCart(), step3 or any save path, and do not "fix" this as a hole:
+//   blocking would break existing Drafts and leave admins no way to handle
+//   exceptions.
+//
+// 🔴 WHY THIS DIFFERS FROM THE PRICE-N/A FILTER IN renderSkuTable() (PM Q-2):
+//   Both hide rows, but they are different in nature:
+//   - price N/A = DATA INTEGRITY. The SKU has no MSRP for this style's
+//     group, so it cannot be priced at all; addToCart() rejects it too.
+//   - CB-104    = COMMERCIAL PREFERENCE. The SKU has a valid price and may
+//     legitimately be sold through the paths above; only the catalog row
+//     is hidden. So there is intentionally NO matching check in addToCart().
+//   Same look on screen, different reason — keep them handled differently.
+//
+// EXACT MATCH ONLY (#3): array element === style_code. Never string
+//   includes() / startsWith() or SQL LIKE. Real traps in the current list:
+//   'LSB' is listed but 'LSBO' is not; 'LSEG' is listed but 'LSE' is not.
+//   No trim / upper-casing: door_styles.style_code is unique, upper-case and
+//   has no whitespace in both environments (CB-104 S0 S-04).
+//
+// 🔴 FAIL-OPEN (Q-3) — deliberately OPPOSITE to DOC-1 fail-closed:
+//   if the column is missing or not an array (query drift, migration not
+//   run, front-end deployed before DB), treat it as empty = show everything.
+//   Hiding the whole table would stop every dealer from quoting; showing
+//   everything only reverts to pre-CB-104 behaviour. ONE console.warn per
+//   page load makes that otherwise-silent failure detectable —
+//   renderSkuTable() re-runs on every search keystroke / tab / sort /
+//   language change, so warning on every render would flood the console.
+//   Same direction: if activeStyle.style_code is missing, skip the filter.
+//
+// SNAPSHOT: this code never reads door_styles.is_stock (ticket #1 — it
+//   drives lead time and PRICE multipliers). The DB list was built from
+//   framed is_stock = true on 2026-09-28 and is maintained by hand in the
+//   SQL Editor / Table Editor (the SKU tables have no write RLS policy).
+//   Drift check: CB-104 R-1 reconcile query (DOC-1 / CB-104 closure).
+//
+// CATEGORY TABS NOT FILTERED (Q-4): renderCatTabs() still lists types from
+//   the unfiltered table. Safe today because TALL / BOX / DOOR & FRAME keep
+//   many other SKUs. If a future list hides an entire type, that tab will
+//   show "No items found." — see F-303.
+// ═══════════════════════════════════════════════════════════════════
+let _cb104WarnedMissing = false;
+function cb104IgnoreListOf(sku) {
+  const list = sku ? sku.ignore_door_style : undefined;
+  if (Array.isArray(list)) return list;
+  if (!_cb104WarnedMissing) {
+    _cb104WarnedMissing = true;
+    console.warn('[CB-104] ignore_door_style missing or not an array (first seen on SKU "' +
+      (sku && sku.sku_code) + '"). Treating it as empty: no SKUs are hidden. ' +
+      'Check that the column exists in skus_framed / skus_frameless and is selected.');
+  }
+  return [];
+}
+function cb104IsHiddenForStyle(sku, styleCode) {
+  if (!styleCode) return false;  // fail-open, same direction as Q-3
+  return cb104IgnoreListOf(sku).indexOf(styleCode) !== -1;
+}
+
 function renderSkuTable() {
   if (!activeStyle) return;
   const stockM     = dealer ? parseFloat(dealer.stock_multiplier     || 1) : 1;
@@ -2221,6 +2292,11 @@ function renderSkuTable() {
 
   // Filter out SKUs that have no price for the current style's group (N/A handling)
   skus = skus.filter(s => getMsrpForGroup(s, grp) !== null);
+
+  // CB-104: hide SKUs excluded for this door style. Display-only commercial
+  // preference — NOT the same kind of rule as the N/A filter above. Read the
+  // CB-104 block above renderSkuTable() before changing either one.
+  skus = skus.filter(s => !cb104IsHiddenForStyle(s, activeStyle.style_code));
 
   // CB-5 需求4: apply sort to the (filtered) list
   skus = skus.slice().sort(function (a, b) {
@@ -2318,6 +2394,10 @@ function addToCart(skuCode, type, unitPrice, assembledFee) {
   if (!sku) { showToast(pcTxt('nq2.toast.sku_not_found', 'SKU not found')); return; }
   const grp2      = (activeStyle.grp || 'GROUP A').toUpperCase();
   const msrpValue = getMsrpForGroup(sku, grp2);
+  // CB-104 (PM Q-2): there is deliberately NO ignore_door_style check here.
+  // The null-MSRP check below is DATA INTEGRITY (the SKU cannot be priced);
+  // CB-104 is a display-only COMMERCIAL PREFERENCE and must not block writes
+  // (ticket #5). See the CB-104 block above renderSkuTable().
   if (msrpValue === null) {
     showToast(pcTxt('nq2.toast.sku_unavailable', 'This SKU is not available for the selected style group'));
     return;
