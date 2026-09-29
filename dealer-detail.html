@@ -29,17 +29,25 @@
     .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 44px; }
     .btn-primary:hover { background: var(--green-mid); }
     .btn-plain { background: none; border: 1px solid var(--border); border-radius: 3px; padding: 6px 12px; font-family: 'DM Sans', sans-serif; font-size: 11px; color: var(--muted); cursor: pointer; }
-    .btn-plain:hover { color: var(--text); border-color: var(--muted); }
+    .btn-plain:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+    .btn-plain:disabled { opacity: 0.4; cursor: default; }
     .btn-plain.danger:hover { color: var(--error); border-color: rgba(192,57,43,0.4); }
     button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
 
     .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 20px; }
-    .card-head { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .card-head { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .card-note { font-size: 11px; color: var(--muted); }
+    .card-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
     .card-body { padding: 18px 20px; }
     .card.hero { border-color: rgba(138,109,36,0.45); }
     .card.hero .card-head { background: #FDFAF1; }
+
+    .list-search { height: 30px; width: 190px; border: 1px solid var(--border); border-radius: 3px; padding: 0 9px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .list-search:focus { outline: none; border-color: var(--gold); }
+    .pager-bar { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 10px 20px; border-top: 1px solid var(--border); background: #FAFAF8; }
+    .pager-bar.hidden { display: none; }
+    .pager-info { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
     table { width: 100%; border-collapse: collapse; }
     thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
@@ -51,8 +59,9 @@
     .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 18px 24px; }
     .fact-label { font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
     .fact-value { font-size: 14px; }
-    .fact-value.big { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--green-dark); }
-    .fact-value.stale { color: var(--stale); }
+    .fact-value.big { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--green-dark); line-height: 1.1; }
+    .fact-value.big.stale { color: var(--stale); }
+    .fact-sub { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
 
     .idle { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--stale); white-space: nowrap; }
     .chip { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 9px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
@@ -60,6 +69,7 @@
     .chip-active   { background: #E7F0E8; color: var(--green-dark); }
     .chip-internal { background: #EEEDE9; color: var(--muted); }
     .chip-void     { background: #F7E7E4; color: var(--error); }
+    .chip-ref      { background: #EFEDE6; color: var(--text); font-family: inherit; letter-spacing: 0.05em; }
     .styles-line { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
     .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
@@ -75,8 +85,7 @@
       .split > div + div { border-left: none; border-top: 1px solid var(--border); }
     }
 
-    .chart-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .chart-tools input[type="date"] { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .chart-tools input[type="date"] { height: 30px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
     .canvas-box { position: relative; height: 230px; }
     .legend { display: flex; gap: 20px; margin-top: 12px; font-size: 11px; color: var(--muted); }
     .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 1px; margin-right: 6px; transform: translateY(1px); }
@@ -113,9 +122,8 @@
 
   <div id="app" class="hidden">
 
-    <!-- 客戶選擇器:僅在網址沒帶 ?dealer= 時顯示 -->
     <div class="card hidden" id="pickerCard">
-      <div class="card-head"><span class="card-title">Choose a dealer</span></div>
+      <div class="card-head"><span class="card-title" id="pickerTitle">Choose a dealer</span></div>
       <div class="card-body">
         <div class="picker">
           <select id="pickerSelect" aria-label="Dealer"></select>
@@ -126,7 +134,7 @@
 
     <div id="detail" class="hidden">
 
-      <!-- A · 抬頭 -->
+      <!-- 抬頭 -->
       <div class="page-header">
         <div>
           <div class="page-title" id="hCompany">—</div>
@@ -135,16 +143,7 @@
         <a class="btn-plain" href="admin-dealers.html">All dealers</a>
       </div>
 
-      <!-- B · 卡住的 Draft(主角) -->
-      <div class="card hero" id="cardStuck">
-        <div class="card-head">
-          <span class="card-title">Drafts sitting over <span id="stuckDays">14</span> days</span>
-          <span class="card-note" id="stuckNote"></span>
-        </div>
-        <div id="stuckBody"></div>
-      </div>
-
-      <!-- D · 交易摘要 -->
+      <!-- 1 · Trading summary -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Trading summary</span>
@@ -153,11 +152,24 @@
         <div class="card-body"><div class="facts" id="summaryFacts"></div></div>
       </div>
 
-      <!-- E · 日柱狀圖 -->
+      <!-- 2 · Drafts sitting over N days -->
+      <div class="card hero">
+        <div class="card-head">
+          <span class="card-title">Drafts sitting over <span id="stuckDays">14</span> days</span>
+          <div class="card-tools">
+            <input class="list-search" type="search" id="stuckSearch" placeholder="Search drafts…" aria-label="Search drafts"/>
+            <span class="card-note" id="stuckNote"></span>
+          </div>
+        </div>
+        <div id="stuckBody"></div>
+        <div class="pager-bar hidden" id="stuckPager"></div>
+      </div>
+
+      <!-- 3 · Quotes raised per day -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Quotes raised per day</span>
-          <div class="chart-tools">
+          <div class="card-tools chart-tools">
             <input type="date" id="chartFrom" aria-label="From"/>
             <input type="date" id="chartTo"   aria-label="To"/>
             <button class="btn-plain" type="button" id="chartReset">Reset</button>
@@ -166,13 +178,13 @@
         <div class="card-body">
           <div class="canvas-box"><canvas id="chartDaily"></canvas></div>
           <div class="legend">
-            <span><i style="background:#3e5a42"></i>Paid</span>
-            <span><i style="background:#B9C4BB"></i>Not yet paid</span>
+            <span><i style="background:#3e5a42"></i>Submitted</span>
+            <span><i style="background:#B9C4BB"></i>Still a draft</span>
           </div>
         </div>
       </div>
 
-      <!-- C · 門板風格對照 -->
+      <!-- 4 · Door styles -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Door styles</span>
@@ -184,7 +196,7 @@
         </div>
       </div>
 
-      <!-- F · 客戶註記 -->
+      <!-- 5 · Notes -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Notes</span>
@@ -201,16 +213,20 @@
         </div>
       </div>
 
-      <!-- G · 退貨 -->
+      <!-- 6 · Returns -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Returns</span>
-          <span class="card-note" id="returnsNote"></span>
+          <div class="card-tools">
+            <input class="list-search" type="search" id="returnsSearch" placeholder="Search returns…" aria-label="Search returns"/>
+            <span class="card-note" id="returnsNote"></span>
+          </div>
         </div>
         <div id="returnsBody"></div>
+        <div class="pager-bar hidden" id="returnsPager"></div>
       </div>
 
-      <!-- H · Reminder -->
+      <!-- 7 · Reminders -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Reminders</span>
@@ -219,16 +235,16 @@
         <div id="remindersBody"></div>
       </div>
 
-      <!-- I · 專屬折扣規則 -->
+      <!-- 8 · Current discount rules -->
       <div class="card">
         <div class="card-head">
-          <span class="card-title">Personal discount rules</span>
+          <span class="card-title">Current discount rules</span>
           <span class="card-note" id="rulesNote"></span>
         </div>
         <div id="rulesBody"></div>
       </div>
 
-      <!-- J · 已刪除的草稿 -->
+      <!-- 9 · Deleted drafts -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Deleted drafts</span>
@@ -237,13 +253,17 @@
         <div id="goneBody"></div>
       </div>
 
-      <!-- E · 全部訂單 -->
+      <!-- 10 · All quotes -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">All quotes</span>
-          <span class="card-note" id="allNote"></span>
+          <div class="card-tools">
+            <input class="list-search" type="search" id="allSearch" placeholder="Search quotes…" aria-label="Search quotes"/>
+            <span class="card-note" id="allNote"></span>
+          </div>
         </div>
         <div id="allBody"></div>
+        <div class="pager-bar hidden" id="allPager"></div>
       </div>
 
     </div><!-- /#detail -->
@@ -268,9 +288,9 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   CB-100 · dealer-detail.html
+   CB-100 · dealer-detail.html  (U2 rev.2)
    ---------------------------------------------------------------------
-   業務打電話前看的那一頁:這個客戶卡了哪幾張單、多久沒動、買過什麼、
+   業務打電話前看的那一頁:這個客戶安靜多久了、卡了哪幾張單、買過什麼、
    有沒有人跟進過。
 
    🔴 存取:admin + super_admin。dealer 不可進入 —— 本頁顯示單一客戶的
@@ -279,6 +299,14 @@
          之後前端守衛與 RLS 都會放行。本頁的保證上限受該債限制(CB-100
          票面已載明)。本頁單獨未增加曝險 —— 這些訂單與金額 admin 本來
          就從 admin-dealers 與 admin-quotes 看得到。
+
+   rev.2(2026-09-29,業主逐項指定):
+     · Trading summary 移到第一,新增 Silent for
+     · 停滯 Draft 移到第二,加分頁(10/頁)與搜尋
+     · 日柱狀圖改為 Draft / Submitted 兩段
+     · Returns、All quotes 加分頁與搜尋
+     · Reminders 明確標示 PO# / Draft#
+     · 折扣規則標題改 Current,並註明歷史邊界
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── 🔴 F-214 · Internal Draft 判斷的第四份 ───────────────────────────
@@ -300,13 +328,11 @@
 
 // 🔴 停滯判準用 created_at,不是「最後變動時間」—— 因為沒有可靠的後者:
 //    quotes 沒有 updated_at(28 欄逐欄確認);snapshot_at 只在【品項寫入】
-//    時更新(trigger 掛 quote_items AFTER INSERT),只改狀態、只改 job
-//    name、品項被清空都不會更新。
-//    語意:「這張單開了多久還沒送出」。
+//    時更新,只改狀態、只改 job name、品項被清空都不會更新。
 const STALE_DAYS = 14;
 
 // 🔴 已入帳 = 狀態測試,不是 join payments。production 實查:Order
-//    Processing 36/36、Order Completed 17/17 皆有確認付款,其他狀態 0。
+//    Processing 與 Order Completed 皆 100% 有確認付款,其他狀態 0。
 const PAID_STATUSES = ['Order Processing', 'Order Completed'];
 
 // 顯示名 ≠ 儲存值(CB-62:不翻譯 DB 值)。篩選一律用儲存值。
@@ -318,10 +344,11 @@ const DATA_SINCE = {
   views:  '2026-09-01'    // CB-85 page_views 開始記錄
 };
 
-const PAGE_SIZE   = 1000;
+const PAGE_SIZE   = 1000;   // PostgREST 讀取分頁
+const PER_PAGE    = 10;     // 畫面清單每頁列數(業主指定)
 const NOTE_MAX    = 2000;
-const CHART_PAID  = '#3e5a42';
-const CHART_OPEN  = '#B9C4BB';
+const CHART_SENT  = '#3e5a42';
+const CHART_DRAFT = '#B9C4BB';
 
 /* ── 🔴 日期:一律走 ProCraftDate,本頁不自寫任何日曆運算 ────────────
    F-174 硬規則②:區間端點必須各自獨立換算,絕不可由起點加固定時長。
@@ -331,19 +358,20 @@ const D = window.ProCraftDate;
 
 function dateModuleReady() {
   return !!D
-    && typeof D.todayET             === 'function'
-    && typeof D.etYMD               === 'function'
-    && typeof D.shiftYMD            === 'function'
-    && typeof D.etDayStartUTC       === 'function'
-    && typeof D.etDayEndExclusiveUTC=== 'function'
-    && typeof D.formatETDate        === 'function';
+    && typeof D.todayET              === 'function'
+    && typeof D.etYMD                === 'function'
+    && typeof D.shiftYMD             === 'function'
+    && typeof D.etDayStartUTC        === 'function'
+    && typeof D.etDayEndExclusiveUTC === 'function'
+    && typeof D.formatETDate         === 'function'
+    && typeof D.formatETDateTime     === 'function';
 }
 
 /* 兩個 ET 日曆日相差幾天。
    🔴 只用已匯出的 etDayStartUTC,本頁不含任何日曆加減。
-   🔴 Math.round 是必要的,不是保險:跨越 DST 的兩個 ET 午夜之間,
-      實際毫秒數不是 86400000 的整數倍(相差最多一小時)。直接整除會
-      在那些區間少算一天。誤差上限 1/24 天,四捨五入後必然精確。 */
+   🔴 Math.round 是必要的,不是保險:跨越 DST 的兩個 ET 午夜之間,實際
+      毫秒數不是 86400000 的整數倍(相差最多一小時)。直接整除會在那些
+      區間少算一天。誤差上限 1/24 天,四捨五入後必然精確。 */
 function daysBetweenYMD(fromYMD, toYMD) {
   const a = D.etDayStartUTC(fromYMD);
   const b = D.etDayStartUTC(toYMD);
@@ -352,9 +380,7 @@ function daysBetweenYMD(fromYMD, toYMD) {
 }
 
 // YMD 字串 → "Sep 8, 2026"。UTC 正午必定落在該 ET 日曆日,故可安全轉換。
-function prettyYMD(ymd) {
-  return ymd ? D.formatETDate(ymd + 'T12:00:00Z') : '—';
-}
+function prettyYMD(ymd) { return ymd ? D.formatETDate(ymd + 'T12:00:00Z') : '—'; }
 
 function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
 function esc(s) {
@@ -363,7 +389,21 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 function statusLabel(v) { return STATUS_LABEL[v] || (v || '(no status)'); }
-function quoteRef(q) { return q.po_number || q.draft_number || '(no number)'; }
+
+/* 🔴 單號的顯示必須標示【那是什麼號碼】。
+   雙編號制:Draft 階段只有 draft_number,送出後才配 po_number。
+   兩者混在同一格而不標示,看的人分不出「PDC09057」與「D00391」的差別,
+   也就無從判斷這張單送出了沒有。 */
+function refHTML(q) {
+  if (!q) return '<span class="chip chip-void">Deleted quote</span>';
+  if (q.po_number)    return 'PO <b>' + esc(q.po_number) + '</b>';
+  if (q.draft_number) return 'Draft <b>' + esc(q.draft_number) + '</b>';
+  return '<span class="styles-line">(no number)</span>';
+}
+function refText(q) {
+  if (!q) return '';
+  return (q.po_number || '') + ' ' + (q.draft_number || '');
+}
 
 /* ── 🔴 CB-97 · Internal Draft。== null 同時涵蓋 null 與 undefined,
       沿用 CB-97 原碼的比較方式,不改為 ===:select 欄位缺席時 undefined
@@ -377,19 +417,16 @@ function isInternalDraft(q) {
    ═══════════════════════════════════════════════════════════════════════ */
 
 const sb = window.supabase.createClient(window.SB_URL, window.SB_KEY);
-
-const el   = (id) => document.getElementById(id);
-const gate = () => el('gate');
+const el = (id) => document.getElementById(id);
 
 function stopWith(html) {
-  gate().innerHTML = html;
-  gate().classList.remove('hidden');
+  el('gate').innerHTML = html;
+  el('gate').classList.remove('hidden');
   el('app').classList.add('hidden');
 }
 
 /* 分頁讀取。PostgREST 上限 1000 列且截斷時【不回錯誤】,單次 select
-   在資料長大之後會靜默少拿。本頁 quote_items 目前約 360 列(單一客戶
-   上限),snapshots 257 列 —— 都會長大。 */
+   在資料長大之後會靜默少拿。 */
 async function readAll(table, columns, build) {
   const out = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -411,10 +448,11 @@ async function readAll(table, columns, build) {
 const S = {
   me: null, meName: '', isSuper: false,
   dealers: new Map(), dealerId: null, dealer: null,
-  quotes: [], items: new Map(), styles: new Map(), touched: new Set(),
+  quotes: [], qById: new Map(), items: new Map(), styles: new Map(), touched: new Set(),
   credits: [], reminders: [], rules: [], notes: [], gone: [],
   lastView: null, today: null, cutoff: null,
-  chart: null, editingNote: null
+  chart: null, editingNote: null,
+  lists: {}        // key -> { rows, cols, search, empty, note, page, term, els }
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -440,10 +478,10 @@ async function enter() {
     return false;
   }
 
-  // 🔴 CB-82 授權出口。get_quote_stats() 在非 admin 時拋 42501,
-  //    所以它回答「我有沒有讀取權」而不需要讀本頁要報告的任何一張表。
-  //    通過之後,下面任何空結果才可安全解讀為「真的沒資料」——
-  //    直接 select 永遠做不到這件事,因為 RLS 擋住時回的是 200 + []。
+  // 🔴 CB-82 授權出口。get_quote_stats() 在非 admin 時拋 42501,所以它
+  //    回答「我有沒有讀取權」而不需要讀本頁要報告的任何一張表。通過之後,
+  //    下面任何空結果才可安全解讀為「真的沒資料」—— 直接 select 永遠做
+  //    不到這件事,因為 RLS 擋住時回的是 200 + []。
   const probe = await sb.rpc('get_quote_stats');
   if (probe.error) {
     stopWith('Your account cannot read order data.<br/>Ask a super admin to check your role.');
@@ -478,6 +516,7 @@ async function loadDealerData(dealerId) {
   //    不排除就把同一筆生意算兩次。
   //    Cancelled 不排除 —— 那是生意真的沒了,只算過一次。
   S.quotes = quotes.filter(q => !(q.status === 'Closed' && q.close_reason_type));
+  S.qById  = new Map(S.quotes.map(q => [q.id, q]));
 
   const ids = S.quotes.map(q => q.id);
 
@@ -524,7 +563,7 @@ async function loadDealerData(dealerId) {
   ]);
 
   S.credits   = credits;
-  S.reminders = reminders;
+  S.reminders = reminders.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   S.rules     = rules;
   S.notes     = notes.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   S.lastView  = (views && views.data && views.data[0]) || null;
@@ -538,7 +577,7 @@ async function loadDealerData(dealerId) {
            (例如匯入工具)就會被誤當成客戶在改。
         必要性:production 的快照 89.9% 是 backfill,snapshot_at 全部
         是 2026-09-08 20:21:58 那一秒。少了這個條件,只要窗口長度超過
-        (今天 − 2026-09-08),58 張停滯單會【全部】變成「近期有動」。
+        (今天 − 2026-09-08),停滯單會【全部】變成「近期有動」。
         用正向條件讓窗口長度與正確性脫鉤。
 
      ② Date.parse 比較,不是字串比較
@@ -559,7 +598,7 @@ async function loadDealerData(dealerId) {
     S.touched.add(s.quote_id);
   });
 
-  // J · 已刪除的草稿 = 快照有、母體沒有。
+  // 已刪除的草稿 = 快照有、母體沒有。
   // 🔴 grand_total 是單層欄位,每一列都重複帶一份 → 必須先去重到一單一列,
   //    否則金額被放大成品項列數倍(production 實測 32 倍)。
   const live = new Set(ids);
@@ -577,6 +616,120 @@ async function loadDealerData(dealerId) {
   });
   S.gone = Array.from(goneMap.values())
     .sort((a, b) => (a.snapshot_at < b.snapshot_at ? 1 : -1));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   清單元件 —— 搜尋 + 分頁
+   一份實作供三個清單共用(停滯 Draft / Returns / All quotes)。
+   🔴 搜尋與分頁都在【記憶體】進行:資料在 load 階段已全部取回,
+      單一客戶的量級(最多數十列)不需要伺服端分頁。
+   🔴 搜尋改變時 page 必須歸零 —— 否則在第 3 頁輸入條件會得到一個空畫面,
+      而使用者看不出那是「這一頁沒有」還是「沒有符合的」。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function defineList(key, cfg) {
+  S.lists[key] = {
+    rows: cfg.rows, cols: cfg.cols, search: cfg.search,
+    empty: cfg.empty, noteText: cfg.noteText || '',
+    unit: cfg.unit || 'record',
+    page: 0, term: '',
+    bodyId: key + 'Body', noteId: key + 'Note',
+    pagerId: key + 'Pager', searchId: key + 'Search'
+  };
+  paintList(key);
+}
+
+function filteredRows(L) {
+  if (!L.term) return L.rows;
+  const t = L.term.toLowerCase();
+  return L.rows.filter(r => String(L.search(r) || '').toLowerCase().indexOf(t) !== -1);
+}
+
+function paintList(key) {
+  const L = S.lists[key];
+  if (!L) return;
+  const rows  = filteredRows(L);
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / PER_PAGE));
+  if (L.page > pages - 1) L.page = pages - 1;
+  if (L.page < 0) L.page = 0;
+
+  const start = L.page * PER_PAGE;
+  const slice = rows.slice(start, start + PER_PAGE);
+
+  // 標題列:總數 + 搜尋中的說明。
+  // 🔴 搜尋有結果與沒結果必須分得出來,否則使用者不知道是條件太窄還是真的沒有。
+  const noteEl = el(L.noteId);
+  if (noteEl) {
+    noteEl.textContent = L.term
+      ? total + ' of ' + L.rows.length + ' match'
+      : (L.rows.length
+          ? L.rows.length + ' ' + L.unit + (L.rows.length === 1 ? '' : 's')
+            + (L.noteText ? ' · ' + L.noteText : '')
+          : L.noteText);
+  }
+
+  const body = el(L.bodyId);
+  if (!total) {
+    body.innerHTML = '<div class="empty">' +
+      esc(L.term ? 'Nothing matches “' + L.term + '”.' : L.empty) + '</div>';
+  } else {
+    body.innerHTML =
+      '<table><thead><tr>' + L.cols.map(c =>
+        '<th' + (c.num ? ' class="num"' : '') + '>' + esc(c.label) + '</th>').join('') +
+      '</tr></thead><tbody>' +
+      slice.map(r => '<tr>' + L.cols.map(c =>
+        '<td' + (c.num ? ' class="num"' : '') + '>' + c.get(r) + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table>';
+  }
+
+  const pager = el(L.pagerId);
+  if (!pager) return;
+  if (total <= PER_PAGE) { pager.classList.add('hidden'); pager.innerHTML = ''; return; }
+  pager.classList.remove('hidden');
+  pager.innerHTML =
+    '<span class="pager-info">' + (start + 1) + '–' + Math.min(start + PER_PAGE, total)
+      + ' of ' + total + '</span>' +
+    '<button class="btn-plain" type="button" data-nav="prev"' + (L.page === 0 ? ' disabled' : '') + '>Prev</button>' +
+    '<button class="btn-plain" type="button" data-nav="next"' + (L.page >= pages - 1 ? ' disabled' : '') + '>Next</button>';
+}
+
+function wireList(key) {
+  const L = S.lists[key];
+  if (!L) return;
+  const input = el(L.searchId);
+  if (input) {
+    input.addEventListener('input', () => {
+      L.term = input.value.trim();
+      L.page = 0;              // 🔴 見上:條件改變必須回第一頁
+      paintList(key);
+    });
+  }
+  const pager = el(L.pagerId);
+  if (pager) {
+    pager.addEventListener('click', e => {
+      const b = e.target.closest('button[data-nav]');
+      if (!b || b.disabled) return;
+      L.page += (b.getAttribute('data-nav') === 'next' ? 1 : -1);
+      paintList(key);
+    });
+  }
+}
+
+/* 不需要搜尋分頁的簡單表格(Reminders / 折扣規則 / 已刪草稿)。 */
+function plainTable(bodyId, noteId, rows, cols, emptyText, noteText) {
+  const n = el(noteId);
+  if (n) n.textContent = rows.length
+    ? rows.length + ' record' + (rows.length === 1 ? '' : 's') + (noteText ? ' · ' + noteText : '')
+    : (noteText || '');
+  if (!rows.length) { el(bodyId).innerHTML = '<div class="empty">' + esc(emptyText) + '</div>'; return; }
+  el(bodyId).innerHTML =
+    '<table><thead><tr>' + cols.map(c =>
+      '<th' + (c.num ? ' class="num"' : '') + '>' + esc(c.label) + '</th>').join('') +
+    '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + cols.map(c =>
+      '<td' + (c.num ? ' class="num"' : '') + '>' + c.get(r) + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table>';
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -636,12 +789,67 @@ function renderHeader() {
   el('hSub').innerHTML = badge + bits.join(' &nbsp;·&nbsp; ');
 }
 
-function renderStuck() {
-  el('stuckDays').textContent = String(STALE_DAYS);
+/* 1 · Trading summary ─────────────────────────────────────────────────── */
+function renderSummary() {
+  const paid   = S.quotes.filter(q => PAID_STATUSES.indexOf(q.status) !== -1);
+  const drafts = S.quotes.filter(q => q.status === 'Draft');
 
+  // 退貨淨額。🔴 net_store_credit_amount 存的是【負值】(與
+  //    quotes.account_credit_amount 同慣例),所以是【加】不是減。
+  // 🔴 已作廢的 memo 不可計入 —— 那是被撤銷的退貨,扣了等於算兩次。
+  const creditSum = S.credits.filter(c => !c.voided_at)
+    .reduce((s, c) => s + (Number(c.net_store_credit_amount) || 0), 0);
+  const paidValue = paid.reduce((s, q) => s + (Number(q.grand_total) || 0), 0) + creditSum;
+
+  /* 🔴 Silent for —— 業主指定 B 案:以 fulfillment_date 為基準。
+     ⚠️ 語意是【出貨】不是【付款】。剛付完錢、還在排產的單不會更新
+        fulfillment_date,所以一個很活躍的客戶也可能顯示很大的沉默天數。
+        因此下方必須同時顯示「已付款待出貨」的張數 —— 那個數字存在時,
+        沉默天數就不可單獨解讀。
+     📌 真正的付款日在 payments.confirmed_at,本頁刻意不讀該表(業主
+        2026-09-29 決定 B 案,維持本頁的資料源不變)。 */
+  const shipped = paid.filter(q => q.fulfillment_date)
+                      .sort((a, b) => (a.fulfillment_date < b.fulfillment_date ? 1 : -1));
+  const lastShip  = shipped[0] || null;
+  const silentFor = lastShip ? daysBetweenYMD(lastShip.fulfillment_date, S.today) : null;
+  const inFlight  = paid.filter(q => !q.fulfillment_date).length;
+
+  const viewYMD   = S.lastView ? D.etYMD(S.lastView.viewed_at) : null;
+  const sinceView = viewYMD ? daysBetweenYMD(viewYMD, S.today) : null;
+
+  const facts = [
+    { label: 'Silent for',
+      value: lastShip ? silentFor + (silentFor === 1 ? ' day' : ' days') : 'Never ordered',
+      cls:   'big' + (lastShip && silentFor > 60 ? ' stale' : (lastShip ? '' : ' stale')),
+      sub:   (lastShip ? 'since last order shipped, ' + prettyYMD(lastShip.fulfillment_date) : 'no shipped order on record')
+             + (inFlight ? ' · ' + inFlight + ' paid, awaiting shipment' : '') },
+    { label: 'Paid value', value: money(paidValue), cls: 'big',
+      sub: paid.length + ' paid ' + (paid.length === 1 ? 'quote' : 'quotes') },
+    { label: 'Quotes', value: String(S.quotes.length),
+      sub: drafts.length + ' still a draft' },
+    { label: 'Last seen in portal',
+      value: viewYMD ? sinceView + (sinceView === 1 ? ' day' : ' days') + ' ago' : 'No record',
+      sub: viewYMD ? prettyYMD(viewYMD) : 'visits recorded since ' + prettyYMD(DATA_SINCE.views) }
+  ];
+
+  el('summaryFacts').innerHTML = facts.map(f =>
+    '<div><div class="fact-label">' + esc(f.label) + '</div>' +
+    '<div class="fact-value ' + (f.cls || '') + '">' + f.value + '</div>' +
+    (f.sub ? '<div class="fact-sub">' + f.sub + '</div>' : '') + '</div>'
+  ).join('');
+
+  // 🔴 「沒紀錄」不等於「沒發生」。瀏覽紀錄 2026-09-01 才開始,
+  //    而 login 事件是 best-effort(CB-83 C-3),缺漏不代表沒登入。
+  el('summaryNote').textContent =
+    'Paid means Order Processing or Order Completed. Orders tracked since '
+    + prettyYMD(DATA_SINCE.orders) + '.';
+}
+
+/* 2 · 停滯 Draft ──────────────────────────────────────────────────────── */
+function buildStuck() {
   // 🔴 門檻比較用 YMD 字串。"YYYY-MM-DD" 的字串序等於時序,所以篩選邊界
   //    與日期分組用的是同一組單位 —— 這是邊界不會差一天的原因。
-  const stuck = S.quotes
+  return S.quotes
     .filter(q => q.status === 'Draft' && D.etYMD(q.created_at) < S.cutoff)
     .map(q => {
       const ymd   = D.etYMD(q.created_at);
@@ -651,139 +859,84 @@ function renderStuck() {
         q, ymd, age: daysBetweenYMD(ymd, S.today),
         touched: S.touched.has(q.id),
         itemCount: items.reduce((s, i) => s + (Number(i.quantity) || 0), 0),
-        styles: codes.map(c => {
-          const r = S.styles.get(c);
-          return r ? (r.style_name || c) : c;
-        })
+        styles: codes.map(c => { const r = S.styles.get(c); return r ? (r.style_name || c) : c; })
       };
     })
     .sort((a, b) => (b.age || 0) - (a.age || 0));
+}
 
-  const total = stuck.reduce((s, x) => s + (Number(x.q.grand_total) || 0), 0);
-  const internal = stuck.filter(x => isInternalDraft(x.q)).length;
+function renderStuck() {
+  el('stuckDays').textContent = String(STALE_DAYS);
+  const rows = buildStuck();
+  const total = rows.reduce((s, x) => s + (Number(x.q.grand_total) || 0), 0);
+  const internal = rows.filter(x => isInternalDraft(x.q)).length;
+  const touched  = rows.filter(x => x.touched).length;
 
-  const touched = stuck.filter(x => x.touched).length;
-
-  el('stuckNote').textContent = stuck.length
-    ? stuck.length + (stuck.length === 1 ? ' draft' : ' drafts') + ' · ' + money(total)
+  defineList('stuck', {
+    rows: rows,
+    unit: 'draft',
+    noteText: money(total)
       + (internal ? ' · ' + internal + ' built internally' : '')
-      + (touched ? ' · ' + touched + ' still being edited' : '')
-    : 'Nothing sitting. Orders tracked since ' + prettyYMD(DATA_SINCE.orders) + '.';
-
-  if (!stuck.length) {
-    el('stuckBody').innerHTML =
-      '<div class="empty">No draft has been sitting more than ' + STALE_DAYS + ' days.</div>';
-    return;
-  }
-
-  el('stuckBody').innerHTML =
-    '<table><thead><tr>' +
-      '<th>Draft</th><th class="num">Idle</th><th class="num">Value</th>' +
-      '<th class="num">Items</th><th>Where it stands</th>' +
-    '</tr></thead><tbody>' +
-    stuck.map(x => {
+      + (touched  ? ' · ' + touched  + ' still being edited' : ''),
+    empty: 'No draft has been sitting more than ' + STALE_DAYS + ' days.',
+    search: x => refText(x.q) + ' ' + (x.q.job_name || '') + ' ' + x.styles.join(' '),
+    cols: [
+      { label: 'Draft', get: x =>
+          '<a href="quote-detail.html?id=' + encodeURIComponent(x.q.id) + '">' + refHTML(x.q) + '</a>'
+          + (x.q.job_name ? '<div class="styles-line">' + esc(x.q.job_name) + '</div>' : '') },
+      { label: 'Idle', num: true, get: x =>
+          '<span class="idle">' + (x.age == null ? '—' : x.age + 'd') + '</span>'
+          + '<div class="styles-line">' + esc(prettyYMD(x.ymd)) + '</div>' },
+      { label: 'Value', num: true, get: x => money(x.q.grand_total) },
+      { label: 'Items', num: true, get: x =>
+          x.itemCount + (x.styles.length
+            ? '<div class="styles-line">' + esc(x.styles.slice(0, 3).join(', '))
+              + (x.styles.length > 3 ? ' +' + (x.styles.length - 3) : '') + '</div>'
+            : '') },
       // 三個旗標全部正向識別 —— 確認它【是】某種情形,不用「不是 X」排除。
-      let chip;
-      if (isInternalDraft(x.q)) {
-        // 內部建的:admin 代建、從未通知客戶。不是追蹤對象。
-        chip = '<span class="chip chip-internal">Built internally</span>';
-      } else if (x.touched) {
-        chip = '<span class="chip chip-active">Customer still editing</span>';
-      } else {
-        chip = '<span class="chip chip-stale">Untouched</span>';
-      }
-      const styleLine = x.styles.length
-        ? '<div class="styles-line">' + esc(x.styles.slice(0, 3).join(', '))
-          + (x.styles.length > 3 ? ' +' + (x.styles.length - 3) : '') + '</div>'
-        : '';
-      return '<tr>' +
-        '<td><a href="quote-detail.html?id=' + encodeURIComponent(x.q.id) + '">' + esc(quoteRef(x.q)) + '</a>' +
-          (x.q.job_name ? '<div class="styles-line">' + esc(x.q.job_name) + '</div>' : '') + '</td>' +
-        '<td class="num"><span class="idle">' + (x.age == null ? '—' : x.age + 'd') + '</span>' +
-          '<div class="styles-line">' + esc(prettyYMD(x.ymd)) + '</div></td>' +
-        '<td class="num">' + money(x.q.grand_total) + '</td>' +
-        '<td class="num">' + x.itemCount + styleLine + '</td>' +
-        '<td>' + chip + '</td>' +
-      '</tr>';
-    }).join('') +
-    '</tbody></table>';
+      { label: 'Where it stands', get: x =>
+          isInternalDraft(x.q) ? '<span class="chip chip-internal">Built internally</span>'
+        : x.touched            ? '<span class="chip chip-active">Customer still editing</span>'
+        :                        '<span class="chip chip-stale">Untouched</span>' }
+    ]
+  });
 }
 
-function renderSummary() {
-  const paid   = S.quotes.filter(q => PAID_STATUSES.indexOf(q.status) !== -1);
-  const drafts = S.quotes.filter(q => q.status === 'Draft');
-
-  // 退貨淨額。🔴 net_store_credit_amount 存的是【負值】(與
-  //    quotes.account_credit_amount 同慣例),所以是【加】不是減。
-  // 🔴 已作廢的 memo 不可計入 —— 那是被撤銷的退貨,扣了等於算兩次。
-  const creditLive = S.credits.filter(c => !c.voided_at);
-  const creditSum  = creditLive.reduce((s, c) => s + (Number(c.net_store_credit_amount) || 0), 0);
-
-  const paidValue = paid.reduce((s, q) => s + (Number(q.grand_total) || 0), 0) + creditSum;
-
-  const done = paid.filter(q => q.fulfillment_date)
-                   .sort((a, b) => (a.fulfillment_date < b.fulfillment_date ? 1 : -1));
-  const lastDone = done[0] || null;
-  const sinceDone = lastDone ? daysBetweenYMD(lastDone.fulfillment_date, S.today) : null;
-
-  const viewYMD  = S.lastView ? D.etYMD(S.lastView.viewed_at) : null;
-  const sinceView = viewYMD ? daysBetweenYMD(viewYMD, S.today) : null;
-
-  const facts = [
-    ['Quotes',        String(S.quotes.length)],
-    ['Paid',          String(paid.length),   'big'],
-    ['Paid value',    money(paidValue),      'big'],
-    ['Sitting in draft', String(drafts.length)],
-    ['Last paid order', lastDone
-        ? prettyYMD(lastDone.fulfillment_date) + ' · ' + sinceDone + 'd ago'
-        : 'Never', lastDone && sinceDone > 60 ? 'stale' : ''],
-    ['Last seen in portal', viewYMD
-        ? prettyYMD(viewYMD) + ' · ' + sinceView + 'd ago'
-        : 'No record', viewYMD ? '' : 'stale']
-  ];
-
-  el('summaryFacts').innerHTML = facts.map(f =>
-    '<div><div class="fact-label">' + esc(f[0]) + '</div>' +
-    '<div class="fact-value ' + (f[2] || '') + '">' + f[1] + '</div></div>'
-  ).join('');
-
-  // 🔴 「沒紀錄」不等於「沒發生」。瀏覽紀錄 2026-09-01 才開始,
-  //    而 login 事件是 best-effort(CB-83 C-3),缺漏不代表沒登入。
-  el('summaryNote').textContent =
-    'Paid means Order Processing or Order Completed. Portal visits recorded since '
-    + prettyYMD(DATA_SINCE.views) + ' — no record does not mean no visit.';
-}
-
+/* 3 · 日柱狀圖 ────────────────────────────────────────────────────────── */
 function renderChart() {
   const from = el('chartFrom').value, to = el('chartTo').value;
   if (!from || !to || from > to) return;
 
-  // 完整日期序列,沒有單的日子補 0。
-  // 🔴 只給圖表「有資料的日子」會讓 x 軸自己壓縮,看起來像天天有單。
-  // 🔴 逐日推進一律用 shiftYMD(日曆加減),不可用毫秒累加。
-  const labels = [], paid = [], open = [];
+  /* 🔴 兩段的定義(業主 2026-09-29 指定改為 Draft / Submitted):
+       Still a draft = status === 'Draft'(含 Internal Draft —— 它也是草稿)
+       Submitted     = 其餘全部
+     作廢的 Closed 已在 load 階段排除,所以剩下的非 Draft 都確實送出過。 */
+  const labels = [], sent = [], draft = [];
   const byDay = new Map();
   S.quotes.forEach(q => {
     const d = D.etYMD(q.created_at);
     if (!d || d < from || d > to) return;
-    if (!byDay.has(d)) byDay.set(d, { p: 0, o: 0 });
-    if (PAID_STATUSES.indexOf(q.status) !== -1) byDay.get(d).p += 1;
-    else byDay.get(d).o += 1;
+    if (!byDay.has(d)) byDay.set(d, { s: 0, d: 0 });
+    if (q.status === 'Draft') byDay.get(d).d += 1; else byDay.get(d).s += 1;
   });
 
+  // 完整日期序列,沒有單的日子補 0。
+  // 🔴 只給圖表「有資料的日子」會讓 x 軸自己壓縮,看起來像天天有單。
+  // 🔴 逐日推進一律用 shiftYMD(日曆加減),不可用毫秒累加。
   let cur = from, guard = 0;
   while (cur <= to && guard++ < 4000) {
-    const b = byDay.get(cur) || { p: 0, o: 0 };
-    labels.push(prettyYMD(cur)); paid.push(b.p); open.push(b.o);
+    const b = byDay.get(cur) || { s: 0, d: 0 };
+    labels.push(prettyYMD(cur)); sent.push(b.s); draft.push(b.d);
     cur = D.shiftYMD(cur, 1);
     if (!cur) break;
   }
 
-  const cfg = {
+  if (S.chart) { S.chart.destroy(); S.chart = null; }
+  S.chart = new Chart(el('chartDaily'), {
     type: 'bar',
     data: { labels: labels, datasets: [
-      { label: 'Paid',         data: paid, backgroundColor: CHART_PAID, borderWidth: 0 },
-      { label: 'Not yet paid', data: open, backgroundColor: CHART_OPEN, borderWidth: 0 }
+      { label: 'Submitted',     data: sent,  backgroundColor: CHART_SENT,  borderWidth: 0 },
+      { label: 'Still a draft', data: draft, backgroundColor: CHART_DRAFT, borderWidth: 0 }
     ]},
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
@@ -798,12 +951,10 @@ function renderChart() {
       plugins: { legend: { display: false },
                  tooltip: { backgroundColor: '#2C3A32', padding: 10 } }
     }
-  };
-
-  if (S.chart) { S.chart.destroy(); S.chart = null; }
-  S.chart = new Chart(el('chartDaily'), cfg);
+  });
 }
 
+/* 5 · Notes ───────────────────────────────────────────────────────────── */
 function renderNotes() {
   el('notesNote').textContent = S.notes.length
     ? S.notes.length + (S.notes.length === 1 ? ' note' : ' notes')
@@ -819,11 +970,9 @@ function renderNotes() {
     // 🔴 這只是【畫面】的呈現,真正的邊界在 DB:RLS 決定誰碰得到這一列,
     //    trigger guard_dealer_note_update() 決定碰得到的人可以改哪幾欄。
     //    前端隱藏按鈕不是保護。
-    const mine     = n.created_by === S.me;
-    const canEdit  = mine;
-    const canDelete = mine || S.isSuper;
+    const mine = n.created_by === S.me;
     if (S.editingNote === n.id) {
-      return '<div class="note" data-id="' + esc(n.id) + '">' +
+      return '<div class="note">' +
         '<div class="note-meta"><b>' + esc(n.created_by_name) + '</b>' +
           '<span>' + esc(D.formatETDateTime(n.created_at)) + '</span></div>' +
         '<textarea class="note-edit" maxlength="' + NOTE_MAX + '">' + esc(n.body) + '</textarea>' +
@@ -838,105 +987,118 @@ function renderNotes() {
         (n.edited_at ? '<span>edited ' + esc(D.formatETDateTime(n.edited_at)) + '</span>' : '') +
       '</div>' +
       '<div class="note-body">' + esc(n.body) + '</div>' +
-      ((canEdit || canDelete) ? '<div class="note-actions">' +
-        (canEdit   ? '<button class="btn-plain" data-act="edit" data-id="' + esc(n.id) + '">Edit</button>' : '') +
-        (canDelete ? '<button class="btn-plain danger" data-act="delete" data-id="' + esc(n.id) + '">Delete</button>' : '') +
+      ((mine || S.isSuper) ? '<div class="note-actions">' +
+        (mine ? '<button class="btn-plain" data-act="edit" data-id="' + esc(n.id) + '">Edit</button>' : '') +
+        '<button class="btn-plain danger" data-act="delete" data-id="' + esc(n.id) + '">Delete</button>' +
       '</div>' : '') +
     '</div>';
   }).join('');
 }
 
-function simpleTable(target, noteTarget, rows, cols, emptyText, noteText) {
-  el(noteTarget).textContent = rows.length
-    ? rows.length + ' record' + (rows.length === 1 ? '' : 's') + (noteText ? ' · ' + noteText : '')
-    : (noteText || '');
-  if (!rows.length) { el(target).innerHTML = '<div class="empty">' + esc(emptyText) + '</div>'; return; }
-  el(target).innerHTML =
-    '<table><thead><tr>' + cols.map(c =>
-      '<th' + (c.num ? ' class="num"' : '') + '>' + esc(c.label) + '</th>').join('') +
-    '</tr></thead><tbody>' +
-    rows.map(r => '<tr>' + cols.map(c =>
-      '<td' + (c.num ? ' class="num"' : '') + '>' + c.get(r) + '</td>').join('') + '</tr>').join('') +
-    '</tbody></table>';
-}
-
+/* 6–10 · 其餘區塊 ─────────────────────────────────────────────────────── */
 function renderRest() {
-  const qById = new Map(S.quotes.map(q => [q.id, q]));
-  const refOf = (qid) => { const q = qById.get(qid); return q ? esc(quoteRef(q)) : '(deleted quote)'; };
+  const q4 = (qid) => S.qById.get(qid) || null;
 
-  // G · 退貨。🔴 已作廢的必須標示 —— 不標的話那筆金額看起來仍然有效。
-  simpleTable('returnsBody', 'returnsNote', S.credits, [
-    { label: 'Memo',  get: r => esc(r.memo_number) +
-        (r.voided_at ? ' <span class="chip chip-void">Voided</span>' : '') },
-    { label: 'Quote', get: r => refOf(r.quote_id) },
-    { label: 'Reason', get: r => esc(r.reason || '—') },
-    { label: 'Net', num: true, get: r => money(r.net_store_credit_amount) },
-    { label: 'Raised', get: r => esc(D.formatETDate(r.created_at)) + '<div class="styles-line">'
-        + esc(r.created_by_name || '') + '</div>' }
-  ], 'No returns on record.', 'Voided memos are shown but not counted in paid value.');
+  // 6 · Returns。🔴 已作廢的必須標示 —— 不標的話那筆金額看起來仍然有效。
+  defineList('returns', {
+    rows: S.credits.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
+    unit: 'return',
+    noteText: 'Voided memos are shown but not counted in paid value.',
+    empty: 'No returns on record.',
+    search: r => (r.memo_number || '') + ' ' + (r.reason || '') + ' '
+               + (r.created_by_name || '') + ' ' + refText(q4(r.quote_id)),
+    cols: [
+      { label: 'Memo', get: r => esc(r.memo_number)
+          + (r.voided_at ? ' <span class="chip chip-void">Voided</span>' : '') },
+      { label: 'Quote',  get: r => refHTML(q4(r.quote_id)) },
+      { label: 'Reason', get: r => esc(r.reason || '—') },
+      { label: 'Net', num: true, get: r => money(r.net_store_credit_amount) },
+      { label: 'Raised', get: r => esc(D.formatETDate(r.created_at))
+          + '<div class="styles-line">' + esc(r.created_by_name || '') + '</div>' }
+    ]
+  });
 
-  // H · Reminder。🔴 CASCADE:單被刪,reminder 一併消失,所以已刪草稿的
-  //    提醒歷史是不完整的。
-  simpleTable('remindersBody', 'remindersNote', S.reminders, [
-    { label: 'Subject', get: r => esc(r.subject) +
-        (r.description ? '<div class="styles-line">' + esc(r.description) + '</div>' : '') },
-    { label: 'Quote', get: r => refOf(r.quote_id) },
-    { label: 'Type',  get: r => esc(r.type) },
-    { label: 'Status', get: r => esc(r.status) +
-        (r.solved_date ? '<div class="styles-line">' + esc(r.solved_date) + '</div>' : '') },
-    { label: 'Due',   get: r => esc(r.reminder_date || '—') }
+  // 7 · Reminders。單號欄明確標示 PO# / Draft#(業主 2026-09-29 指定)。
+  // 🔴 CASCADE:單被刪,reminder 一併消失,所以已刪草稿的提醒歷史不完整。
+  plainTable('remindersBody', 'remindersNote', S.reminders, [
+    { label: 'Quote', get: r => refHTML(q4(r.quote_id)) },
+    { label: 'Subject', get: r => esc(r.subject)
+        + (r.description ? '<div class="styles-line">' + esc(r.description) + '</div>' : '') },
+    { label: 'Type',   get: r => esc(r.type) },
+    { label: 'Status', get: r => esc(r.status)
+        + (r.solved_date ? '<div class="styles-line">solved ' + esc(r.solved_date) + '</div>' : '') },
+    { label: 'Due',    get: r => esc(r.reminder_date || '—') }
   ], 'No reminders raised for this dealer.',
      'Reminders are deleted with their quote, so deleted drafts leave none behind.');
 
-  // I · 專屬折扣規則。三個 array 欄為 NULL = 不限制(CB-47)。
-  simpleTable('rulesBody', 'rulesNote', S.rules, [
-    { label: 'Rule',  get: r => esc(r.name) },
+  /* 8 · Current discount rules。
+     🔴 標題是 Current 而不是 Discount rules,因為這張表【沒有歷史】——
+        改掉或刪掉,舊的規則就查不到了。
+     📌 但過去的單不受影響:CB-47 在送出時把當下套用的規則快照進
+        quotes.applied_discount_rules,所以每一張單知道自己當時套了什麼。
+        查不到的是「這個客戶三個月前的規則長怎樣」。
+     三個 array 欄為 NULL = 不限制(CB-47)。 */
+  plainTable('rulesBody', 'rulesNote', S.rules, [
+    { label: 'Rule', get: r => esc(r.name) },
     { label: 'Applies to', get: r => {
-        const p = [];
-        p.push(esc(r.construction_type));
+        const p = [esc(r.construction_type)];
         p.push(r.door_styles && r.door_styles.length ? r.door_styles.length + ' styles' : 'all styles');
         p.push(r.sku_codes  && r.sku_codes.length  ? r.sku_codes.length  + ' SKUs'   : 'all SKUs');
         p.push(r.types      && r.types.length      ? esc(r.types.join(', '))         : 'all types');
         return p.join(' · ');
       } },
     { label: 'Discount', num: true,
-      get: r => esc(r.discount_type) + ' ' + esc(String(r.discount_value)) }
-  ], 'No personal discount rules.', 'Empty filter means it applies to everything.');
+      get: r => esc(r.discount_type) + ' ' + esc(String(r.discount_value)) },
+    { label: 'Changed', get: r => esc(D.formatETDate(r.updated_at)) }
+  ], 'No personal discount rules.',
+     'These are the rules in force right now — this table keeps no history. Past quotes carry their own snapshot.');
 
-  // J · 已刪除的草稿。金額已在 loadDealerData 去重到一單一列。
-  simpleTable('goneBody', 'goneNote', S.gone, [
-    { label: 'Draft', get: r => esc(r.draft_number || '(no number)') },
+  // 9 · Deleted drafts。金額已在 loadDealerData 去重到一單一列。
+  plainTable('goneBody', 'goneNote', S.gone, [
+    { label: 'Draft', get: r => r.draft_number
+        ? 'Draft <b>' + esc(r.draft_number) + '</b>' : '<span class="styles-line">(no number)</span>' },
     { label: 'Value', num: true, get: r => money(r.grand_total) },
     { label: 'Item rows', num: true, get: r => String(r.rows) },
     { label: 'Last saved', get: r => esc(D.formatETDate(r.snapshot_at)) }
   ], 'No deleted drafts on record.',
      'Only the snapshot survives — the quote itself is gone, so it cannot be reopened.');
 
-  // 全部訂單
-  const all = S.quotes.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  simpleTable('allBody', 'allNote', all, [
-    { label: 'Quote', get: q => '<a href="quote-detail.html?id=' + encodeURIComponent(q.id) + '">'
-        + esc(quoteRef(q)) + '</a>'
-        + (q.job_name ? '<div class="styles-line">' + esc(q.job_name) + '</div>' : '') },
-    { label: 'Status', get: q => esc(statusLabel(q.status))
-        + (isInternalDraft(q) ? ' <span class="chip chip-internal">Internal</span>' : '') },
-    { label: 'Value', num: true, get: q => money(q.grand_total) },
-    { label: 'Raised', get: q => esc(D.formatETDate(q.created_at)) },
-    { label: 'Shipped', get: q => esc(q.fulfillment_date ? prettyYMD(q.fulfillment_date) : '—') }
-  ], 'This dealer has no quotes.',
-     'Voided quotes reissued as new ones are left out. Orders tracked since ' + prettyYMD(DATA_SINCE.orders) + '.');
+  // 10 · All quotes
+  defineList('all', {
+    rows: S.quotes.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
+    unit: 'quote',
+    noteText: 'Voided quotes reissued as new ones are left out.',
+    empty: 'This dealer has no quotes.',
+    search: q => refText(q) + ' ' + (q.job_name || '') + ' '
+               + (q.status || '') + ' ' + statusLabel(q.status),
+    cols: [
+      { label: 'Quote', get: q =>
+          '<a href="quote-detail.html?id=' + encodeURIComponent(q.id) + '">' + refHTML(q) + '</a>'
+          + (q.job_name ? '<div class="styles-line">' + esc(q.job_name) + '</div>' : '') },
+      { label: 'Status', get: q => esc(statusLabel(q.status))
+          + (isInternalDraft(q) ? ' <span class="chip chip-internal">Internal</span>' : '') },
+      { label: 'Value', num: true, get: q => money(q.grand_total) },
+      { label: 'Raised', get: q => esc(D.formatETDate(q.created_at)) },
+      { label: 'Shipped', get: q => esc(q.fulfillment_date ? prettyYMD(q.fulfillment_date) : '—') }
+    ]
+  });
 }
 
 function renderAll() {
   renderHeader();
-  renderStuck();
   renderSummary();
-  renderRest();
+  renderStuck();
+  renderStyleList('stylesBought', stylesOf(
+    S.quotes.filter(q => PAID_STATUSES.indexOf(q.status) !== -1).map(q => q.id)));
+  renderStyleList('stylesDraft', stylesOf(
+    S.quotes.filter(q => q.status === 'Draft').map(q => q.id)));
   renderNotes();
+  renderRest();
+
+  ['stuck', 'returns', 'all'].forEach(wireList);
 
   const days = S.quotes.map(q => D.etYMD(q.created_at)).filter(Boolean).sort();
-  const first = days[0] || D.shiftYMD(S.today, -60);
-  el('chartFrom').value = first;
+  el('chartFrom').value = days[0] || D.shiftYMD(S.today, -60);
   el('chartTo').value   = S.today;
   renderChart();
 }
@@ -969,7 +1131,7 @@ async function addNote() {
     }, { count: 'exact' })
     .select('id,body,created_by,created_by_name,created_at,edited_at');
 
-  if (error)  { noteError('Not saved: ' + error.message); return; }
+  if (error) { noteError('Not saved: ' + error.message); return; }
   if (count !== 1 || !data || data.length !== 1) {
     noteError('Not saved — the database accepted nothing. Reload the page and sign in again.');
     return;
@@ -992,11 +1154,9 @@ async function saveEdit(id, body) {
     .eq('id', id)
     .select('id,body,created_by,created_by_name,created_at,edited_at');
 
-  if (error)  { noteError('Not saved: ' + error.message); return; }
-  if (count !== 1) {
-    noteError('Not saved — only the author can edit a note.');
-    return;
-  }
+  if (error) { noteError('Not saved: ' + error.message); return; }
+  if (count !== 1) { noteError('Not saved — only the author can edit a note.'); return; }
+
   const i = S.notes.findIndex(n => n.id === id);
   if (i !== -1) S.notes[i] = data[0];
   S.editingNote = null;
@@ -1013,7 +1173,7 @@ async function deleteNote(id) {
     .update({ deleted_at: new Date().toISOString(), deleted_by: S.me }, { count: 'exact' })
     .eq('id', id);
 
-  if (error)  { noteError('Not deleted: ' + error.message); return; }
+  if (error) { noteError('Not deleted: ' + error.message); return; }
   if (count !== 1) {
     noteError('Not deleted — only the author or a super admin can remove a note.');
     return;
@@ -1031,15 +1191,11 @@ function updateCounter() {
    ═══════════════════════════════════════════════════════════════════════ */
 
 function buildPicker() {
-  const sel = el('pickerSelect');
   const list = [];
-  S.dealers.forEach(d => {
-    // 🔴 正向識別:只列 role === 'dealer' 的帳號。員工帳號不是客戶。
-    if (d.role !== 'dealer') return;
-    list.push(d);
-  });
+  // 🔴 正向識別:只列 role === 'dealer' 的帳號。員工帳號不是客戶。
+  S.dealers.forEach(d => { if (d.role === 'dealer') list.push(d); });
   list.sort((a, b) => dealerName(a).localeCompare(dealerName(b)));
-  sel.innerHTML = '<option value="">— pick a dealer —</option>' + list.map(d =>
+  el('pickerSelect').innerHTML = '<option value="">— pick a dealer —</option>' + list.map(d =>
     '<option value="' + esc(d.id) + '">' + esc(dealerName(d))
     + (d.is_active ? '' : ' (inactive)') + '</option>').join('');
 }
@@ -1068,13 +1224,13 @@ function wire() {
     if (!btn) return;
     const act = btn.getAttribute('data-act');
     const id  = btn.getAttribute('data-id');
-    if (act === 'edit')        { S.editingNote = id; renderNotes(); }
+    if (act === 'edit')             { S.editingNote = id; renderNotes(); }
     else if (act === 'cancel-edit') { S.editingNote = null; renderNotes(); }
     else if (act === 'save-edit')   {
       const ta = el('notesList').querySelector('.note-edit');
       if (ta) saveEdit(id, ta.value);
     }
-    else if (act === 'delete') { deleteNote(id); }
+    else if (act === 'delete')      { deleteNote(id); }
   });
 }
 
@@ -1108,32 +1264,22 @@ function wire() {
 
     await loadDealers();
 
-    const params = new URLSearchParams(window.location.search);
-    const wanted = params.get('dealer');
+    const wanted = new URLSearchParams(window.location.search).get('dealer');
 
-    gate().classList.add('hidden');
+    el('gate').classList.add('hidden');
     el('app').classList.remove('hidden');
 
-    if (!wanted) {
-      buildPicker();
-      el('pickerCard').classList.remove('hidden');
-      wire();
-      return;
-    }
-
-    S.dealer = S.dealers.get(wanted) || null;
-    if (!S.dealer) {
+    if (!wanted || !S.dealers.get(wanted)) {
       // 🔴 授權出口已通過,所以「查不到」在這裡確實是「不存在」,
       //    不是「被 policy 擋住」。這個區分是 CB-82 缺陷二的重點。
+      if (wanted) el('pickerTitle').textContent = 'That dealer no longer exists — pick another';
       buildPicker();
       el('pickerCard').classList.remove('hidden');
       wire();
-      noteError('');
-      el('pickerCard').querySelector('.card-title').textContent =
-        'That dealer no longer exists — pick another';
       return;
     }
 
+    S.dealer   = S.dealers.get(wanted);
     S.dealerId = wanted;
     await loadDealerData(wanted);
 
