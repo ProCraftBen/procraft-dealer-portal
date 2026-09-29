@@ -529,6 +529,36 @@ async function loadDealerData(dealerId) {
   S.notes     = notes.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   S.lastView  = (views && views.data && views.data[0]) || null;
 
+  /* 🔴 「客戶還在弄」的判準 —— 近 STALE_DAYS 天內品項有真實變動。
+     兩個條件都是【正向識別】:
+
+     ① written_by_role === 'authenticated'
+        確認這【是】一次真實的 portal 寫入。
+        🔴 不寫 !== 'backfill' —— 那是負向排除,未來多一種寫入來源
+           (例如匯入工具)就會被誤當成客戶在改。
+        必要性:production 的快照 89.9% 是 backfill,snapshot_at 全部
+        是 2026-09-08 20:21:58 那一秒。少了這個條件,只要窗口長度超過
+        (今天 − 2026-09-08),58 張停滯單會【全部】變成「近期有動」。
+        用正向條件讓窗口長度與正確性脫鉤。
+
+     ② Date.parse 比較,不是字串比較
+        PostgREST 回的是 "2026-09-08T20:21:58.93873+00:00",而
+        etDayStartUTC 回的是 "2026-09-15T04:00:00.000Z"。兩種格式的
+        字串序【不等於】時序,直接比大小會給出錯誤答案而且不報錯。
+
+     ⚠️ 語意邊界:snapshot_at 只在【品項寫入】時刷新(trigger 掛
+        quote_items 的 AFTER INSERT)。客戶只改 job name、或把品項清空
+        (只 DELETE 無 INSERT)都不會刷新。所以這是「有動」的下界 ——
+        沒被標記不代表客戶完全沒碰。 */
+  const touchedFromMs = Date.parse(D.etDayStartUTC(S.cutoff));
+  S.touched = new Set();
+  snaps.forEach(s => {
+    if (s.written_by_role !== 'authenticated') return;
+    if (!s.snapshot_at) return;
+    if (Date.parse(s.snapshot_at) < touchedFromMs) return;
+    S.touched.add(s.quote_id);
+  });
+
   // J · 已刪除的草稿 = 快照有、母體沒有。
   // 🔴 grand_total 是單層欄位,每一列都重複帶一份 → 必須先去重到一單一列,
   //    否則金額被放大成品項列數倍(production 實測 32 倍)。
@@ -619,6 +649,7 @@ function renderStuck() {
       const codes = Array.from(new Set(items.map(i => i.style_code).filter(Boolean)));
       return {
         q, ymd, age: daysBetweenYMD(ymd, S.today),
+        touched: S.touched.has(q.id),
         itemCount: items.reduce((s, i) => s + (Number(i.quantity) || 0), 0),
         styles: codes.map(c => {
           const r = S.styles.get(c);
@@ -631,9 +662,12 @@ function renderStuck() {
   const total = stuck.reduce((s, x) => s + (Number(x.q.grand_total) || 0), 0);
   const internal = stuck.filter(x => isInternalDraft(x.q)).length;
 
+  const touched = stuck.filter(x => x.touched).length;
+
   el('stuckNote').textContent = stuck.length
     ? stuck.length + (stuck.length === 1 ? ' draft' : ' drafts') + ' · ' + money(total)
       + (internal ? ' · ' + internal + ' built internally' : '')
+      + (touched ? ' · ' + touched + ' still being edited' : '')
     : 'Nothing sitting. Orders tracked since ' + prettyYMD(DATA_SINCE.orders) + '.';
 
   if (!stuck.length) {
