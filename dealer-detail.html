@@ -165,7 +165,16 @@
         <div class="pager-bar hidden" id="stuckPager"></div>
       </div>
 
-      <!-- 3 · Quotes raised per day -->
+      <!-- 3 · Recent activity -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Recent activity</span>
+          <span class="card-note" id="feedNote"></span>
+        </div>
+        <div id="feedBody"></div>
+      </div>
+
+      <!-- 4 · Quotes raised per day -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Quotes raised per day</span>
@@ -346,6 +355,8 @@ const DATA_SINCE = {
 
 const PAGE_SIZE   = 1000;   // PostgREST 讀取分頁
 const PER_PAGE    = 10;     // 畫面清單每頁列數(業主指定)
+const FEED_ROWS   = 20;     // 活動時間流顯示幾筆(業主:只要 top 幾筆)
+const FEED_DAYS   = 90;     // 活動時間流回溯幾天
 const NOTE_MAX    = 2000;
 const CHART_SENT  = '#3e5a42';
 const CHART_DRAFT = '#B9C4BB';
@@ -450,6 +461,7 @@ const S = {
   dealers: new Map(), dealerId: null, dealer: null,
   quotes: [], qById: new Map(), items: new Map(), styles: new Map(), touched: new Set(),
   credits: [], reminders: [], rules: [], notes: [], gone: [],
+  feed: [], feedTruncated: false,
   lastView: null, today: null, cutoff: null,
   chart: null, editingNote: null,
   lists: {}        // key -> { rows, cols, search, empty, note, page, term, els }
@@ -540,7 +552,7 @@ async function loadDealerData(dealerId) {
   const styles = await readAll('door_styles', 'style_code,style_name,brand,construction_type,is_stock');
   styles.forEach(s => S.styles.set(s.style_code, s));
 
-  const [credits, reminders, rules, notes, views, snaps] = await Promise.all([
+  const [credits, reminders, rules, notes, views, events, feedViews, snaps] = await Promise.all([
     ids.length ? readAll('quote_store_credits',
       'id,quote_id,memo_number,reason,net_store_credit_amount,restocking_fee,created_at,created_by_name,voided_at',
       q => q.in('quote_id', ids)) : [],
@@ -557,6 +569,25 @@ async function loadDealerData(dealerId) {
     //    全撈會撞 PostgREST 上限;只要最後一筆就不受影響。
     sb.from('page_views').select('viewed_at,page')
       .eq('dealer_id', dealerId).order('viewed_at', { ascending: false }).limit(1),
+    /* 🔴 活動時間流的兩個來源。
+       ① account_events:【只取這個客戶自己做的事】(actor_id = dealerId)。
+          業主 2026-09-29:「我只看 dealer 的行為」。
+          ⚠️ 因此 admin 在這個客戶單上的操作【不會出現】—— 那些事件的
+             actor_id 是 admin。這是刻意的範圍,不是遺漏。
+          🟢 本表無 FK(CB-83 C-1 刻意設計),所以單被刪之後事件還在 ——
+             「刪掉過幾張草稿」只有這裡看得到。
+       ② page_views:回溯 FEED_DAYS 天。
+          🔴 不能全撈 —— 單一客戶最多 3,261 筆(實測),會撞 PostgREST
+             的 1000 上限,而 readAll 雖然能分頁,把三千多筆拉回來只為了
+             顯示 20 行也不划算。用日期界線把量壓住。
+          🔴 起點用 etDayStartUTC(ET 午夜),不是 now() 減毫秒 ——
+             F-174 硬規則②。 */
+    readAll('account_events',
+      'id,occurred_at,event_type,status_value,po_number,draft_number,quote_id',
+      q => q.eq('actor_id', dealerId)),
+    readAll('page_views', 'id,viewed_at,page',
+      q => q.eq('dealer_id', dealerId)
+             .gte('viewed_at', D.etDayStartUTC(D.shiftYMD(S.today, -FEED_DAYS)))),
     readAll('quote_item_snapshots',
       'id,quote_id,draft_number,grand_total,status,snapshot_at,written_by_role',
       q => q.eq('dealer_id', dealerId))
@@ -567,6 +598,33 @@ async function loadDealerData(dealerId) {
   S.rules     = rules;
   S.notes     = notes.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   S.lastView  = (views && views.data && views.data[0]) || null;
+
+  /* 活動時間流:把兩種來源合併成同一條流。
+     🔴 page_views 【按 ET 日聚合成一行】,不逐筆列。
+        逐筆的話,一天十幾次瀏覽會把建單、送出、刪單這些真正的動作完全
+        淹沒 —— 而那些才是業務要看的。聚合後每天最多佔一行。
+     🔴 日期分組用 etYMD(美東),不是 UTC ——
+        美東 20:00 後的瀏覽用 UTC 分組會掉到隔天(F-174)。 */
+  const feed = [];
+
+  events.forEach(e => {
+    feed.push({ at: e.occurred_at, kind: e.event_type, ev: e });
+  });
+
+  const viewsByDay = new Map();
+  feedViews.forEach(v => {
+    const d = D.etYMD(v.viewed_at);
+    if (!d) return;
+    if (!viewsByDay.has(d)) viewsByDay.set(d, { ymd: d, n: 0, last: v.viewed_at, pages: new Map() });
+    const b = viewsByDay.get(d);
+    b.n += 1;
+    if (v.viewed_at > b.last) b.last = v.viewed_at;
+    b.pages.set(v.page, (b.pages.get(v.page) || 0) + 1);
+  });
+  viewsByDay.forEach(b => feed.push({ at: b.last, kind: 'views', views: b }));
+
+  S.feed = feed.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  S.feedTruncated = S.feed.length > FEED_ROWS;
 
   /* 🔴 「客戶還在弄」的判準 —— 近 STALE_DAYS 天內品項有真實變動。
      兩個條件都是【正向識別】:
@@ -902,7 +960,71 @@ function renderStuck() {
   });
 }
 
-/* 3 · 日柱狀圖 ────────────────────────────────────────────────────────── */
+/* 3 · Recent activity ─────────────────────────────────────────────────── */
+
+/* 事件 → 一句話。
+   🔴 event_type 的四個值由 record_account_event() 以字面值產生,不由資料
+      衍生(CB-83 欄位 COMMENT),所以可以正向列舉。
+   🔴 查無對應時印出【DB 原值】,不吞掉 —— 日後新增第五種事件會看得見,
+      而不是靜默消失。 */
+function feedLabel(e) {
+  const ref = e.po_number   ? 'PO <b>' + esc(e.po_number) + '</b>'
+            : e.draft_number ? 'draft <b>' + esc(e.draft_number) + '</b>'
+            : 'a quote';
+  switch (e.event_type) {
+    case 'login':         return 'Logged in';
+    case 'quote_created': return 'Created ' + ref;
+    case 'quote_deleted': return 'Deleted ' + ref;
+    case 'status_change': return 'Moved ' + ref + ' to <b>'
+                               + esc(statusLabel(e.status_value)) + '</b>';
+    default:              return esc(e.event_type) + ' · ' + ref;
+  }
+}
+
+function renderFeed() {
+  const rows = S.feed.slice(0, FEED_ROWS);
+
+  /* 🔴 說明列必須把三個邊界寫出來,否則「沒紀錄」會被讀成「沒發生」:
+       · 只含這個客戶自己的動作(admin 的操作不在內)
+       · login 是 best-effort,次數是下界
+       · 兩條流的起始日不同 */
+  el('feedNote').textContent =
+    (S.feed.length
+      ? (S.feedTruncated ? 'Most recent ' + FEED_ROWS + ' of ' + S.feed.length : S.feed.length + ' entries')
+        + ' · last ' + FEED_DAYS + ' days'
+      : 'Nothing recorded')
+    + ' · this dealer’s own actions only';
+
+  if (!rows.length) {
+    el('feedBody').innerHTML =
+      '<div class="empty">No activity recorded. Visits are logged since '
+      + esc(prettyYMD(DATA_SINCE.views)) + '.</div>';
+    return;
+  }
+
+  el('feedBody').innerHTML =
+    '<table><thead><tr><th>When</th><th>What</th></tr></thead><tbody>' +
+    rows.map(r => {
+      let what, sub = '';
+      if (r.kind === 'views') {
+        const b = r.views;
+        // 顯示當天看最多的三個頁面 —— 「到過 new-quote-step3」是最接近
+        // 「按了送出前一刻」的訊號,而 portal 沒有任何點擊記錄。
+        const top = Array.from(b.pages.entries())
+          .sort((a, c) => c[1] - a[1]).slice(0, 3).map(p => p[0]);
+        what = 'Viewed ' + b.n + (b.n === 1 ? ' page' : ' pages');
+        sub  = esc(top.join(', ')) + (b.pages.size > 3 ? ' +' + (b.pages.size - 3) : '');
+      } else {
+        what = feedLabel(r.ev);
+        if (r.ev.event_type === 'login') sub = 'best-effort — a missing entry does not mean no login';
+      }
+      return '<tr><td style="white-space:nowrap">' + esc(D.formatETDateTime(r.at)) + '</td>' +
+             '<td>' + what + (sub ? '<div class="styles-line">' + sub + '</div>' : '') + '</td></tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+
+/* 4 · 日柱狀圖 ────────────────────────────────────────────────────────── */
 function renderChart() {
   const from = el('chartFrom').value, to = el('chartTo').value;
   if (!from || !to || from > to) return;
@@ -1088,6 +1210,7 @@ function renderAll() {
   renderHeader();
   renderSummary();
   renderStuck();
+  renderFeed();
   renderStyleList('stylesBought', stylesOf(
     S.quotes.filter(q => PAID_STATUSES.indexOf(q.status) !== -1).map(q => q.id)));
   renderStyleList('stylesDraft', stylesOf(
