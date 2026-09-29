@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ProCraft Admin — Dealer Detail</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --gold:       #C9A84C;
+      --green-dark: #3e5a42;
+      --green-mid:  #4a6b4f;
+      --cream:      #F5F2EC;
+      --text:       #2C3A32;
+      --muted:      #7A8C82;
+      --border:     #DDD8CC;
+      --white:      #FFFFFF;
+      --error:      #C0392B;
+      --stale:      #8A6D24;   /* 停滯 / 需注意,非錯誤 */
+    }
+    html, body { min-height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+    .page-header { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--green-dark); line-height: 1.15; }
+    .page-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    a { color: var(--green-mid); }
+
+    .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: var(--green-dark); color: #fff; border: none; border-radius: 3px; padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: background 0.2s; min-height: 44px; }
+    .btn-primary:hover { background: var(--green-mid); }
+    .btn-plain { background: none; border: 1px solid var(--border); border-radius: 3px; padding: 6px 12px; font-family: 'DM Sans', sans-serif; font-size: 11px; color: var(--muted); cursor: pointer; }
+    .btn-plain:hover { color: var(--text); border-color: var(--muted); }
+    .btn-plain.danger:hover { color: var(--error); border-color: rgba(192,57,43,0.4); }
+    button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+    .card { background: var(--white); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 20px; }
+    .card-head { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .card-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
+    .card-note { font-size: 11px; color: var(--muted); }
+    .card-body { padding: 18px 20px; }
+    .card.hero { border-color: rgba(138,109,36,0.45); }
+    .card.hero .card-head { background: #FDFAF1; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 10px 16px; background: #F5F3EF; border-bottom: 1px solid var(--border); font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 12px 16px; font-size: 12px; vertical-align: top; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 18px 24px; }
+    .fact-label { font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .fact-value { font-size: 14px; }
+    .fact-value.big { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--green-dark); }
+    .fact-value.stale { color: var(--stale); }
+
+    .idle { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--stale); white-space: nowrap; }
+    .chip { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 9px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+    .chip-stale    { background: #FBF3DE; color: #6B5318; }
+    .chip-active   { background: #E7F0E8; color: var(--green-dark); }
+    .chip-internal { background: #EEEDE9; color: var(--muted); }
+    .chip-void     { background: #F7E7E4; color: var(--error); }
+    .styles-line { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .split > div { padding: 18px 20px; }
+    .split > div + div { border-left: 1px solid var(--border); }
+    .split h4 { font-size: 9px; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .style-row { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: 12px; border-bottom: 1px dotted var(--border); }
+    .style-row:last-child { border-bottom: none; }
+    .style-row b { font-weight: 500; font-variant-numeric: tabular-nums; }
+    .style-meta { font-size: 10px; color: var(--muted); }
+    @media (max-width: 760px) {
+      .split { grid-template-columns: 1fr; }
+      .split > div + div { border-left: none; border-top: 1px solid var(--border); }
+    }
+
+    .chart-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .chart-tools input[type="date"] { height: 32px; border: 1px solid var(--border); border-radius: 3px; padding: 0 8px; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text); background: var(--white); }
+    .canvas-box { position: relative; height: 230px; }
+    .legend { display: flex; gap: 20px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 1px; margin-right: 6px; transform: translateY(1px); }
+
+    .note { border-bottom: 1px solid var(--border); padding: 14px 0; }
+    .note:first-of-type { padding-top: 0; }
+    .note:last-of-type { border-bottom: none; padding-bottom: 0; }
+    .note-meta { font-size: 10px; color: var(--muted); margin-bottom: 5px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .note-body { font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .note-actions { margin-top: 7px; display: flex; gap: 8px; }
+    textarea { width: 100%; min-height: 72px; border: 1px solid var(--border); border-radius: 3px; padding: 9px 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; line-height: 1.55; color: var(--text); background: var(--white); resize: vertical; }
+    .note-form-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 9px; flex-wrap: wrap; }
+    .note-counter { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .note-error { font-size: 11px; color: var(--error); margin-top: 7px; }
+    .note-error.hidden { display: none; }
+
+    .empty { padding: 26px 0; text-align: center; font-size: 12px; color: var(--muted); }
+    .picker { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .picker select { height: 38px; min-width: 300px; max-width: 100%; border: 1px solid var(--border); border-radius: 3px; padding: 0 9px; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); background: var(--white); }
+
+    #gate { padding: 70px 20px; text-align: center; font-size: 13px; color: var(--muted); line-height: 1.7; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- 🔴 data-page="dealers" —— 本頁是 Dealers 的子頁,沿用既有導覽項。
+     刻意【不】在 navigator.js 的 ADMIN_NAV 新增項目:那會動到共用元件,
+     且 ADMIN_NAV 的寬度已不足約 400px(F-113)。 -->
+<div id="pcd-nav" data-page="dealers"></div>
+
+<div class="page">
+  <div id="gate">Checking access…</div>
+
+  <div id="app" class="hidden">
+
+    <!-- 客戶選擇器:僅在網址沒帶 ?dealer= 時顯示 -->
+    <div class="card hidden" id="pickerCard">
+      <div class="card-head"><span class="card-title">Choose a dealer</span></div>
+      <div class="card-body">
+        <div class="picker">
+          <select id="pickerSelect" aria-label="Dealer"></select>
+          <button class="btn-primary" type="button" id="pickerGo">Open</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="detail" class="hidden">
+
+      <!-- A · 抬頭 -->
+      <div class="page-header">
+        <div>
+          <div class="page-title" id="hCompany">—</div>
+          <div class="page-sub" id="hSub"></div>
+        </div>
+        <a class="btn-plain" href="admin-dealers.html">All dealers</a>
+      </div>
+
+      <!-- B · 卡住的 Draft(主角) -->
+      <div class="card hero" id="cardStuck">
+        <div class="card-head">
+          <span class="card-title">Drafts sitting over <span id="stuckDays">14</span> days</span>
+          <span class="card-note" id="stuckNote"></span>
+        </div>
+        <div id="stuckBody"></div>
+      </div>
+
+      <!-- D · 交易摘要 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Trading summary</span>
+          <span class="card-note" id="summaryNote"></span>
+        </div>
+        <div class="card-body"><div class="facts" id="summaryFacts"></div></div>
+      </div>
+
+      <!-- E · 日柱狀圖 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Quotes raised per day</span>
+          <div class="chart-tools">
+            <input type="date" id="chartFrom" aria-label="From"/>
+            <input type="date" id="chartTo"   aria-label="To"/>
+            <button class="btn-plain" type="button" id="chartReset">Reset</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="canvas-box"><canvas id="chartDaily"></canvas></div>
+          <div class="legend">
+            <span><i style="background:#3e5a42"></i>Paid</span>
+            <span><i style="background:#B9C4BB"></i>Not yet paid</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- C · 門板風格對照 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Door styles</span>
+          <span class="card-note">Bought before, next to what is sitting in draft</span>
+        </div>
+        <div class="split">
+          <div><h4>Bought</h4><div id="stylesBought"></div></div>
+          <div><h4>In draft</h4><div id="stylesDraft"></div></div>
+        </div>
+      </div>
+
+      <!-- F · 客戶註記 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Notes</span>
+          <span class="card-note" id="notesNote"></span>
+        </div>
+        <div class="card-body">
+          <textarea id="noteInput" maxlength="2000" placeholder="Anything the next person picking up this account should know."></textarea>
+          <div class="note-form-row">
+            <span class="note-counter" id="noteCounter">0 / 2000</span>
+            <button class="btn-primary" type="button" id="noteSave">Add note</button>
+          </div>
+          <div class="note-error hidden" id="noteError"></div>
+          <div id="notesList" style="margin-top:18px"></div>
+        </div>
+      </div>
+
+      <!-- G · 退貨 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Returns</span>
+          <span class="card-note" id="returnsNote"></span>
+        </div>
+        <div id="returnsBody"></div>
+      </div>
+
+      <!-- H · Reminder -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Reminders</span>
+          <span class="card-note" id="remindersNote"></span>
+        </div>
+        <div id="remindersBody"></div>
+      </div>
+
+      <!-- I · 專屬折扣規則 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Personal discount rules</span>
+          <span class="card-note" id="rulesNote"></span>
+        </div>
+        <div id="rulesBody"></div>
+      </div>
+
+      <!-- J · 已刪除的草稿 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">Deleted drafts</span>
+          <span class="card-note" id="goneNote"></span>
+        </div>
+        <div id="goneBody"></div>
+      </div>
+
+      <!-- E · 全部訂單 -->
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title">All quotes</span>
+          <span class="card-note" id="allNote"></span>
+        </div>
+        <div id="allBody"></div>
+      </div>
+
+    </div><!-- /#detail -->
+  </div><!-- /#app -->
+</div><!-- /.page -->
+
+<div id="pcd-footer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="components/account-type.js?v=cb97"></script>
+<!-- 🔴 ?v=cb100 —— 刻意與 admin-quotes.html / admin-reminders.html 的
+     ?v=f174 分歧。理由與收斂時機寫在 components/date-utils.js 檔頭。
+     本頁需要該檔的 etYMD / shiftYMD,而 admin-quotes.html 同時在 CB-103
+     的改動範圍內,同時 bump 會讓 promote 的 SHA256 比對分不清差異來源。 -->
+<script src="components/date-utils.js?v=cb100"></script>
+<script src="components/navigator.js?v=cb62c"></script>
+<script src="components/footer.js?v=cb62c"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CB-100 · dealer-detail.html
+   ---------------------------------------------------------------------
+   業務打電話前看的那一頁:這個客戶卡了哪幾張單、多久沒動、買過什麼、
+   有沒有人跟進過。
+
+   🔴 存取:admin + super_admin。dealer 不可進入 —— 本頁顯示單一客戶的
+      完整訂單與金額,若 dealer 可見等同客戶之間互相看到報價。
+      ⚠️ 已知上限:F-101 未修之前,dealer 可自行把 role 改成 super_admin,
+         之後前端守衛與 RLS 都會放行。本頁的保證上限受該債限制(CB-100
+         票面已載明)。本頁單獨未增加曝險 —— 這些訂單與金額 admin 本來
+         就從 admin-dealers 與 admin-quotes 看得到。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 🔴 F-214 · Internal Draft 判斷的第四份 ───────────────────────────
+   同一條規則(status = 'Draft' 且 admin_notified_at IS NULL)目前存在於
+   四處。四處【必須同步修改】,任一處不同步的症狀是「同一張單在一個頁面
+   算內部草稿、在另一個頁面不算」,而且不報錯。
+
+     dealer-detail.html   isInternalDraft()          ← 本處
+     admin-quotes.html    isInternalDraft() / buildQuotesQuery()
+     dashboard.html       init()
+     quotes.html          loadQuotes()
+
+   本票【不】抽共用元件:那要改 admin-quotes.html 的顯示端與篩選端兩處,
+   而那兩處 CB-97 才剛處理完並互相指認過。在一張業務工具票裡重構訂單頁,
+   風險與目的不成比例(PM4 2026-09-25 裁示)。
+   收斂由 F-214 本票處理。 */
+
+/* ── 定版判準(CB-100 Stage 1)──────────────────────────────────────── */
+
+// 🔴 停滯判準用 created_at,不是「最後變動時間」—— 因為沒有可靠的後者:
+//    quotes 沒有 updated_at(28 欄逐欄確認);snapshot_at 只在【品項寫入】
+//    時更新(trigger 掛 quote_items AFTER INSERT),只改狀態、只改 job
+//    name、品項被清空都不會更新。
+//    語意:「這張單開了多久還沒送出」。
+const STALE_DAYS = 14;
+
+// 🔴 已入帳 = 狀態測試,不是 join payments。production 實查:Order
+//    Processing 36/36、Order Completed 17/17 皆有確認付款,其他狀態 0。
+const PAID_STATUSES = ['Order Processing', 'Order Completed'];
+
+// 顯示名 ≠ 儲存值(CB-62:不翻譯 DB 值)。篩選一律用儲存值。
+const STATUS_LABEL = { 'Returned': 'Revising', 'Pending': 'Waiting for Payment' };
+
+// 三條資料流的起始日。各區塊須標示,否則「沒紀錄」會被讀成「沒發生」。
+const DATA_SINCE = {
+  orders: '2026-08-13',   // portal 上線
+  views:  '2026-09-01'    // CB-85 page_views 開始記錄
+};
+
+const PAGE_SIZE   = 1000;
+const NOTE_MAX    = 2000;
+const CHART_PAID  = '#3e5a42';
+const CHART_OPEN  = '#B9C4BB';
+
+/* ── 🔴 日期:一律走 ProCraftDate,本頁不自寫任何日曆運算 ────────────
+   F-174 硬規則②:區間端點必須各自獨立換算,絕不可由起點加固定時長。
+   2026-11-01 是 25 小時、2027-03-14 是 23 小時。
+   使用前先確認函式存在,不存在即明確報錯 —— 【絕不 fallback 自算】。 */
+const D = window.ProCraftDate;
+
+function dateModuleReady() {
+  return !!D
+    && typeof D.todayET             === 'function'
+    && typeof D.etYMD               === 'function'
+    && typeof D.shiftYMD            === 'function'
+    && typeof D.etDayStartUTC       === 'function'
+    && typeof D.etDayEndExclusiveUTC=== 'function'
+    && typeof D.formatETDate        === 'function';
+}
+
+/* 兩個 ET 日曆日相差幾天。
+   🔴 只用已匯出的 etDayStartUTC,本頁不含任何日曆加減。
+   🔴 Math.round 是必要的,不是保險:跨越 DST 的兩個 ET 午夜之間,
+      實際毫秒數不是 86400000 的整數倍(相差最多一小時)。直接整除會
+      在那些區間少算一天。誤差上限 1/24 天,四捨五入後必然精確。 */
+function daysBetweenYMD(fromYMD, toYMD) {
+  const a = D.etDayStartUTC(fromYMD);
+  const b = D.etDayStartUTC(toYMD);
+  if (!a || !b) return null;
+  return Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+}
+
+// YMD 字串 → "Sep 8, 2026"。UTC 正午必定落在該 ET 日曆日,故可安全轉換。
+function prettyYMD(ymd) {
+  return ymd ? D.formatETDate(ymd + 'T12:00:00Z') : '—';
+}
+
+function money(n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); }
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function statusLabel(v) { return STATUS_LABEL[v] || (v || '(no status)'); }
+function quoteRef(q) { return q.po_number || q.draft_number || '(no number)'; }
+
+/* ── 🔴 CB-97 · Internal Draft。== null 同時涵蓋 null 與 undefined,
+      沿用 CB-97 原碼的比較方式,不改為 ===:select 欄位缺席時 undefined
+      應視同未通知。見上方 F-214 四方對照。 */
+function isInternalDraft(q) {
+  return q.status === 'Draft' && q.admin_notified_at == null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Supabase
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const sb = window.supabase.createClient(window.SB_URL, window.SB_KEY);
+
+const el   = (id) => document.getElementById(id);
+const gate = () => el('gate');
+
+function stopWith(html) {
+  gate().innerHTML = html;
+  gate().classList.remove('hidden');
+  el('app').classList.add('hidden');
+}
+
+/* 分頁讀取。PostgREST 上限 1000 列且截斷時【不回錯誤】,單次 select
+   在資料長大之後會靜默少拿。本頁 quote_items 目前約 360 列(單一客戶
+   上限),snapshots 257 列 —— 都會長大。 */
+async function readAll(table, columns, build) {
+  const out = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    let q = sb.from(table).select(columns);
+    if (build) q = build(q);
+    const { data, error } = await q.order('id', { ascending: true })
+                                   .range(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(table + ': ' + error.message);
+    out.push.apply(out, data);
+    if (data.length < PAGE_SIZE) return out;
+    if (from > 200000) return out;   // 結構性守衛
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const S = {
+  me: null, meName: '', isSuper: false,
+  dealers: new Map(), dealerId: null, dealer: null,
+  quotes: [], items: new Map(), styles: new Map(), touched: new Set(),
+  credits: [], reminders: [], rules: [], notes: [], gone: [],
+  lastView: null, today: null, cutoff: null,
+  chart: null, editingNote: null
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Access
+   ═══════════════════════════════════════════════════════════════════════ */
+
+async function enter() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.replace('login.html'); return false; }
+
+  const { data: me, error } = await sb.from('dealers')
+    .select('id,role,company_name,contact_name').eq('id', session.user.id).single();
+
+  // 🔴 正向識別(F-35):確認角色【是】admin 或 super_admin。
+  //    不寫 role !== 'dealer' —— 那在 role 為 null、空字串、或未來新增
+  //    第四種角色時會放行,而且不報錯。
+  // 🔴 CB-82 缺陷二:被 RLS 擋住與查無此列在應用層無法區分,兩者都導回。
+  //    fail-closed 是對的:錯誤的「拒絕」成本是一次導向,錯誤的「放行」
+  //    成本是資料外洩。
+  const ALLOWED = ['admin', 'super_admin'];
+  if (error || !me || ALLOWED.indexOf(me.role) === -1) {
+    window.location.replace('dashboard.html');
+    return false;
+  }
+
+  // 🔴 CB-82 授權出口。get_quote_stats() 在非 admin 時拋 42501,
+  //    所以它回答「我有沒有讀取權」而不需要讀本頁要報告的任何一張表。
+  //    通過之後,下面任何空結果才可安全解讀為「真的沒資料」——
+  //    直接 select 永遠做不到這件事,因為 RLS 擋住時回的是 200 + []。
+  const probe = await sb.rpc('get_quote_stats');
+  if (probe.error) {
+    stopWith('Your account cannot read order data.<br/>Ask a super admin to check your role.');
+    return false;
+  }
+
+  S.me      = me.id;
+  S.meName  = me.contact_name || me.company_name || 'Admin';
+  S.isSuper = me.role === 'super_admin';
+  return true;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Load
+   ═══════════════════════════════════════════════════════════════════════ */
+
+async function loadDealers() {
+  // 🔴 刻意不選任何定價欄位(stock_multiplier / non_stock_multiplier /
+  //    frameless_multiplier / tax_rate / 九項 asm_fee_*)。本頁不需要,
+  //    也不讓它們進到瀏覽器。
+  const rows = await readAll('dealers',
+    'id,company_name,contact_name,email,phone,city,state,role,account_type,assigned_sales_id,created_at,is_active');
+  rows.forEach(d => S.dealers.set(d.id, d));
+}
+
+async function loadDealerData(dealerId) {
+  const quotes = await readAll('quotes',
+    'id,dealer_id,status,close_reason_type,grand_total,created_at,admin_notified_at,fulfillment_date,po_number,draft_number,job_name',
+    q => q.eq('dealer_id', dealerId));
+
+  // 🔴 Q-15(a):作廢的 Closed 排除。那是「改開新單」,舊單與新單同時存在,
+  //    不排除就把同一筆生意算兩次。
+  //    Cancelled 不排除 —— 那是生意真的沒了,只算過一次。
+  S.quotes = quotes.filter(q => !(q.status === 'Closed' && q.close_reason_type));
+
+  const ids = S.quotes.map(q => q.id);
+
+  // 🔴 品項走 quote_items(live),【不】走 quote_item_snapshots。
+  //    快照表的單層欄位每列重複,production 金額膨脹 32 倍;而且它只在
+  //    品項寫入時刷新,對 Draft 可能是舊的。現存單的即時真相在 live 表。
+  //    快照表在本頁只用於「已刪除的草稿」—— 那是它唯一無可取代之處。
+  const items = ids.length
+    ? await readAll('quote_items', 'id,quote_id,style_code,sku_code,quantity', q => q.in('quote_id', ids))
+    : [];
+  S.items = new Map();
+  items.forEach(it => {
+    if (!S.items.has(it.quote_id)) S.items.set(it.quote_id, []);
+    S.items.get(it.quote_id).push(it);
+  });
+
+  // 門板目錄。style_code 唯一(CB-101 S-03 兩環境確認),165 列全取。
+  // 🔴 只 join door_styles,不碰 skus_framed / skus_frameless —— 那兩表有
+  //    123 個重疊 sku_code,必須經 construction_type 分岔。本頁不需要 SKU
+  //    層屬性,所以那個坑在這裡不存在。
+  const styles = await readAll('door_styles', 'style_code,style_name,brand,construction_type,is_stock');
+  styles.forEach(s => S.styles.set(s.style_code, s));
+
+  const [credits, reminders, rules, notes, views, snaps] = await Promise.all([
+    ids.length ? readAll('quote_store_credits',
+      'id,quote_id,memo_number,reason,net_store_credit_amount,restocking_fee,created_at,created_by_name,voided_at',
+      q => q.in('quote_id', ids)) : [],
+    ids.length ? readAll('quote_reminders',
+      'id,quote_id,type,subject,description,status,reminder_date,solved_date,created_at',
+      q => q.in('quote_id', ids)) : [],
+    readAll('dealer_discount_rules',
+      'id,name,construction_type,door_styles,sku_codes,types,discount_type,discount_value,updated_at',
+      q => q.eq('dealer_id', dealerId)),
+    readAll('dealer_notes',
+      'id,body,created_by,created_by_name,created_at,edited_at',
+      q => q.eq('dealer_id', dealerId).is('deleted_at', null)),
+    // 🔴 order desc + limit 1。單一客戶最多 3,261 筆瀏覽(實測),
+    //    全撈會撞 PostgREST 上限;只要最後一筆就不受影響。
+    sb.from('page_views').select('viewed_at,page')
+      .eq('dealer_id', dealerId).order('viewed_at', { ascending: false }).limit(1),
+    readAll('quote_item_snapshots',
+      'id,quote_id,draft_number,grand_total,status,snapshot_at,written_by_role',
+      q => q.eq('dealer_id', dealerId))
+  ]);
+
+  S.credits   = credits;
+  S.reminders = reminders;
+  S.rules     = rules;
+  S.notes     = notes.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  S.lastView  = (views && views.data && views.data[0]) || null;
+
+  // J · 已刪除的草稿 = 快照有、母體沒有。
+  // 🔴 grand_total 是單層欄位,每一列都重複帶一份 → 必須先去重到一單一列,
+  //    否則金額被放大成品項列數倍(production 實測 32 倍)。
+  const live = new Set(ids);
+  const goneMap = new Map();
+  snaps.forEach(s => {
+    if (live.has(s.quote_id)) return;
+    if (!goneMap.has(s.quote_id)) {
+      goneMap.set(s.quote_id, {
+        quote_id: s.quote_id, draft_number: s.draft_number,
+        grand_total: s.grand_total, status: s.status,
+        snapshot_at: s.snapshot_at, rows: 0
+      });
+    }
+    goneMap.get(s.quote_id).rows += 1;
+  });
+  S.gone = Array.from(goneMap.values())
+    .sort((a, b) => (a.snapshot_at < b.snapshot_at ? 1 : -1));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Render
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function dealerName(d) {
+  if (!d) return 'Unassigned';
+  return d.company_name || d.contact_name || '(unnamed)';
+}
+
+function stylesOf(quoteIds) {
+  const counts = new Map();
+  quoteIds.forEach(qid => (S.items.get(qid) || []).forEach(it => {
+    if (!it.style_code) return;
+    counts.set(it.style_code, (counts.get(it.style_code) || 0) + (Number(it.quantity) || 0));
+  }));
+  return Array.from(counts.entries())
+    .map(([code, qty]) => ({ code, qty, row: S.styles.get(code) || null }))
+    .sort((a, b) => b.qty - a.qty);
+}
+
+function renderStyleList(target, list) {
+  if (!list.length) { el(target).innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
+  el(target).innerHTML = list.map(s => {
+    const r = s.row;
+    // 🔴 is_stock 只作中性標示,【不】當警示旗標:production 165 個門板
+    //    風格中 155 個是 non-stock,亮燈會 94% 都亮。它影響的是交期,
+    //    業務會被問「什麼時候能到」,所以值得顯示,但不該是紅字。
+    const meta = r
+      ? esc(r.brand || '') + (r.construction_type ? ' · ' + esc(r.construction_type) : '')
+        + (r.is_stock === true ? ' · stock' : r.is_stock === false ? ' · non-stock' : '')
+      : 'not in catalog';
+    return '<div class="style-row"><span>' + esc(r ? (r.style_name || s.code) : s.code)
+         + '<div class="style-meta">' + meta + '</div></span><b>' + s.qty + '</b></div>';
+  }).join('');
+}
+
+function renderHeader() {
+  const d = S.dealer;
+  const sales = d.assigned_sales_id ? S.dealers.get(d.assigned_sales_id) : null;
+  el('hCompany').textContent = dealerName(d);
+
+  const bits = [];
+  if (d.contact_name) bits.push(esc(d.contact_name));
+  if (d.city || d.state) bits.push(esc([d.city, d.state].filter(Boolean).join(', ')));
+  bits.push('Sales: ' + esc(sales ? dealerName(sales) : 'unassigned'));
+  bits.push('Account opened ' + esc(D.formatETDate(d.created_at)));
+  if (!d.is_active) bits.push('<span class="chip chip-void">Inactive</span>');
+
+  // 🔴 account_type badge 走 account-type.js —— CB-97 的唯一 map。
+  //    絕不在本頁複製一份:CB-97 檔頭明寫「目前只有一份,變成兩份之後就難了」。
+  let badge = '';
+  if (window.ProCraftAccountType && typeof window.ProCraftAccountType.render === 'function') {
+    badge = window.ProCraftAccountType.render(d.account_type, { inline: true });
+  }
+  el('hSub').innerHTML = badge + bits.join(' &nbsp;·&nbsp; ');
+}
+
+function renderStuck() {
+  el('stuckDays').textContent = String(STALE_DAYS);
+
+  // 🔴 門檻比較用 YMD 字串。"YYYY-MM-DD" 的字串序等於時序,所以篩選邊界
+  //    與日期分組用的是同一組單位 —— 這是邊界不會差一天的原因。
+  const stuck = S.quotes
+    .filter(q => q.status === 'Draft' && D.etYMD(q.created_at) < S.cutoff)
+    .map(q => {
+      const ymd   = D.etYMD(q.created_at);
+      const items = S.items.get(q.id) || [];
+      const codes = Array.from(new Set(items.map(i => i.style_code).filter(Boolean)));
+      return {
+        q, ymd, age: daysBetweenYMD(ymd, S.today),
+        itemCount: items.reduce((s, i) => s + (Number(i.quantity) || 0), 0),
+        styles: codes.map(c => {
+          const r = S.styles.get(c);
+          return r ? (r.style_name || c) : c;
+        })
+      };
+    })
+    .sort((a, b) => (b.age || 0) - (a.age || 0));
+
+  const total = stuck.reduce((s, x) => s + (Number(x.q.grand_total) || 0), 0);
+  const internal = stuck.filter(x => isInternalDraft(x.q)).length;
+
+  el('stuckNote').textContent = stuck.length
+    ? stuck.length + (stuck.length === 1 ? ' draft' : ' drafts') + ' · ' + money(total)
+      + (internal ? ' · ' + internal + ' built internally' : '')
+    : 'Nothing sitting. Orders tracked since ' + prettyYMD(DATA_SINCE.orders) + '.';
+
+  if (!stuck.length) {
+    el('stuckBody').innerHTML =
+      '<div class="empty">No draft has been sitting more than ' + STALE_DAYS + ' days.</div>';
+    return;
+  }
+
+  el('stuckBody').innerHTML =
+    '<table><thead><tr>' +
+      '<th>Draft</th><th class="num">Idle</th><th class="num">Value</th>' +
+      '<th class="num">Items</th><th>Where it stands</th>' +
+    '</tr></thead><tbody>' +
+    stuck.map(x => {
+      // 三個旗標全部正向識別 —— 確認它【是】某種情形,不用「不是 X」排除。
+      let chip;
+      if (isInternalDraft(x.q)) {
+        // 內部建的:admin 代建、從未通知客戶。不是追蹤對象。
+        chip = '<span class="chip chip-internal">Built internally</span>';
+      } else if (x.touched) {
+        chip = '<span class="chip chip-active">Customer still editing</span>';
+      } else {
+        chip = '<span class="chip chip-stale">Untouched</span>';
+      }
+      const styleLine = x.styles.length
+        ? '<div class="styles-line">' + esc(x.styles.slice(0, 3).join(', '))
+          + (x.styles.length > 3 ? ' +' + (x.styles.length - 3) : '') + '</div>'
+        : '';
+      return '<tr>' +
+        '<td><a href="quote-detail.html?id=' + encodeURIComponent(x.q.id) + '">' + esc(quoteRef(x.q)) + '</a>' +
+          (x.q.job_name ? '<div class="styles-line">' + esc(x.q.job_name) + '</div>' : '') + '</td>' +
+        '<td class="num"><span class="idle">' + (x.age == null ? '—' : x.age + 'd') + '</span>' +
+          '<div class="styles-line">' + esc(prettyYMD(x.ymd)) + '</div></td>' +
+        '<td class="num">' + money(x.q.grand_total) + '</td>' +
+        '<td class="num">' + x.itemCount + styleLine + '</td>' +
+        '<td>' + chip + '</td>' +
+      '</tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+
+function renderSummary() {
+  const paid   = S.quotes.filter(q => PAID_STATUSES.indexOf(q.status) !== -1);
+  const drafts = S.quotes.filter(q => q.status === 'Draft');
+
+  // 退貨淨額。🔴 net_store_credit_amount 存的是【負值】(與
+  //    quotes.account_credit_amount 同慣例),所以是【加】不是減。
+  // 🔴 已作廢的 memo 不可計入 —— 那是被撤銷的退貨,扣了等於算兩次。
+  const creditLive = S.credits.filter(c => !c.voided_at);
+  const creditSum  = creditLive.reduce((s, c) => s + (Number(c.net_store_credit_amount) || 0), 0);
+
+  const paidValue = paid.reduce((s, q) => s + (Number(q.grand_total) || 0), 0) + creditSum;
+
+  const done = paid.filter(q => q.fulfillment_date)
+                   .sort((a, b) => (a.fulfillment_date < b.fulfillment_date ? 1 : -1));
+  const lastDone = done[0] || null;
+  const sinceDone = lastDone ? daysBetweenYMD(lastDone.fulfillment_date, S.today) : null;
+
+  const viewYMD  = S.lastView ? D.etYMD(S.lastView.viewed_at) : null;
+  const sinceView = viewYMD ? daysBetweenYMD(viewYMD, S.today) : null;
+
+  const facts = [
+    ['Quotes',        String(S.quotes.length)],
+    ['Paid',          String(paid.length),   'big'],
+    ['Paid value',    money(paidValue),      'big'],
+    ['Sitting in draft', String(drafts.length)],
+    ['Last paid order', lastDone
+        ? prettyYMD(lastDone.fulfillment_date) + ' · ' + sinceDone + 'd ago'
+        : 'Never', lastDone && sinceDone > 60 ? 'stale' : ''],
+    ['Last seen in portal', viewYMD
+        ? prettyYMD(viewYMD) + ' · ' + sinceView + 'd ago'
+        : 'No record', viewYMD ? '' : 'stale']
+  ];
+
+  el('summaryFacts').innerHTML = facts.map(f =>
+    '<div><div class="fact-label">' + esc(f[0]) + '</div>' +
+    '<div class="fact-value ' + (f[2] || '') + '">' + f[1] + '</div></div>'
+  ).join('');
+
+  // 🔴 「沒紀錄」不等於「沒發生」。瀏覽紀錄 2026-09-01 才開始,
+  //    而 login 事件是 best-effort(CB-83 C-3),缺漏不代表沒登入。
+  el('summaryNote').textContent =
+    'Paid means Order Processing or Order Completed. Portal visits recorded since '
+    + prettyYMD(DATA_SINCE.views) + ' — no record does not mean no visit.';
+}
+
+function renderChart() {
+  const from = el('chartFrom').value, to = el('chartTo').value;
+  if (!from || !to || from > to) return;
+
+  // 完整日期序列,沒有單的日子補 0。
+  // 🔴 只給圖表「有資料的日子」會讓 x 軸自己壓縮,看起來像天天有單。
+  // 🔴 逐日推進一律用 shiftYMD(日曆加減),不可用毫秒累加。
+  const labels = [], paid = [], open = [];
+  const byDay = new Map();
+  S.quotes.forEach(q => {
+    const d = D.etYMD(q.created_at);
+    if (!d || d < from || d > to) return;
+    if (!byDay.has(d)) byDay.set(d, { p: 0, o: 0 });
+    if (PAID_STATUSES.indexOf(q.status) !== -1) byDay.get(d).p += 1;
+    else byDay.get(d).o += 1;
+  });
+
+  let cur = from, guard = 0;
+  while (cur <= to && guard++ < 4000) {
+    const b = byDay.get(cur) || { p: 0, o: 0 };
+    labels.push(prettyYMD(cur)); paid.push(b.p); open.push(b.o);
+    cur = D.shiftYMD(cur, 1);
+    if (!cur) break;
+  }
+
+  const cfg = {
+    type: 'bar',
+    data: { labels: labels, datasets: [
+      { label: 'Paid',         data: paid, backgroundColor: CHART_PAID, borderWidth: 0 },
+      { label: 'Not yet paid', data: open, backgroundColor: CHART_OPEN, borderWidth: 0 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: { stacked: true, grid: { display: false },
+             ticks: { color: '#7A8C82', maxRotation: 0, autoSkipPadding: 18, font: { size: 10 } } },
+        y: { stacked: true, beginAtZero: true, border: { display: false },
+             grid: { color: '#ECEAE3' },
+             ticks: { color: '#7A8C82', precision: 0, font: { size: 10 } } }
+      },
+      plugins: { legend: { display: false },
+                 tooltip: { backgroundColor: '#2C3A32', padding: 10 } }
+    }
+  };
+
+  if (S.chart) { S.chart.destroy(); S.chart = null; }
+  S.chart = new Chart(el('chartDaily'), cfg);
+}
+
+function renderNotes() {
+  el('notesNote').textContent = S.notes.length
+    ? S.notes.length + (S.notes.length === 1 ? ' note' : ' notes')
+    : 'No notes yet.';
+
+  if (!S.notes.length) {
+    el('notesList').innerHTML = '<div class="empty">Nothing recorded for this dealer yet.</div>';
+    return;
+  }
+
+  el('notesList').innerHTML = S.notes.map(n => {
+    // 作者本人可編輯;作者或 super_admin 可刪除。
+    // 🔴 這只是【畫面】的呈現,真正的邊界在 DB:RLS 決定誰碰得到這一列,
+    //    trigger guard_dealer_note_update() 決定碰得到的人可以改哪幾欄。
+    //    前端隱藏按鈕不是保護。
+    const mine     = n.created_by === S.me;
+    const canEdit  = mine;
+    const canDelete = mine || S.isSuper;
+    if (S.editingNote === n.id) {
+      return '<div class="note" data-id="' + esc(n.id) + '">' +
+        '<div class="note-meta"><b>' + esc(n.created_by_name) + '</b>' +
+          '<span>' + esc(D.formatETDateTime(n.created_at)) + '</span></div>' +
+        '<textarea class="note-edit" maxlength="' + NOTE_MAX + '">' + esc(n.body) + '</textarea>' +
+        '<div class="note-actions">' +
+          '<button class="btn-plain" data-act="save-edit" data-id="' + esc(n.id) + '">Save</button>' +
+          '<button class="btn-plain" data-act="cancel-edit">Cancel</button>' +
+        '</div></div>';
+    }
+    return '<div class="note">' +
+      '<div class="note-meta"><b>' + esc(n.created_by_name) + '</b>' +
+        '<span>' + esc(D.formatETDateTime(n.created_at)) + '</span>' +
+        (n.edited_at ? '<span>edited ' + esc(D.formatETDateTime(n.edited_at)) + '</span>' : '') +
+      '</div>' +
+      '<div class="note-body">' + esc(n.body) + '</div>' +
+      ((canEdit || canDelete) ? '<div class="note-actions">' +
+        (canEdit   ? '<button class="btn-plain" data-act="edit" data-id="' + esc(n.id) + '">Edit</button>' : '') +
+        (canDelete ? '<button class="btn-plain danger" data-act="delete" data-id="' + esc(n.id) + '">Delete</button>' : '') +
+      '</div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function simpleTable(target, noteTarget, rows, cols, emptyText, noteText) {
+  el(noteTarget).textContent = rows.length
+    ? rows.length + ' record' + (rows.length === 1 ? '' : 's') + (noteText ? ' · ' + noteText : '')
+    : (noteText || '');
+  if (!rows.length) { el(target).innerHTML = '<div class="empty">' + esc(emptyText) + '</div>'; return; }
+  el(target).innerHTML =
+    '<table><thead><tr>' + cols.map(c =>
+      '<th' + (c.num ? ' class="num"' : '') + '>' + esc(c.label) + '</th>').join('') +
+    '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + cols.map(c =>
+      '<td' + (c.num ? ' class="num"' : '') + '>' + c.get(r) + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table>';
+}
+
+function renderRest() {
+  const qById = new Map(S.quotes.map(q => [q.id, q]));
+  const refOf = (qid) => { const q = qById.get(qid); return q ? esc(quoteRef(q)) : '(deleted quote)'; };
+
+  // G · 退貨。🔴 已作廢的必須標示 —— 不標的話那筆金額看起來仍然有效。
+  simpleTable('returnsBody', 'returnsNote', S.credits, [
+    { label: 'Memo',  get: r => esc(r.memo_number) +
+        (r.voided_at ? ' <span class="chip chip-void">Voided</span>' : '') },
+    { label: 'Quote', get: r => refOf(r.quote_id) },
+    { label: 'Reason', get: r => esc(r.reason || '—') },
+    { label: 'Net', num: true, get: r => money(r.net_store_credit_amount) },
+    { label: 'Raised', get: r => esc(D.formatETDate(r.created_at)) + '<div class="styles-line">'
+        + esc(r.created_by_name || '') + '</div>' }
+  ], 'No returns on record.', 'Voided memos are shown but not counted in paid value.');
+
+  // H · Reminder。🔴 CASCADE:單被刪,reminder 一併消失,所以已刪草稿的
+  //    提醒歷史是不完整的。
+  simpleTable('remindersBody', 'remindersNote', S.reminders, [
+    { label: 'Subject', get: r => esc(r.subject) +
+        (r.description ? '<div class="styles-line">' + esc(r.description) + '</div>' : '') },
+    { label: 'Quote', get: r => refOf(r.quote_id) },
+    { label: 'Type',  get: r => esc(r.type) },
+    { label: 'Status', get: r => esc(r.status) +
+        (r.solved_date ? '<div class="styles-line">' + esc(r.solved_date) + '</div>' : '') },
+    { label: 'Due',   get: r => esc(r.reminder_date || '—') }
+  ], 'No reminders raised for this dealer.',
+     'Reminders are deleted with their quote, so deleted drafts leave none behind.');
+
+  // I · 專屬折扣規則。三個 array 欄為 NULL = 不限制(CB-47)。
+  simpleTable('rulesBody', 'rulesNote', S.rules, [
+    { label: 'Rule',  get: r => esc(r.name) },
+    { label: 'Applies to', get: r => {
+        const p = [];
+        p.push(esc(r.construction_type));
+        p.push(r.door_styles && r.door_styles.length ? r.door_styles.length + ' styles' : 'all styles');
+        p.push(r.sku_codes  && r.sku_codes.length  ? r.sku_codes.length  + ' SKUs'   : 'all SKUs');
+        p.push(r.types      && r.types.length      ? esc(r.types.join(', '))         : 'all types');
+        return p.join(' · ');
+      } },
+    { label: 'Discount', num: true,
+      get: r => esc(r.discount_type) + ' ' + esc(String(r.discount_value)) }
+  ], 'No personal discount rules.', 'Empty filter means it applies to everything.');
+
+  // J · 已刪除的草稿。金額已在 loadDealerData 去重到一單一列。
+  simpleTable('goneBody', 'goneNote', S.gone, [
+    { label: 'Draft', get: r => esc(r.draft_number || '(no number)') },
+    { label: 'Value', num: true, get: r => money(r.grand_total) },
+    { label: 'Item rows', num: true, get: r => String(r.rows) },
+    { label: 'Last saved', get: r => esc(D.formatETDate(r.snapshot_at)) }
+  ], 'No deleted drafts on record.',
+     'Only the snapshot survives — the quote itself is gone, so it cannot be reopened.');
+
+  // 全部訂單
+  const all = S.quotes.slice().sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  simpleTable('allBody', 'allNote', all, [
+    { label: 'Quote', get: q => '<a href="quote-detail.html?id=' + encodeURIComponent(q.id) + '">'
+        + esc(quoteRef(q)) + '</a>'
+        + (q.job_name ? '<div class="styles-line">' + esc(q.job_name) + '</div>' : '') },
+    { label: 'Status', get: q => esc(statusLabel(q.status))
+        + (isInternalDraft(q) ? ' <span class="chip chip-internal">Internal</span>' : '') },
+    { label: 'Value', num: true, get: q => money(q.grand_total) },
+    { label: 'Raised', get: q => esc(D.formatETDate(q.created_at)) },
+    { label: 'Shipped', get: q => esc(q.fulfillment_date ? prettyYMD(q.fulfillment_date) : '—') }
+  ], 'This dealer has no quotes.',
+     'Voided quotes reissued as new ones are left out. Orders tracked since ' + prettyYMD(DATA_SINCE.orders) + '.');
+}
+
+function renderAll() {
+  renderHeader();
+  renderStuck();
+  renderSummary();
+  renderRest();
+  renderNotes();
+
+  const days = S.quotes.map(q => D.etYMD(q.created_at)).filter(Boolean).sort();
+  const first = days[0] || D.shiftYMD(S.today, -60);
+  el('chartFrom').value = first;
+  el('chartTo').value   = S.today;
+  renderChart();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Notes · 寫入
+   🔴 F-124:每頁三個 GoTrueClient,token 失效期間的寫入會被 RLS 擋下並
+      回 HTTP 200 + 0 列。所以每一次寫入都必須帶 count: 'exact' 並斷言
+      列數 —— 【不可】以 error === null 判斷成功,那會讓使用者看到
+      「已儲存」而實際沒存進來。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function noteError(msg) {
+  const box = el('noteError');
+  if (!msg) { box.classList.add('hidden'); box.textContent = ''; return; }
+  box.textContent = msg;
+  box.classList.remove('hidden');
+}
+
+async function addNote() {
+  const body = el('noteInput').value.trim();
+  noteError('');
+  if (!body) { noteError('Type something first.'); return; }
+
+  const { data, error, count } = await sb.from('dealer_notes')
+    .insert({
+      dealer_id: S.dealerId, body: body,
+      created_by: S.me,                 // RLS 要求 created_by = auth.uid()
+      created_by_name: S.meName         // 快照,不記 auth.role()(F-195)
+    }, { count: 'exact' })
+    .select('id,body,created_by,created_by_name,created_at,edited_at');
+
+  if (error)  { noteError('Not saved: ' + error.message); return; }
+  if (count !== 1 || !data || data.length !== 1) {
+    noteError('Not saved — the database accepted nothing. Reload the page and sign in again.');
+    return;
+  }
+
+  el('noteInput').value = '';
+  updateCounter();
+  S.notes.unshift(data[0]);
+  renderNotes();
+}
+
+async function saveEdit(id, body) {
+  noteError('');
+  if (!body.trim()) { noteError('A note cannot be empty. Delete it instead.'); return; }
+
+  // 🔴 edited_at 刻意【不】送 —— 由 DB 的 trigger 在 body 變動時蓋上。
+  //    前端送會有漏送的可能,而漏送的症狀是「改過的註記看起來沒被改過」。
+  const { data, error, count } = await sb.from('dealer_notes')
+    .update({ body: body.trim() }, { count: 'exact' })
+    .eq('id', id)
+    .select('id,body,created_by,created_by_name,created_at,edited_at');
+
+  if (error)  { noteError('Not saved: ' + error.message); return; }
+  if (count !== 1) {
+    noteError('Not saved — only the author can edit a note.');
+    return;
+  }
+  const i = S.notes.findIndex(n => n.id === id);
+  if (i !== -1) S.notes[i] = data[0];
+  S.editingNote = null;
+  renderNotes();
+}
+
+async function deleteNote(id) {
+  noteError('');
+  if (!window.confirm('Delete this note? It disappears from the page for everyone.')) return;
+
+  // 🔴 軟刪除,不是真 DELETE。表上沒有 DELETE policy、也沒有 DELETE GRANT。
+  //    deleted_at 與 deleted_by 必須同時寫(CHECK 配對)。
+  const { error, count } = await sb.from('dealer_notes')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: S.me }, { count: 'exact' })
+    .eq('id', id);
+
+  if (error)  { noteError('Not deleted: ' + error.message); return; }
+  if (count !== 1) {
+    noteError('Not deleted — only the author or a super admin can remove a note.');
+    return;
+  }
+  S.notes = S.notes.filter(n => n.id !== id);
+  renderNotes();
+}
+
+function updateCounter() {
+  el('noteCounter').textContent = el('noteInput').value.length + ' / ' + NOTE_MAX;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Wiring
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function buildPicker() {
+  const sel = el('pickerSelect');
+  const list = [];
+  S.dealers.forEach(d => {
+    // 🔴 正向識別:只列 role === 'dealer' 的帳號。員工帳號不是客戶。
+    if (d.role !== 'dealer') return;
+    list.push(d);
+  });
+  list.sort((a, b) => dealerName(a).localeCompare(dealerName(b)));
+  sel.innerHTML = '<option value="">— pick a dealer —</option>' + list.map(d =>
+    '<option value="' + esc(d.id) + '">' + esc(dealerName(d))
+    + (d.is_active ? '' : ' (inactive)') + '</option>').join('');
+}
+
+function wire() {
+  el('pickerGo').addEventListener('click', () => {
+    const v = el('pickerSelect').value;
+    if (v) window.location.search = '?dealer=' + encodeURIComponent(v);
+  });
+  el('pickerSelect').addEventListener('keydown', e => { if (e.key === 'Enter') el('pickerGo').click(); });
+
+  el('chartFrom').addEventListener('change', renderChart);
+  el('chartTo').addEventListener('change', renderChart);
+  el('chartReset').addEventListener('click', () => {
+    const days = S.quotes.map(q => D.etYMD(q.created_at)).filter(Boolean).sort();
+    el('chartFrom').value = days[0] || D.shiftYMD(S.today, -60);
+    el('chartTo').value   = S.today;
+    renderChart();
+  });
+
+  el('noteInput').addEventListener('input', updateCounter);
+  el('noteSave').addEventListener('click', addNote);
+
+  el('notesList').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const act = btn.getAttribute('data-act');
+    const id  = btn.getAttribute('data-id');
+    if (act === 'edit')        { S.editingNote = id; renderNotes(); }
+    else if (act === 'cancel-edit') { S.editingNote = null; renderNotes(); }
+    else if (act === 'save-edit')   {
+      const ta = el('notesList').querySelector('.note-edit');
+      if (ta) saveEdit(id, ta.value);
+    }
+    else if (act === 'delete') { deleteNote(id); }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Boot
+   ═══════════════════════════════════════════════════════════════════════ */
+
+(async function boot() {
+  try {
+    // 🔴 日期模組檢查必須在任何日期運算之前,且【不可】fallback 自算。
+    //    自算的症狀是 2026-11-01 那天算錯一天,而且不報錯。
+    if (!dateModuleReady()) {
+      stopWith('The date module is out of date (components/date-utils.js).<br/>' +
+               'Hard-reload the page (Ctrl+Shift+R). If that does not help, this page needs ' +
+               'etYMD and shiftYMD, which were added in CB-100.');
+      return;
+    }
+    if (typeof window.Chart !== 'function') {
+      stopWith('The chart library did not load. Check the network connection and reload.');
+      return;
+    }
+
+    if (!(await enter())) return;
+
+    S.today  = D.todayET();
+    S.cutoff = D.shiftYMD(S.today, -STALE_DAYS);
+    if (!S.today || !S.cutoff) {
+      stopWith('Could not work out today&rsquo;s date in US Eastern. Reload the page.');
+      return;
+    }
+
+    await loadDealers();
+
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get('dealer');
+
+    gate().classList.add('hidden');
+    el('app').classList.remove('hidden');
+
+    if (!wanted) {
+      buildPicker();
+      el('pickerCard').classList.remove('hidden');
+      wire();
+      return;
+    }
+
+    S.dealer = S.dealers.get(wanted) || null;
+    if (!S.dealer) {
+      // 🔴 授權出口已通過,所以「查不到」在這裡確實是「不存在」,
+      //    不是「被 policy 擋住」。這個區分是 CB-82 缺陷二的重點。
+      buildPicker();
+      el('pickerCard').classList.remove('hidden');
+      wire();
+      noteError('');
+      el('pickerCard').querySelector('.card-title').textContent =
+        'That dealer no longer exists — pick another';
+      return;
+    }
+
+    S.dealerId = wanted;
+    await loadDealerData(wanted);
+
+    el('detail').classList.remove('hidden');
+    wire();
+    updateCounter();
+    renderAll();
+
+  } catch (e) {
+    console.error('[CB-100]', e);
+    stopWith('Could not load this dealer: ' + esc(e && e.message ? e.message : 'unknown error') +
+             '<br/>Reload the page; if it keeps failing, the database may be unreachable.');
+  }
+})();
+
+})();
+</script>
+<script src="components/feedback-widget.js?v=cb62c"></script>
+</body>
+</html>
