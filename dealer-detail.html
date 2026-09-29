@@ -165,13 +165,20 @@
         <div class="pager-bar hidden" id="stuckPager"></div>
       </div>
 
-      <!-- 3 · Recent activity -->
+      <!-- 3 · Recent activity(可摺疊 + 翻頁) -->
       <div class="card">
         <div class="card-head">
           <span class="card-title">Recent activity</span>
-          <span class="card-note" id="feedNote"></span>
+          <div class="card-tools">
+            <span class="card-note" id="feedNote"></span>
+            <button class="btn-plain" type="button" id="feedToggle"
+                    aria-expanded="false" aria-controls="feedWrap">Show</button>
+          </div>
         </div>
-        <div id="feedBody"></div>
+        <div id="feedWrap" class="hidden">
+          <div id="feedBody"></div>
+          <div class="pager-bar hidden" id="feedPager"></div>
+        </div>
       </div>
 
       <!-- 4 · Quotes raised per day -->
@@ -197,7 +204,7 @@
       <div class="card">
         <div class="card-head">
           <span class="card-title">Door styles</span>
-          <span class="card-note">Bought before, next to what is sitting in draft</span>
+          <span class="card-note" id="stylesNote"></span>
         </div>
         <div class="split">
           <div><h4>Bought</h4><div id="stylesBought"></div></div>
@@ -355,8 +362,10 @@ const DATA_SINCE = {
 
 const PAGE_SIZE   = 1000;   // PostgREST 讀取分頁
 const PER_PAGE    = 10;     // 畫面清單每頁列數(業主指定)
-const FEED_ROWS   = 20;     // 活動時間流顯示幾筆(業主:只要 top 幾筆)
 const FEED_DAYS   = 90;     // 活動時間流回溯幾天
+                            // 🔴 業主 2026-09-29 改為翻頁 + 摺疊,所以
+                            //    不再設「只顯示前 N 筆」的上限:90 天內
+                            //    全部進來,由分頁承接。回溯天數才是量的閘門。
 const NOTE_MAX    = 2000;
 const CHART_SENT  = '#3e5a42';
 const CHART_DRAFT = '#B9C4BB';
@@ -461,7 +470,7 @@ const S = {
   dealers: new Map(), dealerId: null, dealer: null,
   quotes: [], qById: new Map(), items: new Map(), styles: new Map(), touched: new Set(),
   credits: [], reminders: [], rules: [], notes: [], gone: [],
-  feed: [], feedTruncated: false,
+  feed: [], feedOpen: false,
   lastView: null, today: null, cutoff: null,
   chart: null, editingNote: null,
   lists: {}        // key -> { rows, cols, search, empty, note, page, term, els }
@@ -624,7 +633,6 @@ async function loadDealerData(dealerId) {
   viewsByDay.forEach(b => feed.push({ at: b.last, kind: 'views', views: b }));
 
   S.feed = feed.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
-  S.feedTruncated = S.feed.length > FEED_ROWS;
 
   /* 🔴 「客戶還在弄」的判準 —— 近 STALE_DAYS 天內品項有真實變動。
      兩個條件都是【正向識別】:
@@ -810,6 +818,35 @@ function stylesOf(quoteIds) {
     .sort((a, b) => b.qty - a.qty);
 }
 
+/* 5 · Door styles —— 與上方圖表的日期區間【連動】(業主 2026-09-29)。
+
+   🔴 共用的軸是 created_at(開單日),與圖表同一根。
+      所以「Bought」的語意是【在這段期間開的單當中,後來成交的那些】,
+      不是「在這段期間成交的」。八月開、九月成交的單算在八月。
+      兩個區塊若各用各的軸(一個開單日、一個出貨日),同一個畫面上會出現
+      兩個對不起來的期間,而且看不出來。共用一根軸是刻意的取捨。
+
+   🔴 生效區間必須顯示在本卡片的標題列上。
+      控制項在上一張卡片裡,改了之後這裡跟著變 —— 不標出來,使用者會
+      以為看到的是全期間。 */
+function renderDoorStyles() {
+  const from = el('chartFrom').value, to = el('chartTo').value;
+  const inRange = (q) => {
+    const d = D.etYMD(q.created_at);
+    return d && (!from || d >= from) && (!to || d <= to);
+  };
+
+  const scoped = S.quotes.filter(inRange);
+  renderStyleList('stylesBought', stylesOf(
+    scoped.filter(q => PAID_STATUSES.indexOf(q.status) !== -1).map(q => q.id)));
+  renderStyleList('stylesDraft', stylesOf(
+    scoped.filter(q => q.status === 'Draft').map(q => q.id)));
+
+  el('stylesNote').textContent =
+    'Quotes raised ' + prettyYMD(from) + ' – ' + prettyYMD(to)
+    + ' · follows the date range above';
+}
+
 function renderStyleList(target, list) {
   if (!list.length) { el(target).innerHTML = '<div class="empty">Nothing yet.</div>'; return; }
   el(target).innerHTML = list.map(s => {
@@ -981,47 +1018,58 @@ function feedLabel(e) {
   }
 }
 
+/* 🔴 摺疊預設【收起】(業主 2026-09-29:這張表太長)。
+   收起狀態下標題列仍必須說出「有多少、到哪一天、範圍是什麼」——
+   一個只寫著 "Recent activity" 的收合區塊等於沒有資訊,使用者得先展開
+   才知道值不值得展開。 */
+function setFeedOpen(open) {
+  S.feedOpen = open;
+  el('feedWrap').classList.toggle('hidden', !open);
+  const btn = el('feedToggle');
+  btn.textContent = open ? 'Hide' : 'Show';
+  btn.setAttribute('aria-expanded', String(open));
+}
+
 function renderFeed() {
-  const rows = S.feed.slice(0, FEED_ROWS);
+  /* 🔴 警語貼在【缺口】上,不貼在資料上。
+     login 由前端呼叫寫入,網路失敗就漏(CB-83 C-3 best-effort)。
+     但那描述的是「查不到」的可信度,不是「查得到的那幾筆」的可信度 ——
+     所以只在這段期間【一筆登入都沒有】時才講,因為只有那時候看的人
+     會從「沒有」推論出東西。 */
+  const hasLogin = S.feed.some(r => r.kind === 'login');
+  const caveat = hasLogin ? '' : ' · no login recorded, and logins are best-effort';
 
-  /* 🔴 說明列必須把三個邊界寫出來,否則「沒紀錄」會被讀成「沒發生」:
-       · 只含這個客戶自己的動作(admin 的操作不在內)
-       · login 是 best-effort,次數是下界
-       · 兩條流的起始日不同 */
-  el('feedNote').textContent =
-    (S.feed.length
-      ? (S.feedTruncated ? 'Most recent ' + FEED_ROWS + ' of ' + S.feed.length : S.feed.length + ' entries')
-        + ' · last ' + FEED_DAYS + ' days'
-      : 'Nothing recorded')
-    + ' · this dealer’s own actions only';
-
-  if (!rows.length) {
-    el('feedBody').innerHTML =
-      '<div class="empty">No activity recorded. Visits are logged since '
-      + esc(prettyYMD(DATA_SINCE.views)) + '.</div>';
-    return;
-  }
-
-  el('feedBody').innerHTML =
-    '<table><thead><tr><th>When</th><th>What</th></tr></thead><tbody>' +
-    rows.map(r => {
-      let what, sub = '';
-      if (r.kind === 'views') {
-        const b = r.views;
-        // 顯示當天看最多的三個頁面 —— 「到過 new-quote-step3」是最接近
-        // 「按了送出前一刻」的訊號,而 portal 沒有任何點擊記錄。
-        const top = Array.from(b.pages.entries())
-          .sort((a, c) => c[1] - a[1]).slice(0, 3).map(p => p[0]);
-        what = 'Viewed ' + b.n + (b.n === 1 ? ' page' : ' pages');
-        sub  = esc(top.join(', ')) + (b.pages.size > 3 ? ' +' + (b.pages.size - 3) : '');
-      } else {
-        what = feedLabel(r.ev);
-        if (r.ev.event_type === 'login') sub = 'best-effort — a missing entry does not mean no login';
-      }
-      return '<tr><td style="white-space:nowrap">' + esc(D.formatETDateTime(r.at)) + '</td>' +
-             '<td>' + what + (sub ? '<div class="styles-line">' + sub + '</div>' : '') + '</td></tr>';
-    }).join('') +
-    '</tbody></table>';
+  defineList('feed', {
+    rows: S.feed,
+    unit: 'entry',
+    noteText: 'last ' + FEED_DAYS + ' days · this dealer’s own actions only' + caveat,
+    empty: 'No activity recorded. Visits are logged since ' + prettyYMD(DATA_SINCE.views) + '.',
+    // 本清單刻意沒有搜尋框(DOM 裡沒有 feedSearch),wireList 會自動略過。
+    search: () => '',
+    cols: [
+      { label: 'When', get: r =>
+          '<span style="white-space:nowrap">' + esc(D.formatETDate(r.at)) + '</span>'
+          + '<div class="styles-line">' + esc(D.formatETDateTime(r.at).split(', ').slice(-1)[0]) + '</div>' },
+      { label: 'What', get: r => {
+          if (r.kind === 'views') {
+            const b = r.views;
+            // 當天看最多的三個頁面。🔴「到過 new-quote-step3」是最接近
+            // 「按了送出前一刻」的訊號 —— portal 沒有任何點擊記錄。
+            const top = Array.from(b.pages.entries())
+              .sort((a, c) => c[1] - a[1]).slice(0, 3).map(p => p[0]);
+            return 'Viewed ' + b.n + (b.n === 1 ? ' page' : ' pages')
+              + '<div class="styles-line">' + esc(top.join(', '))
+              + (b.pages.size > 3 ? ' +' + (b.pages.size - 3) : '') + '</div>';
+          }
+          // 🔴 login 這一列【不加】任何 best-effort 警語。
+          //    那句話描述的是「沒有紀錄」的意思,不是「這筆紀錄」的意思。
+          //    掛在每一筆真實發生的登入上,等於叫人連看得到的資料都不要信 ——
+          //    意思剛好相反。警語只在【完全沒有登入紀錄】時出現一次,
+          //    見下方 renderFeed() 的 noteText。
+          return feedLabel(r.ev);
+        } }
+    ]
+  });
 }
 
 /* 4 · 日柱狀圖 ────────────────────────────────────────────────────────── */
@@ -1211,19 +1259,28 @@ function renderAll() {
   renderSummary();
   renderStuck();
   renderFeed();
-  renderStyleList('stylesBought', stylesOf(
-    S.quotes.filter(q => PAID_STATUSES.indexOf(q.status) !== -1).map(q => q.id)));
-  renderStyleList('stylesDraft', stylesOf(
-    S.quotes.filter(q => q.status === 'Draft').map(q => q.id)));
   renderNotes();
   renderRest();
 
-  ['stuck', 'returns', 'all'].forEach(wireList);
+  ['stuck', 'feed', 'returns', 'all'].forEach(wireList);
+  setFeedOpen(false);   // 預設收起
 
+  resetRange();
+}
+
+/* 日期區間是【兩個區塊共用】的:圖表與 Door styles。
+   🔴 一律經由 applyRange() 觸發,不要有任何地方只呼叫 renderChart() ——
+      漏掉的那一處會讓兩個區塊顯示不同期間,而且畫面上看不出來。 */
+function applyRange() {
+  renderChart();
+  renderDoorStyles();
+}
+
+function resetRange() {
   const days = S.quotes.map(q => D.etYMD(q.created_at)).filter(Boolean).sort();
   el('chartFrom').value = days[0] || D.shiftYMD(S.today, -60);
   el('chartTo').value   = S.today;
-  renderChart();
+  applyRange();
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -1330,14 +1387,11 @@ function wire() {
   });
   el('pickerSelect').addEventListener('keydown', e => { if (e.key === 'Enter') el('pickerGo').click(); });
 
-  el('chartFrom').addEventListener('change', renderChart);
-  el('chartTo').addEventListener('change', renderChart);
-  el('chartReset').addEventListener('click', () => {
-    const days = S.quotes.map(q => D.etYMD(q.created_at)).filter(Boolean).sort();
-    el('chartFrom').value = days[0] || D.shiftYMD(S.today, -60);
-    el('chartTo').value   = S.today;
-    renderChart();
-  });
+  el('chartFrom').addEventListener('change', applyRange);
+  el('chartTo').addEventListener('change', applyRange);
+  el('chartReset').addEventListener('click', resetRange);
+
+  el('feedToggle').addEventListener('click', () => setFeedOpen(!S.feedOpen));
 
   el('noteInput').addEventListener('input', updateCounter);
   el('noteSave').addEventListener('click', addNote);
