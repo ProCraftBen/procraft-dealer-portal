@@ -44,6 +44,38 @@
  *   靜默略過邊界會讓查詢範圍無聲擴大,那是本票要消滅的失敗模式本身。
  * ────────────────────────────────────────────────────────────────── */
 
+/* ──────────────────────────────────────────────────────────────────────
+ * CB-100 增補(2026-09-29)—— 新增 etYMD / shiftYMD 兩個對外函式
+ *
+ * 🔴 既有六個函式(TZ / etDayStartUTC / etDayEndExclusiveUTC / todayET /
+ *    formatETDate / formatETDateTime)【一字未改】。本次為純新增匯出。
+ *
+ * ── 🔴 ?v= 刻意分歧,以及何時收斂 ────────────────────────────────────
+ *   admin-quotes.html      ?v=f174
+ *   admin-reminders.html   ?v=f174
+ *   dealer-detail.html     ?v=cb100     ← 分歧在此
+ *
+ *   為何分歧:CB-100 需要本檔的兩個新函式,但 admin-quotes.html 同時在
+ *   CB-103 的改動範圍內。兩張票同時動同一個檔案,promote 時的 SHA256
+ *   逐檔比對會分不清差異來自哪一票 —— CB-99 正是為了避免這件事才把
+ *   admin-quotes 排在後面。
+ *   分歧之所以安全:既有六個函式未改,那兩頁用舊版或新版行為完全相同。
+ *
+ *   ⚠️ 這正是 F-208 的生成方式(i18n.js 現有 5 種 ?v= 散在 13 頁)。
+ *      本次是【刻意】且【有收斂計畫】的分歧,不是疏漏。
+ *
+ *   收斂時機:CB-103 promote 之後。屆時 admin-quotes 不再被佔用,
+ *   三頁一次統一到同一個 key。
+ *   登記 F-<待 PM 核發>,與 F-208 交叉引用。
+ *
+ * ── 🔴 硬規則(不可協商)────────────────────────────────────────────
+ *   一旦有人修改上列【六個既有函式中的任何一個】,三頁必須在同一次
+ *   promote 中同時 bump 到同一個 ?v=。
+ *   分歧【只適用於純新增匯出】—— 因為那種改動對舊呼叫端是無差異的。
+ *   改了既有函式卻維持分歧,症狀是「同一個函式在不同頁面行為不同」,
+ *   而且不報錯。
+ * ────────────────────────────────────────────────────────────────── */
+
 (function () {
   'use strict';
 
@@ -183,12 +215,52 @@
     return _dateTimeFmt.format(d);
   }
 
+  // ── 對外:日曆運算(CB-100 新增)────────────────────────────────
+
+  /* timestamptz → 該瞬時在美東的日曆日,"YYYY-MM-DD"。非法輸入回 null。
+   *
+   * 🔴 與 formatETDate() 的分工:後者回 "Sep 8, 2026",是【給人看的】,
+   *    不可反解析。本函式回可比較、可運算的 YMD。
+   * 🔴 走與 todayET() 【同一段】程式碼(partsInTZ),兩者不可能分岔。
+   *    刻意不寫成 new Date(ts).toISOString().slice(0,10) —— 那取的是
+   *    UTC 日期,美東 20:00 後已跨日,會回「明天」。 */
+  function etYMD(ts) {
+    if (!ts) return null;
+    var d = new Date(ts);
+    if (isNaN(d.getTime())) return null;
+    var p = partsInTZ(d);
+    return p.year + '-' + p.month + '-' + p.day;
+  }
+
+  /* "YYYY-MM-DD" 加減 n 個【日曆天】,回 "YYYY-MM-DD"。非法輸入回 null。
+   *
+   * 🔴 這是硬規則②(終點獨立換算)的對外入口。
+   *    呼叫端【絕不可】自行以「起點 + n × 24h」推導 —— 2026-11-01 是
+   *    25 小時、2027-03-14 是 23 小時,那種寫法會靜默算錯。
+   * 🔴 本函式不含任何時區邏輯,純粹呼叫既有的 parseYMD 與 addDaysYMD
+   *    (addDaysYMD 以 UTC 分量運算,不受 DST 影響)。零重寫。
+   * 📌 刻意不直接匯出 addDaysYMD:它的介面是 { y, m, d } 物件,匯出會
+   *    洩漏內部形狀,且呼叫端還需要 parseYMD 才能使用。本模組對外一律
+   *    以 "YYYY-MM-DD" 字串為介面。 */
+  function shiftYMD(ymd, n) {
+    var p = parseYMD(ymd);
+    if (!p) return null;
+    if (typeof n !== 'number' || !isFinite(n)) return null;
+    var t = addDaysYMD(p, n);
+    return String(t.y).padStart(4, '0') + '-'
+         + String(t.m).padStart(2, '0') + '-'
+         + String(t.d).padStart(2, '0');
+  }
+
   window.ProCraftDate = {
     TZ: TZ,
     etDayStartUTC: etDayStartUTC,
     etDayEndExclusiveUTC: etDayEndExclusiveUTC,
     todayET: todayET,
     formatETDate: formatETDate,
-    formatETDateTime: formatETDateTime
+    formatETDateTime: formatETDateTime,
+    // ── CB-100 新增 ──
+    etYMD: etYMD,
+    shiftYMD: shiftYMD
   };
 })();
