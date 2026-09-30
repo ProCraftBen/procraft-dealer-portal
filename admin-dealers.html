@@ -1111,6 +1111,17 @@ async function loadDealers() {
       <td>${renderSalesCell(d.assigned_sales_id)}</td>
       <td>${d.is_active ? '<span class="badge-active">Active</span>' : '<span class="badge-inactive">Inactive</span>'}</td>
       <td style="white-space:nowrap">
+        <!-- CB-100:客戶明細頁入口。
+             🔴 用 <a> 而非 <button onclick>：這是一次導覽，不是動作。
+                中鍵／Cmd 點擊自然可用，也不需要多一個全域函式。
+             🔴 target="_blank"：本頁有篩選與分頁狀態，同分頁導覽後按返回
+                會清空條件。CB-103 正在處理清單狀態保留，但它的範圍是
+                admin-quotes / admin-payments / quotes.html，【不含本頁】。
+                在 CB-103 涵蓋本頁之前，開新分頁是唯一不動既有狀態的作法。
+                rel="noopener" 沿用全站慣例。 -->
+        <a class="btn-toggle" style="text-decoration:none;display:inline-block;margin-right:6px;"
+           href="dealer-detail.html?dealer=${encodeURIComponent(d.id)}"
+           target="_blank" rel="noopener">Detail</a>
         <button class="btn-edit" onclick="openEditDealer('${d.id}')">Edit</button>
         <button class="btn-toggle" onclick="toggleActive('${d.id}', ${d.is_active})">${d.is_active ? 'Deactivate' : 'Activate'}</button>
         ${canDelete ? `<button class="btn-toggle" style="color:var(--error);border-color:rgba(192,57,43,0.3);" onclick="openDeleteConfirm('${d.id}', '${d.company_name}')">Delete</button>` : ''}
