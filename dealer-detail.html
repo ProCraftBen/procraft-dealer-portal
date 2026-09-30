@@ -1446,7 +1446,15 @@ function wire() {
     el('gate').classList.add('hidden');
     el('app').classList.remove('hidden');
 
-    if (!wanted || !S.dealers.get(wanted)) {
+    // 🔴 O-1b(PM 2026-09-30):與 buildPicker() 同一判準 —— 只有
+    //    role === 'dealer' 才是客戶。員工帳號的 id 由網址帶入時,
+    //    落入下方的「該客戶不存在」分支。
+    //    理由不是嚴重性,是同一份規則不可有兩種判準:選單擋、直接
+    //    網址不擋,下一個人改其中一邊就會分岔 —— 那正是同義表述族
+    //    的生成方式。兩處若要改,必須一起改。
+    const wantedRow = wanted ? S.dealers.get(wanted) : null;
+    const isCustomer = !!wantedRow && wantedRow.role === 'dealer';   // 正向識別(F-35)
+    if (!isCustomer) {
       // 🔴 授權出口已通過,所以「查不到」在這裡確實是「不存在」,
       //    不是「被 policy 擋住」。這個區分是 CB-82 缺陷二的重點。
       if (wanted) el('pickerTitle').textContent = 'That dealer no longer exists — pick another';
