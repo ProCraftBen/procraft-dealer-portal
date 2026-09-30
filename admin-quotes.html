@@ -543,6 +543,9 @@
     </div>
   </div>
 
+  <!-- CB-103 S1-Q7:URL 內含無法辨識的條件時,顯示一行提示(見 restoreFromUrl())。 -->
+  <div id="urlStateNotice" style="display:none;font-size:11px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:3px;padding:8px 12px;margin:-4px 0 12px;line-height:1.5;"></div>
+
   <div class="table-wrap">
     <div class="table-header">
       <span class="table-title">Quotes</span>
@@ -722,6 +725,8 @@
      必須排在下方 inline script 之前 —— formatDate() 與 buildQuotesQuery() 都依賴它。 -->
 <script src="components/date-utils.js?v=f174"></script>
 <script src="components/account-type.js?v=cb97"></script>
+<!-- CB-103 U1:清單回程位址(Back 連結用)。必須排在下方 inline script 之前。 -->
+<script src="components/list-return.js?v=cb103"></script>
 <script>
 const SUPABASE_URL  = window.SB_URL;
 const SUPABASE_ANON = window.SB_KEY;
@@ -784,8 +789,13 @@ const LIST_COLSPAN = 10;
 // 🟡 頁大小具名常數(繼承 F-30 的紀律,值本頁自定)。
 const QUOTES_PAGE_SIZE = 25;
 
-// 模組層狀態(Q-8:沿用 F-30,不跨 reload 保留)。
-// 🔴 page 為 0-based。
+// 模組層狀態。
+// 🔴 CB-103 Q-1(2026-09-30)推翻 CB-60a Q-8:
+//    原決策 CB-60a Q-8「分頁狀態不跨 reload 保留(沿用 F-30)」(staging 6aa6b76,
+//    2026-09-03)是在沒有「連續處理」需求的前提下做的。業主 2026-09-28 確認本頁為
+//    連續處理場景(業務處理一批單,需回到同一位置),前提改變,故推翻。
+//    現在 page 與篩選 / 排序一起寫入 URL,reload 與返回都會還原(見 CB-103 區塊)。
+// 🔴 page 為 0-based;URL 上的 page 為 1-based。
 let _listState = { page: 0, total: null };
 
 // 🔴 查詢失敗的狀態必須獨立保存:清單為空與查詢失敗在畫面上同形,
@@ -1041,8 +1051,12 @@ function currentSortKey() {
   return Object.prototype.hasOwnProperty.call(SORT_OPTIONS, val) ? val : SORT_DEFAULT;
 }
 
+// 🔴 CB-103:查詢讀【已套用】的排序(_applied.sort),不讀畫面。
+//    currentSortKey() 仍是「讀畫面上的排序」的唯一入口,只在套用時呼叫。
 function applySort(q) {
-  const s = SORT_OPTIONS[currentSortKey()];
+  const key = Object.prototype.hasOwnProperty.call(SORT_OPTIONS, _applied.sort)
+    ? _applied.sort : SORT_DEFAULT;
+  const s = SORT_OPTIONS[key];
   return q.order(s.col, { ascending: s.asc, nullsFirst: false })
           .order('id',  { ascending: s.asc, nullsFirst: false });
 }
@@ -1056,10 +1070,15 @@ function initSortOptions() {
   el.value = SORT_DEFAULT;
   // 🔴 排序變更【必須】重置至第 1 頁:第 3 頁的第 1 筆在新排序下毫無意義,
   //    而畫面不會顯示任何異常 —— 使用者只會看到「一堆不相干的單」。
+  // 🔴 CB-103:變更排序 = 套用整個表單(與按 Filter 相同)。
+  //    沿用 CB-103 之前的行為:當時查詢每次讀畫面,改排序時畫面上其他欄位
+  //    也會一起生效。只套用排序會讓「改了 Status 沒按 Filter、再改排序」
+  //    的結果與過去不同,那是本票範圍外的行為變更。
   el.onchange = function () {
-  refreshDealerPickers();   // CB-60a M5-v2:程式清空 .value 後同步按鈕文字
-  _listState.page = 0;
-  loadQuotes();
+    readFormToApplied();
+    hideUrlNotice();
+    _listState.page = 0;
+    loadQuotes();
   };
 }
 
@@ -1239,7 +1258,11 @@ async function init() {
   await loadStoreCreditFlags();
 
   initSortOptions();   // CB-60a M3:須在 loadQuotes 之前,否則首次載入無排序值
+
+  // CB-103:還原必須在所有動態 options(Sales、Dealer、Sort)建立之後。
+  restoreFromUrl();
   await loadQuotes();
+  restoreScroll();
 }
 
 // ══ CB-82: reminder 標示載入 ═════════════════════════════
@@ -1475,7 +1498,7 @@ function renderSalesCell(id) {
 // 依 Sales filter 目前的值,算出符合的 dealer_id 陣列。
 // 回傳 null = 不加任何條件(All Sales)。
 function resolveSalesDealerIds() {
-  const val = document.getElementById('filterSales').value;
+  const val = _applied.sales;   // CB-103:讀已套用值,不讀畫面
   if (!val) return null;                       // All Sales
 
   const target = (val === SALES_ME) ? currentUserId : val;
@@ -1501,7 +1524,7 @@ function updateStatsScope() {
 // Q6:空結果文案分情境,讓「過濾正確但無資料」與「查詢壞掉」可區分。
 // 進一步區分兩種空:名下無 dealer vs 有 dealer 但無 quote。
 function emptyStateMessage() {
-  const val = document.getElementById('filterSales').value;
+  const val = _applied.sales;   // CB-103:讀已套用值,不讀畫面
   if (!val) return 'No quotes found.';
 
   const ids = resolveSalesDealerIds();
@@ -1555,11 +1578,15 @@ function isInternalDraft(q) {
 // ⚠️ 篩選邏輯沿用原碼,除搜尋淨化外未做行為變更。
 //    搜尋淨化已於 M4 改為 sanitizeSearch() + 雙引號包裹。
 function buildQuotesQuery(salesDealerIds) {
-  const status      = document.getElementById('filterStatus').value;
-  const dealer      = document.getElementById('filterDealer').value;
-  const accountType = document.getElementById('filterAccountType').value;
-  const from        = document.getElementById('filterFrom').value;
-  const to          = document.getElementById('filterTo').value;
+  // 🔴 CB-103 S1-Q3:讀【已套用快照】_applied,不讀畫面。
+  //    過去每次讀畫面,改了篩選沒按 Filter 就翻頁 / 匯出,新條件會被靜默套用
+  //    (F-290)。現在翻頁、匯出、URL 三者都以同一份快照為準。
+  //    ⚠️ 下方 CB-97 的 embed / 分派 / .or() 邏輯一字未改,只換了值的來源。
+  const status      = _applied.status;
+  const dealer      = _applied.dealer;
+  const accountType = _applied.acct;
+  const from        = _applied.from;
+  const to          = _applied.to;
 
   // ── CB-97 ②:跨表篩選(Q-3 = A 案)────────────────────────────────────
   //   🔴 embed 為【條件式】—— 未選 Account Type 時 select 維持原樣。
@@ -1618,7 +1645,7 @@ function buildQuotesQuery(salesDealerIds) {
     query = query.lt('created_at', hiUtc);
   }
 
-  const search = (document.getElementById('filterSearch').value || '').trim();
+  const search = (_applied.q || '').trim();   // CB-103:讀已套用值
   if (!search) renderSearchNotice([]);   // CB-60a M4:清空搜尋時一併清掉提示
   if (search) {
     if (/^D\d{5}$/i.test(search)) {
@@ -1654,6 +1681,8 @@ async function loadQuotes() {
     renderTable();
     renderPager();
     updateStatsScope();
+    _pageFromUrl = null;   // CB-103:此路徑頁碼一律歸 0,不做超界提示
+    writeUrlState();       // CB-103
     return;
   }
 
@@ -1680,6 +1709,13 @@ async function loadQuotes() {
       ? Math.floor((realTotal - 1) / QUOTES_PAGE_SIZE)
       : 0;
 
+    // CB-103 補充 1:從 URL 還原的頁碼超界時,告知使用者目前顯示的是哪一頁。
+    //   🔴 只顯示 Q-7 的一行提示,【不】顯示資料庫錯誤 —— PGRST103 在這裡是
+    //      預期中的控制流程,不是錯誤。
+    if (_pageFromUrl !== null && _pageFromUrl !== lastPage) {
+      showUrlNotice('Page ' + (_pageFromUrl + 1) + ' is no longer available '
+        + '(the list is shorter now). Showing page ' + (lastPage + 1) + '.');
+    }
     _listState.page = lastPage;
     const retry = await run(lastPage);
     data  = retry.data;
@@ -1714,10 +1750,13 @@ async function loadQuotes() {
     }
   }
 
+  _pageFromUrl = null;   // CB-103:只在還原後的第一次查詢判斷超界
+
   await loadStats();
   renderTable();
   renderPager();
   updateStatsScope();
+  writeUrlState();   // CB-103:URL 反映實際顯示的頁碼(含超界 clamp 後)
 }
 
 // ══ CB-60a M2:分頁列 ═══════════════════════════════════════════════════
@@ -2520,6 +2559,7 @@ async function saveStatus(quoteId) {
   const q = allQuotes.find(function(q) { return q.id === quoteId; });
   if (q) q.status = newStatus;
   _previousStatus[quoteId] = newStatus;
+  // CB-103 Q-4:局部更新【不寫 URL、不提示、不重新查詢】。條件沒變,URL 也不該變。見 writeUrlState() 上方說明。
 await loadStats();   // CB-60a M1-fix:renderStats() 已移除
 showToast('Status updated to ' + pcQuoteStatusLabel(newStatus));
 }
@@ -2713,6 +2753,7 @@ async function confirmReturnQuote() {
     q.return_reason = reason;
   }
   _previousStatus[quoteId] = 'Returned';
+  // CB-103 Q-4:局部更新【不寫 URL、不提示、不重新查詢】。條件沒變,URL 也不該變。見 writeUrlState() 上方說明。
 
   document.getElementById('returnQuoteModal').classList.remove('show');
   btn.classList.remove('loading');
@@ -2874,6 +2915,7 @@ async function confirmCloseQuote() {
     q.close_reason = reason;
   }
   _previousStatus[quoteId] = 'Closed';
+  // CB-103 Q-4:局部更新【不寫 URL、不提示、不重新查詢】。條件沒變,URL 也不該變。見 writeUrlState() 上方說明。
 
   document.getElementById('closeQuoteModal').classList.remove('show');
   btn.classList.remove('loading');
@@ -3077,24 +3119,215 @@ async function confirmDeleteDraft() {
   }
 }
 
+// ══ CB-103:清單狀態保留(URL 為唯一事實來源)══════════════════════════
+//
+// 流程:URL →(restoreFromUrl)→ _applied → 畫面欄位
+//       按 Filter / 改排序 →(readFormToApplied)→ _applied → 查詢 → writeUrlState → URL
+//       翻頁只改 _listState.page,不讀畫面(F-290)
+//
+// 🔴 兩條判準,請勿對齊(PM4 2026-09-30 補充 2):
+//   ① Q-7  URL 內含【無法辨識的條件】→ 退回預設 + 顯示一行提示(#urlStateNotice)。
+//          那是「連結被改壞 / 條件已不存在」,使用者需要知道畫面和連結不一樣。
+//   ② Q-4  清單上的【局部更新】(退回、關單、改狀態)→ 不寫 URL、不提示、不重新查詢。
+//          條件沒有變,URL 也不該變;整頁重查會讓連續處理變慢,與本票目的相反。
+//   兩者都是「不寫 URL」或「改寫 URL」,看起來相似,但觸發條件與使用者體驗
+//   完全不同。把 ② 也加上提示,或讓 ② 觸發重新查詢,都違反裁決。
+//
+// 🔴 URL 參數名不得使用 draft / id / quote_id / payment_id
+//    (CB-103 Stage 0 §0-8:CB-85 record_page_view 的 context_id 白名單;
+//     dealer / sales 的值是 UUID,誤用會被寫進 page_views.context_id)。
+//
+// 🔴 寫入只用 history.replaceState:不觸發 reload、不新增歷史項。
+//    不可改用 pushState(每次套用都多一個「上一頁」)或 location.search(會 reload)。
+// ═══════════════════════════════════════════════════════════════════════
+const LIST_PAGE = window.ProCraftListReturn.PAGES.ADMIN_QUOTES;
+
+// URL 參數名 ↔ _applied 欄位。順序即 URL 中的順序。
+const URL_KEYS = ['status', 'acct', 'sales', 'dealer', 'from', 'to', 'q', 'sort'];
+const URL_SEARCH_MAX = 200;
+const URL_PAGE_MAX   = 10000;
+
+// 已套用快照。init 中由 restoreFromUrl() 設定,之後只由 applyFilters /
+// resetFilters / 排序變更改動。查詢、匯出、URL 一律讀這裡。
+let _applied = null;
+
+// 從 URL 還原出的頁碼(0-based);只用來判斷還原後第一次查詢是否超界。
+let _pageFromUrl = null;
+
+function defaultApplied() {
+  return {
+    status: '', acct: '', sales: defaultSalesValue, dealer: '',
+    from: '', to: '', q: '', sort: SORT_DEFAULT
+  };
+}
+
+function readFormToApplied() {
+  _applied = {
+    status: document.getElementById('filterStatus').value,
+    acct:   document.getElementById('filterAccountType').value,
+    sales:  document.getElementById('filterSales').value,
+    dealer: document.getElementById('filterDealer').value,
+    from:   document.getElementById('filterFrom').value,
+    to:     document.getElementById('filterTo').value,
+    q:      document.getElementById('filterSearch').value,
+    sort:   currentSortKey()
+  };
+}
+
+// 🔴 每個欄位都明確設值(含預設值)。瀏覽器返回時會自行把靜態欄位的舊值
+//    填回(Stage 0 §9.4);只設 URL 有帶的欄位,會和瀏覽器填回的值混在一起。
+function writeFormFromApplied() {
+  document.getElementById('filterStatus').value      = _applied.status;
+  document.getElementById('filterAccountType').value = _applied.acct;
+  document.getElementById('filterSales').value       = _applied.sales;
+  document.getElementById('filterDealer').value      = _applied.dealer;
+  document.getElementById('filterFrom').value        = _applied.from;
+  document.getElementById('filterTo').value          = _applied.to;
+  document.getElementById('filterSearch').value      = _applied.q;
+  document.getElementById('sortBy').value            = _applied.sort;
+  refreshDealerPickers();   // 隱藏 select 改值後,按鈕文字要同步
+}
+
+// select 設值後讀回確認:對不存在的 option 設 .value,瀏覽器會【靜默】改成 ''
+// 或第一個選項,不報錯(mountDealerPicker() 註解已記載同一陷阱)。
+function selectAccepts(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  const prev = el.value;
+  el.value = value;
+  const ok = el.value === value;
+  el.value = prev;
+  return ok;
+}
+
+function isValidIsoDate(v) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(v)
+      && !!window.ProCraftDate.etDayStartUTC(v);   // F-174 的同一支換算,非法日期回 null
+}
+
+// 回傳被退回預設的參數名清單。
+function restoreFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const next = defaultApplied();
+  const rejected = [];
+
+  const take = function (key, accept) {
+    if (!params.has(key)) return;
+    const v = params.get(key);
+    if (accept(v)) next[key] = v;
+    else rejected.push(key);
+  };
+
+  take('status', function (v) { return v !== '' && selectAccepts('filterStatus', v); });
+  take('acct',   function (v) { return v !== '' && selectAccepts('filterAccountType', v); });
+  take('sales',  function (v) { return selectAccepts('filterSales', v); });
+  take('dealer', function (v) { return v !== '' && selectAccepts('filterDealer', v); });
+  take('from',   isValidIsoDate);
+  take('to',     isValidIsoDate);
+  take('q',      function (v) { return v.trim() !== '' && v.length <= URL_SEARCH_MAX; });
+  take('sort',   function (v) { return Object.prototype.hasOwnProperty.call(SORT_OPTIONS, v); });
+
+  let page = 0;
+  if (params.has('page')) {
+    const raw = params.get('page');
+    if (/^[1-9]\d*$/.test(raw) && Number(raw) <= URL_PAGE_MAX) page = Number(raw) - 1;
+    else rejected.push('page');
+  }
+
+  _applied = next;
+  _listState.page = page;
+  _pageFromUrl = page > 0 ? page : null;
+  writeFormFromApplied();
+
+  if (rejected.length) {
+    console.warn('[CB-103] URL values not recognized, reset to default:', rejected.join(', '));
+    showUrlNotice('Some filters in this link were not recognized and were reset: '
+      + rejected.join(', ') + '.');
+  }
+  return rejected;
+}
+
+function writeUrlState() {
+  if (!_applied) return;
+  const def = defaultApplied();
+  const params = new URLSearchParams();
+  URL_KEYS.forEach(function (k) {
+    if (_applied[k] !== def[k]) params.set(k, _applied[k]);
+  });
+  if (_listState.page > 0) params.set('page', String(_listState.page + 1));
+
+  const qs = params.toString();
+  const search = qs ? '?' + qs : '';
+  if (search !== window.location.search) {
+    try {
+      history.replaceState(history.state, '', window.location.pathname + search + window.location.hash);
+    } catch (e) {
+      // Safari 對 replaceState 有頻率上限,超過會拋 SecurityError。
+      // 失敗只代表 URL 沒更新,畫面與查詢不受影響。
+      console.warn('[CB-103] replaceState failed:', e);
+    }
+  }
+  window.ProCraftListReturn.save(LIST_PAGE, search);
+}
+
+function showUrlNotice(text) {
+  const el = document.getElementById('urlStateNotice');
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+function hideUrlNotice() {
+  const el = document.getElementById('urlStateNotice');
+  if (!el) return;
+  el.textContent = '';
+  el.style.display = 'none';
+}
+
+// 捲動位置:離開時記下,回來且條件相同時還原(取用即清除)。
+function restoreScroll() {
+  const y = window.ProCraftListReturn.takeScroll(LIST_PAGE, window.location.search);
+  if (y === null) return;
+  const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  window.scrollTo(0, Math.min(y, max));
+}
+
+// 🔴 pagehide,不用 unload / beforeunload(後兩者會讓頁面失去 bfcache 資格)。
+window.addEventListener('pagehide', function () {
+  window.ProCraftListReturn.saveScroll(LIST_PAGE, window.location.search);
+});
+
+// CB-103 S1-Q6:頁面若從 bfcache 還原(畫面是離開前的舊資料),整頁重新載入。
+//   目前桌機 Chrome 不走 bfcache,這段不會執行;它是給其他瀏覽器或日後
+//   行為改變時的防線 —— 避免「剛 Confirm Stock 的單仍顯示 Stock Review」。
+//   只在 persisted === true 時觸發,與 Q-4 的局部更新無關。
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) window.location.reload();
+});
+
 // ── Filters ────────────────────────────────────────────────────────
 // 🔴 篩選改變【必須】重置至第 1 頁(F-30 🟢 通用項)。
 //    不重置的話:停在第 4 頁時改篩選,新條件下可能只有 1 頁,
 //    range(75,99) 會落在空區 -> PGRST103 -> 觸發 clamp 重跑,
 //    畫面最終是對的,但多一次來回;若 count 剛好夠,則會顯示
 //    「第 4 頁」的資料而使用者以為是第 1 頁 —— 而且不報錯。
-function applyFilters() { _listState.page = 0; loadQuotes(); }
+function applyFilters() {
+  readFormToApplied();   // CB-103:按 Filter 才把畫面值變成已套用值
+  hideUrlNotice();
+  _listState.page = 0;
+  loadQuotes();
+}
 function resetFilters() {
-  document.getElementById('filterStatus').value = '';
-  document.getElementById('filterDealer').value = '';
-  // 🔴 CB-97:漏掉這一行的症狀是「按了 Reset 但 Account Type 仍生效」,
-  //    而按鈕顯示已重設 —— 不報錯。
-  document.getElementById('filterAccountType').value = '';
-  document.getElementById('filterFrom').value   = '';
-  document.getElementById('filterTo').value     = '';
-  document.getElementById('filterSearch').value = '';
-  // CB-38 Q3:Sales 回到 landing 時的 default(admin → My Dealers),而非清空
-  document.getElementById('filterSales').value  = defaultSalesValue;
+  // 🔴 CB-103:改由 defaultApplied() 集中定義預設值,再一次寫回畫面。
+  //    CB-97「漏掉 Account Type 就會 Reset 不乾淨」的風險,現在由
+  //    defaultApplied() 與 writeFormFromApplied() 兩處欄位清單一致來防範。
+  //    CB-38 Q3:Sales 回到 defaultSalesValue,而非清空 —— 見 defaultApplied()。
+  // 🔴 排序【不】重設:CB-103 之前的 Reset 從不動排序(排序不是篩選條件)。
+  const keepSort = _applied.sort;
+  _applied = defaultApplied();
+  _applied.sort = keepSort;
+  writeFormFromApplied();   // 內含 refreshDealerPickers()
+  hideUrlNotice();
   _listState.page = 0;
   loadQuotes();
 }
