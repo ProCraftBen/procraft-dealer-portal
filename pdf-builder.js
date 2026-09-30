@@ -1246,9 +1246,19 @@ return total;
       // pushDivider('========== ' + section.label + ' ==========', DIVIDER_LW_STYLE, bodyFs + 1);
 
       // Tier2: style_code 字母序
+      // CB-106: custom item 的 style_code 恆為 NULL(F-66),原鍵使同 section 內全部
+      //   custom 併成一區、標籤取首筆。改為兩支鍵,以 is_custom === true 正向識別(F-35):
+      //   - 型錄:'1|' + style_code 大寫 —— 與原鍵等價只加前綴,純型錄單輸出不變
+      //   - custom:'0|' + 標籤 trim + 大寫(Q-3=A)—— 標籤運算式與下方 pushDivider 標籤相同,
+      //     使 step3(style_name null)與 quote-detail(已 fallback 成 '—')收斂同鍵(Q-4=A)
+      //   - '0|' < '1|' → custom 區塊排在型錄之前,維持原排序(Q-2=A);
+      //     custom 與型錄同名不併區(Q-1=A,見 F-322)
+      //   🔴 DOC-1 三檔同步:new-quote-step3.html / quote-detail.html 同段邏輯逐字一致,勿單改。
       const byStyle = {};
       section.items.forEach(function (it) {
-        const sk = String(it.style_code || '').toUpperCase();
+        const sk = (it.is_custom === true)
+          ? '0|' + String(it.style_name || it.style_code || '—').trim().toUpperCase()
+          : '1|' + String(it.style_code || '').toUpperCase();
         (byStyle[sk] || (byStyle[sk] = [])).push(it);
       });
 
