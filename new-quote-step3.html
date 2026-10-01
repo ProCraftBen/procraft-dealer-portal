@@ -2038,6 +2038,9 @@ const CB53_DEALER_EDITABLE_STATUSES = ['Draft', 'Returned'];
 //    三份行為【刻意不同】,勿盲目對齊。現行的刻意差異是 style_name / sku_desc
 //    的取值順序:step2 與 modifications 以 catalog 值優先,本函式以 row 快照
 //    優先(F-66 正是靠這條註解才沒有把三者「對齊」掉)。
+//    🔴 CB-107:上述差異只適用於【型錄列】。custom 列三處行為必須相同 ——
+//    custom 的 sku_code 可能與型錄重疊,因此不得以 sku_code 查型錄決定任何
+//    欄位,以 is_custom 正向識別。三處各有一段 isCustomRow 分支,須一起改。
 //    F-70:原本這裡舉的例子是 is_custom,該例已失效 —— F-66 Q-5 之後三份都
 //    保留 is_custom 了。原則不變,只換舉例。
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2096,12 +2099,22 @@ async function cb53BuildCartFromDb(quoteId) {
     const key = (row.style_code || '') + '-' + row.sku_code + '-' + row.assemble_status;
 
     if (!groupsByKey.has(key)) {
+      // CB-107: custom item 的 sku_code 可能與型錄重疊(例如 custom「W1242」
+      //   改過描述),因此不得以 sku_code 查型錄決定 custom 列的任何欄位。
+      //   以 is_custom 正向識別(F-35)。sku = null 後:sku_desc → row 快照、
+      //   needs_confirmation → false(quote_items 無此欄,saveCustomItem 不設)。
+      //   型錄列不變。
+      // ⚠️ 與 new-quote-step2.html / new-quote-modifications.html 的
+      //   loadDraftItems() 同規則,三處必須一起改。
+      const isCustomRow = row.is_custom === true;
       const style = allDoorStyles.find(function (s) { return s.style_code === row.style_code; });
       const ct    = style ? (style.construction_type || null) : null;
       // needs_confirmation 依 construction 決定查哪張 SKU 表(同 getTagForItem)
       const src   = (String(ct || '').toLowerCase() === 'frameless') ? allSkusFrameless : allSkusFramed;
-      const sku   = src.find(function (s) { return s.sku_code === row.sku_code; })
-                 || skuAll.find(function (s) { return s.sku_code === row.sku_code; });
+      const sku   = isCustomRow
+        ? null
+        : (src.find(function (s) { return s.sku_code === row.sku_code; })
+           || skuAll.find(function (s) { return s.sku_code === row.sku_code; }));
 
       groupsByKey.set(key, {
         key:                key,
