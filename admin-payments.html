@@ -212,6 +212,9 @@
     <div class="page-title">Payments</div>
   </div>
 
+  <!-- CB-103 S1-Q7:URL 內含無法辨識的條件時,顯示一行提示(見 restoreFromUrl())。 -->
+  <div id="urlStateNotice" style="display:none;font-size:11px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:3px;padding:8px 12px;margin:0 0 12px;line-height:1.5;"></div>
+
   <!-- ===== Ghost Payments alert (CB-43):有未結案幽靈才 render,否則保持空 ===== -->
   <div id="ghostBanner"></div>
 
@@ -345,6 +348,8 @@
 <script src="config.js"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <script src="components/footer.js?v=cb62c"></script>
+<!-- CB-103 U1:清單回程位址(Back 連結用)。必須排在下方 inline script 之前。 -->
+<script src="components/list-return.js?v=cb103"></script>
 <script>
 // ════════════════════════════════════════════════════════════════════
 // admin-payments.html — CB-43 T5 (Admin 付款管理頁)
@@ -837,6 +842,154 @@ function salesMatches(assignedId, val) {
   return assignedId === target;
 }
 
+// ══ CB-103:清單狀態保留(URL 為唯一事實來源)══════════════════════════
+//
+// 範圍:只有【列表檢視】讀寫清單參數。URL 帶 payment_id 時是詳情檢視,
+//       不讀、不寫清單參數;詳情的 Back 連結改讀回程位址(backToListHref)。
+//
+// 🔴 兩條判準,請勿對齊(PM4 2026-09-30 補充 2):
+//   ① Q-7  URL 內含【無法辨識的條件】→ 退回預設 + 顯示一行提示(#urlStateNotice)。
+//   ② Q-4  本頁動作(Record Offline、Reminder、Close、幽靈結案等)完成後的
+//          refreshAll() → 條件沒變,URL 內容不變(writeUrlState 比對相同即不寫)、不提示。
+//          refreshAll 重新撈的是資料,不是整頁 reload;這是 CB-103 之前就有的行為,本票不改。
+//
+// 🔴 URL 參數名不得使用 draft / id / quote_id / payment_id(Stage 0 §0-8)。
+//    payment_id 另為本頁的詳情路由鍵,清單參數若用到它會把使用者導進詳情。
+// 🔴 寫入只用 history.replaceState。
+// ═══════════════════════════════════════════════════════════════════════
+const LIST_PAGE = window.ProCraftListReturn.PAGES.ADMIN_PAYMENTS;
+const URL_KEYS  = ['status', 'method', 'sales', 'from', 'to', 'q'];   // + aq(Awaiting)
+const URL_SEARCH_MAX = 200;
+const URL_WRITE_DEBOUNCE_MS = 300;   // 🔴 Safari:30 秒內 replaceState 超過 100 次會拋 SecurityError
+
+// 已套用快照。filterPayments() 每次過濾時記下;預設值與欄位預設相同。
+let _applied = { status: '', method: '', sales: '', from: '', to: '', q: '' };
+
+function isListView() { return !getParam('payment_id'); }
+
+function backToListHref() {
+  return window.ProCraftListReturn.href(LIST_PAGE);
+}
+
+// select 設值後讀回確認:不存在的 option 會被瀏覽器【靜默】改成 '' 或第一項。
+function selectAccepts(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  const prev = el.value;
+  el.value = value;
+  const ok = el.value === value;
+  el.value = prev;
+  return ok;
+}
+
+// 本頁日期篩選以瀏覽器本地時間解讀(F-293,本票不改),驗證只確認是合法日期。
+function isValidIsoDate(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return false;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return d.getUTCFullYear() === Number(m[1])
+      && d.getUTCMonth() === Number(m[2]) - 1
+      && d.getUTCDate() === Number(m[3]);   // 2026-02-30 之類會進位成別的日期 → 不合法
+}
+
+// 🔴 每個欄位都明確設值(含預設值):瀏覽器返回時會自行填回靜態欄位的舊值
+//    (Stage 0 §9.4);只設 URL 有帶的欄位會和瀏覽器填回的值混在一起。
+function restoreFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const next = { status: '', method: '', sales: '', from: '', to: '', q: '', aq: '' };
+  const rejected = [];
+  const take = function (key, accept) {
+    if (!params.has(key)) return;
+    const v = params.get(key);
+    if (accept(v)) next[key] = v; else rejected.push(key);
+  };
+  const textOk = function (v) { return v.trim() !== '' && v.length <= URL_SEARCH_MAX; };
+
+  take('status', function (v) { return v !== '' && selectAccepts('filterStatus', v); });
+  take('method', function (v) { return v !== '' && selectAccepts('filterMethod', v); });
+  take('sales',  function (v) { return selectAccepts('filterSales', v); });
+  take('from',   isValidIsoDate);
+  take('to',     isValidIsoDate);
+  take('q',      textOk);
+  take('aq',     textOk);
+
+  document.getElementById('filterStatus').value   = next.status;
+  document.getElementById('filterMethod').value   = next.method;
+  document.getElementById('filterSales').value    = next.sales;
+  document.getElementById('filterFrom').value     = next.from;
+  document.getElementById('filterTo').value       = next.to;
+  document.getElementById('filterSearch').value   = next.q;
+  document.getElementById('awaitingSearch').value = next.aq;
+  _awaitingTerm = next.aq;
+
+  if (rejected.length) {
+    console.warn('[CB-103] URL values not recognized, reset to default:', rejected.join(', '));
+    showUrlNotice('Some filters in this link were not recognized and were reset: '
+      + rejected.join(', ') + '.');
+  }
+  return rejected;
+}
+
+function writeUrlState() {
+  if (!isListView()) return;
+  const params = new URLSearchParams();
+  URL_KEYS.forEach(function (k) { if (_applied[k] !== '') params.set(k, _applied[k]); });
+  if (_awaitingTerm !== '') params.set('aq', _awaitingTerm);
+
+  const qs = params.toString();
+  const search = qs ? '?' + qs : '';
+  if (search !== window.location.search) {
+    try {
+      history.replaceState(history.state, '', window.location.pathname + search + window.location.hash);
+    } catch (e) {
+      console.warn('[CB-103] replaceState failed:', e);   // URL 沒更新,畫面不受影響
+    }
+  }
+  window.ProCraftListReturn.save(LIST_PAGE, search);
+}
+
+let _urlWriteTimer = null;
+function scheduleUrlWrite() {
+  clearTimeout(_urlWriteTimer);
+  _urlWriteTimer = setTimeout(writeUrlState, URL_WRITE_DEBOUNCE_MS);
+}
+
+function showUrlNotice(text) {
+  const el = document.getElementById('urlStateNotice');
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+function hideUrlNotice() {
+  const el = document.getElementById('urlStateNotice');
+  if (!el) return;
+  el.textContent = '';
+  el.style.display = 'none';
+}
+
+// 捲動位置:整頁(window)。⚠️ Awaiting 區內部的捲動框(.await-scroll)不保留 ——
+//   該區的列沒有連到其他頁面,動作都在本頁彈窗完成,不會因換頁而遺失位置。
+function restoreScroll() {
+  const y = window.ProCraftListReturn.takeScroll(LIST_PAGE, window.location.search);
+  if (y === null) return;
+  const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  window.scrollTo(0, Math.min(y, max));
+}
+
+// 🔴 pagehide,不用 unload / beforeunload(後兩者會讓頁面失去 bfcache 資格)。
+window.addEventListener('pagehide', function () {
+  if (!isListView()) return;
+  clearTimeout(_urlWriteTimer);
+  writeUrlState();   // 離開前把 debounce 中的 Awaiting 搜尋字寫進去
+  window.ProCraftListReturn.saveScroll(LIST_PAGE, window.location.search);
+});
+
+// CB-103 S1-Q6:頁面若從 bfcache 還原(畫面是離開前的舊資料),整頁重新載入。
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) window.location.reload();
+});
+
 // ════════════════════════════════════════════════════════════════════
 // 列表頁
 // ════════════════════════════════════════════════════════════════════
@@ -851,12 +1004,18 @@ async function showList() {
     if (e.key === 'Enter') applyFilters();
   });
 
+  let listReady = false;   // CB-103:載入失敗時不回寫 URL,保留使用者的連結
   try {
     await loadData();
     await loadSalesList();   // CB-38:Sales 名單需獨立查詢
     buildSalesFilter();      // CB-38:內建 _salesFilterBuilt 防重複 append
-    renderList(allPayments);
+    // CB-103:還原必須在 Sales options 建立之後。
+    //   第一次渲染改為套用還原後的條件 —— 過去固定 renderList(allPayments),
+    //   不讀篩選欄位,URL 還原的條件會顯示在欄位上、卻沒有作用在清單上。
+    restoreFromUrl();
+    renderList(filterPayments());
     renderGhostBanner();
+    listReady = true;
   } catch (err) {
     console.error('[admin-payments] loadData failed:', err);
     document.getElementById('listBody').innerHTML =
@@ -866,10 +1025,13 @@ async function showList() {
   }
 
   // Awaiting Payment 區:搜尋(只綁一次)+ 載入
-  document.getElementById('awaitingSearch').oninput = function (e) { renderAwaiting(e.target.value); };
+  document.getElementById('awaitingSearch').oninput = function (e) {
+    renderAwaiting(e.target.value);
+    scheduleUrlWrite();   // CB-103:即時搜尋 → debounce 回寫 URL
+  };
   try {
     await loadAwaiting();
-    renderAwaiting('');
+    renderAwaiting(_awaitingTerm);   // CB-103:沿用還原後的搜尋字(預設為 '')
   } catch (err) {
     console.error('[admin-payments] loadAwaiting failed:', err);
     document.getElementById('awaitingBody').innerHTML =
@@ -877,15 +1039,26 @@ async function showList() {
     document.getElementById('awaitingCount').textContent    = '—';
     document.getElementById('awaitingCountNoun').textContent = 'Quotes';
   }
+
+  if (listReady) {
+    writeUrlState();   // CB-103
+    restoreScroll();   // CB-103:兩個清單都渲染完才還原捲動位置
+  }
 }
 
-function applyFilters() {
+// CB-103:套用篩選 = 讀畫面 → 存成已套用快照 → 過濾。
+//   admin-payments 為 client-side 過濾、無分頁,「已套用」只需在過濾當下記下。
+function filterPayments() {
   const st     = document.getElementById('filterStatus').value;
   const mt     = document.getElementById('filterMethod').value;
   const sl     = document.getElementById('filterSales').value;   // CB-38
   const from   = document.getElementById('filterFrom').value;   // yyyy-mm-dd or ''
   const to     = document.getElementById('filterTo').value;
-  const search = document.getElementById('filterSearch').value.trim().toLowerCase();
+  const searchRaw = document.getElementById('filterSearch').value;
+  const search = searchRaw.trim().toLowerCase();
+
+  // CB-103:已套用快照。URL、Awaiting 區的 Sales 篩選、空結果文案都讀這裡。
+  _applied = { status: st, method: mt, sales: sl, from: from, to: to, q: searchRaw };
 
   const fromTs = from ? new Date(from + 'T00:00:00').getTime() : null;
   const toTs   = to   ? new Date(to   + 'T23:59:59').getTime() : null;
@@ -913,8 +1086,14 @@ function applyFilters() {
     return true;
   });
 
-  renderList(rows);
+  return rows;
+}
+
+function applyFilters() {
+  hideUrlNotice();
+  renderList(filterPayments());
   renderAwaiting(_awaitingTerm);   // CB-38 Q4:上方 Awaiting 區塊同步套用 Sales filter
+  writeUrlState();                 // CB-103
 }
 
 function resetFilters() {
@@ -925,14 +1104,14 @@ function resetFilters() {
   document.getElementById('filterSearch').value = '';
   // CB-38 Q3:本頁限 super_admin,default 恆為 All Sales
   document.getElementById('filterSales').value  = '';
-  renderList(allPayments);
-  renderAwaiting(_awaitingTerm);   // CB-38 Q4
+  // CB-103:改走 applyFilters() —— 欄位全為預設時結果等同 allPayments,
+  //   同時更新已套用快照與 URL。Awaiting 搜尋字不在 Reset 範圍內(沿用原行為)。
+  applyFilters();
 }
 
 // CB-38 Q6:payments 列表空結果文案(Sales 情境優先於通用訊息)
 function listEmptyMessage() {
-  const el = document.getElementById('filterSales');
-  const sl = el ? el.value : '';
+  const sl = _applied.sales;   // CB-103:讀已套用值,不讀畫面
   if (sl === SALES_ME)   return 'No payments from your dealers.';
   if (sl === SALES_NONE) return 'No payments from unassigned dealers.';
   if (sl)                return 'No payments from this sales\u2019 dealers.';
@@ -1016,7 +1195,10 @@ function awaitingEmptyMessage(term, sl) {
 function renderAwaiting(term) {
   _awaitingTerm = term || '';
   const t  = _awaitingTerm.trim().toLowerCase();
-  const sl = document.getElementById('filterSales').value;   // CB-38 Q4
+  // CB-38 Q4 / CB-103:與下方列表共用【已套用】的 Sales 條件。
+  //   過去讀畫面:改了 Sales 沒按 Filter,在 Awaiting 打字就會讓上方先套用、
+  //   下方沒套用,兩個清單條件不一致(與 admin-quotes F-290 同型)。
+  const sl = _applied.sales;
 
   const rows = awaitingQuotes.filter(function (q) {
     const d = awaitingDealers[q.dealer_id] || {};
@@ -1535,7 +1717,7 @@ async function showDetail(paymentId) {
   } catch (err) {
     console.error('[admin-payments] loadDetail failed:', err);
     view.innerHTML =
-      '<a class="back-link" href="admin-payments.html">← Back to Payments</a>' +
+      '<a class="back-link" href="' + escapeHtml(backToListHref()) + '">← Back to Payments</a>' +
       '<div class="msg-block">Failed to load this payment. It may not exist, or please refresh.</div>';
   }
 }
@@ -1642,7 +1824,7 @@ function renderDetail() {
 
   const view = document.getElementById('detail-view');
   view.innerHTML =
-    '<a class="back-link" href="admin-payments.html">← Back to Payments</a>' +
+    '<a class="back-link" href="' + escapeHtml(backToListHref()) + '">← Back to Payments</a>' +
     '<div class="page-header"><div class="page-title">Payment Detail</div>' +
       '<span class="pay-badge s-' + (p.status || '') + '">' + escapeHtml(statusLabel[p.status] || p.status || '—') + '</span>' +
     '</div>' +
