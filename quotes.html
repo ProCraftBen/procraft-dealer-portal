@@ -376,6 +376,9 @@
     </div>
   </div>
 
+  <!-- CB-103 S1-Q7:URL 內含無法辨識的條件時,顯示一行提示(見 restoreFromUrl())。 -->
+  <div id="urlStateNotice" style="display:none;font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:3px;padding:8px 12px;margin:0 0 12px;line-height:1.5;"></div>
+
   <div class="table-card">
     <div class="table-header">
       <span class="table-title" data-i18n="quotes.table.title">Quotes</span>
@@ -437,6 +440,8 @@
 <script src="components/lang-switch.js?v=cb62c"></script>
 <script src="components/navigator.js?v=cb62c"></script>
 <script src="components/footer.js?v=cb62c"></script>
+<!-- CB-103 U1:清單回程位址(Back 連結用)。必須排在下方 inline script 之前。 -->
+<script src="components/list-return.js?v=cb103"></script>
 <script>
 const { createClient } = window.supabase;
 const _supabase = createClient(
@@ -511,7 +516,9 @@ async function init() {
   const subEl = document.getElementById('pageSub');
   subEl.removeAttribute('data-i18n');
   subEl.textContent = me?.company_name || '';
+  restoreFromUrl();   // CB-103:篩選欄位皆為靜態 options,可在資料載入前還原
   await loadQuotes();
+  restoreScroll();    // CB-103
 
   setInterval(async () => {
     const { data: check } = await _supabase.from('dealers').select('is_active').eq('id', userId).single();
@@ -535,7 +542,10 @@ async function loadQuotes() {
   pcQuotesLoaded = true;
   updateStats();
   updateReturnedAlert();
-  renderTable(sortQuotes(allQuotes));
+  // CB-103:套用【已套用】的篩選,不再固定顯示全部。
+  //   連帶:刪除 Draft 後 loadQuotes() 重繪時篩選仍生效(F-292,無法分離)。
+  renderFiltered();
+  writeUrlState();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -696,11 +706,144 @@ function renderTable(quotes) {
   }).join('');
 }
 
+// ══ CB-103:清單狀態保留(URL 為唯一事實來源)══════════════════════════
+//
+// 流程:URL →(restoreFromUrl)→ _applied → 畫面欄位
+//       按 Filter →(applyFilters 讀畫面)→ _applied → 重繪 → writeUrlState → URL
+//       刪除 Draft / 切換語言 →(renderFiltered)→ 依 _applied 重繪,不讀畫面
+//
+// 🔴 兩條判準,請勿對齊(PM4 2026-09-30 補充 2):
+//   ① Q-7  URL 內含【無法辨識的條件】→ 退回預設 + 顯示一行提示(#urlStateNotice)。
+//   ② Q-4  刪除 Draft、切換語言 → 條件沒變,URL 內容不變(比對相同即不寫)、不提示。
+//
+// 🔴 URL 參數名不得使用 draft / id / quote_id / payment_id(Stage 0 §0-8)。
+// 🔴 寫入只用 history.replaceState;切換語言會觸發重繪,用 pushState 會每切一次
+//    就多一個「上一頁」(Stage 0 §6.5)。
+// 🔴 語言不進 URL:語言偏好在 localStorage(CB-62),篩選值都是英文 DB 值。
+// ═══════════════════════════════════════════════════════════════════════
+const LIST_PAGE = window.ProCraftListReturn.PAGES.QUOTES;
+const URL_KEYS  = ['status', 'from', 'to', 'q'];
+const URL_SEARCH_MAX = 200;
+
+// 已套用快照。預設值與欄位預設相同。
+let _applied = { status: '', from: '', to: '', q: '' };
+
+function selectAccepts(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  const prev = el.value;
+  el.value = value;
+  const ok = el.value === value;
+  el.value = prev;
+  return ok;
+}
+
+// 本頁日期篩選以字串比對(F-293,本票不改),驗證只確認是合法日期。
+function isValidIsoDate(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return false;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return d.getUTCFullYear() === Number(m[1])
+      && d.getUTCMonth() === Number(m[2]) - 1
+      && d.getUTCDate() === Number(m[3]);
+}
+
+// 🔴 每個欄位都明確設值(含預設值):瀏覽器返回時會自行填回靜態欄位的舊值
+//    (Stage 0 §9.4);只設 URL 有帶的欄位會和瀏覽器填回的值混在一起。
+function restoreFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const next = { status: '', from: '', to: '', q: '' };
+  const rejected = [];
+  const take = function (key, accept) {
+    if (!params.has(key)) return;
+    const v = params.get(key);
+    if (accept(v)) next[key] = v; else rejected.push(key);
+  };
+  take('status', function (v) { return v !== '' && selectAccepts('filterStatus', v); });
+  take('from',   isValidIsoDate);
+  take('to',     isValidIsoDate);
+  take('q',      function (v) { return v.trim() !== '' && v.length <= URL_SEARCH_MAX; });
+
+  _applied = next;
+  document.getElementById('filterStatus').value = next.status;
+  document.getElementById('filterFrom').value   = next.from;
+  document.getElementById('filterTo').value     = next.to;
+  document.getElementById('filterSearch').value = next.q;
+
+  if (rejected.length) {
+    console.warn('[CB-103] URL values not recognized, reset to default:', rejected.join(', '));
+    // dealer 端:不列參數名(對 dealer 沒有意義),只說明條件已重設。
+    // ⚠️ 翻譯鍵尚未加入 i18n/en.json、es.json → 目前顯示英文並 console.warn 一次(見交付說明)。
+    showUrlNotice(pcTxt('quotes.url.reset',
+      'Some filters in this link were not recognized and were reset.'));
+  }
+}
+
+function writeUrlState() {
+  const params = new URLSearchParams();
+  URL_KEYS.forEach(function (k) { if (_applied[k] !== '') params.set(k, _applied[k]); });
+  const qs = params.toString();
+  const search = qs ? '?' + qs : '';
+  if (search !== window.location.search) {
+    try {
+      history.replaceState(history.state, '', window.location.pathname + search + window.location.hash);
+    } catch (e) {
+      console.warn('[CB-103] replaceState failed:', e);   // URL 沒更新,畫面不受影響
+    }
+  }
+  window.ProCraftListReturn.save(LIST_PAGE, search);
+}
+
+function showUrlNotice(text) {
+  const el = document.getElementById('urlStateNotice');
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+function hideUrlNotice() {
+  const el = document.getElementById('urlStateNotice');
+  if (!el) return;
+  el.textContent = '';
+  el.style.display = 'none';
+}
+
+function restoreScroll() {
+  const y = window.ProCraftListReturn.takeScroll(LIST_PAGE, window.location.search);
+  if (y === null) return;
+  const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  window.scrollTo(0, Math.min(y, max));
+}
+
+// 🔴 pagehide,不用 unload / beforeunload(後兩者會讓頁面失去 bfcache 資格)。
+window.addEventListener('pagehide', function () {
+  window.ProCraftListReturn.saveScroll(LIST_PAGE, window.location.search);
+});
+
+// CB-103 S1-Q6:頁面若從 bfcache 還原(畫面是離開前的舊資料),整頁重新載入。
+//   dealer 端以手機為主,iOS Safari 較積極使用 bfcache,這道防線在這裡最可能生效。
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) window.location.reload();
+});
+
 function applyFilters() {
-  const status = document.getElementById('filterStatus').value;
-  const from   = document.getElementById('filterFrom').value;
-  const to     = document.getElementById('filterTo').value;
-  const search = document.getElementById('filterSearch').value.trim();  // 雙編號制: 保留原樣,D/P 判斷需要
+  _applied = {
+    status: document.getElementById('filterStatus').value,
+    from:   document.getElementById('filterFrom').value,
+    to:     document.getElementById('filterTo').value,
+    q:      document.getElementById('filterSearch').value
+  };
+  hideUrlNotice();
+  renderFiltered();
+  writeUrlState();
+}
+
+// 依 _applied 過濾並重繪。過濾規則沿用原 applyFilters(),一字未改。
+function renderFiltered() {
+  const status = _applied.status;
+  const from   = _applied.from;
+  const to     = _applied.to;
+  const search = _applied.q.trim();  // 雙編號制: 保留原樣,D/P 判斷需要
 
   let filtered = allQuotes;
   if (status) filtered = filtered.filter(q => q.status === status);
@@ -730,7 +873,7 @@ function resetFilters() {
   document.getElementById('filterFrom').value   = '';
   document.getElementById('filterTo').value     = '';
   document.getElementById('filterSearch').value = '';
-  renderTable(sortQuotes(allQuotes));
+  applyFilters();   // CB-103:欄位全為預設時結果等同 allQuotes,同時更新 _applied 與 URL
 }
 
 // ── Delete Draft ───────────────────────────────────────────────────
@@ -826,15 +969,17 @@ function showToast(msg) {
 // 靜態 data-i18n 節點由 i18n.js 自行重繪;data-pc-status-label 的九個
 // 篩選選項由 status-label.js 自行重繪(value 不受影響)。
 // 這裡只負責 JS 動態產生的內容:退回橫幅與表格。
-// 呼叫 applyFilters() 而非 renderTable(allQuotes),是為了【保留使用者
+// 呼叫 renderFiltered() 而非 renderTable(allQuotes),是為了【保留使用者
 // 當下的篩選條件】—— 換語言不該把篩選重置。
+// CB-103:原為 applyFilters(),改為 renderFiltered() —— 依【已套用】條件重繪,
+//   不讀畫面。原寫法在「改了欄位沒按 Filter 就切換語言」時,會順便套用新條件。
 // ═══════════════════════════════════════════════════════════════════
 document.addEventListener('pc:i18n-changed', function () {
   // ⚠️ 不可用 allQuotes.length 當防護 —— 零報價時空狀態文字會停在舊語言。
   //    改以「是否至少載入過一次」為條件,避免在資料到位前把載入骨架洗掉。
   if (!pcQuotesLoaded) return;
   updateReturnedAlert();
-  applyFilters();
+  renderFiltered();
 });
 
 init();
