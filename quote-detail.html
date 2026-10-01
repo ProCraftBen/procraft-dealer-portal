@@ -689,6 +689,8 @@
 <script src="components/order-close.js"></script>
 <!-- CB-95:Confirm Stock 前置檢查的 delivery 勾選 modal。新增檔案無舊快取問題,依 F-112 判準不帶 ?v=。 -->
 <script src="components/stock-release-check.js"></script>
+<!-- CB-103 U1:清單回程位址。Back 連結依此回到上一次的清單條件。 -->
+<script src="components/list-return.js?v=cb103"></script>
 <script>
 // ── CB-36: Edit Internal Draft → 重新進入 admin-draft 流程(1→2→mod→3)──
 // 比照 admin-quotes 的 createDraftForDealer():對齊 adminDraftDealerId(確保 new-quote
@@ -2193,12 +2195,31 @@ function renderQuote(quote, dealer, addr) {
   const statusText = pcQuoteStatusLabel(quote.status);
   const isReturned = quote.status === 'Returned';
 
-  // Back link target — admin → admin-quotes, dealer → quotes
-  const backHref  = _isAdmin ? 'admin-quotes.html' : 'quotes.html';
-  const backLabel = _isAdmin
-    ? '← Back to Quotes'                                   // Q-58: admin 專屬,不翻
-    : pcTxt('qd.back_my_quotes', '← Back to My Quotes');
-  const backLinkHtml = `<a href="${backHref}" class="back-link">${backLabel}</a>`;
+  // Back link target(CB-103 Q-2 / S1-Q1 / S1-Q2)
+  //   回到【上一次看的清單】及其條件,由 components/list-return.js 提供網址。
+  //   · dealer → quotes(只會是這一頁)
+  //   · admin  → admin-quotes 或 admin-payments,取兩者中最近造訪的那一個;
+  //              都沒有紀錄時回 admin-quotes(與 CB-103 之前相同)。
+  //     🔴 回 admin-payments 是修正 F-294:過去從付款頁點進單張,Back 一律回
+  //        admin-quotes,業務只好改走導覽列(S-06:14 天 63 次)。
+  //   · 沒有紀錄(信件直連、新分頁、storage 不可用)→ 乾淨清單,即 CB-103 之前的行為。
+  //   · 同一分頁先看過某個條件的清單、再從信件連結開單張 → Back 回到那個條件。
+  //     PM4 判定可接受(那就是業務上次在看的清單),Stage 3 6b 驗證。
+  //   🔴 不用 history.back():信件直連時沒有上一頁;經 payment.html 回來時上一頁不是清單。
+  const LR = window.ProCraftListReturn;
+  let backHref, backLabel;
+  if (!_isAdmin) {
+    backHref  = LR.href(LR.PAGES.QUOTES);
+    backLabel = pcTxt('qd.back_my_quotes', '← Back to My Quotes');
+  } else if (LR.last([LR.PAGES.ADMIN_QUOTES, LR.PAGES.ADMIN_PAYMENTS]) === LR.PAGES.ADMIN_PAYMENTS) {
+    backHref  = LR.href(LR.PAGES.ADMIN_PAYMENTS);
+    backLabel = '← Back to Payments';                     // Q-58 / CB-62:admin 專屬,不翻
+  } else {
+    backHref  = LR.href(LR.PAGES.ADMIN_QUOTES);
+    backLabel = '← Back to Quotes';                       // Q-58: admin 專屬,不翻
+  }
+  // href 由 list-return.js 以 URLSearchParams 重新序列化,只會是同源的清單頁;仍照例跳脫。
+  const backLinkHtml = `<a href="${escapeHtml(backHref)}" class="back-link">${backLabel}</a>`;
 
   // C1: detect pending shipping for display logic
   const pendingShipping = isPendingShipping(quote);
