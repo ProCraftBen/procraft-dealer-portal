@@ -1846,21 +1846,35 @@ async function loadDraftItems() {
                 (row.assemble_status || '');
 
     if (!groupsByKey.has(key)) {
+      // CB-107: a custom item's sku_code MAY overlap the catalog (e.g. a custom
+      // "W1242" with an edited description). Never look up the catalog by
+      // sku_code to decide ANY field of a custom row. Identify custom rows
+      // positively by is_custom (F-35). With sku = null, every field below
+      // falls back to the stored row value / creation default:
+      //   sku_desc → row.sku_desc · category / subcategory → '' ·
+      //   needs_confirmation → false (not stored in quote_items; saveCustomItem
+      //   never sets it). Catalog rows are unchanged.
+      // ⚠ Same rule in new-quote-modifications.html loadDraftItems() and
+      //   new-quote-step3.html cb53BuildCartFromDb(). Change all three together.
+      const isCustomRow = row.is_custom === true;
       const style = allStyles.find(function (s) { return s.style_code === row.style_code; });
-      const sku   = skuAll.find(function (s) { return s.sku_code === row.sku_code; });
+      const sku   = isCustomRow
+        ? null
+        : skuAll.find(function (s) { return s.sku_code === row.sku_code; });
       groupsByKey.set(key, {
         key:          key,
         style_code:   row.style_code,
-        // F-66 Q-5: custom items are not in the catalog, so `style` / `sku`
-        // lookups always miss and the old fallbacks resolved to null (style)
-        // and the bare SKU code (desc) — both then written straight back to
-        // the DB by step3 buildItemsPayload L3056 / L3058, silently wiping
-        // what the admin typed. Extra fallback layer reads the row snapshot.
-        // NOTE: the catalog value deliberately stays FIRST here. step3 L1974
-        // /L1976 puts the row snapshot first instead; that difference is
-        // intentional (step3 L1909 "三份行為刻意不同,勿盲目對齊"). Putting
-        // the snapshot first here would change catalog-item behaviour from
-        // "live door_styles name" to "stored snapshot" — out of scope.
+        // F-66 Q-5 (premise corrected by CB-107): a custom item's sku_code may
+        // overlap the catalog, so the catalog must not decide any of its fields
+        // — custom rows skip the sku lookup above (is_custom). The row-snapshot
+        // fallback below is what custom rows use; without it the bare SKU code
+        // would be written back by step3 buildItemsPayload, wiping what was typed.
+        // NOTE: for CATALOG rows the catalog value deliberately stays FIRST here.
+        // step3 cb53BuildCartFromDb puts the row snapshot first instead; that
+        // difference is intentional for catalog rows only (step3
+        // "三份行為刻意不同,勿盲目對齊"). Putting the snapshot first for catalog
+        // rows would change "live door_styles name" to "stored snapshot" — out
+        // of scope. Custom rows behave identically in all three (CB-107).
         style_name:   style ? style.style_name : (row.style_name || row.style_code),
         sku_code:     row.sku_code,
         sku_desc:     sku ? sku.description : (row.sku_desc || row.sku_code),
