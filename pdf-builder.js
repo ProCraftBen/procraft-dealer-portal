@@ -312,6 +312,25 @@
   const SC_NOTICE_LINE_H  = 4.6;   // 換行行距
   const SC_NOTICE_PAD_BOT = 2.5;   // 末行基線 → 表格起點
 
+  // ── CB-110:REPLACEMENT MEMO(換貨,無金額)────────────────────────────────
+  //   對應 CB-93 / CB-96 的 RETURN MEMO 常數區(STORE_CREDIT_CONTRACT 等),見 F-366。
+  //   🔴 能力常數:呼叫端讀不到 _REPLACEMENT_CONTRACT === 1 即視為載到舊版
+  //      pdf-builder.js(F-168:載入點無 ?v=),必須降級、不得下載。
+  const REPLACEMENT_CONTRACT = 1;
+
+  //   🔴 PDF 不進 i18n(CB-62 Q-56:會輸出的不翻)。英文硬編碼。
+  const RP_DOC_TITLE    = 'REPLACEMENT MEMO';
+  //   編號標籤沿用 return 的 'Memo #' —— 實測(jsPDF 2.5.1,16pt normal):
+  //     'Memo # PDC09013-X12'        = 61.0mm → 起點 x=139.0  ✅
+  //     'Replacement # PDC09013-X12' = 78.5mm → 起點 x=121.5  🔴 壓到左側地址欄
+  //   (PO 號實測最長 8 碼;編號 = PO + '-X' + seq)
+  const RP_NUMBER_LABEL = 'Memo #';
+  //   ── 標題字寬(CB-90 D-1 同法:右對齊至 x=200,左側公司資訊右緣 x=129.1)──
+  //   'REPLACEMENT MEMO' 16pt bold = 61.8mm → 餘裕  9.1mm  🔴 太擠
+  //   'REPLACEMENT MEMO' 14pt bold = 54.1mm → 餘裕 16.8mm  ✅ 採用(≥ CB-90 的 15.9mm)
+  //   ⚠️ 改標題文字或 header 左側內容須以同法重算 —— 溢出不報錯,只會被裁掉。
+  const RP_DOC_TITLE_SIZE = 14;
+
   // ----------------------------------------
   // Internal Helpers
   // ----------------------------------------
@@ -3063,6 +3082,226 @@ return total;
     return `ProCraft DC - Return Memo${_tag} - ${memoNumber || 'Memo'}.pdf`;
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // CB-110:REPLACEMENT MEMO
+  //   對應物件(F-366):
+  //     _normalizeReplacements          ↔ _normalizeStoreCredits
+  //     _drawReplacementMemoPages       ↔ _drawStoreCreditMemoPages
+  //     buildReplacementMemoPdf         ↔ buildStoreCreditMemoPdf
+  //     getReplacementMemoPdfFilename   ↔ getStoreCreditMemoPdfFilename
+  //   刻意差異(不是漂移):
+  //     無金額、無 variant(只有一個版本)、印 mods、Reason 一律印出。
+  //   🔴 只新增,不改任何既有函式。共用的只有純繪製 helper 與 _buildModsText。
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── 正規化與驗證 ──────────────────────────────────────────────────────────
+  //   🔴 格式不符一律【拋錯】,不靜默略過(同 _normalizeStoreCredits 的理由)。
+  //   🔴 收到已作廢的 memo 也拋錯:過濾是呼叫端的責任,這裡負責在它漏做時大聲。
+  function _normalizeReplacements(raw) {
+    if (!Array.isArray(raw)) {
+      throw new Error('[CB-110] replacements must be an array');
+    }
+    raw.forEach(function (m, i) {
+      if (!m || typeof m !== 'object') {
+        throw new Error('[CB-110] replacements[' + i + '] is not an object');
+      }
+      if (typeof m.memo_number !== 'string' || !m.memo_number.trim()) {
+        throw new Error('[CB-110] replacements[' + i + '] has no memo_number');
+      }
+      if (!Array.isArray(m.lines)) {
+        throw new Error('[CB-110] replacements[' + i + '] has no lines array');
+      }
+      if (m.voided_at) {
+        throw new Error('[CB-110] replacements[' + i + '] (' + m.memo_number +
+                        ') is voided and must not be printed');
+      }
+    });
+    // 依建立時間由舊到新;缺 created_at 的排最後(不明的東西不擠到有序資料前面)。
+    return raw.slice().sort(function (a, b) {
+      const ta = a.created_at ? Date.parse(a.created_at) : Number.MAX_SAFE_INTEGER;
+      const tb = b.created_at ? Date.parse(b.created_at) : Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    });
+  }
+
+  // ── 明細的 Description 欄文字 ────────────────────────────────────────────
+  //   🔴 mods 文字【沿用 _buildModsText()】,不另寫一份 —— 那支已處理
+  //      隱藏 mod(_isHiddenMod)、顯示名覆寫(_displayModLabel)、
+  //      MF03 Matching / Wood Interior 特例(CB-12,依賴 no_label)、
+  //      自由文字類全文(MF06 / MF07)。換貨要換成【同一個東西】,
+  //      這段文字必須與原單 Invoice 上印的一致,所以同一個來源。
+  //   🔴 modification_status 固定傳 'configured':快照不含此欄,而
+  //      'unprocessed' 會印出「⚠ Modifications pending」—— 對已付款的單是誤導。
+  //   🔴 l.modifications 已由 DB 白名單投影(CB-110 S1-D5),不含任何金額鍵;
+  //      _buildModsText 本身也不讀金額。兩層各自成立。
+  function _replacementLineDesc(l) {
+    if (l.line_kind === 'manual') {
+      return String(l.description || '—');
+    }
+    if (l.line_kind !== 'quote_item') {
+      // 正向識別(F-35):未知 kind 不猜,大聲失敗。
+      throw new Error('[CB-110] unknown line_kind: ' + l.line_kind);
+    }
+    const head = [l.sku_code, l.style_code, l.sku_desc].filter(Boolean).join('  ·  ') +
+                 (l.is_custom === true ? CUSTOM_SUFFIX : '');
+    const mods = _buildModsText({
+      sub: {
+        modifications:       Array.isArray(l.modifications) ? l.modifications : [],
+        modification_status: 'configured',
+      },
+      showPrices: false,
+    });
+    return mods ? (head + '\n' + mods) : head;
+  }
+
+  // ── 繪製 ─────────────────────────────────────────────────────────────────
+  //   結構比照 _drawStoreCreditMemoPages 的無價格版:不經 _initDocAndDrawTop /
+  //   _drawItemTable / _finalizeWithTotals(理由同 CB-93 段落的註解)。
+  //   🔴 本函式【沒有任何】讀取金額欄位的程式碼。資料本身也沒有金額
+  //      (DB 端無金額欄)。這不是「隱藏」,是根本不存在。
+  function _drawReplacementMemoPages(doc, context) {
+    const { pageW, margin, headerH } = LAYOUT;
+    const { memos, quoteData, dealer, logoImg } = context;
+
+    memos.forEach(function (m) {
+      doc.addPage();
+
+      // Sales 取【原單】業務名 —— 與 Issued by 不同時一眼看得出是誰開的(同 return)。
+      const hc = {
+        logoImg:           logoImg,
+        poNumber:          m.memo_number,
+        numberLabel:       RP_NUMBER_LABEL,
+        jobName:           quoteData.job_name || '—',
+        salesName:         quoteData.sales_name || null,
+        date:              m.created_at ? new Date(m.created_at) : new Date(),
+        documentTitle:     RP_DOC_TITLE,
+        documentTitleSize: RP_DOC_TITLE_SIZE,
+      };
+      _drawHeader(doc, hc);
+
+      let y = headerH + 16;
+
+      // ── BILL TO(左) / 原單號(右)──────────────────────────────────
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(...COLORS.muted);
+      doc.text('BILL TO', margin, y);
+      doc.text('ORIGINAL ORDER', pageW - margin, y, { align: 'right' });
+      y += 7;
+
+      const billLines = [
+        (dealer && dealer.company_name) || '—',
+        (dealer && dealer.address_line1) || '',
+        (dealer && dealer.address_line2) || '',
+        ((dealer && dealer.city) || '') + ', ' + ((dealer && dealer.state) || '') +
+          ' ' + ((dealer && dealer.zip_code) || ''),
+      ].filter(function (l) { return String(l).trim() && String(l).trim() !== ','; });
+
+      const rightLines = [quoteData.po_number || '—'];
+
+      const maxLines = Math.max(billLines.length, rightLines.length);
+      for (let i = 0; i < maxLines; i++) {
+        doc.setFont('helvetica', i === 0 ? 'bold' : 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(40, 40, 40);
+        if (billLines[i])  doc.text(billLines[i], margin, y);
+        if (rightLines[i]) doc.text(rightLines[i], pageW - margin, y, { align: 'right' });
+        y += 6.5;
+      }
+
+      y += 3;
+      doc.setDrawColor(...COLORS.border);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, pageW - margin, y);
+      y += 6;
+
+      // ── 換貨原因(Q-8:必填、一律印出)────────────────────────────────
+      //   與 return 不同:return 的無價格版不印原因。replacement 只有一個版本,
+      //   原因正好說明為什麼換 —— 業主拍板印。
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...COLORS.muted);
+      doc.text('REASON FOR REPLACEMENT', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 30);
+      const rLines = doc.splitTextToSize(String(m.reason || '—'), pageW - margin * 2);
+      rLines.forEach(function (ln) { doc.text(ln, margin, y); y += 5; });
+      y += 3;
+
+      // ── 品項表:# / Description(含 mods)/ Asm / Qty ─────────────────
+      //   欄寬與 return 無價格版相同:10 + 132 + 26 + 22 = 190mm(= 版心寬)。
+      const body = (m.lines || [])
+        .slice()
+        .sort(function (a, b) { return Number(a.line_no) - Number(b.line_no); })
+        .map(function (l, idx) {
+          const asm = (l.line_kind === 'quote_item') ? (l.assemble_status || '') : '';
+          return [String(idx + 1), _replacementLineDesc(l), asm, String(l.quantity)];
+        });
+
+      doc.autoTable({
+        startY: y,
+        head: [['#', 'Description', 'Asm', 'Qty']],
+        body: body,
+        margin: { left: margin, right: margin, top: headerH + 10, bottom: 22 },
+        styles: { fontSize: 8.5, cellPadding: 2.2, textColor: [30, 30, 30], overflow: 'linebreak', valign: 'top' },
+        headStyles: { fillColor: COLORS.darkGreen, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 10,  halign: 'right' },
+          1: { cellWidth: 132 },
+          2: { cellWidth: 26 },
+          3: { cellWidth: 22, halign: 'right' },
+        },
+        didDrawPage: function (data) {
+          if (data.pageNumber > 1) _drawHeader(doc, hc);
+        },
+      });
+
+      y = doc.lastAutoTable.finalY + 8;
+
+      // ── Issued by(姓名取 memo 快照欄,開單者帳號被刪後仍印得出)────────
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...COLORS.muted);
+      doc.text('Issued by: ' + (m.created_by_name || '—'), margin, y);
+    });
+  }
+
+  /**
+   * CB-110:下載 REPLACEMENT MEMO。admin 與 dealer 皆可,只有一個版本(無金額)。
+   */
+  async function buildReplacementMemoPdf(quoteData, dealer, memos, options = {}) {
+    const { jsPDF } = window.jspdf;
+    const list = _normalizeReplacements(memos);
+    if (list.length === 0) {
+      throw new Error('[CB-110] buildReplacementMemoPdf: no replacement to render');
+    }
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    let logoImg = null;
+    try {
+      logoImg = await _loadImage(options.logoUrl || DEFAULT_LOGO_URL);
+    } catch (e) {
+      // logo 載入失敗,header 會 fallback 到文字
+    }
+
+    // _drawReplacementMemoPages() 每張 memo 都先 addPage() → 第 1 頁空白,刪掉(同 return)。
+    _drawReplacementMemoPages(doc, { memos: list, quoteData, dealer, logoImg });
+    doc.deletePage(1);
+
+    _drawFooterBar(doc);
+    _addPageNumbers(doc);
+    _drawStamp(doc, options.stamp);
+    return doc;
+  }
+
+  // 另寫一支,不在 getPdfFilename / getStoreCreditMemoPdfFilename 內加分支(不動既有物件)。
+  // 🔴 不翻譯(CB-62 Q-56:檔名為輸出物)。
+  function getReplacementMemoPdfFilename(memoNumber) {
+    return `ProCraft DC - Replacement Memo - ${memoNumber || 'Memo'}.pdf`;
+  }
+
   // ----------------------------------------
   // 對外暴露
   // ----------------------------------------
@@ -3126,6 +3365,14 @@ return total;
     _normalizeStoreCredits:        _normalizeStoreCredits,
     buildStoreCreditMemoPdf:       buildStoreCreditMemoPdf,
     getStoreCreditMemoPdfFilename: getStoreCreditMemoPdfFilename,
+
+    // ── CB-110 ────────────────────────────────────────────────────────
+    //   🔴 呼叫端【必須】先檢查 _REPLACEMENT_CONTRACT === 1 才視為可用(F-168)。
+    _REPLACEMENT_CONTRACT:         REPLACEMENT_CONTRACT,
+    _normalizeReplacements:        _normalizeReplacements,
+    _drawReplacementMemoPages:     _drawReplacementMemoPages,
+    buildReplacementMemoPdf:       buildReplacementMemoPdf,
+    getReplacementMemoPdfFilename: getReplacementMemoPdfFilename,
     // CB-90:呼叫端一律讀這個常數,勿在呼叫端硬寫 'internal'(魔術字串只留一份)
     _DRAFT_VARIANT_INTERNAL: DRAFT_VARIANT_INTERNAL,
   };
