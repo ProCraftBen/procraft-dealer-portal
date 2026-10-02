@@ -1051,6 +1051,15 @@ let _stcVoided   = [];
 //    旗標為 true 時:① 顯示降級橫幅 ② 擋下三份 PDF 下載(Q-9 / S1-Q2)
 let _stcDegraded = false;
 let _stcDegradedWhy = '';
+
+// ── CB-110:換貨(REPLACEMENT MEMO)────────────────────────────────────────
+//   對應上方 _stc* 四個變數(CB-93),見 F-366。
+//   🔴 與 return 的刻意差異(S1-D8):replacement 不進三份原單 PDF,
+//      所以降級【只影響】Replacement Memos 區,不擋原單下載。
+let _rplActive      = [];
+let _rplVoided      = [];
+let _rplDegraded    = false;
+let _rplDegradedWhy = '';
 // CB-82b: uuid -> dealers 列。與 Revision History 共用同一次 .in() 查詢的結果,
 //   不另發往返。查無的 uuid 不會進 map,由呼叫端走 fallback。
 let _userMap = {};
@@ -1959,6 +1968,9 @@ async function init() {
   //    不等的話,首次渲染會缺註記橫幅,而使用者不會知道自己看到的是半成品。
   await loadStoreCredits();
 
+  // 🔴 CB-110:同上,在 renderQuote 之前 await。失敗只會降級本區,不拋出。
+  await loadReplacements();
+
   renderQuote(quote, dealer, shippingAddr);
 }
 
@@ -2316,6 +2328,23 @@ function renderQuote(quote, dealer, addr) {
     ? `<a class="btn-action secondary" href="admin-store-credit.html?quote_id=${quote.id}">
         <svg viewBox="0 0 24 24"><path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z"/></svg>
         Create Return Memo
+      </a>`
+    : '';
+
+  // ── CB-110: Create Replacement(admin 專屬)──────────────────────────────
+  //   對應上方 createReturnMemoButtonHtml(CB-93),見 F-366。
+  // 🔴 Q-3:僅 Order Processing / Order Completed。正向識別(F-35)。
+  // 🔴 此處只決定「要不要渲染」,不是安全邊界 ——
+  //    授權在 create_replacement() 的 is_admin(),狀態守衛在該 RPC 與
+  //    trg_replacement_insert 兩層。
+  // 🔴 降級時仍顯示(理由同 Create Return Memo:表單頁有自己的資料來源)。
+  // 🔴 admin 專屬元素一律英文硬編碼、不掛 i18n 標記(CB-62 Q-5 / CB-66)。
+  const canCreateReplacement = _isAdmin &&
+    ['Order Processing', 'Order Completed'].includes(quote.status);
+  const createReplacementButtonHtml = canCreateReplacement
+    ? `<a class="btn-action secondary" href="admin-replacement.html?quote_id=${quote.id}">
+        <svg viewBox="0 0 24 24"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+        Create Replacement
       </a>`
     : '';
 
@@ -2795,6 +2824,7 @@ function renderQuote(quote, dealer, addr) {
     ${returnHistoryHtml}
     ${statusHistoryHtml}
     ${storeCreditSectionHtml()}
+    ${replacementSectionHtml()}
     <div class="quote-header">
       <div>
         <div class="quote-number">${escapeHtml(quote.po_number||quote.draft_number||'—')}</div>
@@ -2812,6 +2842,7 @@ function renderQuote(quote, dealer, addr) {
         ${reminderFlagHtml()}
         ${addReminderButtonHtml}
         ${createReturnMemoButtonHtml}
+        ${createReplacementButtonHtml}
         ${voidCloseOrderButtonHtml}
         ${downloadButtonsHtml}
         ${receiptButtonHtml}
@@ -3536,6 +3567,208 @@ async function voidStoreCredit(memoId) {
   }
 
   await loadStoreCredits();
+  renderQuote(_quote, _dealer, _addr);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * CB-110 — 換貨(REPLACEMENT MEMO)
+ *
+ * 對應(F-366):
+ *   loadReplacements        ↔ loadStoreCredits
+ *   replacementSectionHtml  ↔ storeCreditSectionHtml
+ *   downloadReplacementMemo ↔ downloadStoreCreditMemo
+ *   voidReplacement         ↔ voidStoreCredit
+ *
+ * 刻意差異(不是漂移,勿「對齊」):
+ *   · 無金額:清單不顯示任何數字金額,PDF 只有一個版本
+ *   · 不在三份原單 PDF 上加註記、不顯示橫幅(Q-6)
+ *   · 降級只影響本區,不擋原單下載(S1-D8)
+ *   · 下載【不經】priceMaskBlocksDownload()(PM 補充 C,見該函式內註解)
+ *
+ * 🔴 授權出口與 CB-93 同一套:get_quote_replacement_count() 為
+ *    SECURITY DEFINER,非 admin 且非單主時【拋錯】而不是回 0;
+ *    前端比對它的筆數與 RLS 實際讀到的列數,不一致即降級。
+ * ═══════════════════════════════════════════════════════════════════════ */
+async function loadReplacements() {
+  _rplActive = [];
+  _rplVoided = [];
+  _rplDegraded = false;
+  _rplDegradedWhy = '';
+
+  if (!_quote || !_quote.id) return;
+
+  const degrade = function (why) {
+    _rplDegraded = true;
+    _rplDegradedWhy = why;
+    _rplActive = [];
+    _rplVoided = [];
+    console.error('[CB-110] replacements unavailable:', why);
+  };
+
+  // ── ① 授權出口:真實筆數 ────────────────────────────────────────────
+  const { data: cnt, error: cntErr } = await _supabase
+    .rpc('get_quote_replacement_count', { p_quote_id: _quote.id });
+
+  if (cntErr) { degrade(cntErr.message || 'count rpc failed'); return; }
+
+  // 🔴 正向識別:兩個欄位都必須【明確是整數】。
+  //    (CB-93 的同位置寫成 Number(x) || 0,欄位缺失時會把 undefined 當成 0 ——
+  //     等於「讀不到就當作沒有」。本處不沿用,讀不到即降級。)
+  const c = Array.isArray(cnt) ? cnt[0] : cnt;
+  const nActive = Number(c && c.active_count);
+  const nVoided = Number(c && c.voided_count);
+  if (!Number.isInteger(nActive) || !Number.isInteger(nVoided)) {
+    degrade('count rpc returned no counts');
+    return;
+  }
+
+  // 真的沒有換貨時提早結束,不發第二支查詢(少一個可能失敗的環節)。
+  if (nActive === 0 && nVoided === 0) return;
+
+  // ── ② RLS 讀取內容(dealer 也讀得到自己的單)───────────────────────────
+  const { data: rows, error: rowErr } = await _supabase
+    .from('quote_replacements')
+    .select('id, memo_number, created_at, reason, created_by_name, voided_at, void_reason,' +
+            ' quote_replacement_lines(line_no, line_kind, quote_item_id, sku_code, style_code,' +
+            ' style_name, sku_desc, sku_type, assemble_status, sub_index, is_custom,' +
+            ' modifications, description, quantity)')
+    .eq('quote_id', _quote.id)
+    .order('created_at', { ascending: true });
+
+  if (rowErr) { degrade(rowErr.message || 'select failed'); return; }
+
+  const list = rows || [];
+
+  // 🔴 核心比對:RPC 說幾筆,RLS 就該讀到幾筆。不一致 = policy 出了問題。
+  if (list.length !== (nActive + nVoided)) {
+    degrade('row count mismatch: rpc=' + (nActive + nVoided) + ' rls=' + list.length);
+    return;
+  }
+
+  // 🔴 能力常數偵測(F-168):讀不到 = 舊版 pdf-builder,下載會壞。
+  if (!window.ProCraftPDF || window.ProCraftPDF._REPLACEMENT_CONTRACT !== 1) {
+    degrade('pdf-builder.js is outdated (no _REPLACEMENT_CONTRACT)');
+    return;
+  }
+
+  const shaped = list.map(function (m) {
+    const ls = (m.quote_replacement_lines || []).slice()
+      .sort(function (a, b) { return Number(a.line_no) - Number(b.line_no); });
+    return Object.assign({}, m, { lines: ls });
+  });
+
+  // 正向識別:兩邊都是命中,不用 else 掃進某一邊。
+  _rplActive = shaped.filter(function (m) { return !m.voided_at; });
+  _rplVoided = shaped.filter(function (m) { return !!m.voided_at; });
+}
+
+// ── 清單區(admin + dealer 共用;作廢的 memo 與 Void 鈕僅 admin)──────────
+//   🔴 對 dealer 可見的文字掛 i18n(qd.rpl.*);Void / Voided 為 admin 專屬,英文硬編碼。
+//   🔴 不寫兩份平行函式給 admin / dealer(理由同 storeCreditSectionHtml)。
+function replacementSectionHtml() {
+  if (_rplDegraded) {
+    return '<div class="stc-degraded">' +
+      escapeHtml(pcTxt('qd.rpl.degraded',
+        'Replacement information for this order is unavailable right now. Please refresh the page.')) +
+      '</div>';
+  }
+  if (!_rplActive.length && !(_isAdmin && _rplVoided.length)) return '';
+
+  const rowHtml = function (m, isVoid) {
+    const dl = isVoid ? '' :
+      '<button type="button" class="stc-mini primary" onclick="downloadReplacementMemo(\'' + m.id + '\')">' +
+        escapeHtml(pcTxt('qd.rpl.btn.download', 'Replacement Memo')) + '</button>';
+    const voidBtn = (!isVoid && _isAdmin)
+      ? '<button type="button" class="stc-mini danger" onclick="voidReplacement(\'' + m.id + '\')">Void</button>'
+      : '';
+    const acts = (dl || voidBtn) ? '<div class="stc-acts">' + dl + voidBtn + '</div>' : '';
+
+    return '<div class="stc-row' + (isVoid ? ' void' : '') + '">' +
+      '<div class="stc-no">' + escapeHtml(m.memo_number) +
+        (isVoid ? ' <span class="stc-tag-void">VOID</span>' : '') + '</div>' +
+      '<div class="stc-meta">' +
+        formatDateTime(m.created_at) + '  ·  ' +
+        escapeHtml(pcTxt('qd.rpl.issued_by', 'Issued by {name}', { name: m.created_by_name || '—' })) + '<br>' +
+        escapeHtml(m.reason || '—') +
+        (isVoid ? '<br><span style="color:var(--error);">Voided: ' + escapeHtml(m.void_reason || '—') + '</span>' : '') +
+      '</div>' + acts +
+    '</div>';
+  };
+
+  return '<div class="stc-section">' +
+    '<div class="stc-section-head">' +
+      '<span class="stc-section-title">' +
+        escapeHtml(pcTxt('qd.rpl.section.title', 'Replacement Memos')) + '</span>' +
+      '<span class="stc-section-note">' +
+        escapeHtml(pcTxt('qd.rpl.section.note',
+          'Items ProCraft is replacing on this order. Replacement memos have no prices.')) +
+      '</span>' +
+    '</div>' +
+    _rplActive.map(function (m) { return rowHtml(m, false); }).join('') +
+    (_isAdmin ? _rplVoided.map(function (m) { return rowHtml(m, true); }).join('') : '') +
+  '</div>';
+}
+
+// ── 下載(admin + dealer,只有一個版本)───────────────────────────────────
+// 🔴 PM 補充 C(CB-110 Stage 1):本函式【刻意不呼叫】priceMaskBlocksDownload()。
+//    CB-98 擋下 trial 的 PDF 下載,是因為那些文件含價格;replacement memo
+//    不含任何金額(DB 無金額欄、mods 經白名單投影、PDF 無價格欄),
+//    trial 沒有可遮的內容,擋下只會讓人拿不到換貨憑證。
+//    勿為了與 downloadStoreCreditMemo「對齊」而加回去。
+async function downloadReplacementMemo(memoId) {
+  if (!_quote || !_dealer) return;
+  const m = _rplActive.find(function (x) { return x.id === memoId; });
+  if (!m) return;
+
+  // 載到舊版 pdf-builder.js 時擋下(F-168:載入點無 ?v=)。
+  if (!window.ProCraftPDF || ProCraftPDF._REPLACEMENT_CONTRACT !== 1) {
+    alert(pcTxt('qd.rpl.outdated',
+      'This page needs to be refreshed before replacement memos can be downloaded. Please reload and try again.'));
+    return;
+  }
+
+  try {
+    const doc = await ProCraftPDF.buildReplacementMemoPdf(
+      buildQuoteDataForPdf(), _dealer, [m],
+      { stamp: { mode: 'download', user: _me } }
+    );
+    doc.save(ProCraftPDF.getReplacementMemoPdfFilename(m.memo_number));
+  } catch (err) {
+    console.error('[CB-110] replacement memo pdf failed:', err);
+    alert(pcTxt('qd.rpl.pdf_error',
+      'Sorry — we could not prepare this replacement memo. Please refresh and try again.'));
+  }
+}
+
+// ── 作廢(admin only)────────────────────────────────────────────────────
+// 🔴 作廢【不刪除】、不可撤回;釋出的數量會回補給後續換貨(Q-4)。
+async function voidReplacement(memoId) {
+  if (!_isAdmin) return;
+  const m = _rplActive.find(function (x) { return x.id === memoId; });
+  if (!m) return;
+
+  const reason = window.prompt(
+    'Void replacement memo ' + m.memo_number + '?\n\n' +
+    'The record is kept and the replaced quantity is released. This cannot be undone.\n\n' +
+    'Reason for voiding:'
+  );
+  if (reason === null) return;
+  if (!reason.trim()) {
+    alert('A reason is required to void a replacement memo.');
+    return;
+  }
+
+  const { error } = await _supabase.rpc('void_replacement', {
+    p_memo_id: memoId, p_void_reason: reason.trim(),
+  });
+
+  if (error) {
+    // 原樣顯示 —— RPC 的訊息可讀(含「已作廢」),換成「操作失敗」會丟掉診斷資訊。
+    alert('Could not void this replacement memo: ' + (error.message || 'unexpected error'));
+    return;
+  }
+
+  await loadReplacements();
   renderQuote(_quote, _dealer, _addr);
 }
 
