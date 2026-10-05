@@ -304,6 +304,8 @@
   "pay.err.not_found_text": "No pudimos cargar este pedido. Es posible que el enlace sea incorrecto o que no tenga acceso.",
   "pay.err.unavailable_title": "Pago no disponible",
   "pay.err.unavailable_text": "Este pedido no puede aceptar pagos en su estado actual. Contáctenos si tiene preguntas.",
+  "pay.zero.title": "No se requiere pago",
+  "pay.zero.text": "El total de este pedido es $0.00, por lo que no hay nada que pagar en línea. ProCraft lo finalizará por usted; contáctenos si tiene preguntas.",
   "pay.hdr.payment": "Pago",
   "pay.notice.select_warn": "Al seleccionar un método de pago, este pedido pasará a procesamiento de pago. Para cambiarlo después, contáctenos.",
   "pay.card.sub_confirm": "Confirme este método de pago para que su pedido pase a procesamiento de pago.",
