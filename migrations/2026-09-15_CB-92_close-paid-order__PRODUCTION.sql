@@ -1,500 +1,684 @@
 -- ============================================================================
--- CB-110  Replacement — Unit 1: schema (tables, constraints, FKs, indexes,
---         mods whitelist helper, 4 triggers, RLS, grants, comments)
--- 環境: PRODUCTION (acwgemgpnusworpxxoai)
--- 日期: 2026-10-02
+-- CB-92 U-1  已付款單作廢改單(close_paid_order)
 -- ----------------------------------------------------------------------------
--- 🔴 整檔是【一個】DO 區塊 = 一個 statement = 原子單元。
---    第一行 PERFORM _ops.assert_env('production')。守衛失敗 → 整段不執行。
---    任一 DDL 失敗 → 整段回滾,不留半套物件。
---    (SQL Editor 走連線池,BEGIN/COMMIT 不保證同連線 —— CB-71 教訓)
+-- 環境:PRODUCTION (acwgemgpnusworpxxoai)
+-- 日期:2026-09-15
 --
--- 🔴 本檔為【來源檔】。__PRODUCTION.sql 由本檔產生,轉換只改 1 處:
---      可執行守衛 _ops.assert_env('staging') → ('production')
---    驗算:_ops.assert_env( 在可執行碼中恰出現 1 次,值與檔名環境一致。
+-- 內容:
+--   ① quotes.close_reason_type 欄位 + 兩條 CHECK            (Q-1 / Q-2)
+--   ② public.block_closed_quote_change() + trigger          (Q-5 / Q-15 / Q-18 / Q-19)
+--   ③ public.close_paid_order() RPC                         (Q-6 B / Q-7 / Q-8 / Q-16)
+--   ④ COMMENT:欄位 ×2(含 payments.cancellation_reason 代寫)、函式 ×2、trigger ×1
 --
--- 🔴 本檔【不碰】任何 CB-93 / CB-96 物件(Q-1 = 路 B,return 零改動)。
---    新物件與 return 的對應關係見 F-366,也寫在各物件的 COMMENT 裡。
+-- 執行方式(Supabase SQL Editor):
+--   Segment 1 → Segment 2 → Segment 3,依序各自執行。
+--   🔴 Segment 1 為【唯一原子單元】,必須整段一次執行。
+--      開頭主動斷言所有前置條件,任一不符即 RAISE EXCEPTION,整段不生效。
+--   Segment 3 為驗證,回傳結果集(不用 RAISE NOTICE —— SQL Editor 不顯示)。
 --
--- 🔴 本檔不含 RPC。RPC 在 Unit 2。本檔跑完、Unit 2 未跑之前:
---      authenticated 對兩表只有 SELECT、沒有任何寫入路徑 —— 無害的中間態。
+-- promote 到 production:
+--   全檔 'staging' 字面值共【4 處】(不含本說明),全部改為 'production',其餘一字不改:
+--     Segment 1 開頭      SELECT _ops.assert_env(...)
+--     Segment 1 DO 區塊內 PERFORM _ops.assert_env(...)
+--     Segment 3 V-00      期望值
+--     R-1(註解中)       PERFORM _ops.assert_env(...)
+--   檔名 __STAGING 改為 __PRODUCTION。
+--
+-- 回滾:檔尾 R-1(預設註解,不會執行)。
 -- ============================================================================
 
-DO $cb110u1$
+
+-- ============================================================================
+-- Segment 1 / 3   🔴 原子單元 —— 必須整段一次執行
+-- ============================================================================
+
+SELECT _ops.assert_env('production');
+
+DO $cb92$
+DECLARE
+  v_n int;
 BEGIN
   PERFORM _ops.assert_env('production');
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 1. mods 白名單 helper(S1-D5 + PM 補充 A)
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 🔴 正向白名單(F-35):只保留列出的鍵。日後 modifications 新增任何鍵,
-  --    預設【不】進 replacement —— 失效模式是「少印一項」,不是「洩漏金額」。
-  --
-  -- 兩環境實測(2026-10-02,claude/CB-110-S2-pre-mods-scan.sql):
-  --   元素層金額鍵 cost / material_cost / total_cost / mapping_asm_fee
-  --   MF07 value.cost(另有 value.taxable)
-  --   → 以上全部不在白名單內。
-  --
-  -- 元素層保留: mf_code、display_label、no_label —— 只收 string / null
-  --             value —— string / number / boolean / null / object
-  -- value 為 object 時只保留: enabled, qty, value, selected, label,
-  --                           description, note —— 只收純量
-  --   = pdf-builder _formatModValue() 讀取的鍵 + MF03 / MF04 實際形態。
-  -- 🔴 no_label 必收:CB-12 特例 —— MF03 value='no' 時印 no_label
-  --    (Wood Interior)而不是 display_label(Matching Interior)。
-  --    漏掉它,replacement 會把 Wood Interior 印成 Matching Interior —— 正好換錯。
-  --
-  -- 形態處理(不假設 value 一定是 object):
-  --   modifications 非陣列(含 NULL)  → NULL
-  --   陣列元素非 object                → 丟棄
-  --   value 為 array                    → 丟棄該鍵(現有資料無此形,formatter 也不處理)
-  --   value 物件內的鍵值為 object/array → 丟棄該鍵(不遞迴保留任何巢狀)
-  --
-  -- 🔴 冪等:snapshot(snapshot(x)) = snapshot(x)。明細表的 CHECK 依賴此性質。
-  CREATE FUNCTION public.replacement_mods_snapshot(p_mods jsonb)
-  RETURNS jsonb
-  LANGUAGE sql
-  IMMUTABLE
-  SET search_path = public, pg_temp
-  AS $fn$
-    SELECT CASE
-      WHEN p_mods IS NULL OR jsonb_typeof(p_mods) IS DISTINCT FROM 'array' THEN NULL
-      ELSE COALESCE((
-        SELECT jsonb_agg(
-                 (SELECT COALESCE(jsonb_object_agg(
-                           k.key,
-                           CASE
-                             WHEN k.key = 'value' AND jsonb_typeof(k.value) = 'object' THEN
-                               (SELECT COALESCE(jsonb_object_agg(v.key, v.value), '{}'::jsonb)
-                                  FROM jsonb_each(k.value) AS v
-                                 WHERE v.key IN ('enabled', 'qty', 'value', 'selected',
-                                                 'label', 'description', 'note')
-                                   AND jsonb_typeof(v.value) IN ('string', 'number',
-                                                                 'boolean', 'null'))
-                             ELSE k.value
-                           END), '{}'::jsonb)
-                    FROM jsonb_each(e.elem) AS k
-                   WHERE (k.key IN ('mf_code', 'display_label', 'no_label')
-                          AND jsonb_typeof(k.value) IN ('string', 'null'))
-                      OR (k.key = 'value'
-                          AND jsonb_typeof(k.value) IN ('string', 'number', 'boolean',
-                                                        'null', 'object')))
-                 ORDER BY e.ord)
-          FROM jsonb_array_elements(p_mods) WITH ORDINALITY AS e(elem, ord)
-         WHERE jsonb_typeof(e.elem) = 'object'
-      ), '[]'::jsonb)
-    END
-  $fn$;
+  -- ── 前置條件 ①:quotes 非內部 trigger 恰為 8 支,且名稱集合吻合 Stage 0 S-3 ──
+  SELECT count(*) INTO v_n
+  FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid = 'public.quotes'::regclass AND NOT t.tgisinternal;
+  IF v_n <> 8 THEN
+    RAISE EXCEPTION 'CB-92 ABORT: quotes has % non-internal triggers, expected 8 (Stage 0 S-3).', v_n;
+  END IF;
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 2. 表頭 quote_replacements
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 🔴 無任何金額欄位(拍板 #6)。對照 quote_store_credits:去掉
-  --    merchandise_amount / restocking_fee / net_store_credit_amount 與其 CHECK。
-  -- 🔴 FK RESTRICT(S1-D3):memo 是已發出的憑證。CASCADE 會讓刪單靜默抹掉憑證;
-  --    RESTRICT 在正常流程永遠不觸發(只有 Draft 可刪,Draft 不可能有 replacement)。
-  -- created_by 不設 FK —— 比照 return:開單者帳號被刪後憑證仍須存在,
-  --    姓名由 created_by_name 快照承擔。
-  CREATE TABLE public.quote_replacements (
-    id               uuid        NOT NULL DEFAULT gen_random_uuid(),
-    quote_id         uuid        NOT NULL,
-    seq              integer     NOT NULL,
-    memo_number      text        NOT NULL,
-    reason           text        NOT NULL,
-    created_by       uuid        NOT NULL,
-    created_by_role  text        NOT NULL,
-    created_by_name  text        NOT NULL,
-    created_at       timestamptz NOT NULL DEFAULT now(),
-    voided_at        timestamptz,
-    voided_by        uuid,
-    void_reason      text,
-    CONSTRAINT quote_replacements_pkey PRIMARY KEY (id),
-    CONSTRAINT quote_replacements_quote_id_fkey
-      FOREIGN KEY (quote_id) REFERENCES public.quotes (id) ON DELETE RESTRICT,
-    CONSTRAINT quote_replacements_seq_positive CHECK (seq > 0),
-    CONSTRAINT quote_replacements_memo_number_nonblank CHECK (btrim(memo_number) <> ''),
-    CONSTRAINT quote_replacements_reason_nonblank CHECK (btrim(reason) <> ''),
-    CONSTRAINT quote_replacements_created_by_name_nonblank CHECK (btrim(created_by_name) <> ''),
-    CONSTRAINT quote_replacements_role_check
-      CHECK (created_by_role IN ('admin', 'super_admin')),
-    CONSTRAINT quote_replacements_void_all_or_none CHECK (
-      (voided_at IS NULL AND voided_by IS NULL AND void_reason IS NULL)
-      OR
-      (voided_at IS NOT NULL AND voided_by IS NOT NULL AND void_reason IS NOT NULL
-       AND btrim(void_reason) <> '')
-    )
-  );
+  SELECT count(*) INTO v_n
+  FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid = 'public.quotes'::regclass AND NOT t.tgisinternal
+    AND t.tgenabled = 'O'
+    AND t.tgname IN ('trg_block_trial_status_change', 'trg_block_trial_status_on_insert',
+                     'trg_enforce_dealer_quote_transition', 'trg_record_account_event_del',
+                     'trg_record_account_event_ins', 'trg_record_account_event_upd',
+                     'trg_record_status_history', 'trg_record_status_history_on_insert');
+  IF v_n <> 8 THEN
+    RAISE EXCEPTION 'CB-92 ABORT: only % of the 8 expected quotes triggers exist and are enabled.', v_n;
+  END IF;
 
-  -- (quote_id, seq) 唯一:取號以 quotes 行鎖序列化(DOC-1 F-364 例外形式),
-  --   此索引是取號邏輯寫錯時的最後一道擋。也涵蓋 quote_id 前綴查詢。
-  CREATE UNIQUE INDEX uq_quote_replacements_quote_seq
-    ON public.quote_replacements (quote_id, seq);
-  CREATE UNIQUE INDEX uq_quote_replacements_memo_number
-    ON public.quote_replacements (memo_number);
-  CREATE INDEX idx_quote_replacements_active
-    ON public.quote_replacements (quote_id) WHERE voided_at IS NULL;
+  -- ── 前置條件 ②:本票物件皆尚未存在(防重跑) ─────────────────────────────
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+             WHERE a.attrelid = 'public.quotes'::regclass
+               AND a.attname = 'close_reason_type' AND NOT a.attisdropped) THEN
+    RAISE EXCEPTION 'CB-92 ABORT: public.quotes.close_reason_type already exists.';
+  END IF;
+  IF to_regprocedure('public.block_closed_quote_change()') IS NOT NULL THEN
+    RAISE EXCEPTION 'CB-92 ABORT: public.block_closed_quote_change() already exists.';
+  END IF;
+  IF to_regprocedure('public.close_paid_order(uuid,uuid,text,text)') IS NOT NULL THEN
+    RAISE EXCEPTION 'CB-92 ABORT: public.close_paid_order(uuid,uuid,text,text) already exists.';
+  END IF;
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 3. 明細 quote_replacement_lines
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 🔴 無 unit_price / discount_amount / credit_unit_amount / line_total。
-  -- 🔴 line_kind 取名 'manual' 不取 'custom'(S1-D6):本表另有 is_custom 欄,
-  --    指原單上 F-CUSTOM 的型錄外品項。'custom' 會與它同名不同義(F-25)。
-  -- 🔴 形狀 CHECK 為正向:每一種 kind 都明列必須為空的欄位,
-  --    比 return 的 kind_shape 嚴格(return 未限制 manual 行的 sku_code 等)。
-  -- 🔴 modifications 的 CHECK 要求「等於自身的白名單投影」——
-  --    即使繞過 RPC 直接 INSERT(service_role),也存不進任何白名單外的鍵。
-  --    DB 層的最後一道防線,不依賴 RPC 有沒有呼叫 helper。
-  CREATE TABLE public.quote_replacement_lines (
-    id               uuid    NOT NULL DEFAULT gen_random_uuid(),
-    memo_id          uuid    NOT NULL,
-    line_no          integer NOT NULL,
-    line_kind        text    NOT NULL,
-    quote_item_id    uuid,
-    sku_code         text,
-    style_code       text,
-    style_name       text,
-    sku_desc         text,
-    sku_type         text,
-    assemble_status  text,
-    sub_index        integer,
-    is_custom        boolean,
-    modifications    jsonb,
-    description      text,
-    quantity         integer NOT NULL,
-    CONSTRAINT quote_replacement_lines_pkey PRIMARY KEY (id),
-    CONSTRAINT quote_replacement_lines_memo_id_fkey
-      FOREIGN KEY (memo_id) REFERENCES public.quote_replacements (id) ON DELETE RESTRICT,
-    CONSTRAINT quote_replacement_lines_quote_item_id_fkey
-      FOREIGN KEY (quote_item_id) REFERENCES public.quote_items (id) ON DELETE RESTRICT,
-    CONSTRAINT quote_replacement_lines_line_no_positive CHECK (line_no > 0),
-    CONSTRAINT quote_replacement_lines_qty_positive CHECK (quantity > 0),
-    CONSTRAINT quote_replacement_lines_kind_check
-      CHECK (line_kind IN ('quote_item', 'manual')),
-    CONSTRAINT quote_replacement_lines_kind_shape CHECK (
-      (line_kind = 'quote_item'
-        AND quote_item_id IS NOT NULL
-        AND sku_code IS NOT NULL
-        AND description IS NULL)
-      OR
-      (line_kind = 'manual'
-        AND quote_item_id IS NULL
-        AND description IS NOT NULL AND btrim(description) <> ''
-        AND sku_code IS NULL AND style_code IS NULL AND style_name IS NULL
-        AND sku_desc IS NULL AND sku_type IS NULL AND assemble_status IS NULL
-        AND sub_index IS NULL AND is_custom IS NULL AND modifications IS NULL)
-    ),
-    CONSTRAINT quote_replacement_lines_mods_whitelisted CHECK (
-      modifications IS NULL
-      OR modifications = public.replacement_mods_snapshot(modifications)
-    )
-  );
+  -- ── 前置條件 ③:狀態值域含本票依賴的三個值(Stage 0 S-1) ───────────────
+  SELECT count(*) INTO v_n
+  FROM (VALUES ('Order Processing'), ('Order Completed'), ('Closed')) AS w(v)
+  WHERE EXISTS (SELECT 1 FROM pg_catalog.pg_constraint c
+                WHERE c.conrelid = 'public.quotes'::regclass
+                  AND c.conname = 'quotes_status_check'
+                  AND position(quote_literal(w.v) IN pg_catalog.pg_get_constraintdef(c.oid)) > 0);
+  IF v_n <> 3 THEN
+    RAISE EXCEPTION 'CB-92 ABORT: quotes_status_check does not contain all of Order Processing / Order Completed / Closed.';
+  END IF;
 
-  CREATE UNIQUE INDEX uq_quote_replacement_lines_memo_line
-    ON public.quote_replacement_lines (memo_id, line_no);
-  CREATE INDEX idx_quote_replacement_lines_item
-    ON public.quote_replacement_lines (quote_item_id) WHERE line_kind = 'quote_item';
+  -- ── 前置條件 ④:依賴函式存在 ───────────────────────────────────────────
+  IF to_regprocedure('public.is_super_admin()') IS NULL
+     OR to_regprocedure('public.get_quote_store_credit_count(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'CB-92 ABORT: dependency is_super_admin() or get_quote_store_credit_count(uuid) is missing.';
+  END IF;
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 4. trigger:表頭 INSERT 守衛
-  -- ══════════════════════════════════════════════════════════════════════
-  CREATE FUNCTION public.enforce_replacement_insert()
+  -- ── 前置條件 ⑤:payments.cancellation_reason 目前無 COMMENT(Payment PM 要求) ──
+  --    代寫前斷言,不為 NULL 即中止 —— 不無聲覆蓋 payment 線的既有內容。
+  IF pg_catalog.col_description('public.payments'::regclass,
+       (SELECT a.attnum FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid = 'public.payments'::regclass
+          AND a.attname = 'cancellation_reason' AND NOT a.attisdropped)) IS NOT NULL THEN
+    RAISE EXCEPTION 'CB-92 ABORT: public.payments.cancellation_reason already has a COMMENT; refusing to overwrite.';
+  END IF;
+
+
+  -- ══════════════════════════════════════════════════════════════════════════
+  -- ① 欄位 + CHECK
+  -- ══════════════════════════════════════════════════════════════════════════
+  ALTER TABLE public.quotes ADD COLUMN close_reason_type text;
+
+  ALTER TABLE public.quotes ADD CONSTRAINT quotes_close_reason_type_check
+    CHECK (close_reason_type IS NULL
+           OR close_reason_type IN ('bulk_return', 'bulk_exchange', 'other'));
+
+  -- 🔴 status 為 nullable:寫成 status = 'Closed' 時,status 為 NULL 會使整式為 NULL
+  --    而被 CHECK 放行。明確要求 status IS NOT NULL(F-35 正向識別)。
+  ALTER TABLE public.quotes ADD CONSTRAINT quotes_close_reason_type_status_check
+    CHECK (close_reason_type IS NULL
+           OR (status IS NOT NULL AND status = 'Closed'));
+
+
+  -- ══════════════════════════════════════════════════════════════════════════
+  -- ② trigger 函式 + trigger
+  -- ══════════════════════════════════════════════════════════════════════════
+  CREATE FUNCTION public.block_closed_quote_change()
   RETURNS trigger
   LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path = public, pg_temp
+  SET search_path = ''
   AS $fn$
   DECLARE
-    v_status    text;
-    v_po_number text;
+    -- 🔴 旗標名稱是契約:與 public.close_paid_order() 內的同名常數必須一致。
+    c_flag CONSTANT text := 'procraft.cb92_close';
   BEGIN
-    SELECT q.status, q.po_number
-      INTO v_status, v_po_number
-    FROM public.quotes q
-    WHERE q.id = NEW.quote_id;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'CB-110: quote % not found', NEW.quote_id
-        USING ERRCODE = '23503';
-    END IF;
-
-    -- 🔴 Q-3:僅 Order Processing / Order Completed。正向識別(F-35)。
-    -- 🔴 寫成 (… IN …) IS NOT TRUE,【不】寫 NOT IN:quotes.status 可為 NULL,
-    --    NULL NOT IN (…) 得 NULL,IF 會放行。IS NOT TRUE 只讓明確為真者通過。
-    --    (return 的同位置守衛有此洞,已登記 F-369,本票不改 return。)
-    IF (v_status IN ('Order Processing', 'Order Completed')) IS NOT TRUE THEN
-      RAISE EXCEPTION
-        'CB-110: replacement requires quote status Order Processing or Order Completed (got %)',
-        COALESCE(v_status, '(null)')
-        USING ERRCODE = '23514';
-    END IF;
-
-    IF v_po_number IS NULL OR btrim(v_po_number) = '' THEN
-      RAISE EXCEPTION 'CB-110: quote % has no po_number', NEW.quote_id
-        USING ERRCODE = '23514';
-    END IF;
-
-    -- 🔴 編號自洽(S1-D4):<PO>-X<seq>。擋的是 SQL Editor 手動寫入時編號與單號不符。
-    IF NEW.memo_number IS DISTINCT FROM (v_po_number || '-X' || NEW.seq::text) THEN
-      RAISE EXCEPTION 'CB-110: memo_number % does not match expected %',
-        NEW.memo_number, v_po_number || '-X' || NEW.seq::text
-        USING ERRCODE = '23514';
-    END IF;
-
-    IF NEW.voided_at IS NOT NULL THEN
-      RAISE EXCEPTION 'CB-110: cannot insert an already-voided replacement'
-        USING ERRCODE = '23514';
-    END IF;
-
-    RETURN NEW;
-  END
-  $fn$;
-
-  CREATE TRIGGER trg_replacement_insert
-    BEFORE INSERT ON public.quote_replacements
-    FOR EACH ROW EXECUTE FUNCTION public.enforce_replacement_insert();
-
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 5. trigger:表頭不可改、不可刪(只允許作廢轉換)
-  -- ══════════════════════════════════════════════════════════════════════
-  -- to_jsonb 差集寫法:日後新增欄位自動受保護,不必逐欄列舉。
-  CREATE FUNCTION public.enforce_replacement_immutable()
-  RETURNS trigger
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path = public, pg_temp
-  AS $fn$
-  BEGIN
+    -- ── DELETE ──────────────────────────────────────────────────────────────
     IF TG_OP = 'DELETE' THEN
-      RAISE EXCEPTION 'CB-110: replacement rows cannot be deleted (id %)', OLD.id
+      IF OLD.status IS NOT DISTINCT FROM 'Closed' THEN
+        RAISE EXCEPTION 'CB-92: quote % is Closed (terminal) and cannot be deleted.', OLD.id
+          USING ERRCODE = '42501';
+      END IF;
+      -- 🔴 必須 RETURN OLD。DELETE 時 NEW 為 NULL,RETURN NEW 會使 PostgreSQL
+      --    靜默略過刪除(0 列、不報錯)—— 所有 Draft 將無聲地刪不掉。
+      RETURN OLD;
+    END IF;
+
+    IF TG_OP <> 'UPDATE' THEN
+      RAISE EXCEPTION 'CB-92: block_closed_quote_change() fired for unexpected TG_OP %.', TG_OP;
+    END IF;
+
+    -- ── UPDATE:已 Closed 的單 ───────────────────────────────────────────────
+    IF OLD.status IS NOT DISTINCT FROM 'Closed' THEN
+      -- R-b:終態不可離開
+      IF NEW.status IS DISTINCT FROM OLD.status THEN
+        RAISE EXCEPTION 'CB-92: quote % is Closed (terminal); status change to % is not permitted.',
+          OLD.id, NEW.status
+          USING ERRCODE = '42501';
+      END IF;
+      -- R-c:分類凍結(Q-1 鑑別規則的保護)
+      IF NEW.close_reason_type IS DISTINCT FROM OLD.close_reason_type THEN
+        RAISE EXCEPTION 'CB-92: close_reason_type of Closed quote % is frozen.', OLD.id
+          USING ERRCODE = '42501';
+      END IF;
+      RETURN NEW;
+    END IF;
+
+    -- ── UPDATE:尚未 Closed 的單(R-d)──────────────────────────────────────
+    --    OP/OC → Closed 與 close_reason_type 寫入,必須【同時】發生,
+    --    且必須由 close_paid_order() 在本交易設定旗標。
+    IF (NEW.status IS NOT DISTINCT FROM 'Closed'
+        AND OLD.status IN ('Order Processing', 'Order Completed'))
+       OR NEW.close_reason_type IS NOT NULL THEN
+
+      IF current_setting(c_flag, true) IS NOT DISTINCT FROM 'on'
+         AND OLD.status IN ('Order Processing', 'Order Completed')
+         AND NEW.status IS NOT DISTINCT FROM 'Closed'
+         AND NEW.close_reason_type IS NOT NULL THEN
+        RETURN NEW;
+      END IF;
+
+      RAISE EXCEPTION 'CB-92: voiding a paid order (% -> %, close_reason_type %) is only permitted via public.close_paid_order().',
+        OLD.status, NEW.status, coalesce(NEW.close_reason_type, 'NULL')
         USING ERRCODE = '42501';
     END IF;
 
-    IF (to_jsonb(OLD) - 'voided_at' - 'voided_by' - 'void_reason')
-       IS DISTINCT FROM
-       (to_jsonb(NEW) - 'voided_at' - 'voided_by' - 'void_reason') THEN
-      RAISE EXCEPTION
-        'CB-110: replacement is immutable; only the void transition is allowed (id %)',
-        OLD.id
-        USING ERRCODE = '42501';
-    END IF;
-
-    IF OLD.voided_at IS NOT NULL THEN
-      RAISE EXCEPTION 'CB-110: replacement % is already voided', OLD.id
-        USING ERRCODE = '42501';
-    END IF;
-
-    IF NEW.voided_at IS NULL THEN
-      RAISE EXCEPTION 'CB-110: the only permitted UPDATE is voiding (id %)', OLD.id
-        USING ERRCODE = '42501';
-    END IF;
-
+    -- 其餘 UPDATE 原樣放行,不修改 NEW。
     RETURN NEW;
   END
   $fn$;
 
-  CREATE TRIGGER trg_replacement_immutable
-    BEFORE UPDATE OR DELETE ON public.quote_replacements
-    FOR EACH ROW EXECUTE FUNCTION public.enforce_replacement_immutable();
+  REVOKE ALL ON FUNCTION public.block_closed_quote_change() FROM PUBLIC, anon, authenticated, service_role;
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 6. trigger:明細凍結
-  -- ══════════════════════════════════════════════════════════════════════
-  CREATE FUNCTION public.enforce_replacement_line_frozen()
-  RETURNS trigger
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  SET search_path = public, pg_temp
-  AS $fn$
-  BEGIN
-    RAISE EXCEPTION 'CB-110: replacement lines are immutable (% on id %)', TG_OP, OLD.id
-      USING ERRCODE = '42501';
-  END
-  $fn$;
+  -- 🔴 無 WHEN 子句:同時涵蓋 DELETE 的 trigger,其 WHEN 不可引用 NEW,
+  --    而 R-d 必須檢查 NEW(Q-19 = B)。判斷全部在函式內完成。
+  -- 🔴 名稱是功能不變量,見 COMMENT ON TRIGGER。
+  CREATE TRIGGER trg_block_closed_quote_change
+    BEFORE UPDATE OR DELETE ON public.quotes
+    FOR EACH ROW
+    EXECUTE FUNCTION public.block_closed_quote_change();
 
-  CREATE TRIGGER trg_replacement_line_frozen
-    BEFORE UPDATE OR DELETE ON public.quote_replacement_lines
-    FOR EACH ROW EXECUTE FUNCTION public.enforce_replacement_line_frozen();
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 7. trigger:數量上限(S1-D1 + S1-D2)
-  -- ══════════════════════════════════════════════════════════════════════
-  CREATE FUNCTION public.enforce_replacement_line_limit()
-  RETURNS trigger
+  -- ══════════════════════════════════════════════════════════════════════════
+  -- ③ RPC
+  -- ══════════════════════════════════════════════════════════════════════════
+  CREATE FUNCTION public.close_paid_order(
+    p_quote_id          uuid,
+    p_payment_id        uuid,
+    p_close_reason_type text,
+    p_reason            text
+  )
+  RETURNS jsonb
   LANGUAGE plpgsql
   SECURITY DEFINER
   SET search_path = public, pg_temp
   AS $fn$
   DECLARE
-    v_memo_quote_id uuid;
-    v_memo_voided   timestamptz;
-    v_item_quote_id uuid;
-    v_item_qty      integer;
-    v_returned      integer;
-    v_replaced      integer;
+    -- 🔴 旗標名稱是契約:與 public.block_closed_quote_change() 內的同名常數必須一致。
+    --    不一致的症狀是「本 RPC 被自己的 trigger 以 42501 擋下」—— 看起來像權限問題。
+    c_flag CONSTANT text := 'procraft.cb92_close';
+
+    v_uid           uuid := auth.uid();
+    v_quote_id      uuid;
+    v_quote_status  text;
+    v_quote_po      text;
+    v_active_sc     integer;
+    v_confirmed_n   integer := 0;
+    v_payment_id    uuid;
+    v_total_paid    numeric;
+    v_method        text;
+    v_actor_name    text;
+    v_type          text;
+    v_reason_input  text;
+    v_reason        text;
+    v_cancelled_at  timestamptz := now();
+    v_rows          integer;
+    r               record;
   BEGIN
-    SELECT m.quote_id, m.voided_at
-      INTO v_memo_quote_id, v_memo_voided
-    FROM public.quote_replacements m
-    WHERE m.id = NEW.memo_id;
-
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'CB-110: replacement % not found', NEW.memo_id
-        USING ERRCODE = '23503';
+    -- ── ① 授權:DB 強制 super_admin(Q-6 B)─────────────────────────────────
+    IF v_uid IS NULL OR public.is_super_admin() IS NOT TRUE THEN
+      RAISE EXCEPTION 'CB-92: only super_admin can void a paid order.'
+        USING ERRCODE = '42501';
     END IF;
 
-    IF v_memo_voided IS NOT NULL THEN
-      RAISE EXCEPTION 'CB-110: cannot add lines to voided replacement %', NEW.memo_id
+    -- ── ② 輸入 ─────────────────────────────────────────────────────────────
+    IF p_quote_id IS NULL OR p_payment_id IS NULL THEN
+      RAISE EXCEPTION 'CB-92: p_quote_id and p_payment_id are required.'
         USING ERRCODE = '23514';
     END IF;
 
-    -- 🔴 正向識別(F-35):兩種 kind 都明列。manual 不綁品項、不計入上限(Q-5)。
-    IF NEW.line_kind = 'manual' THEN
-      RETURN NEW;
-    ELSIF NEW.line_kind IS DISTINCT FROM 'quote_item' THEN
-      RAISE EXCEPTION 'CB-110: unknown line_kind %', COALESCE(NEW.line_kind, '(null)')
+    v_type := p_close_reason_type;
+    IF (v_type IN ('bulk_return', 'bulk_exchange', 'other')) IS NOT TRUE THEN
+      RAISE EXCEPTION 'CB-92: close_reason_type must be bulk_return, bulk_exchange or other (got %).',
+        coalesce(v_type, 'NULL')
         USING ERRCODE = '23514';
     END IF;
 
-    -- 🔴 S1-D2 並行:鎖的是 quote_items 該列,與 return 的
-    --    enforce_store_credit_line_limit 鎖【同一列】—— 兩者因此互相排隊。
-    --    鎖本表沒有用:return 不會碰本表。
-    --    取鎖之後才計算。plpgsql 在 READ COMMITTED 下每條語句取新快照,
-    --    所以排隊後讀得到對方剛 commit 的列。
-    --    這是行鎖,不是 UPDATE:quote_items 一個位元都不變(拍板 #7)。
-    SELECT qi.quote_id, qi.quantity
-      INTO v_item_quote_id, v_item_qty
-    FROM public.quote_items qi
-    WHERE qi.id = NEW.quote_item_id
+    -- 空白字元(含換行)壓成單一空格並去頭尾,使寫入的說明恆為單行。
+    v_reason_input := btrim(regexp_replace(coalesce(p_reason, ''), '\s+', ' ', 'g'));
+    IF v_reason_input = '' THEN
+      RAISE EXCEPTION 'CB-92: a void reason is required.'
+        USING ERRCODE = '23514';
+    END IF;
+    IF char_length(v_reason_input) > 500 THEN
+      RAISE EXCEPTION 'CB-92: void reason is too long (% characters, max 500).', char_length(v_reason_input)
+        USING ERRCODE = '23514';
+    END IF;
+
+    -- ── ③ 鎖單 + 前態守衛(正向列舉)──────────────────────────────────────
+    --    鎖序:quotes 先、payments 後,與 admin-payments actConfirm() 寫序一致。
+    SELECT q.id, q.status, q.po_number
+      INTO v_quote_id, v_quote_status, v_quote_po
+    FROM public.quotes q
+    WHERE q.id = p_quote_id
     FOR UPDATE;
 
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'CB-110: quote_item % not found', NEW.quote_item_id
-        USING ERRCODE = '23503';
+    IF v_quote_id IS NULL THEN
+      RAISE EXCEPTION 'CB-92: quote % not found.', p_quote_id
+        USING ERRCODE = 'P0002';
     END IF;
 
-    -- 跨單防護。IS DISTINCT FROM 讓 quote_items.quote_id 為 NULL 時也判為不符。
-    IF v_item_quote_id IS DISTINCT FROM v_memo_quote_id THEN
-      RAISE EXCEPTION 'CB-110: quote_item % belongs to quote %, not %',
-        NEW.quote_item_id, v_item_quote_id, v_memo_quote_id
+    IF (v_quote_status IN ('Order Processing', 'Order Completed')) IS NOT TRUE THEN
+      RAISE EXCEPTION 'CB-92: quote % is %; only Order Processing or Order Completed can be voided.',
+        coalesce(v_quote_po, p_quote_id::text), coalesce(v_quote_status, 'NULL')
+        USING ERRCODE = '42501';
+    END IF;
+
+    -- ── ④ store credit 必須為 0(Q-8)─────────────────────────────────────
+    SELECT sc.active_count INTO v_active_sc
+    FROM public.get_quote_store_credit_count(p_quote_id) AS sc;
+
+    IF (v_active_sc = 0) IS NOT TRUE THEN
+      RAISE EXCEPTION 'CB-92: quote % has % active store credit(s); void them before closing the order.',
+        coalesce(v_quote_po, p_quote_id::text), coalesce(v_active_sc::text, 'NULL')
+        USING ERRCODE = '42501';
+    END IF;
+
+    -- ── ⑤ 前置斷言:confirmed 恰為 1 筆,且即畫面顯示的那筆(Q-7)────────
+    --    逐列 FOR UPDATE 計數,鎖住所有 confirmed 列後才判斷。
+    FOR r IN
+      SELECT p.id, p.total_paid, p.payment_method
+      FROM public.payments p
+      WHERE p.quote_id = p_quote_id
+        AND p.status = 'confirmed'
+      ORDER BY p.id
+      FOR UPDATE
+    LOOP
+      v_confirmed_n := v_confirmed_n + 1;
+      v_payment_id  := r.id;
+      v_total_paid  := r.total_paid;
+      v_method      := r.payment_method;
+    END LOOP;
+
+    IF v_confirmed_n <> 1 THEN
+      RAISE EXCEPTION 'CB-92: quote % has % confirmed payment(s); exactly 1 is required.',
+        coalesce(v_quote_po, p_quote_id::text), v_confirmed_n
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF v_payment_id IS DISTINCT FROM p_payment_id THEN
+      RAISE EXCEPTION 'CB-92: the confirmed payment on quote % is not the one shown on screen; reload and try again.',
+        coalesce(v_quote_po, p_quote_id::text)
+        USING ERRCODE = '40001';
+    END IF;
+
+    -- ── ⑥ 處理人 ───────────────────────────────────────────────────────────
+    SELECT btrim(d.contact_name) INTO v_actor_name
+    FROM public.dealers d
+    WHERE d.id = v_uid;
+
+    IF coalesce(v_actor_name, '') = '' THEN
+      RAISE EXCEPTION 'CB-92: acting super_admin % has no contact_name.', v_uid
         USING ERRCODE = '23514';
     END IF;
 
-    -- 🔴 S1-D1 上限 = 原數量 − 已退(未作廢 return)− 已換(未作廢 replacement)。
-    --    不對稱是刻意的,不是漏掉:
-    --      return 減少客戶持有量 → replacement 必須扣已退量;
-    --      replacement 不改變持有量(換 4 個後手上仍是 5 個)→ return 不扣已換量。
-    --    所以 return 的 enforce_store_credit_line_limit【不讀】本表,這是對的。
-    --
-    -- 🔴 已退量的算式必須與 return 自己的 enforce_store_credit_line_limit
-    --    逐字一致(line_kind = 'quote_item'、表頭 voided_at IS NULL)。
-    --    return 改這個算式時,本處必須同步(F-366)。
-    SELECT COALESCE(SUM(l.quantity), 0)
-      INTO v_returned
-    FROM public.quote_store_credit_lines l
-    JOIN public.quote_store_credits m ON m.id = l.memo_id
-    WHERE l.quote_item_id = NEW.quote_item_id
-      AND l.line_kind = 'quote_item'
-      AND m.voided_at IS NULL;
+    -- ── ⑦ 組合作廢說明(Q-16):自動帶入項一律取自 DB,不信 client ───────────
+    v_reason := format(
+      'CB-92 void | Type: %s | Received: $%s (%s) | Reason: %s | By: %s | Date: %s (America/New_York)',
+      v_type,
+      to_char(v_total_paid, 'FM999,999,999,990.00'),
+      coalesce(v_method, 'not recorded'),
+      v_reason_input,
+      v_actor_name,
+      to_char(v_cancelled_at AT TIME ZONE 'America/New_York', 'YYYY-MM-DD')
+    );
 
-    SELECT COALESCE(SUM(l.quantity), 0)
-      INTO v_replaced
-    FROM public.quote_replacement_lines l
-    JOIN public.quote_replacements m ON m.id = l.memo_id
-    WHERE l.quote_item_id = NEW.quote_item_id
-      AND l.line_kind = 'quote_item'
-      AND m.voided_at IS NULL;
+    -- ── ⑧ 寫 quotes(quotes-first)────────────────────────────────────────
+    --    🔴 旗標只在本交易有效(第三參數 true)。Supabase 連線池下若設為 session
+    --       層級,旗標會殘留給下一個請求 —— 等於一條永久開啟的繞道。
+    PERFORM set_config(c_flag, 'on', true);
 
-    IF v_returned + v_replaced + NEW.quantity > v_item_qty THEN
-      RAISE EXCEPTION
-        'CB-110: replacement quantity exceeds remaining for quote_item % (ordered %, returned %, already replaced %, requested %)',
-        NEW.quote_item_id, v_item_qty, v_returned, v_replaced, NEW.quantity
-        USING ERRCODE = '23514';
+    UPDATE public.quotes q
+       SET status            = 'Closed',
+           close_reason_type = v_type
+     WHERE q.id = p_quote_id
+       AND q.status IN ('Order Processing', 'Order Completed');
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+
+    -- 🔴 立即關閉,不讓後續任何語句帶著旗標。
+    PERFORM set_config(c_flag, 'off', true);
+
+    IF v_rows <> 1 THEN
+      RAISE EXCEPTION 'CB-92: quote update affected % row(s), expected 1.', v_rows
+        USING ERRCODE = '40001';
     END IF;
 
-    RETURN NEW;
+    -- ── ⑨ 寫 payments:四欄齊寫(Payment PM 確認)─────────────────────────
+    UPDATE public.payments p
+       SET status              = 'cancelled',
+           cancellation_reason = v_reason,
+           cancelled_at        = v_cancelled_at,
+           cancelled_by        = v_uid
+     WHERE p.id = v_payment_id
+       AND p.status = 'confirmed';
+    GET DIAGNOSTICS v_rows = ROW_COUNT;
+
+    -- 後置斷言(Q-7):≠ 1 即 RAISE,連同 ⑧ 整筆回滾,中間態不可能留下。
+    IF v_rows <> 1 THEN
+      RAISE EXCEPTION 'CB-92: payment update affected % row(s), expected 1.', v_rows
+        USING ERRCODE = '40001';
+    END IF;
+
+    RETURN jsonb_build_object(
+      'quote_id',            p_quote_id,
+      'po_number',           v_quote_po,
+      'payment_id',          v_payment_id,
+      'close_reason_type',   v_type,
+      'cancelled_at',        v_cancelled_at,
+      'cancellation_reason', v_reason
+    );
   END
   $fn$;
 
-  CREATE TRIGGER trg_replacement_line_limit
-    BEFORE INSERT ON public.quote_replacement_lines
-    FOR EACH ROW EXECUTE FUNCTION public.enforce_replacement_line_limit();
+  REVOKE ALL ON FUNCTION public.close_paid_order(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated, service_role;
+  GRANT EXECUTE ON FUNCTION public.close_paid_order(uuid, uuid, text, text) TO authenticated;
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 8. RLS(比照 return:只有 SELECT policy,寫入只能經 SECURITY DEFINER RPC)
-  -- ══════════════════════════════════════════════════════════════════════
-  ALTER TABLE public.quote_replacements      ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE public.quote_replacement_lines ENABLE ROW LEVEL SECURITY;
 
-  CREATE POLICY admin_select_replacements
-    ON public.quote_replacements
-    FOR SELECT TO authenticated
-    USING (public.is_admin());
+  -- ══════════════════════════════════════════════════════════════════════════
+  -- ④ COMMENT(契約文件,綁入原子單元 —— 物件存在則說明必存在)
+  -- ══════════════════════════════════════════════════════════════════════════
+  COMMENT ON COLUMN public.quotes.close_reason_type IS
+$doc$CB-92 單子結束的分類(統計用)。值域以 CHECK 鎖三值,顯示名另行 map,DB 值不翻譯。
+  bulk_return    整批退貨
+  bulk_exchange  整批換貨
+  other          其他
 
-  CREATE POLICY dealer_select_own_replacements
-    ON public.quote_replacements
-    FOR SELECT TO authenticated
-    USING (EXISTS (
-      SELECT 1 FROM public.quotes q
-      WHERE q.id = quote_replacements.quote_id
-        AND q.dealer_id = auth.uid()
-    ));
+🔴 語意(Q-1):
+  NULL      = 非 CB-92 路徑。status='Closed' 時代表「付款前關單」
+              (admin-quotes confirmCloseQuote,自 Pending / Stock Review)。
+  非 NULL   = 已付款後作廢(僅 public.close_paid_order() 能寫入)。
+  CHECK quotes_close_reason_type_status_check:非 Closed 的單不得帶值。
+  trigger trg_block_closed_quote_change:Closed 後本欄凍結;
+    NULL → 非 NULL 只能與 OP/OC → Closed 同時發生且帶旗標。
 
-  CREATE POLICY admin_select_replacement_lines
-    ON public.quote_replacement_lines
-    FOR SELECT TO authenticated
-    USING (public.is_admin());
+🔴 與 public.payments.cancellation_reason 為同一次作廢的兩端,無 FK 關聯:
+  close_reason_type    = 這張單為什麼結束(分類、統計)
+  cancellation_reason  = 這筆錢為什麼作廢(自由文字、追溯)
+  兩者語意須一致,例如 bulk_return 時說明文字應敘述退貨脈絡。
 
-  CREATE POLICY dealer_select_own_replacement_lines
-    ON public.quote_replacement_lines
-    FOR SELECT TO authenticated
-    USING (EXISTS (
-      SELECT 1
-      FROM public.quote_replacements m
-      JOIN public.quotes q ON q.id = m.quote_id
-      WHERE m.id = quote_replacement_lines.memo_id
-        AND q.dealer_id = auth.uid()
-    ));
+⚠️ 與既有欄位 quotes.close_reason(付款前關單的自由文字)名稱相近但用途不同,
+   CB-92 不寫 close_reason(Q-3)。
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 9. 權限:REVOKE ALL 再 GRANT(DOC-1:ALTER DEFAULT PRIVILEGES 建立時已授權)
-  -- ══════════════════════════════════════════════════════════════════════
-  REVOKE ALL ON TABLE public.quote_replacements      FROM PUBLIC, anon, authenticated;
-  REVOKE ALL ON TABLE public.quote_replacement_lines FROM PUBLIC, anon, authenticated;
-  GRANT SELECT ON TABLE public.quote_replacements      TO authenticated;
-  GRANT SELECT ON TABLE public.quote_replacement_lines TO authenticated;
+🔴 n8n 付款自動化恢復前置條件(Payment PM 登記):
+   Void Cleanup / Ghost 偵測等流程必須排除 CB-92 作廢的 payment 列,永久鑑別條件:
+     payments p JOIN quotes q ON q.id = p.quote_id
+     WHERE q.status = 'Closed' AND q.close_reason_type IS NOT NULL
+   不可改用「有無 quickbooks_invoice_id」鑑別(staging 已有帶 invoice id 的 confirmed 列)。$doc$;
 
-  -- trigger 函式與 helper 不對外開放。
-  -- (return 的 trigger 函式目前 anon 也有 EXECUTE,無實害,不順手改 —— Q-1。)
-  REVOKE ALL ON FUNCTION public.replacement_mods_snapshot(jsonb)    FROM PUBLIC, anon, authenticated;
-  REVOKE ALL ON FUNCTION public.enforce_replacement_insert()        FROM PUBLIC, anon, authenticated;
-  REVOKE ALL ON FUNCTION public.enforce_replacement_immutable()     FROM PUBLIC, anon, authenticated;
-  REVOKE ALL ON FUNCTION public.enforce_replacement_line_frozen()   FROM PUBLIC, anon, authenticated;
-  REVOKE ALL ON FUNCTION public.enforce_replacement_line_limit()    FROM PUBLIC, anon, authenticated;
+  COMMENT ON COLUMN public.payments.cancellation_reason IS
+$doc$這筆 payment 為什麼作廢(自由文字、追溯用)。
 
-  -- ══════════════════════════════════════════════════════════════════════
-  -- 10. COMMENT:交叉指向 return 對應物件(PM 指示,寫物件名不寫行號)
-  -- ══════════════════════════════════════════════════════════════════════
-  COMMENT ON TABLE public.quote_replacements IS
-    'CB-110 replacement memo header. Parallel to quote_store_credits (CB-93 return); see F-366. '
-    'No money columns by design (CB-110 #6). Number format <PO>-X<seq>. Immutable except void.';
-  COMMENT ON TABLE public.quote_replacement_lines IS
-    'CB-110 replacement memo lines. Parallel to quote_store_credit_lines (CB-93 return); see F-366. '
-    'line_kind manual (not custom: avoids clash with is_custom). modifications is whitelisted, no money keys.';
-  COMMENT ON FUNCTION public.replacement_mods_snapshot(jsonb) IS
-    'CB-110 positive whitelist projection of quote_items.modifications. No CB-93 counterpart '
-    '(return does not snapshot mods). Must stay idempotent: quote_replacement_lines_mods_whitelisted relies on it.';
-  COMMENT ON FUNCTION public.enforce_replacement_insert() IS
-    'CB-110. Parallel to enforce_store_credit_insert (CB-93); see F-366. Status guard uses IS NOT TRUE (F-369).';
-  COMMENT ON FUNCTION public.enforce_replacement_immutable() IS
-    'CB-110. Parallel to enforce_store_credit_immutable (CB-93); see F-366.';
-  COMMENT ON FUNCTION public.enforce_replacement_line_frozen() IS
-    'CB-110. Parallel to enforce_store_credit_line_frozen (CB-93); see F-366.';
-  COMMENT ON FUNCTION public.enforce_replacement_line_limit() IS
-    'CB-110. Parallel to enforce_store_credit_line_limit (CB-93); see F-366. '
-    'Cap = ordered - returned - replaced; READS quote_store_credit_lines. Return does not read this table: '
-    'asymmetry is intentional (return reduces holdings, replacement does not). Locks the same quote_items row as return.';
+CB-92 路徑(public.close_paid_order())寫入固定格式的單行文字:
+  CB-92 void | Type: <close_reason_type> | Received: $<total_paid> (<payment_method>)
+  | Reason: <操作者輸入> | By: <dealers.contact_name> | Date: <YYYY-MM-DD> (America/New_York)
+  其中 Received / By / Date 由 RPC 從 DB 讀值,非 client 輸入。
 
-  RAISE NOTICE 'CB-110 Unit 1 完成:2 表、1 helper、4 trigger、4 policy。';
+🔴 與 public.quotes.close_reason_type 為同一次作廢的兩端,無 FK 關聯:
+  cancellation_reason  = 這筆錢為什麼作廢(自由文字、追溯)
+  close_reason_type    = 這張單為什麼結束(分類、統計)
+
+非 CB-92 的作廢(admin-payments Cancel / Close Pending)亦使用本欄,格式不固定。
+本 COMMENT 由 CB-92 migration 代寫(payment 線無 migration,Payment PM 同意)。$doc$;
+
+  COMMENT ON FUNCTION public.block_closed_quote_change() IS
+$doc$CB-92 Closed 終態鎖 + 已付款作廢的唯一入口守衛。掛於 trg_block_closed_quote_change。
+
+拒絕規則(皆 ERRCODE 42501):
+  R-a  DELETE 已 Closed 的單                       (Q-15:防 payments ON DELETE CASCADE 刪掉作廢紀錄)
+  R-b  已 Closed 的單改 status                      (Q-5:終態不可逆)
+  R-c  已 Closed 的單改 close_reason_type          (保護 Q-1 鑑別規則)
+  R-d  OP/OC → Closed 或 close_reason_type 寫入,未同時滿足:
+       旗標 = 'on'、OLD.status ∈ {OP, OC}、NEW.status = 'Closed'、NEW.close_reason_type 非 NULL
+       (Q-19 B:admin 直打 PostgREST 無法繞過 RPC 製造「Closed 但 payment 仍 confirmed」)
+
+🔴 旗標契約:current_setting('procraft.cb92_close', true) = 'on'
+   由 public.close_paid_order() 以 set_config(..., 'on', true) 在交易內設定、寫完 quotes 立即設回 'off'。
+   兩端名稱必須一致。改名的症狀是「close_paid_order() 被自己的 trigger 以 42501 擋下」——
+   看起來像權限問題,實為命名失聯。
+   判斷一律寫 = 'on':未設定時 current_setting 回 NULL,同連線交易結束後回空字串,皆不放行。
+   service_role / SQL Editor 可自行 set_config 繞過 —— 屬刻意行為,非本鎖防範對象。
+
+🔴 DELETE 分支必須 RETURN OLD。RETURN NEW(= NULL)會使刪除被靜默略過,
+   所有 Draft 將刪不掉且不報錯(PostgREST 回 200 + 空陣列,與 RLS 擋下同形)。
+
+不修改 NEW;放行時原樣回傳。不讀任何表。
+不防 TRUNCATE(不經 row trigger)。$doc$;
+
+  COMMENT ON FUNCTION public.close_paid_order(uuid, uuid, text, text) IS
+$doc$CB-92 已付款單作廢改單。僅 super_admin(DB 以 is_super_admin() 強制)。
+
+單一交易內依序:
+  ① 授權  ② 輸入驗證  ③ 鎖 quote(FOR UPDATE)+ 前態守衛 IN ('Order Processing','Order Completed')
+  ④ get_quote_store_credit_count().active_count 必須 = 0(Q-8)
+  ⑤ confirmed payment 恰 1 筆且 id = p_payment_id(Q-7 前置斷言)
+  ⑥ 處理人 contact_name  ⑦ 組合 cancellation_reason(金額 / method / 處理人 / 日期取自 DB)
+  ⑧ UPDATE quotes → Closed + close_reason_type(ROW_COUNT = 1)
+  ⑨ UPDATE payments → cancelled 四欄(ROW_COUNT = 1,Q-7 後置斷言)
+任一步失敗即 RAISE,整筆回滾 —— 「quote 已 Closed 但 payment 仍 confirmed」的中間態不會經本函式產生。
+
+🔴 旗標契約:⑧ 前以 set_config('procraft.cb92_close', 'on', true) 設定、⑧ 後立即設回 'off'。
+   與 public.block_closed_quote_change() 的同名常數互為契約,改名即失聯
+   (症狀:本函式被 trg_block_closed_quote_change 以 42501 擋下)。
+
+SECURITY DEFINER + search_path = public, pg_temp;表與非 pg_catalog 函式一律 schema 限定。
+auth.uid() 取自 JWT,不受 DEFINER 影響 —— status_history / account_events 記錄的是實際操作者。
+不寄信(Q-11)。不寫 quotes.close_reason(Q-3)。$doc$;
+
+  COMMENT ON TRIGGER trg_block_closed_quote_change ON public.quotes IS
+$doc$CB-92 Closed 終態鎖。邏輯見 COMMENT ON FUNCTION public.block_closed_quote_change()。
+
+🔴 本 trigger 的【名稱】是功能不變量,不可更名。
+PostgreSQL 對同一 timing 的多個 row trigger 依名稱位元序(COLLATE "C")執行。
+BEFORE UPDATE 順序(CB-92 上線時,共 4 支):
+  1. trg_block_closed_quote_change        ← 本 trigger
+  2. trg_block_trial_status_change
+  3. trg_enforce_dealer_quote_transition  (F2)
+  4. trg_record_status_history            (CB-77)
+本 trigger 必須排在 F2 之前:
+  - 不得落在 F2 與 trg_record_status_history 之間(CB-77 的順序不變量);
+  - 違規時最先報錯,訊息最精確。
+本 trigger 不修改 NEW,故 F2 Case 2 的整列凍結比對與 CB-77 的 WHEN 判斷皆不受影響。
+
+無 WHEN 子句:同時涵蓋 DELETE 的 trigger,其 WHEN 不可引用 NEW,而 R-d 必須檢查 NEW。
+每筆 quotes UPDATE / DELETE 都會呼叫函式;函式不讀表,成本極低。
+
+BEFORE DELETE:quotes 上僅本支,無順序依賴。
+名稱與 Q-5 最初拍板的 trg_block_closed_status_change 不同(Q-18):
+本 trigger 亦擋 DELETE,原名會讓人低估它擋了什麼。$doc$;
+
 END
-$cb110u1$;
+$cb92$;
+
+
+-- ============================================================================
+-- Segment 2 / 3   PostgREST schema reload
+-- ============================================================================
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- ============================================================================
+-- Segment 3 / 3   驗證 —— 回傳結果集;最後一列 V-ALL 須為 PASS
+-- ============================================================================
+
+WITH
+trg AS (
+  SELECT t.tgname, t.tgtype, t.tgenabled, t.tgqual, t.tgfoid
+  FROM pg_catalog.pg_trigger t
+  WHERE t.tgrelid = 'public.quotes'::regclass AND NOT t.tgisinternal
+),
+before_upd AS (
+  SELECT string_agg(tgname, ',' ORDER BY (tgname COLLATE "C")) AS names, count(*) AS n
+  FROM trg
+  WHERE (tgtype & 2) = 2 AND (tgtype & 16) = 16
+),
+rpc AS (
+  SELECT p.oid, p.prosecdef, p.proconfig, pg_catalog.pg_get_userbyid(p.proowner) AS owner,
+         pg_catalog.format_type(p.prorettype, NULL) AS rettype
+  FROM pg_catalog.pg_proc p
+  WHERE p.oid = to_regprocedure('public.close_paid_order(uuid,uuid,text,text)')
+),
+tfn AS (
+  SELECT p.oid, p.prosecdef, p.proconfig
+  FROM pg_catalog.pg_proc p
+  WHERE p.oid = to_regprocedure('public.block_closed_quote_change()')
+),
+checks(id, ok, detail) AS (
+  SELECT 'V-00 env',
+         (SELECT name FROM _ops.environment) = 'production',
+         (SELECT name FROM _ops.environment)
+  UNION ALL
+  SELECT 'V-01 quotes trigger count = 9',
+         (SELECT count(*) FROM trg) = 9,
+         (SELECT count(*)::text FROM trg)
+  UNION ALL
+  SELECT 'V-02 trigger name set',
+         (SELECT string_agg(tgname, ',' ORDER BY (tgname COLLATE "C")) FROM trg)
+           = 'trg_block_closed_quote_change,trg_block_trial_status_change,trg_block_trial_status_on_insert,'
+             'trg_enforce_dealer_quote_transition,trg_record_account_event_del,trg_record_account_event_ins,'
+             'trg_record_account_event_upd,trg_record_status_history,trg_record_status_history_on_insert',
+         (SELECT string_agg(tgname, ',' ORDER BY (tgname COLLATE "C")) FROM trg)
+  UNION ALL
+  SELECT 'V-03 BEFORE UPDATE order (4)',
+         (SELECT names FROM before_upd)
+           = 'trg_block_closed_quote_change,trg_block_trial_status_change,'
+             'trg_enforce_dealer_quote_transition,trg_record_status_history',
+         (SELECT names FROM before_upd)
+  UNION ALL
+  SELECT 'V-04 nothing between F2 and record_status_history',
+         (SELECT count(*) FROM trg
+          WHERE (tgtype & 2) = 2 AND (tgtype & 16) = 16
+            AND (tgname COLLATE "C") > ('trg_enforce_dealer_quote_transition' COLLATE "C")
+            AND (tgname COLLATE "C") < ('trg_record_status_history' COLLATE "C")) = 0,
+         NULL
+  UNION ALL
+  SELECT 'V-05 all quotes triggers enabled',
+         (SELECT count(*) FROM trg WHERE tgenabled <> 'O') = 0,
+         (SELECT string_agg(tgname::text || '=' || tgenabled::text, ',') FROM trg WHERE tgenabled <> 'O')
+  UNION ALL
+  SELECT 'V-06 new trigger: BEFORE, ROW, UPDATE+DELETE, no INSERT, no WHEN',
+         (SELECT (tgtype & 1) = 1 AND (tgtype & 2) = 2 AND (tgtype & 16) = 16 AND (tgtype & 8) = 8
+                 AND (tgtype & 4) = 0 AND tgqual IS NULL
+                 AND tgfoid = to_regprocedure('public.block_closed_quote_change()')
+          FROM trg WHERE tgname = 'trg_block_closed_quote_change'),
+         NULL
+  UNION ALL
+  SELECT 'V-07 column close_reason_type text nullable',
+         (SELECT pg_catalog.format_type(a.atttypid, a.atttypmod) = 'text' AND NOT a.attnotnull
+          FROM pg_catalog.pg_attribute a
+          WHERE a.attrelid = 'public.quotes'::regclass AND a.attname = 'close_reason_type' AND NOT a.attisdropped),
+         NULL
+  UNION ALL
+  SELECT 'V-08 CHECK value domain',
+         (SELECT c.convalidated
+                 AND position('bulk_return' IN pg_catalog.pg_get_constraintdef(c.oid)) > 0
+                 AND position('bulk_exchange' IN pg_catalog.pg_get_constraintdef(c.oid)) > 0
+                 AND position('other' IN pg_catalog.pg_get_constraintdef(c.oid)) > 0
+          FROM pg_catalog.pg_constraint c
+          WHERE c.conrelid = 'public.quotes'::regclass AND c.conname = 'quotes_close_reason_type_check'),
+         (SELECT pg_catalog.pg_get_constraintdef(c.oid) FROM pg_catalog.pg_constraint c
+          WHERE c.conrelid = 'public.quotes'::regclass AND c.conname = 'quotes_close_reason_type_check')
+  UNION ALL
+  SELECT 'V-09 CHECK status consistency',
+         (SELECT c.convalidated
+                 AND position('Closed' IN pg_catalog.pg_get_constraintdef(c.oid)) > 0
+                 AND position('status IS NOT NULL' IN pg_catalog.pg_get_constraintdef(c.oid)) > 0
+          FROM pg_catalog.pg_constraint c
+          WHERE c.conrelid = 'public.quotes'::regclass AND c.conname = 'quotes_close_reason_type_status_check'),
+         (SELECT pg_catalog.pg_get_constraintdef(c.oid) FROM pg_catalog.pg_constraint c
+          WHERE c.conrelid = 'public.quotes'::regclass AND c.conname = 'quotes_close_reason_type_status_check')
+  UNION ALL
+  SELECT 'V-10 RPC: DEFINER, search_path, owner, jsonb',
+         (SELECT prosecdef AND proconfig = ARRAY['search_path=public, pg_temp'] AND owner = 'postgres'
+                 AND rettype = 'jsonb' FROM rpc),
+         (SELECT owner || ' | ' || array_to_string(proconfig, ';') FROM rpc)
+  UNION ALL
+  SELECT 'V-11 RPC EXECUTE: authenticated only',
+         (SELECT has_function_privilege('authenticated', oid, 'EXECUTE')
+                 AND NOT has_function_privilege('anon', oid, 'EXECUTE')
+                 AND NOT has_function_privilege('service_role', oid, 'EXECUTE')
+                 AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p, aclexplode(p.proacl) x
+                                 WHERE p.oid = rpc.oid AND x.grantee = 0)
+          FROM rpc),
+         NULL
+  UNION ALL
+  SELECT 'V-12 trigger fn: INVOKER, search_path empty, no EXECUTE grants',
+         (SELECT NOT prosecdef AND proconfig = ARRAY['search_path=""']
+                 AND NOT has_function_privilege('anon', oid, 'EXECUTE')
+                 AND NOT has_function_privilege('authenticated', oid, 'EXECUTE')
+                 AND NOT has_function_privilege('service_role', oid, 'EXECUTE')
+          FROM tfn),
+         (SELECT array_to_string(proconfig, ';') FROM tfn)
+  UNION ALL
+  SELECT 'V-13 COMMENT cross-references',
+         coalesce(position('cancellation_reason' IN pg_catalog.col_description('public.quotes'::regclass,
+                    (SELECT attnum FROM pg_catalog.pg_attribute WHERE attrelid = 'public.quotes'::regclass
+                       AND attname = 'close_reason_type'))) > 0, false)
+         AND coalesce(position('close_reason_type' IN pg_catalog.col_description('public.payments'::regclass,
+                    (SELECT attnum FROM pg_catalog.pg_attribute WHERE attrelid = 'public.payments'::regclass
+                       AND attname = 'cancellation_reason'))) > 0, false)
+         AND coalesce(position('procraft.cb92_close' IN pg_catalog.obj_description(
+                    to_regprocedure('public.block_closed_quote_change()'), 'pg_proc')) > 0, false)
+         AND coalesce(position('procraft.cb92_close' IN pg_catalog.obj_description(
+                    to_regprocedure('public.close_paid_order(uuid,uuid,text,text)'), 'pg_proc')) > 0, false)
+         AND coalesce(position('名稱】是功能不變量' IN (SELECT pg_catalog.obj_description(t.oid, 'pg_trigger')
+                    FROM pg_catalog.pg_trigger t
+                    WHERE t.tgrelid = 'public.quotes'::regclass
+                      AND t.tgname = 'trg_block_closed_quote_change')) > 0, false),
+         NULL
+  UNION ALL
+  SELECT 'V-14 flag contract identical in both functions',
+         position('''procraft.cb92_close''' IN pg_catalog.pg_get_functiondef(to_regprocedure('public.block_closed_quote_change()'))) > 0
+         AND position('''procraft.cb92_close''' IN pg_catalog.pg_get_functiondef(to_regprocedure('public.close_paid_order(uuid,uuid,text,text)'))) > 0,
+         NULL
+  UNION ALL
+  SELECT 'V-15 no existing rows carry close_reason_type',
+         (SELECT count(*) FROM public.quotes WHERE close_reason_type IS NOT NULL) = 0,
+         (SELECT count(*)::text FROM public.quotes WHERE close_reason_type IS NOT NULL)
+)
+SELECT id,
+       CASE WHEN ok IS TRUE THEN 'PASS' ELSE 'FAIL' END AS verdict,
+       detail
+FROM checks
+UNION ALL
+SELECT 'V-ALL (16 checks)',
+       CASE WHEN count(*) = 16 AND count(*) FILTER (WHERE ok IS TRUE) = 16 THEN 'PASS' ELSE 'FAIL' END,
+       count(*) FILTER (WHERE ok IS TRUE)::text || ' / ' || count(*)::text
+FROM checks
+ORDER BY 1;
+
+
+-- ============================================================================
+-- R-1  回滾(預設註解。僅在 CB-92 尚未產生任何作廢資料時可用)
+-- ============================================================================
+-- DO $cb92_r1$
+-- BEGIN
+--   PERFORM _ops.assert_env('production');
+--   IF (SELECT count(*) FROM public.quotes WHERE close_reason_type IS NOT NULL) > 0 THEN
+--     RAISE EXCEPTION 'CB-92 R-1 ABORT: close_reason_type already has data; rollback would destroy the classification.';
+--   END IF;
+--   DROP TRIGGER trg_block_closed_quote_change ON public.quotes;
+--   DROP FUNCTION public.block_closed_quote_change();
+--   DROP FUNCTION public.close_paid_order(uuid, uuid, text, text);
+--   ALTER TABLE public.quotes DROP CONSTRAINT quotes_close_reason_type_status_check;
+--   ALTER TABLE public.quotes DROP CONSTRAINT quotes_close_reason_type_check;
+--   ALTER TABLE public.quotes DROP COLUMN close_reason_type;
+--   COMMENT ON COLUMN public.payments.cancellation_reason IS NULL;
+-- END
+-- $cb92_r1$;
+-- NOTIFY pgrst, 'reload schema';
