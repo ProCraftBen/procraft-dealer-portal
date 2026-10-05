@@ -81,6 +81,17 @@
        共用一個元素會讓先寫的訊息被後寫的蓋掉,而那不報錯。 */
     .rsc-degraded { display: none; padding: 10px 20px; border-bottom: 1px solid var(--border); background: #FFFBEB; color: #92400E; font-size: 12px; line-height: 1.5; }
     .rsc-degraded.show { display: block; }
+    /* CB-110 第二階段(P-6):換貨(REPLACEMENT MEMO)標示。
+       🔴 字母本身是主要區別(R = return、X = replacement,與 memo 編號字尾一致);
+          顏色只是輔助,不可為唯一區別(色覺差異)。
+       🔴 尺寸、圓角、字級與 .rsc-flag 逐項相同 —— R 與 X 並存時同高同寬、
+          以一個空白分隔(由 replacementFlagHtml 的前導空白提供)。
+       🔴 石板藍:避開 .rsc-flag 琥珀、.rm-flag 紅 / 綠。 */
+    .rpl-flag { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; line-height: 1; vertical-align: middle; text-decoration: none; color: #3B5B7A; background: rgba(59,91,122,0.14); cursor: pointer; transition: opacity 0.15s; }
+    .rpl-flag:hover { opacity: 0.72; }
+    /* 🔴 獨立的降級橫幅(同 .rsc-degraded 與 .rm-degraded 分開的理由)。 */
+    .rpl-degraded { display: none; padding: 10px 20px; border-bottom: 1px solid var(--border); background: #FFFBEB; color: #92400E; font-size: 12px; line-height: 1.5; }
+    .rpl-degraded.show { display: block; }
     .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #FAFAF8; display: flex; align-items: center; justify-content: space-between; }
     .table-title { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green-dark); }
     .table-count { font-size: 11px; color: var(--muted); }
@@ -553,6 +564,7 @@
     </div>
     <div class="rm-degraded" id="rmDegraded"></div>
     <div class="rsc-degraded" id="rscDegraded"></div>
+    <div class="rpl-degraded" id="rplDegraded"></div>
     <div class="overflow-x">
       <table>
         <thead>
@@ -1110,6 +1122,12 @@ const _rscActive = new Set();
 //    一支壞掉時另一支的標示也一起消失,而使用者看不出是哪一支的問題。
 let _rscDegraded = false;
 
+// ── CB-110 第二階段:換貨標示(對應上方 _rsc*,見 F-366)───────────────
+// 🔴 只收有效(active_count > 0)的單;全部作廢 = 不顯示(同 return)。
+// 🔴 與 _rscDegraded / _rmDegraded 分開,理由同上。
+const _rplActiveQ = new Set();
+let _rplFlagDegraded = false;
+
 // ── CB-38 ─────────────────────────────────────────────────────────
 // currentUserId / currentUserRole:決定 Sales filter 的 default 值
 // salesList:role IN ('admin','super_admin'),用來建 Sales dropdown
@@ -1256,6 +1274,7 @@ async function init() {
   //       需求為「一眼看到哪張單有狀況」，接受。
   await loadReminderFlags();
   await loadStoreCreditFlags();
+  await loadReplacementFlags();   // CB-110 第二階段
 
   initSortOptions();   // CB-60a M3:須在 loadQuotes 之前,否則首次載入無排序值
 
@@ -1408,6 +1427,76 @@ function storeCreditFlagHtml(quote) {
   return ' <a class="rsc-flag" href="quote-detail.html?id=' + id + '"'
        + ' onclick="event.stopPropagation()"'
        + ' title="This order has a return \u2014 click to review">R</a>';
+}
+
+// ══ CB-110 第二階段:換貨標示載入 ═══════════════════════════════════
+// 形態比照 loadStoreCreditFlags()(F-366 對應:get_replacement_flags ↔
+// get_store_credit_flags)。兩態降級:
+//   ① error 非 null              → 無權限(非 admin 拋 42501)/ 網路 / 函式不存在
+//   ② count 與 rows.length 不符  → PostgREST max-rows 截斷
+// 🔴 刻意差異:count 必須【明確是整數】才算通過(F-35 正向識別)。
+//    loadStoreCreditFlags 在 count 為 null 時視為通過 —— 那等於「讀不到
+//    筆數就跳過截斷檢查」。本處讀不到即降級。CB-93 那支不改(Q-1)。
+// 🔴 任一態成立 → 橫幅現身、所有 X 不渲染。
+//    看到橫幅 = 機制正常運作;既無 X 也無橫幅,才是真的沒有換貨。
+async function loadReplacementFlags() {
+  _rplActiveQ.clear();
+  _rplFlagDegraded = false;
+
+  const { data, error, count } = await _supabase
+    .rpc('get_replacement_flags', {}, { count: 'exact' });
+
+  const fail = function (why) {
+    _rplFlagDegraded = true;
+    console.error('[CB-110] replacement flags unavailable:', why);
+  };
+
+  if (error) {
+    fail(error);
+  } else if (!Array.isArray(data)) {
+    // 正向識別:沒有 error 卻不是陣列 = 回應形態不對,不當作「沒有換貨」。
+    fail('rpc returned no array');
+  } else {
+    const rows = data;
+    if (!Number.isInteger(count)) {
+      fail('no exact count returned');
+    } else if (count !== rows.length) {
+      fail('row count mismatch (max-rows truncation)');
+    } else {
+      // 正向識別:只有【明確】active_count > 0 才入集合。
+      rows.forEach(function (r) {
+        if (Number(r.active_count) > 0) _rplActiveQ.add(r.quote_id);
+      });
+    }
+  }
+
+  const bar = document.getElementById('rplDegraded');
+  if (bar) {
+    if (_rplFlagDegraded) {
+      _rplActiveQ.clear();
+      bar.textContent = 'Replacement flags unavailable \u2014 this page cannot show which orders '
+                      + 'have replacements. Please refresh to retry.';
+      bar.classList.add('show');
+    } else {
+      bar.textContent = '';
+      bar.classList.remove('show');
+    }
+  }
+}
+
+// ══ CB-110 第二階段:replacementFlagHtml() ═════════════════════════
+// 🔴 規則與 quote-detail 的 replacementBannerHtml 一致:
+//      active_count > 0 → 顯示;否則(含全部作廢)→ 不顯示;降級 → 不渲染。
+// 🔴 排在 storeCreditFlagHtml 之後 → 並存時為「R X」。
+function replacementFlagHtml(quote) {
+  const id = quote && quote.id;
+  if (!id) return '';
+  if (!_rplActiveQ.has(id)) return '';
+
+  // 🔴 stopPropagation:整列掛了 toggleDetail(同 storeCreditFlagHtml)。
+  return ' <a class="rpl-flag" href="quote-detail.html?id=' + id + '"'
+       + ' onclick="event.stopPropagation()"'
+       + ' title="This order has a replacement \u2014 click to review">X</a>';
 }
 
 // ══ F-118 同步單元:reminderFlagHtml() ═══════════════════════════════════
@@ -2426,7 +2515,7 @@ function renderTable() {
     html +=
       '<tr class="' + rowClass + '" onclick="toggleDetail(' + idx + ')">' +
         '<td>' +
-            '<div class="td-po">' + escapeHtml(q.po_number || q.draft_number || '—') + storeCreditFlagHtml(q) + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
+            '<div class="td-po">' + escapeHtml(q.po_number || q.draft_number || '—') + storeCreditFlagHtml(q) + replacementFlagHtml(q) + ' <span class="expand-icon" id="icon-' + idx + '">&#9660;</span></div>' +
             (q.po_number && q.draft_number ? '<div style="font-size:10px;color:var(--muted);">Draft ID: ' + escapeHtml(q.draft_number) + '</div>' : '') +
         '</td>' +
         // CB-97 ③:account_type badge,Dealer 格首(Q-4 = A)。
