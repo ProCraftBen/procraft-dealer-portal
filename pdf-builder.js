@@ -314,9 +314,15 @@
 
   // ── CB-110:REPLACEMENT MEMO(換貨,無金額)────────────────────────────────
   //   對應 CB-93 / CB-96 的 RETURN MEMO 常數區(STORE_CREDIT_CONTRACT 等),見 F-366。
-  //   🔴 能力常數:呼叫端讀不到 _REPLACEMENT_CONTRACT === 1 即視為載到舊版
+  //   🔴 能力常數:呼叫端讀不到預期的 _REPLACEMENT_CONTRACT 值即視為載到舊版
   //      pdf-builder.js(F-168:載入點無 ?v=),必須降級、不得下載。
-  const REPLACEMENT_CONTRACT = 1;
+  //   🔴 CB-110 第二階段:1 → 2。
+  //      2 = 「支援 options.replacements,會在 Invoice / Packing List / Receipt
+  //            第一頁印 REPLACEMENT ON FILE 註記」。
+  //      舊版 builder 收到 options.replacements 會【靜默忽略】(F-168 同型),
+  //      註記消失且不報錯 —— 呼叫端必須能分辨,所以升版。
+  //      呼叫端一律以 === 2 正向識別;1 / undefined / 其他值一律視為舊版。
+  const REPLACEMENT_CONTRACT = 2;
 
   //   🔴 PDF 不進 i18n(CB-62 Q-56:會輸出的不翻)。英文硬編碼。
   const RP_DOC_TITLE    = 'REPLACEMENT MEMO';
@@ -330,6 +336,11 @@
   //   'REPLACEMENT MEMO' 14pt bold = 54.1mm → 餘裕 16.8mm  ✅ 採用(≥ CB-90 的 15.9mm)
   //   ⚠️ 改標題文字或 header 左側內容須以同法重算 —— 溢出不報錯,只會被裁掉。
   const RP_DOC_TITLE_SIZE = 14;
+
+  //   ── CB-110 第二階段(P-4):原單 PDF 的換貨註記 ─────────────────────────
+  //   字級 / 行距 / 顏色【沿用】return 註記的 SC_NOTICE_* 與 COLORS.note,
+  //   兩行視覺一致。只新增前綴字串。PDF 不進 i18n(CB-62 Q-56)。
+  const RP_NOTICE_PREFIX = 'REPLACEMENT ON FILE - ';
 
   // ----------------------------------------
   // Internal Helpers
@@ -2589,12 +2600,18 @@ return total;
     //      → 因此 _drawItemTable 的呼叫【一個字都不改】。
     const _sc = _normalizeStoreCredits(options.storeCredits);
     // CB-96:logoImg 不再需要(memo 頁已不在本文件內接上)。
-    const { doc, y, headerContext } = await _initDocAndDrawTop(
+    // CB-110 第二階段:先正規化(不合法 → 拋錯,與 _sc 同時機)。
+    const _rp = _normalizeReplacementNotices(options.replacements);
+    // CB-110 第二階段:y 改名接成 _yTop,下方以 _drawReplacementNotice 重新得到 y。
+    //   無換貨時 y === _yTop,且未呼叫任何 doc 方法 → 輸出逐位元不變。
+    //   _drawItemTable 的呼叫因此【一個字都不改】(CB-93 Q-3 的要求)。
+    const { doc, y: _yTop, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'PACKING LIST',
       undefined, undefined,          // isDraftDoc / documentTitleSize 維持預設
       _sc.numbers                    // CB-93:無退貨 → undefined → 不繪製
     );
+    const y = _drawReplacementNotice(doc, { startY: _yTop, memoNumbers: _rp.numbers });
 
   const { tableEndY, notes } = _drawItemTable(doc, {
         items:            quoteData.items,
@@ -2627,12 +2644,18 @@ return total;
   async function buildInvoicePdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0 } = options;
     const _sc = _normalizeStoreCredits(options.storeCredits);   // CB-93 / CB-96
-    const { doc, y, headerContext } = await _initDocAndDrawTop(
+    // CB-110 第二階段:先正規化(不合法 → 拋錯,與 _sc 同時機)。
+    const _rp = _normalizeReplacementNotices(options.replacements);
+    // CB-110 第二階段:y 改名接成 _yTop,下方以 _drawReplacementNotice 重新得到 y。
+    //   無換貨時 y === _yTop,且未呼叫任何 doc 方法 → 輸出逐位元不變。
+    //   _drawItemTable 的呼叫因此【一個字都不改】(CB-93 Q-3 的要求)。
+    const { doc, y: _yTop, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'INVOICE',
       undefined, undefined,
       _sc.numbers                    // CB-93:無退貨 → undefined → 不繪製
     );
+    const y = _drawReplacementNotice(doc, { startY: _yTop, memoNumbers: _rp.numbers });
 
     const { tableEndY, notes } = _drawItemTable(doc, {
           items:            quoteData.items,
@@ -2665,12 +2688,18 @@ return total;
   async function buildReceiptPdf(quoteData, dealer, shippingAddress, options = {}) {
     const { markupPercent = 0, receipt = null } = options;
     const _sc = _normalizeStoreCredits(options.storeCredits);   // CB-93 / CB-96
-    const { doc, y, headerContext } = await _initDocAndDrawTop(
+    // CB-110 第二階段:先正規化(不合法 → 拋錯,與 _sc 同時機)。
+    const _rp = _normalizeReplacementNotices(options.replacements);
+    // CB-110 第二階段:y 改名接成 _yTop,下方以 _drawReplacementNotice 重新得到 y。
+    //   無換貨時 y === _yTop,且未呼叫任何 doc 方法 → 輸出逐位元不變。
+    //   _drawItemTable 的呼叫因此【一個字都不改】(CB-93 Q-3 的要求)。
+    const { doc, y: _yTop, headerContext } = await _initDocAndDrawTop(
       quoteData, dealer, shippingAddress, options,
       'RECEIPT',
       undefined, undefined,
       _sc.numbers                    // CB-93:無退貨 → undefined → 不繪製
     );
+    const y = _drawReplacementNotice(doc, { startY: _yTop, memoNumbers: _rp.numbers });
 
     const { tableEndY, notes } = _drawItemTable(doc, {
           items:            quoteData.items,
@@ -3124,6 +3153,55 @@ return total;
     });
   }
 
+  // ── CB-110 第二階段:原單 PDF 註記的正規化 ─────────────────────────────────
+  //   回傳 { list, numbers }。無換貨(undefined / null / [])時 numbers 為 undefined,
+  //   讓 _drawReplacementNotice 走「完全不繪製」路徑 —— 三份 PDF 才可能逐位元不變。
+  //   🔴 格式不符、收到已作廢者一律【拋錯】(同 _normalizeStoreCredits 的理由):
+  //      略過的話,一張有換貨的單會印出看起來完全正常、卻沒有註記的 Packing List。
+  function _normalizeReplacementNotices(raw) {
+    if (raw === undefined || raw === null) return { list: [], numbers: undefined };
+    if (!Array.isArray(raw)) {
+      throw new Error('[CB-110] options.replacements must be an array');
+    }
+    if (raw.length === 0) return { list: [], numbers: undefined };
+    const list = _normalizeReplacements(raw);   // 同一套驗證:缺 memo_number / 已作廢 → 拋錯
+    return { list: list, numbers: list.map(function (m) { return m.memo_number; }) };
+  }
+
+  // ── CB-110 第二階段:原單 PDF 的換貨註記(P-4)───────────────────────────────
+  //   與 _drawStoreCreditNotice 同構;CB-93 的那支一個字都不改(Q-1)。
+  //   🔴 正向識別(F-35):只有【明確是非空陣列】才繪製。其餘一律原樣回傳 startY,
+  //      而且【不呼叫任何 doc 方法】(連字型、顏色都不設)——
+  //      這是「無換貨時三份 PDF 逐位元相同」的前提。
+  //   🔴 P-4 多筆規則:全部編號串成一行,以 splitTextToSize 依版心寬折行。
+  //      刻意【沒有】筆數上限、也【沒有】「另有 N 筆」的省略分支 ——
+  //      省略分支本身就是「只印前 N 筆」的入口;不寫,就不可能錯。
+  //      splitTextToSize 只斷行、不丟字。
+  function _drawReplacementNotice(doc, context) {
+    const { margin, pageW } = LAYOUT;
+    const { startY, memoNumbers } = context;
+
+    if (!Array.isArray(memoNumbers) || memoNumbers.length === 0) return startY;
+
+    const text = RP_NOTICE_PREFIX + memoNumbers.join(', ');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(SC_NOTICE_FS);
+    doc.setTextColor(...COLORS.note);
+
+    const lines = doc.splitTextToSize(text, pageW - margin * 2);
+    let y = startY + SC_NOTICE_PAD_TOP;
+    lines.forEach(function (ln) {
+      doc.text(ln, margin, y);
+      y += SC_NOTICE_LINE_H;
+    });
+
+    // 還原成後續繪製預期的預設值(同 _drawStoreCreditNotice)
+    doc.setTextColor(40, 40, 40);
+    doc.setFont('helvetica', 'normal');
+
+    return y - SC_NOTICE_LINE_H + SC_NOTICE_PAD_BOT;
+  }
+
   // ── 明細的 Description 欄文字 ────────────────────────────────────────────
   //   🔴 mods 文字【沿用 _buildModsText()】,不另寫一份 —— 那支已處理
   //      隱藏 mod(_isHiddenMod)、顯示名覆寫(_displayModLabel)、
@@ -3367,9 +3445,11 @@ return total;
     getStoreCreditMemoPdfFilename: getStoreCreditMemoPdfFilename,
 
     // ── CB-110 ────────────────────────────────────────────────────────
-    //   🔴 呼叫端【必須】先檢查 _REPLACEMENT_CONTRACT === 1 才視為可用(F-168)。
+    //   🔴 呼叫端【必須】先檢查 _REPLACEMENT_CONTRACT === 2 才視為可用(F-168;第二階段由 1 升 2)。
     _REPLACEMENT_CONTRACT:         REPLACEMENT_CONTRACT,
     _normalizeReplacements:        _normalizeReplacements,
+    _normalizeReplacementNotices:  _normalizeReplacementNotices,   // CB-110 第二階段
+    _drawReplacementNotice:        _drawReplacementNotice,         // CB-110 第二階段
     _drawReplacementMemoPages:     _drawReplacementMemoPages,
     buildReplacementMemoPdf:       buildReplacementMemoPdf,
     getReplacementMemoPdfFilename: getReplacementMemoPdfFilename,
