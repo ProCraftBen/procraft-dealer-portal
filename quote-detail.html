@@ -1054,8 +1054,9 @@ let _stcDegradedWhy = '';
 
 // ── CB-110:換貨(REPLACEMENT MEMO)────────────────────────────────────────
 //   對應上方 _stc* 四個變數(CB-93),見 F-366。
-//   🔴 與 return 的刻意差異(S1-D8):replacement 不進三份原單 PDF,
-//      所以降級【只影響】Replacement Memos 區,不擋原單下載。
+//   🔴 CB-110 第二階段(P-3):S1-D8 已推翻。replacement 註記會印在三份原單 PDF,
+//      所以 _rplDegraded 為 true 時與 return 相同:① 頂部降級橫幅 ② 擋下三份 PDF 下載。
+//      理由同 _stcDegraded:讀不到換貨卻照常下載,Packing List 會靜默少印註記。
 let _rplActive      = [];
 let _rplVoided      = [];
 let _rplDegraded    = false;
@@ -2821,6 +2822,7 @@ function renderQuote(quote, dealer, addr) {
     ${backLinkHtml}
     ${returnedBannerHtml}
     ${storeCreditBannerHtml()}
+    ${replacementBannerHtml()}
     ${returnHistoryHtml}
     ${statusHistoryHtml}
     ${storeCreditSectionHtml()}
@@ -3578,12 +3580,20 @@ async function voidStoreCredit(memoId) {
  *   replacementSectionHtml  ↔ storeCreditSectionHtml
  *   downloadReplacementMemo ↔ downloadStoreCreditMemo
  *   voidReplacement         ↔ voidStoreCredit
+ *   ── 第二階段 ──
+ *   replacementBannerHtml      ↔ storeCreditBannerHtml
+ *   replacementBlocksDownload  ↔ storeCreditBlocksDownload
+ *   replacementDownloadNotice  ↔ storeCreditDownloadNotice
  *
  * 刻意差異(不是漂移,勿「對齊」):
  *   · 無金額:清單不顯示任何數字金額,PDF 只有一個版本
- *   · 不在三份原單 PDF 上加註記、不顯示橫幅(Q-6)
- *   · 降級只影響本區,不擋原單下載(S1-D8)
  *   · 下載【不經】priceMaskBlocksDownload()(PM 補充 C,見該函式內註解)
+ *   · 下載前 alert 與 return 的【分開】兩個,不合併(P-5 甲,不改 CB-96 函式)
+ *   · 降級時本區不渲染,說明集中在頂部橫幅(同一句話不出現兩次)
+ *
+ * 🔴 第二階段(PM Stage 3 裁示 P-1 ～ P-6)推翻第一階段的兩項決定:
+ *   · Q-6  → 三份原單 PDF 第一頁印 REPLACEMENT ON FILE 註記,並顯示頂部橫幅
+ *   · S1-D8 → 降級時擋下三份原單下載(少印註記的 Packing List 是實體後果)
  *
  * 🔴 授權出口與 CB-93 同一套:get_quote_replacement_count() 為
  *    SECURITY DEFINER,非 admin 且非單主時【拋錯】而不是回 0;
@@ -3645,9 +3655,14 @@ async function loadReplacements() {
     return;
   }
 
-  // 🔴 能力常數偵測(F-168):讀不到 = 舊版 pdf-builder,下載會壞。
-  if (!window.ProCraftPDF || window.ProCraftPDF._REPLACEMENT_CONTRACT !== 1) {
-    degrade('pdf-builder.js is outdated (no _REPLACEMENT_CONTRACT)');
+  // 🔴 能力常數偵測(F-168):不是 2 = 舊版 pdf-builder。
+  //    第二階段起舊版的後果不只「memo 下載會壞」:舊 builder 收到
+  //    options.replacements 會【靜默忽略】,三份原單 PDF 少印註記且不報錯。
+  //    → 正向識別 === 2;1 / undefined / 其他值一律降級(降級即擋三份下載)。
+  //    放在「無換貨提早結束」之後是刻意的:沒有換貨就沒有註記可漏,
+  //    不必因為快取到舊 builder 而擋下與換貨無關的單。
+  if (!window.ProCraftPDF || window.ProCraftPDF._REPLACEMENT_CONTRACT !== 2) {
+    degrade('pdf-builder.js is outdated (_REPLACEMENT_CONTRACT !== 2)');
     return;
   }
 
@@ -3666,12 +3681,9 @@ async function loadReplacements() {
 //   🔴 對 dealer 可見的文字掛 i18n(qd.rpl.*);Void / Voided 為 admin 專屬,英文硬編碼。
 //   🔴 不寫兩份平行函式給 admin / dealer(理由同 storeCreditSectionHtml)。
 function replacementSectionHtml() {
-  if (_rplDegraded) {
-    return '<div class="stc-degraded">' +
-      escapeHtml(pcTxt('qd.rpl.degraded',
-        'Replacement information for this order is unavailable right now. Please refresh the page.')) +
-      '</div>';
-  }
+  // 第二階段:降級說明移到頂部 replacementBannerHtml()(同時說明下載已停用),
+  //   本區不再重複同一句話。
+  if (_rplDegraded) return '';
   if (!_rplActive.length && !(_isAdmin && _rplVoided.length)) return '';
 
   const rowHtml = function (m, isVoid) {
@@ -3721,7 +3733,11 @@ async function downloadReplacementMemo(memoId) {
   if (!m) return;
 
   // 載到舊版 pdf-builder.js 時擋下(F-168:載入點無 ?v=)。
-  if (!window.ProCraftPDF || ProCraftPDF._REPLACEMENT_CONTRACT !== 1) {
+  // 🔴 PM 第二階段補充一:此處的 === 2 是【刻意過度保守】。
+  //    contract 1 的 builder 其實產得出 replacement memo(第二階段沒改 memo),
+  //    但本頁只保留【一套】版本判準(與 loadReplacements 相同)。
+  //    勿放寬為 >= 1 —— 放寬的代價是出現第二套判準,日後兩處各自演變而不報錯。
+  if (!window.ProCraftPDF || ProCraftPDF._REPLACEMENT_CONTRACT !== 2) {
     alert(pcTxt('qd.rpl.outdated',
       'This page needs to be refreshed before replacement memos can be downloaded. Please reload and try again.'));
     return;
@@ -3770,6 +3786,59 @@ async function voidReplacement(memoId) {
 
   await loadReplacements();
   renderQuote(_quote, _dealer, _addr);
+}
+
+// ── CB-110 第二階段(P-2):頂部橫幅(admin + dealer)─────────────────────
+//   放在 return 橫幅之後(renderQuote 的插槽)。dealer 可見 → 文字掛 qd.rpl.*。
+//   🔴 降級時改顯示「無法取得換貨資訊,因此文件下載已停用」——
+//      這是 replacementBlocksDownload() 擋下載時,畫面上唯一說明原因的位置。
+//   🔴 不改 storeCreditBannerHtml()(Q-1);兩個橫幅各自獨立。
+function replacementBannerHtml() {
+  if (_rplDegraded) {
+    return '<div class="stc-degraded">' +
+      escapeHtml(pcTxt('qd.rpl.degraded',
+        'Replacement information for this order is unavailable right now, so document downloads are turned off. Please refresh the page.')) +
+      '</div>';
+  }
+  if (!_rplActive.length) return '';
+
+  const nums = _rplActive.map(function (m) { return m.memo_number; }).join(', ');
+  return '<div class="stc-banner">' +
+    '<div class="stc-banner-body">' +
+      '<div class="stc-banner-title">' + escapeHtml(pcTxt('qd.rpl.banner.title', 'Replacement on File')) + '</div>' +
+      '<div class="stc-banner-msg">' +
+        escapeHtml(pcTxt('qd.rpl.banner.msg',
+          'ProCraft is replacing items on this order. See replacement memo {nums}.', { nums: nums })) +
+        '<br>' +
+        escapeHtml(pcTxt('qd.rpl.banner.where',
+          'Download the replacement memo from the Replacement Memos section below.')) +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// ── CB-110 第二階段(P-3 / R4):降級時擋下三份原單 PDF ────────────────────
+//   放在三個下載函式中 storeCreditBlocksDownload() 那一行之後。
+//   🔴 只看 _rplDegraded —— contract 不符、筆數 RPC 錯誤、筆數不符三種來源
+//      都在 loadReplacements() 匯入同一個旗標。
+function replacementBlocksDownload() {
+  if (!_rplDegraded) return false;
+  alert(pcTxt('qd.rpl.degraded',
+    'Replacement information for this order is unavailable right now, so document downloads are turned off. Please refresh the page.'));
+  return true;
+}
+
+// ── CB-110 第二階段(P-5 甲):下載三份 PDF 前的提醒 ────────────────────────
+//   放在 storeCreditDownloadNotice() 之後:兩者都有時依序兩個 alert,return 先。
+//   🔴 只提醒、不阻擋(同 CB-96)。
+//   🔴 降級時不斷言(同 storeCreditDownloadNotice 的理由:資料不可信時不說「有」)。
+function replacementDownloadNotice() {
+  if (_rplDegraded) return;          // 防呆:正常路徑已由呼叫端擋下
+  if (!_rplActive.length) return;
+  const nums = _rplActive.map(function (m) { return m.memo_number; }).join(', ');
+  alert(pcTxt('qd.rpl.alert',
+    'This order has a replacement memo ({nums}). It is not part of this document — download it separately from the Replacement Memos section below.',
+    { nums: nums }));
 }
 
 // ══ F-118 同步單元:reminderFlagHtml() ═══════════════════════════════════
@@ -4067,11 +4136,14 @@ function storeCreditBlocksDownload() {
 async function downloadPackingList() {
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;
+  if (replacementBlocksDownload()) return;   // CB-110 第二階段
   storeCreditDownloadNotice();   // CB-96
+  replacementDownloadNotice();   // CB-110 第二階段
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildPackingListPdf(
     quoteDataForPdf, _dealer, _addr,
-    { stamp: { mode: 'download', user: _me }, storeCredits: _stcActive }
+    { stamp: { mode: 'download', user: _me }, storeCredits: _stcActive,
+      replacements: _rplActive }   // CB-110 第二階段
   );
   const filename = ProCraftPDF.getPdfFilename('packing-list', {
     poNumber:       _quote.po_number || 'Quote',
@@ -4084,11 +4156,14 @@ async function downloadInvoice() {
   if (priceMaskBlocksDownload()) return;   // CB-98 Q-5
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;   // CB-93
+  if (replacementBlocksDownload()) return;   // CB-110 第二階段
   storeCreditDownloadNotice();               // CB-96
+  replacementDownloadNotice();               // CB-110 第二階段
   const quoteDataForPdf = buildQuoteDataForPdf();
   const doc = await ProCraftPDF.buildInvoicePdf(
     quoteDataForPdf, _dealer, _addr,
-    { markupPercent: 0, stamp: { mode: 'download', user: _me }, storeCredits: _stcActive }
+    { markupPercent: 0, stamp: { mode: 'download', user: _me }, storeCredits: _stcActive,
+      replacements: _rplActive }   // CB-110 第二階段
   );
   const filename = ProCraftPDF.getPdfFilename('invoice', {
     poNumber:       _quote.po_number || 'Quote',
@@ -4105,7 +4180,9 @@ async function downloadReceipt() {
   if (priceMaskBlocksDownload()) return;   // CB-98 Q-5
   if (!_quote || !_dealer) return;
   if (storeCreditBlocksDownload()) return;   // CB-93
+  if (replacementBlocksDownload()) return;   // CB-110 第二階段
   storeCreditDownloadNotice();               // CB-96
+  replacementDownloadNotice();               // CB-110 第二階段
 
   const { data: pays, error: payErr } = await _supabase
     .from('payments')
@@ -4146,7 +4223,8 @@ async function downloadReceipt() {
       quoteDataForPdf, _dealer, _addr,
       // CB-93:memo 頁接在 CB-45 對帳斷言【之後】—— 斷言在 _finalizeWithTotals
       //   內已跑完,memo 金額不進 quotes,對帳不受影響。
-      { markupPercent: 0, receipt, stamp: { mode: 'download', user: _me }, storeCredits: _stcActive }
+      { markupPercent: 0, receipt, stamp: { mode: 'download', user: _me }, storeCredits: _stcActive,
+        replacements: _rplActive }   // CB-110 第二階段
     );
   } catch (err) {
     // CB-45 對帳斷言 fail-loud:live grand 與付款當時 base_amount 不一致 → 不出憑證。
