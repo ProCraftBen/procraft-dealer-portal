@@ -386,7 +386,17 @@ function renderGate() {
   }
 
   // 一般:可建立新 payment
+  // CB-112 Q-6 = B:grand_total 必須【大於 0】才顯示付款方式(正向識別,F-35)。
+  //   NULL / NaN / 0 / 負數 → 顯示「無需付款」。$0 單由 ProCraft 以 settle_zero_order() 結清。
+  //   🔴 這只是 UX 鏡像。真正的防線在 DB:enforce_dealer_quote_transition() Case 2
+  //      同一條件(grand_total > 0)擋下 dealer 推進;前端擋不住 DevTools。兩處條件須一致。
   if (s === 'Pending') {
+    const _cb112Total = parseFloat(quote.grand_total);
+    if (!(_cb112Total > 0)) {
+      renderBlocked(pcTxt('pay.zero.title', 'No payment needed'),
+        pcTxt('pay.zero.text', 'This order total is $0.00, so there is nothing to pay online. ProCraft will finalize it for you — please contact us if you have questions.'));
+      return;
+    }
     renderMethodSelect();
     return;
   }
