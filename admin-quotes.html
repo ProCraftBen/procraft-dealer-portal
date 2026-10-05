@@ -1434,9 +1434,14 @@ function storeCreditFlagHtml(quote) {
 // get_store_credit_flags)。兩態降級:
 //   ① error 非 null              → 無權限(非 admin 拋 42501)/ 網路 / 函式不存在
 //   ② count 與 rows.length 不符  → PostgREST max-rows 截斷
-// 🔴 刻意差異:count 必須【明確是整數】才算通過(F-35 正向識別)。
+// 🔴 刻意差異(PM 第二階段 Stage 3 裁示,勿「對齊」):
+//    count 必須【明確是整數】才算通過(F-35 正向識別)。
 //    loadStoreCreditFlags 在 count 為 null 時視為通過 —— 那等於「讀不到
 //    筆數就跳過截斷檢查」。本處讀不到即降級。CB-93 那支不改(Q-1)。
+//    放寬成與 CB-93 相同的代價:count 讀不到時若結果剛好被 max-rows 截斷,
+//    被截掉的單 X 會【靜默不顯示】—— admin 看不到這張單有換貨,也沒有
+//    警示列提醒。從嚴的最壞情況只是多一條警示列,兩者代價不對稱。
+//    (staging 2026-10-05 D-8 實機確認 RPC 確實回傳 count。)
 // 🔴 任一態成立 → 橫幅現身、所有 X 不渲染。
 //    看到橫幅 = 機制正常運作;既無 X 也無橫幅,才是真的沒有換貨。
 async function loadReplacementFlags() {
