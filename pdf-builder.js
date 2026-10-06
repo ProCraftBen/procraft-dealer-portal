@@ -2102,7 +2102,8 @@ return total;
       y += 5;
 
       // Payment Method
-      const METHOD_LABEL = { card: 'Card', ach: 'ACH', check: 'Check', offline: 'Offline' };
+      // CB-112:zero_settlement = $0 應付統一結清(public.settle_zero_order())。顯示名 ≠ DB 值(CB-62)。
+      const METHOD_LABEL = { card: 'Card', ach: 'ACH', check: 'Check', offline: 'Offline', zero_settlement: '$0 Settlement' };
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.muted);
