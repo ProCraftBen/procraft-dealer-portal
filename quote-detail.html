@@ -1388,7 +1388,21 @@ function reconstructGroupedItems(rawItems) {
   const itemOrder = [];
 
   rawItems.forEach(function (row) {
-    const key = [
+    // CB-115 (PM 2026-10-06 Q-1=B): custom rows NEVER merge — one DB row =
+    //   one display item. Positive identification by is_custom (F-35).
+    //   WHY: the catalog key below has no sku_desc, so custom rows sharing a
+    //   SKU code / price were shown — and printed on the Packing List, Invoice,
+    //   Receipt and Draft Quote (pdf-builder prints item.sku_desc from here) —
+    //   as ONE line carrying only the first row's description (PDC09311: three
+    //   door sizes printed as one). pdf-builder itself never merges items; this
+    //   is the only place the PDF's items are grouped.
+    //   The custom key contains no '||', the catalog key always contains six,
+    //   so the two can never be equal. Catalog rows: key UNCHANGED (the seven
+    //   lines of the array below are untouched).
+    // ⚠ Same key, byte-identical, in new-quote-step2.html /
+    //   new-quote-modifications.html loadDraftItems() and new-quote-step3.html
+    //   cb53BuildCartFromDb(). Change all four together.
+    const key = (row.is_custom === true) ? 'CUSTOM-ROW-' + row.id : [
       row.sku_code || '',
       row.style_code || '',
       row.style_name || '',
