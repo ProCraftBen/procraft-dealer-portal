@@ -264,6 +264,7 @@
         <option value="ach">ACH</option>
         <option value="check">Check</option>
         <option value="offline">Offline</option>
+        <option value="zero_settlement">$0 Settlement</option>
       </select>
     </div>
     <!-- CB-38:Sales filter。options 由 loadSalesList() 動態填入。
@@ -376,7 +377,8 @@ const SALES_ME   = '__me__';
 const SALES_NONE = '__none__';
 
 // ---- 顯示對照 ----
-const methodLabel = { card:'Card', ach:'ACH', check:'Check', offline:'Offline' };
+// CB-112:zero_settlement = $0 應付統一結清(public.settle_zero_order())。顯示名 ≠ DB 值(CB-62)。
+const methodLabel = { card:'Card', ach:'ACH', check:'Check', offline:'Offline', zero_settlement:'$0 Settlement' };
 const statusLabel = { processing:'Processing', confirmed:'Confirmed', failed:'Failed', cancelled:'Cancelled' };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -402,6 +404,8 @@ const statusLabel = { processing:'Processing', confirmed:'Confirmed', failed:'Fa
 //   DB 不會擋它 —— 只有這份白名單會。
 //   label 刻意不共用上方的 methodLabel:那份是清單表格的短名(Card / ACH),
 //   此處要讓 super_admin 看到與 dealer 完全相同的字面(顯示 ≠ 值)。
+// 🔴 CB-112:'zero_settlement' 同樣不可加入本白名單 —— 它只能由 settle_zero_order() RPC
+//    寫入(DB trigger trg_guard_zero_settlement 強制),代選路徑寫它會被 DB 擋下。
 const PAY_METHOD_OPTIONS = [
   { value: 'card',  label: 'Credit / Debit Card' },
   { value: 'ach',   label: 'ACH Bank Transfer'   },
@@ -1436,6 +1440,14 @@ function cb89Actions(id) {
   const d = awaitingDealers[q.dealer_id] || {};
   const safeId = escapeHtml(id);
 
+  // CB-112:總額確實為 $0.00 的單,選單只給 Settle $0 Order 與 Close Order。
+  //   其餘單(含 grand_total 為 NULL 的異常單)走下方原有選單,行為與 CB-112 之前完全相同。
+  //   刻意不對稱的理由見 CB-112 區塊開頭註解。
+  if (cb112IsZeroTotal(q.grand_total)) {
+    cb112ZeroMenu(q, d, safeId);
+    return;
+  }
+
   document.getElementById('pickerBody').innerHTML = '' +
     '<div class="picker-title" style="margin-bottom:4px;">Actions</div>' +
     '<div class="modal-sub">' +
@@ -1476,6 +1488,7 @@ function cb89Actions(id) {
 function cb89MenuPick(action, id) {
   if (action === 'offline') { awaitingOffline(id); return; }   // 同一個 modal 內換內容
   if (action === 'remind')  { awaitingResend(id); return; }
+  if (action === 'settle')  { cb112SettleZeroForm(id); return; }   // CB-112:同一個 modal 內換內容
   closePendingPicker();
   if (action === 'select')  { awaitingSelectMethod(id); return; }
   if (action === 'close')   { awaitingClose(id); return; }
@@ -1853,6 +1866,11 @@ function renderDetail() {
         '<div class="detail-row"><span class="lbl">Total Paid</span><span class="val">' + money(p.total_paid) + '</span></div>' +
         (p.payment_method === 'offline' && p.offline_note
           ? '<div class="detail-row"><span class="lbl">Note</span><span class="val">' + escapeHtml(p.offline_note) + '</span></div>' : '') +
+        // CB-112:$0 結清的原因分類與說明(DB 必填,此處仍以 '—' 兜底,不留空白)
+        (p.payment_method === 'zero_settlement'
+          ? '<div class="detail-row"><span class="lbl">Settlement Reason</span><span class="val">' + escapeHtml(cb112ReasonLabel(p.settlement_reason_type)) + '</span></div>' +
+            '<div class="detail-row"><span class="lbl">Details</span><span class="val">' + escapeHtml(p.settlement_note || '—') + '</span></div>'
+          : '') +
       '</div>' +
 
       qbHtml +
@@ -2403,6 +2421,178 @@ async function doPickerOffline() {
     errEl.textContent = err.message || 'Failed. Please try again.';
     errEl.className = 'modal-error show';
     btn.disabled = false;
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// CB-112  $0 應付統一結清(Settle $0 Order)
+// -------------------------------------------------------------------
+// 業務情境:store credit 全額抵銷、全額折扣、樣品等使 grand_total = 0 的 Pending 單。
+//   本頁【只呼叫 RPC public.settle_zero_order()】,不直接寫任何表。
+//   授權(super_admin)、前態 Pending、grand_total = 0、該單無 confirmed / processing 付款、
+//   原因格式 —— 全部由 DB 強制(settle_zero_order() + trg_guard_zero_settlement
+//   + payments_zero_settlement_shape_check)。本處所有檢查都只是 UX 鏡像,不是授權來源;
+//   與 DB 不一致時以 RPC 結果為準,錯誤訊息原樣顯示。
+// 🔴 刻意的不對稱(主 PM Q-S1-2 = A):
+//   dealer 端由 DB 擋住推進 $0 單(enforce_dealer_quote_transition() Case 2,grand_total > 0);
+//   admin 端【只】在本選單層把 Select Payment Method / Record Offline / Send Reminder 拿掉。
+//   理由:admin 本來就能直接改任何單的狀態(CB-112 K-3),DB 再擋一層不增加實質防護,
+//   只會擴大那支每次 dealer 更新都觸發的共用 trigger 的影響面。
+//   請勿為了「前後一致」去改那支 trigger。
+// 不寄信(Q-7)。誤按的救濟:quote 頁的 Void Paid Order(CB-92 close_paid_order)。
+// ═════════════════════════════════════════════════════════════════════
+
+// 原因值域(與 settle_zero_order() / payments_zero_settlement_shape_check 一致)。
+//   value = DB canonical 值;label 只供顯示(CB-62:顯示 ≠ 值)。
+const CB112_REASONS = [
+  { value: 'store_credit',  label: 'Store credit' },
+  { value: 'full_discount', label: 'Full discount' },
+  { value: 'sample',        label: 'Sample' },
+  { value: 'other',         label: 'Other' },
+];
+const CB112_NOTE_MAX = 500;   // 與 RPC 的 char_length 上限一致
+
+// 未知值原樣顯示,不猜(F-35):值域外的值出現代表 CHECK 被動過,應被看見。
+function cb112ReasonLabel(v) {
+  if (v == null) return '—';
+  for (let i = 0; i < CB112_REASONS.length; i++) {
+    if (CB112_REASONS[i].value === v) return CB112_REASONS[i].label;
+  }
+  return String(v);
+}
+
+// 正向識別:grand_total 確實是數值 0 才算 $0 單。
+//   🔴 不可用 round2():round2(null) === 0,會把 NULL 總額的異常單誤判成 $0 單。
+function cb112IsZeroTotal(v) {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string' && v.trim() === '') return false;
+  const n = Number(v);
+  return Number.isFinite(n) && n === 0;
+}
+
+// 與 RPC 同式正規化:所有空白(含換行)壓成單一空格並去頭尾。計數與送出前檢查皆用它。
+function cb112NormNote(s) {
+  return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+
+// $0 單的 Actions 選單
+function cb112ZeroMenu(q, d, safeId) {
+  document.getElementById('pickerBody').innerHTML = '' +
+    '<div class="picker-title" style="margin-bottom:4px;">Actions</div>' +
+    '<div class="modal-sub">' +
+      escapeHtml(q.po_number || '(no PO#)') +
+      (q.job_name ? ' — ' + escapeHtml(q.job_name) : '') +
+      ' &nbsp;·&nbsp; ' + escapeHtml(d.company_name || '—') +
+      ' &nbsp;·&nbsp; ' + money(q.grand_total) +
+    '</div>' +
+    '<div class="cb89-note" style="margin:0 0 10px;">This order total is $0.00, so there is nothing to collect.</div>' +
+    '<div class="cb89-menu">' +
+      '<button class="cb89-menu-item" onclick="cb89MenuPick(\'settle\', \'' + safeId + '\')">' +
+        '<span class="cb89-menu-title">Settle $0 Order</span>' +
+        '<span class="cb89-menu-desc">Mark this $0.00 order as settled (for example, paid in full by store credit). It moves to Order Processing and a $0 receipt becomes available. No email is sent.</span>' +
+      '</button>' +
+      '<button class="cb89-menu-item danger" onclick="cb89MenuPick(\'close\', \'' + safeId + '\')">' +
+        '<span class="cb89-menu-title">Close Order</span>' +
+        '<span class="cb89-menu-desc">Cancel this order permanently. This cannot be undone.</span>' +
+      '</button>' +
+    '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="closePendingPicker()">Cancel</button>' +
+    '</div>';
+
+  document.getElementById('pickerModal').classList.add('show');
+}
+
+// Settle $0 Order 表單(在 #pickerModal 內換內容,與 Record Offline 相同模式)
+function cb112SettleZeroForm(id) {
+  pickerSelected = awaitingQuotes.find(function (q) { return q.id === id; }) || null;
+  const q = pickerSelected;
+  if (!q) { closePendingPicker(); showToast('Order not found. Please refresh.', true); return; }
+
+  const opts = '<option value="">Select a reason…</option>' +
+    CB112_REASONS.map(function (r) {
+      return '<option value="' + escapeHtml(r.value) + '">' + escapeHtml(r.label) + '</option>';
+    }).join('');
+  const noPo = !q.po_number;
+
+  document.getElementById('pickerBody').innerHTML =
+    '<button class="picker-back" onclick="closePendingPicker()">← Back</button>' +
+    '<div class="picker-title" style="margin-bottom:6px;">Settle $0 Order</div>' +
+    '<div class="modal-sub">' + escapeHtml(q.po_number || 'This order') +
+      ' — marks this $0.00 order as settled and moves it to Order Processing. No email is sent. ' +
+      'To reverse it, use Void Paid Order on the order page.</div>' +
+    '<div class="modal-field"><label>Reason</label>' +
+      '<select id="pkZsReason" onchange="cb112SettleState()" style="width:100%;border:1px solid var(--border);border-radius:3px;padding:9px 11px;font-family:\'DM Sans\',sans-serif;font-size:13px;color:var(--text);background:var(--cream);">' +
+        opts + '</select></div>' +
+    '<div class="modal-field"><label>Details (required) <span id="pkZsCount" style="float:right;font-weight:400;">0 / ' + CB112_NOTE_MAX + '</span></label>' +
+      '<textarea id="pkZsNote" maxlength="' + (CB112_NOTE_MAX * 2) + '" oninput="cb112SettleState()" ' +
+        'placeholder="e.g. Store credit memo SC-0123 applied in full"></textarea></div>' +
+    '<div class="modal-field"><label>Type this order\'s PO# to confirm</label>' +
+      '<input type="text" id="pkZsPo" autocomplete="off" oninput="cb112SettleState()" placeholder="' + escapeHtml(q.po_number || '') + '"/></div>' +
+    '<div class="modal-error' + (noPo ? ' show' : '') + '" id="pkError">' +
+      (noPo ? 'This order has no PO number, so it cannot be confirmed for settlement.' : '') + '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="closePendingPicker()">Back</button>' +
+      '<button class="btn-primary" id="pkConfirm" onclick="doSettleZero()" disabled>Settle $0 Order</button>' +
+    '</div>';
+  document.getElementById('pickerModal').classList.add('show');
+}
+
+// 表單狀態:三項皆成立才啟用按鈕。回傳狀態供送出時再驗一次。
+function cb112SettleState() {
+  const q = pickerSelected;
+  const reasonEl = document.getElementById('pkZsReason');
+  const noteEl   = document.getElementById('pkZsNote');
+  const poEl     = document.getElementById('pkZsPo');
+  const btn      = document.getElementById('pkConfirm');
+  const cnt      = document.getElementById('pkZsCount');
+  if (!q || !reasonEl || !noteEl || !poEl || !btn) return { ok: false };
+
+  const reason = reasonEl.value;
+  const note   = cb112NormNote(noteEl.value);
+  const reasonOk = CB112_REASONS.some(function (r) { return r.value === reason; });
+  const noteOk   = note.length > 0 && note.length <= CB112_NOTE_MAX;
+  // PO# 須與本單【完全相符】(去頭尾空白後,大小寫敏感)—— 不能順手按過去(Q-5)。
+  const poOk     = !!q.po_number && poEl.value.trim() === String(q.po_number);
+
+  if (cnt) {
+    cnt.textContent = note.length + ' / ' + CB112_NOTE_MAX;
+    cnt.style.color = note.length > CB112_NOTE_MAX ? 'var(--error)' : '';
+  }
+  btn.disabled = !(reasonOk && noteOk && poOk);
+  return { ok: reasonOk && noteOk && poOk, reason: reason, note: note };
+}
+
+async function doSettleZero() {
+  const q = pickerSelected;
+  const errEl = document.getElementById('pkError');
+  const btn = document.getElementById('pkConfirm');
+  errEl.className = 'modal-error';
+
+  const st = cb112SettleState();
+  if (!q || !st.ok) return;          // 按鈕本應停用;防禦性中止,不送出
+
+  btn.disabled = true;
+  try {
+    const res = await _supabase.rpc('settle_zero_order', {
+      p_quote_id:    q.id,
+      p_reason_type: st.reason,
+      p_note:        st.note,
+    });
+    if (res.error) throw res.error;
+    // 🔴 正向確認:RPC 必須回傳本單與新付款列 id,否則不視為成功(fail-closed)。
+    if (!res.data || res.data.quote_id !== q.id || !res.data.payment_id) {
+      throw new Error('The server did not confirm the settlement. Please refresh and check the order before trying again.');
+    }
+
+    closePendingPicker();
+    showToast((q.po_number || 'Order') + ' settled at $0.00.');
+    await refreshAll();
+  } catch (err) {
+    console.error('[CB-112] settle_zero_order failed:', err);
+    errEl.textContent = (err && err.message) ? err.message : 'Failed. Please try again.';
+    errEl.className = 'modal-error show';
+    cb112SettleState();               // 依表單狀態恢復按鈕
   }
 }
 
