@@ -304,6 +304,8 @@
   "pay.err.not_found_text": "We couldn't load this order. The link may be incorrect, or you may not have access.",
   "pay.err.unavailable_title": "Payment unavailable",
   "pay.err.unavailable_text": "This order can't accept payment in its current status. Please contact us if you have questions.",
+  "pay.zero.title": "No payment needed",
+  "pay.zero.text": "This order total is $0.00, so there is nothing to pay online. ProCraft will finalize it for you — please contact us if you have questions.",
   "pay.hdr.payment": "Payment",
   "pay.notice.select_warn": "Selecting a payment method will move this order into payment processing. To change it afterward, please contact us.",
   "pay.card.sub_confirm": "Confirm this payment method to move your order into payment processing.",
