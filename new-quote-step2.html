@@ -1842,8 +1842,30 @@ async function loadDraftItems() {
     // concatenated as the literal string "null" → key "null-BP4896.25-RTA".
     // Sorting would stop throwing but the key would still be wrong —
     // "looks fixed, isn't".
-    const key = (row.style_code || '') + '-' + (row.sku_code || '') + '-' +
-                (row.assemble_status || '');
+    //
+    // CB-115 (PM 2026-10-06 Q-1=B): custom rows NEVER merge — one DB row =
+    //   one cart item. Positive identification by is_custom (F-35).
+    //   WHY: the catalog key below (style / sku / asm) does not contain
+    //   sku_desc or unit_price. Two custom rows sharing a SKU code (e.g. three
+    //   "PFG - Per Door" lines, each a different door size) were merged here,
+    //   only the FIRST row's description / price survived, and the next save
+    //   (step3 buildItemsPayload) wrote that one description over every row —
+    //   permanent loss: quote_item_snapshots is overwrite-only, no history
+    //   (PDC09311). Adding more columns to the key would break again the next
+    //   time a distinguishing column is added; custom rows have no "same item"
+    //   meaning at all, so they get a key no other row can have.
+    //   row.id is the quote_items PK (never null). The key only has to be
+    //   unique within this load; it is never parsed, only compared with ===.
+    //   'CUSTOM-ROW-' cannot equal a key minted by saveCustomItem()
+    //   ('CUSTOM-' + Date.now() + ...: a digit follows 'CUSTOM-', not 'R').
+    //   Catalog rows: key UNCHANGED (F-69 / Q-8=A divergence untouched).
+    // ⚠ Same key, byte-identical, in new-quote-modifications.html
+    //   loadDraftItems(), new-quote-step3.html cb53BuildCartFromDb() and
+    //   quote-detail.html reconstructGroupedItems(). Change all four together.
+    const key = (row.is_custom === true)
+      ? 'CUSTOM-ROW-' + row.id
+      : (row.style_code || '') + '-' + (row.sku_code || '') + '-' +
+        (row.assemble_status || '');
 
     if (!groupsByKey.has(key)) {
       // CB-107: a custom item's sku_code MAY overlap the catalog (e.g. a custom
