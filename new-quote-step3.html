@@ -2096,7 +2096,21 @@ async function cb53BuildCartFromDb(quoteId) {
   });
 
   sorted.forEach(function (row) {
-    const key = (row.style_code || '') + '-' + row.sku_code + '-' + row.assemble_status;
+    // CB-115 (PM 2026-10-06 Q-1=B): custom rows NEVER merge — one DB row =
+    //   one cart item. Positive identification by is_custom (F-35).
+    //   WHY: the catalog key below (style / sku / asm) does not contain
+    //   sku_desc or unit_price, so custom rows sharing a SKU code were merged
+    //   here and buildItemsPayload() then wrote the first row's description /
+    //   price over all of them — permanent loss, quote_item_snapshots keeps no
+    //   history (PDC09311). See new-quote-step2.html loadDraftItems() for the
+    //   full note. Catalog rows: key UNCHANGED, including the deliberate
+    //   unguarded sku_code / assemble_status (F-66 Q-8=A, F-69).
+    // ⚠ Same key, byte-identical, in new-quote-step2.html /
+    //   new-quote-modifications.html loadDraftItems() and quote-detail.html
+    //   reconstructGroupedItems(). Change all four together.
+    const key = (row.is_custom === true)
+      ? 'CUSTOM-ROW-' + row.id
+      : (row.style_code || '') + '-' + row.sku_code + '-' + row.assemble_status;
 
     if (!groupsByKey.has(key)) {
       // CB-107: custom item 的 sku_code 可能與型錄重疊(例如 custom「W1242」

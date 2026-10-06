@@ -2348,8 +2348,26 @@ async function loadDraftItems(allSkusFramed, allSkusFrameless) {
     // concatenated as the literal string "null" → groupKey "null|F66TEST_RTA".
     // Sorting would stop throwing but the key would still be wrong —
     // "looks fixed, isn't".
-    const key = (row.sku_code || '') + '_' + (row.assemble_status || '');
-    const groupKey = (row.style_code || '') + '|' + key;
+    //
+    // CB-115 (PM 2026-10-06 Q-1=B): custom rows NEVER merge — one DB row =
+    //   one cart item. Positive identification by is_custom (F-35).
+    //   WHY: the catalog key below (style / sku / asm) does not contain
+    //   sku_desc or unit_price, so custom rows sharing a SKU code were merged
+    //   and the next save wrote the first row's description / price over all
+    //   of them — permanent loss, quote_item_snapshots keeps no history
+    //   (PDC09311). See new-quote-step2.html loadDraftItems() for the full note.
+    //   For custom rows key === groupKey, so F-334 (item.key without style)
+    //   no longer reaches custom rows; catalog rows: both keys UNCHANGED.
+    // ⚠ Same key, byte-identical, in new-quote-step2.html loadDraftItems(),
+    //   new-quote-step3.html cb53BuildCartFromDb() and quote-detail.html
+    //   reconstructGroupedItems(). Change all four together.
+    const isCustomKeyRow = (row.is_custom === true);
+    const key = isCustomKeyRow
+      ? 'CUSTOM-ROW-' + row.id
+      : (row.sku_code || '') + '_' + (row.assemble_status || '');
+    const groupKey = isCustomKeyRow
+      ? key
+      : (row.style_code || '') + '|' + key;
 
     if (!groupsByKey.has(groupKey)) {
       // CB-107: a custom item's sku_code MAY overlap the catalog (e.g. a custom
@@ -3886,7 +3904,11 @@ function renderSplitPanel() {
       </div>`;
   }).join('');
 
-  addBtn.disabled = false;
+  // CB-115 Q-3=B: custom items cannot be split (see isActiveMfItemCustom()).
+  //   Catalog items keep the button exactly as before.
+  const _cb115NoSplit = isActiveMfItemCustom();
+  addBtn.style.display = _cb115NoSplit ? 'none' : '';
+  addBtn.disabled = _cb115NoSplit;
   updateSplitSummary();
 }
 
@@ -3955,7 +3977,38 @@ function onDeleteSubGroup(subIdx) {
   renderActiveSubTab();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CB-115 Q-3=B (PM 2026-10-06): a CUSTOM item can NOT be split into
+//   sub-groups. 🔴 This is deliberate — do NOT "restore" the missing button.
+//
+//   WHY: quote_items has NO column recording which rows belong to the same
+//   cart item. Since CB-115, every custom row is rebuilt as its own cart item
+//   (key 'CUSTOM-ROW-' + id, in step2 / modifications / step3 / quote-detail)
+//   so that custom lines sharing a SKU code are never merged. A split custom
+//   item is saved as N rows with the same code / description / price; on the
+//   next load it would therefore come back as N SEPARATE items, and the next
+//   save would rewrite every sub_index as 1 — silently, with no message.
+//   Blocking the split here makes "one custom item = one row" true by
+//   construction instead of relying on nobody pressing a button.
+//
+//   Guard is positive (F-35): only an item confirmed is_custom === true is
+//   blocked. Two layers: the button is hidden (renderSplitPanel) AND
+//   addSubGroup() refuses to write, so a bypassed button changes nothing.
+//   Deleting / editing existing sub-groups is untouched.
+//   Production / staging had 0 split custom items when this shipped
+//   (CB-115 S-08 / P-01). Re-allowing splits requires a DB column that
+//   records item membership first (Stage 1 Q-3 option C).
+// ═══════════════════════════════════════════════════════════════════
+function isActiveMfItemCustom() {
+  const item = cartItems.find(function (i) { return i.key === activeMfModalKey; });
+  return !!item && item.is_custom === true;
+}
+
 function addSubGroup() {
+  if (isActiveMfItemCustom()) {
+    console.warn('[CB-115] addSubGroup blocked: custom items cannot be split');
+    return;
+  }
   const skuQty = activeSkuQty;
   const currentSum = activeSubGroups.reduce(function (s, g) { return s + (g.qty || 0); }, 0);
   const remaining = skuQty - currentSum;
