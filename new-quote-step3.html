@@ -849,6 +849,29 @@ color: var(--green-dark);
         <div class="bottom-bar">
   <a id="backToStep2" href="new-quote-modifications.html" class="btn-back" data-i18n="nq3.btn.back">← Back to Modifications</a>
 </div>
+<script>
+// ── CB-108 4a:四個導覽連結從第一個畫面起就帶著單號 ──
+//   原本 href 寫死、不帶 ?draft=,要等 init() 跑完 9 次以上的 await 後
+//   (init 內「editStep1Link ... backToStep2 .href = ...」)才補上。
+//   CB-108 症狀三:20:31:44.41 載入本頁、0.19 秒後即點到尚未補號的
+//   「← Back to Modifications」→ 無單號的 modifications → 無單號的 step3 →
+//   送出時新建 D00549。modifications 的「Review →」與本連結在畫面同一位置。
+//   這裡在解析到此處時【同步】以本頁網址補上,不依賴任何非同步狀態。
+//   init() 之後那段仍會再寫一次(依解析後的 viewMode),結果相同。
+//   mode 只接受 buildModeParam() 會產生的兩個值(正向列舉)。
+(function () {
+  var p = new URLSearchParams(window.location.search);
+  var d = p.get('draft');
+  if (!d) return;
+  var m = p.get('mode');
+  var q = '?draft=' + encodeURIComponent(d) + ((m === 'admin-edit' || m === 'review') ? '&mode=' + m : '');
+  var set = function (id, page) { var a = document.getElementById(id); if (a) a.href = page + q; };
+  set('editStep1Link',     'new-quote.html');
+  set('editStep1LinkShip', 'new-quote.html');
+  set('editStep2Link',     'new-quote-modifications.html');
+  set('backToStep2',       'new-quote-modifications.html');
+})();
+</script>
 
 <div class="progress-overlay" id="progressOverlay">
   <div class="progress-spinner"></div>
@@ -2176,6 +2199,7 @@ async function cb53BuildCartFromDb(quoteId) {
 async function cb53Hydrate(q) {
   const s1   = cb53BuildStep1FromQuote(q);
   const cart = await cb53BuildCartFromDb(q.id);
+  s1.boundQuoteId = q.id;   // CB-108 4c:由 DB 重建的暫存屬於這張單
 
   sessionStorage.setItem('quoteStep1', JSON.stringify(s1));
   sessionStorage.setItem('quoteStep2', JSON.stringify(cart));
@@ -2248,6 +2272,40 @@ async function init() {
     }
   }
   _meStamp = { company_name: meRow?.company_name, role: meRow?.role };   // CB-50
+
+  // ── CB-108 4c:購物車屬於哪張單 ──
+  //   step3 決定 INSERT 或 UPDATE 只看網址的 ?draft=。網址沒有單號、但
+  //   sessionStorage 的購物車屬於某張既有單時,送出會新建一張重複的單
+  //   (CB-108 症狀三:D00548 → D00549)。
+  //   (a) 有 draft、綁定【明確】指向別張單(或明確為 null)→ 暫存不屬於本單:
+  //       清掉,交給下方 CB-53 hydration 從 DB 重建(會寫入正確綁定)。
+  //   (b) 沒有 draft、綁定指向某張既有單 → 不放行(PM Q-4):顯示說明與
+  //       「回到那張單」的連結。連結帶回該單號,購物車綁定相符 → 原樣保留,
+  //       使用者這段的編輯不會遺失。
+  //   只有「沒有 draft 且綁定為 null 或不存在」才是新單 —— 正向識別。
+  //   沒有綁定鍵(上線前的舊暫存)→ 維持原本行為。
+  {
+    const cb108b = cb108ReadBinding();
+    if (draftId && cb108b.present && cb108b.boundQuoteId !== draftId) {
+      console.warn('[CB-108 4c] session data belongs to', cb108b.boundQuoteId, '— not', draftId, '; rebuilding from DB');
+      sessionStorage.removeItem('quoteStep1');
+      sessionStorage.removeItem('quoteStep2');
+      step1Data = null;
+      step2Data = null;
+      _isResumingReturned = false;   // 由下方 q.status === 'Returned' 重新判定
+    } else if (!draftId && cb108b.boundToQuote) {
+      console.warn('[CB-108 4c] step3 opened without a quote number while the cart belongs to', cb108b.boundQuoteId, '; blocked');
+      const cb108Back = 'new-quote-step3.html?draft=' + encodeURIComponent(cb108b.boundQuoteId) +
+        ((adminDraft || (step1Data && step1Data.adminDraft === true)) ? '&adminDraft=1' : '');
+      cb53ShowLoadError(
+        escapeHtml(pcTxt('nq3.err.cart_bound',
+          'This page was opened without its quote number, but your changes belong to an existing quote. ' +
+          'Open that quote to continue — your changes are kept.')) +
+        '<br><br><a href="' + escapeHtml(cb108Back) + '" style="color:#3e5a42;font-weight:bold;">' +
+        escapeHtml(pcTxt('nq3.err.cart_bound_link', 'Continue editing that quote')) + '</a>');
+      return;
+    }
+  }
 
 let dealerIdToLoad = session.user.id;
   let quoteStatus    = null;   // CB-4: server-side status drives viewMode
@@ -3649,6 +3707,7 @@ async function saveDraft() {
   // CB-36: loading 轉圈要落在實際按下的按鈕(Notify → btnNotify;否則 btnDraft)
   const btn    = document.getElementById(_pendingNotify ? 'btnNotify' : 'btnDraft');
   const errMsg = document.getElementById('errorMsg');
+  const cb108Unlock = cb108LockActions();   // CB-108 4d:存檔進行中,所有動作鈕一律停用
   btn.classList.add('loading'); btn.disabled = true;
   errMsg.classList.remove('show');
 
@@ -3798,6 +3857,7 @@ async function saveDraft() {
       if (quoteError) throw quoteError;
       quoteId = quote.id;
       draftId = quoteId;
+      cb108PinDraftInUrl(quoteId);   // CB-108 4b:首存後網址與暫存綁定立即帶上單號
       _savedCreatedAt = quote.created_at || null;   // CB-20: admin-draft email 用
     }
 
@@ -3823,15 +3883,20 @@ async function saveDraft() {
         escapeHtml(pcTxt('nq3.saved.msg_2', 'You can continue editing later or resubmit when ready.'));
     }
     document.getElementById('draftQuoteNum').textContent = step1Data.jobName || '';
-    document.getElementById('draftOverlay').classList.add('show');
+    // CB-108 Q-8:成功畫面移到通知信有結果之後才顯示(見下方 cb108ShowAdminSaveResult)。
 
     // ── CB-36: Admin 按 Save & Notify Dealer → 通知 dealer 進來 review ──
     // 條件: admin-draft + 本次按了 Notify + 之前未通知過(_existingAdminNotifiedAt==null)。
     // 取代 CB-20 的 _wasFirstDraftSave 自動寄信:現在「存」與「通知」由按鈕解耦。
     // 發信失敗只 log,不影響 saveDraft(DB 此時已寫入成功)。
+    // CB-108 Q-8 / F-350:改為【等待】寄信結果再顯示成功畫面,並把結果告訴 admin。
+    //   原本先顯示成功畫面、再於背景寄信且不看回應 —— 使用者 0.8 秒就能離開頁面
+    //   (S-07 實例),請求可能被中斷;admin_notified_at 已寫入 DB,dealer 卻沒收到信,
+    //   且沒有任何人知道。HTTP 非 2xx 也視為失敗(fetch 本身不會因此拋錯)。
+    let cb108NotifyResult = null;   // 'sent' | 'failed' | null(本次未寄)
     if (_willNotifyNow) {
       try {
-        await fetch(
+        const cb108Res = await fetch(
           `${window.SB_URL}/functions/v1/send-quote-email`,
           {
             method: 'POST',
@@ -3865,17 +3930,25 @@ async function saveDraft() {
             }),
           }
         );
+        if (!cb108Res.ok) throw new Error('send-quote-email HTTP ' + cb108Res.status);
         _existingAdminNotifiedAt = _nowIso;   // CB-36: 同步 module state,防呆避免同頁重複通知
+        cb108NotifyResult = 'sent';
         console.log('[CB-20] admin draft created email sent:', draftNumberForSave);
       } catch (emailError) {
+        cb108NotifyResult = 'failed';
         console.error('[CB-20] Failed to send admin draft email:', emailError);
-        // 不 rethrow — email 失敗不擋 saveDraft
+        // 不 rethrow — email 失敗不擋 saveDraft(DB 已寫入);改由下方成功畫面明確告知
       }
     }
+
+    // CB-108 Q-8(H2):admin-draft 的三種存法各自顯示不同結果,不再共用同一個畫面
+    if (_isAdminDraftMode) cb108ShowAdminSaveResult(cb108NotifyResult);
+    document.getElementById('draftOverlay').classList.add('show');
 
   } catch (err) {
     console.error(err);
     btn.classList.remove('loading'); btn.disabled = false;
+    cb108Unlock();   // CB-108 4d:還原各鈕原本的停用狀態(含 Terms 未勾時的 Submit)
     errMsg.textContent = err.message || pcTxt('nq3.err.generic', 'Something went wrong. Please try again.');
     errMsg.classList.add('show');
     window.scrollTo(0, 0);
@@ -3941,6 +4014,7 @@ async function submitQuote() {
   if (titleEl) titleEl.removeAttribute('data-i18n');
   const setStep = (txt) => { if (stepEl) stepEl.textContent = txt; };
 
+  const cb108Unlock = cb108LockActions();   // CB-108 4d:送出進行中,所有動作鈕一律停用
   btn.classList.add('loading');
   btn.disabled = true;
   errMsg.classList.remove('show');
@@ -4187,6 +4261,7 @@ async function submitQuote() {
       if (insError) throw insError;
       quoteId  = newQuote.id;
       draftId  = quoteId;
+      cb108PinDraftInUrl(quoteId);   // CB-108 4b:建立後網址與暫存綁定立即帶上單號
       _existingDraftNumber = draftNumberForSave;
 
       const { data: poData, error: poError } = await _supabase
@@ -4366,6 +4441,7 @@ async function submitQuote() {
     overlay.classList.remove('show');
     btn.classList.remove('loading');
     btn.disabled = false;
+    cb108Unlock();   // CB-108 4d
     errMsg.textContent = err.message || pcTxt('nq3.err.generic', 'Something went wrong. Please try again.');
 errMsg.classList.add('show');
     window.scrollTo(0,0);
@@ -4412,6 +4488,7 @@ async function requestRevision(note) {
   const sendBtn   = document.getElementById('revisionSendBtn');
   const cancelBtn = document.getElementById('revisionCancelBtn');
   const errEl     = document.getElementById('revisionModalError');
+  const cb108Unlock = cb108LockActions();   // CB-108 4d
   sendBtn.classList.add('loading'); sendBtn.disabled = true; cancelBtn.disabled = true;
 
   try {
@@ -4653,6 +4730,7 @@ async function requestRevision(note) {
     sendBtn.classList.remove('loading');
     sendBtn.disabled = false;
     cancelBtn.disabled = false;
+    cb108Unlock();   // CB-108 4d
     errEl.textContent = err.message || pcTxt('nq3.err.generic', 'Something went wrong. Please try again.');
     errEl.classList.add('show');
   }
@@ -5157,6 +5235,117 @@ async function _buildAndSaveDraftPdf(isInternal) {
   });
   doc.save(filename);
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// CB-108 · 寫入路徑守衛 A 批 helpers
+// ═══════════════════════════════════════════════════════════════════
+
+// ── 4c:讀取 sessionStorage 中購物車的綁定 ──
+//   present      :quoteStep1 是否帶有 boundQuoteId 鍵(上線前的舊暫存沒有)
+//   boundQuoteId :綁定的單 id;新單為 null
+//   boundToQuote :綁定到某張既有單(非空字串)—— 正向識別,F-35
+//   ⚠️ 同名同義的讀法另有三份:new-quote.html / new-quote-step2.html /
+//      new-quote-modifications.html(各頁沒有共用 JS 檔)。改動時四處一起改。
+function cb108ReadBinding() {
+  try {
+    const s1 = JSON.parse(sessionStorage.getItem('quoteStep1') || 'null');
+    if (s1 && typeof s1 === 'object' && Object.prototype.hasOwnProperty.call(s1, 'boundQuoteId')) {
+      const id = s1.boundQuoteId;
+      return {
+        present:      true,
+        boundQuoteId: (typeof id === 'string' && id) ? id : null,
+        boundToQuote: (typeof id === 'string' && id.length > 0),
+      };
+    }
+  } catch (_) { /* 解析失敗視同沒有綁定鍵 */ }
+  return { present: false, boundQuoteId: null, boundToQuote: false };
+}
+
+// ── 4b:剛建立的單,立刻把單號寫進網址與暫存綁定 ──
+//   原本 W2(首存)/ W6(A-mode 送出)建立 quotes 列後,單號只存在本頁記憶體:
+//   重新整理、上一頁、另開分頁都看不到它,再送出就會再建一張。
+//   history.replaceState 不重新載入、不新增歷史項。其他網址參數(adminDraft 等)保留。
+//   暫存綁定一併改為新單號 —— 否則重新整理時 4c 會判定「暫存屬於別張單(null)」
+//   而丟掉購物車,而此刻品項可能尚未寫入 DB(W2 / W6 的 INSERT 在後)。
+function cb108PinDraftInUrl(quoteId) {
+  try {
+    const u = new URL(window.location.href);
+    u.searchParams.set('draft', quoteId);
+    window.history.replaceState(window.history.state, '', u.toString());
+  } catch (e) {
+    console.error('[CB-108 4b] could not write draft id into URL:', e);
+  }
+  try {
+    const s1 = JSON.parse(sessionStorage.getItem('quoteStep1') || 'null');
+    if (s1 && typeof s1 === 'object') {
+      s1.boundQuoteId = quoteId;
+      sessionStorage.setItem('quoteStep1', JSON.stringify(s1));
+    }
+  } catch (e) {
+    console.error('[CB-108 4b] could not update session binding:', e);
+  }
+}
+
+// ── 4d:存檔 / 送出 / 退回進行中,所有動作鈕一律停用 ──
+//   原本只停用被按的那一顆,Save / Save & Notify / Submit 可以在同一次寫入
+//   進行中交錯觸發。回傳的函式在失敗時呼叫,把每一顆還原成【鎖定前】的狀態
+//   (例如 Terms 未勾時 Submit 本來就是停用),不是一律放開。成功時不還原
+//   (成功畫面已覆蓋整頁)。
+const CB108_ACTION_BUTTON_IDS = ['btnDraft', 'btnNotify', 'btnSubmit', 'btnAdminSubmit', 'btnRequestRevision'];
+function cb108LockActions() {
+  const prior = [];
+  CB108_ACTION_BUTTON_IDS.forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) { prior.push([el, el.disabled]); el.disabled = true; }
+  });
+  return function cb108Unlock() {
+    prior.forEach(function (p) { p[0].disabled = p[1]; });
+  };
+}
+
+// ── Q-8(H2)/ F-350:admin-draft 存檔結果畫面 ──
+//   原本 Save Draft 與 Save & Notify 成功後是同一個畫面(「Quote Saved!」),
+//   admin 無從得知 dealer 是否被通知、信是否寄出。
+//   admin 專用 → 一律英文硬編碼、不掛 i18n(CB-62 Q-43;同 CB-66 確認框)。
+//   notifyResult:'sent' | 'failed' | null(本次未寄)
+//   Location 帳號由 send-quote-email 停信(CB-76 Q-14),成功回應不代表有信寄出。
+function cb108ShowAdminSaveResult(notifyResult) {
+  const title = document.getElementById('draftTitle');
+  const msg   = document.getElementById('draftMsg');
+  if (!title || !msg) return;
+  title.removeAttribute('data-i18n');
+  msg.querySelectorAll('[data-i18n]').forEach(function (n) { n.removeAttribute('data-i18n'); });
+
+  const isLocation = !!(dealer && dealer.account_type === 'location');
+  let t, m;
+  if (notifyResult === 'sent') {
+    t = 'Saved & Dealer Notified';
+    m = isLocation
+      ? 'The draft has been saved and is now visible to this account. Location accounts do not receive email — please let them know it is ready.'
+      : 'The draft has been saved and the dealer has been emailed to review it.';
+  } else if (notifyResult === 'failed') {
+    t = 'Saved — Dealer NOT Notified';
+    m = 'The draft has been saved and is now visible to the dealer, but the notification email could not be sent. Please contact the dealer directly.';
+  } else if (_pendingNotify) {
+    t = 'Draft Saved';
+    m = 'The dealer was already notified earlier, so no new email was sent.';
+  } else if (_existingAdminNotifiedAt == null) {
+    t = 'Draft Saved (Internal)';
+    m = 'The dealer has not been notified and cannot see this draft yet. Use Save & Notify Dealer when it is ready.';
+  } else {
+    t = 'Draft Saved';
+    m = 'The dealer can already see this draft. No email was sent.';
+  }
+  title.textContent = t;
+  msg.textContent = m;
+}
+
+// ── F-347:從 bfcache 還原時重新載入 ──
+//   上一頁 / 下一頁會原封還原整頁(含 draftId 與購物車記憶體狀態),不重跑 init()。
+//   persisted 才重載 —— 與 admin-quotes / quotes / admin-payments 相同寫法。
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) window.location.reload();
+});
 
 init();
 </script>
