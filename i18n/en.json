@@ -958,6 +958,8 @@
   "nq3.err.load_title": "Unable to Open This Estimate",
   "nq3.err.back_dashboard": "Back to Dashboard",
   "nq3.err.not_found": "We couldn't find this estimate, or it isn't associated with your account. If you reached this page from an email, please make sure you're signed in with the correct account.",
+  "nq3.err.cart_bound": "This page was opened without its quote number, but your changes belong to an existing quote. Open that quote to continue — your changes are kept.",
+  "nq3.err.cart_bound_link": "Continue editing that quote",
   "nq3.err.load_failed": "We couldn't load this estimate right now. Please try again in a moment.",
   "nq3.err.generic": "Something went wrong. Please try again.",
   "nq3.alert.shipping_required": "Please enter a shipping fee before submitting, or use Save Draft.",
