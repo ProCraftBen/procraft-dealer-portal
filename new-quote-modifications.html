@@ -5463,13 +5463,54 @@ async function init() {
   if (!d) { alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.')); return; }
   dealer = d;
 
+  // ═══════════════════════════════════════════════════════════════════
+  // CB-111 (2026-10-07): door styles come from get_door_styles_for_dealer(),
+  //   NOT from the door_styles table.
+  //
+  // WHAT: the RPC returns every door_styles row with the same columns, but
+  //   grp is already the EFFECTIVE price group for the TARGET dealer
+  //   (dealer.id = the draft owner / the dealer an admin is editing for,
+  //   PM Q-4), after applying door_style_price_overrides
+  //   (e.g. SSW + account_type 'location' -> 'GROUP B').
+  //   Every group read on this page comes from allDoorStyles:
+  //     computeBundleMaterial() styleRow  -> Skin / ROT material cost (Q-2)
+  //     computeSwapImpact() / commitSwap() -> Swap Door Style price  (Q-3)
+  //     openSwapModal() current label, renderSwapStyleGrid() candidate
+  //       labels                                                     (Q-9)
+  //   so all of them use the effective group with no other change.
+  //   getMsrpForStyleGroup() and getMultiplierForStyle() are deliberately
+  //   untouched.
+  //
+  // 🔴 DO NOT change this back to _supabase.from('door_styles'): that returns
+  //   the RAW group, and location accounts would be priced at Group A
+  //   silently, with no error anywhere.
+  // 🔴 DO NOT switch to a PostgREST embed of door_style_price_overrides: when
+  //   RLS blocks an embedded table it returns an EMPTY array, not an error ->
+  //   the same silent Group A pricing (fail-open). The RPC can only succeed
+  //   or raise (CB-111 S1 §2.2).
+  // Same call, same intent, in new-quote-step2.html init(). If only one of
+  //   the two pages uses the RPC, the same item can be priced in one group
+  //   on step2 and another group here (body vs Skin / ROT, or after Swap).
+  //
+  // FAIL-CLOSED (PM S1-Q1 = A): on any error, stop and show the existing
+  //   load-failure alert. Before CB-111 this line was `styleRes.data || []`
+  //   and a failed load silently left the page with no door styles; the RPC
+  //   adds new failure causes (RPC missing if the DB step was skipped,
+  //   dealer not found, 42501), so this path now carries its own guard.
+  //   The SKU loads below are unchanged and still ignore errors (F-379).
+  // ═══════════════════════════════════════════════════════════════════
 const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
-    _supabase.from('door_styles').select('*').eq('is_active', true),
+    _supabase.rpc('get_door_styles_for_dealer', { p_dealer_id: dealer.id }).eq('is_active', true),
     _supabase.from('skus_framed').select('*').eq('active', true),
     _supabase.from('skus_frameless').select('*').eq('active', true),
     _supabase.from('modification_bundles').select('type, source_sku, mf_code, mapping_sku').eq('is_active', true),
   ]);
-  allDoorStyles = styleRes.data || [];
+  if (styleRes.error || !Array.isArray(styleRes.data)) {
+    console.error('[CB-111] get_door_styles_for_dealer failed for dealer', dealer.id, styleRes.error);
+    alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.'));
+    return;
+  }
+  allDoorStyles = styleRes.data;
   allSkusFramed    = framedRes.data || [];
   allSkusFrameless = framelessRes.data || [];
   if (bundleRes && bundleRes.error) {
