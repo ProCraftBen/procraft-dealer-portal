@@ -958,6 +958,8 @@
   "nq3.err.load_title": "No se puede abrir esta cotización",
   "nq3.err.back_dashboard": "Volver al panel",
   "nq3.err.not_found": "No encontramos esta cotización o no está asociada a su cuenta. Si llegó a esta página desde un correo, asegúrese de haber iniciado sesión con la cuenta correcta.",
+  "nq3.err.cart_bound": "Esta página se abrió sin el número de su cotización, pero sus cambios pertenecen a una cotización existente. Abra esa cotización para continuar; sus cambios se conservan.",
+  "nq3.err.cart_bound_link": "Seguir editando esa cotización",
   "nq3.err.load_failed": "No pudimos cargar esta cotización en este momento. Inténtelo de nuevo en un momento.",
   "nq3.err.generic": "Algo salió mal. Inténtelo de nuevo.",
   "nq3.alert.shipping_required": "Ingrese un cargo de envío antes de enviar, o use Guardar borrador.",
