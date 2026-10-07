@@ -1708,15 +1708,50 @@ async function init() {
     else bannerMount.innerHTML = '';
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // CB-111 (2026-10-07): door styles come from get_door_styles_for_dealer(),
+  //   NOT from the door_styles table.
+  //
+  // WHAT: the RPC returns every door_styles row with the same columns, but
+  //   grp is already the EFFECTIVE price group for the TARGET dealer
+  //   (dealer.id = the quote owner / the dealer an admin is quoting for,
+  //   PM Q-4), after applying door_style_price_overrides
+  //   (e.g. SSW + account_type 'location' -> 'GROUP B').
+  //   Every price on this page reads activeStyle.grp, and activeStyle always
+  //   comes from allStyles (hoveredStyle = allStyles.find(...)), so the table
+  //   price, addToCart() unit_price AND msrp all use the effective group
+  //   with no other change. getMsrpForGroup() is deliberately untouched.
+  //
+  // 🔴 DO NOT change this back to _supabase.from('door_styles'): that returns
+  //   the RAW group, and location accounts would be priced at Group A
+  //   silently, with no error anywhere.
+  // 🔴 DO NOT switch to a PostgREST embed of door_style_price_overrides: when
+  //   RLS blocks an embedded table it returns an EMPTY array, not an error ->
+  //   the same silent Group A pricing (fail-open). The RPC can only succeed
+  //   or raise (CB-111 S1 §2.2).
+  // Same call, byte-identical intent, in new-quote-modifications.html init().
+  //
+  // FAIL-CLOSED (PM S1-Q1 = A): on any error, stop and show the existing
+  //   load-failure alert. Before CB-111 this line was `s.data || []` and a
+  //   failed load silently showed an empty catalog; the RPC adds new failure
+  //   causes (RPC missing if the DB step was skipped, dealer not found,
+  //   42501), so this path now carries its own guard.
+  //   The SKU loads below are unchanged and still ignore errors (F-379).
+  // ═══════════════════════════════════════════════════════════════════
   const [s, framedRes, framelessRes] = await Promise.all([
-    _supabase.from('door_styles').select('*')
+    _supabase.rpc('get_door_styles_for_dealer', { p_dealer_id: dealer.id })
       .eq('is_active', true)
       .order('is_coming_soon', { ascending: true })
       .order('subcategory'),
     _supabase.from('skus_framed').select('*').eq('active', true),
     _supabase.from('skus_frameless').select('*').eq('active', true),
   ]);
-  allStyles        = s.data            || [];
+  if (s.error || !Array.isArray(s.data)) {
+    console.error('[CB-111] get_door_styles_for_dealer failed for dealer', dealer.id, s.error);
+    alert(pcTxt('nq2.alert.dealer_load', 'Could not load dealer data. Please go back and try again.'));
+    return;
+  }
+  allStyles        = s.data;
   allSkusFramed    = framedRes.data    || [];
   allSkusFrameless = framelessRes.data || [];
 
