@@ -1618,6 +1618,24 @@
     <button class="btn-next" id="btnNext" onclick="goReview()" disabled data-i18n="nqm.btn.review">Review →</button>
   </div>
 </div>
+<script>
+// ── CB-108 4a:Back 連結從第一個畫面起就帶著單號 ──
+//   原本 href 寫死 'new-quote-step2.html',要等 init() 跑完數個 await 後
+//   (init 內「backBtn.href = ...」)才補上 ?draft=。這段空窗內點擊會進入一個
+//   沒有單號的 step2 → 之後送出即新建一張單(CB-108 症狀三:D00548 / D00549)。
+//   這裡在解析到此元素時【同步】以本頁網址組出連結,不依賴任何非同步狀態。
+//   init() 之後的那段仍會再寫一次(依解析後的 viewMode),兩者結果相同。
+//   mode 只接受 buildModeParam() 會產生的兩個值(正向列舉)。
+(function () {
+  var p = new URLSearchParams(window.location.search);
+  var d = p.get('draft');
+  if (!d) return;
+  var m = p.get('mode');
+  var a = document.getElementById('btnBack');
+  if (a) a.href = 'new-quote-step2.html?draft=' + encodeURIComponent(d) +
+                  ((m === 'admin-edit' || m === 'review') ? '&mode=' + m : '');
+})();
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
@@ -5375,6 +5393,27 @@ async function init() {
   const params = new URLSearchParams(window.location.search);
   draftId = params.get('draft') || null;
 
+  // ── CB-108 4c:暫存屬於另一張單 → 回 step1 由 DB 重建 ──
+  //   本頁有 draftId 時會優先採用 sessionStorage 的購物車,不檢查它屬於哪張單;
+  //   quoteStep1 的 job name / 地址等也一樣。綁定【明確】指向別張單(或明確為
+  //   null = 新單的暫存)時,兩者都不是本單的資料 → 清掉並導回 step1,由
+  //   loadDraftData() 從 DB 重建並寫入正確綁定。
+  //   沒有綁定鍵(上線前的舊暫存)→ 維持原本行為,不打斷正在進行的編輯。
+  //   ⚠️ 本頁不寫綁定;綁定只由 step1 與 step3(CB-53 重建)寫入。
+  //   與 new-quote-step2.html 同款(兩處逐字對應)。
+  if (draftId) {
+    const cb108UrlMode = params.get('mode');
+    const cb108b = cb108ReadBinding();
+    if (cb108b.present && cb108b.boundQuoteId !== draftId) {
+      console.warn('[CB-108 4c] session data belongs to', cb108b.boundQuoteId, '— not', draftId, '; rebuilding from step1');
+      sessionStorage.removeItem('quoteStep1');
+      sessionStorage.removeItem('quoteStep2');
+      location.replace('new-quote.html?draft=' + encodeURIComponent(draftId) +
+        ((cb108UrlMode === 'admin-edit' || cb108UrlMode === 'review') ? '&mode=' + cb108UrlMode : ''));
+      return;
+    }
+  }
+
   const dbRoleEarly = (meRow.role || '').toLowerCase();
   isAdminViewer = dbRoleEarly === 'admin' || dbRoleEarly === 'super_admin';
 
@@ -5561,6 +5600,34 @@ const [styleRes, framedRes, framelessRes, bundleRes] = await Promise.all([
     }
   }, 60000);
 }
+
+// ── CB-108 4c:讀取 sessionStorage 中購物車的綁定 ──
+//   present      :quoteStep1 是否帶有 boundQuoteId 鍵(上線前的舊暫存沒有)
+//   boundQuoteId :綁定的單 id;新單為 null
+//   boundToQuote :綁定到某張既有單(非空字串)—— 正向識別,F-35
+//   ⚠️ 同名同義的讀法另有三份:new-quote.html / new-quote-step2.html /
+//      new-quote-step3.html(各頁沒有共用 JS 檔)。改動時四處一起改。
+function cb108ReadBinding() {
+  try {
+    const s1 = JSON.parse(sessionStorage.getItem('quoteStep1') || 'null');
+    if (s1 && typeof s1 === 'object' && Object.prototype.hasOwnProperty.call(s1, 'boundQuoteId')) {
+      const id = s1.boundQuoteId;
+      return {
+        present:      true,
+        boundQuoteId: (typeof id === 'string' && id) ? id : null,
+        boundToQuote: (typeof id === 'string' && id.length > 0),
+      };
+    }
+  } catch (_) { /* 解析失敗視同沒有綁定鍵 */ }
+  return { present: false, boundQuoteId: null, boundToQuote: false };
+}
+
+// ── CB-108 F-347:從 bfcache 還原時重新載入 ──
+//   上一頁 / 下一頁會原封還原整頁(含 draftId 與購物車記憶體狀態),不重跑 init()。
+//   persisted 才重載 —— 與 admin-quotes / quotes / admin-payments 相同寫法。
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) window.location.reload();
+});
 
 init();
 </script>
