@@ -1030,7 +1030,22 @@
     if (draftId) {
       // ── Resume Draft OR Returned: load from DB ──
       // loadDraftData returns the quote so we can resolve viewMode after.
+      const cb108RequestedId = draftId;   // CB-108 F-346: loadDraftData() 失敗時會把 draftId 清成 null
       const draft = await loadDraftData();
+
+      // ── CB-108 F-346: 讀不到單 → 不得靜默變成新單(fail-closed)──
+      //   舊行為:查無單(或狀態不在可編輯清單)時只 console.warn,draftId 清成
+      //   null 後照常往下走,畫面成為一張空白新單;使用者按下一步會一路建出
+      //   一張新單(CB-108 症狀三同型)。而且這條路會把 sessionStorage 的
+      //   綁定(boundQuoteId)寫成 null,讓 step3 的綁定檢查失去作用。
+      //   改為導回該單的 quote-detail:單存在就顯示該單(含正確的狀態與按鈕),
+      //   不存在或無權限則由 quote-detail 顯示錯誤。location.replace 不留歷史,
+      //   避免上一頁彈回來。
+      if (!draft) {
+        console.warn('[CB-108 F-346] quote not loadable in step1; redirecting to quote detail:', cb108RequestedId);
+        location.replace('quote-detail.html?id=' + encodeURIComponent(cb108RequestedId));
+        return;
+      }
       viewMode = resolveViewMode(urlModeHint, draft);
       console.log('[CB-4] Step 1 viewMode resolved:', {
         viewMode,
@@ -1074,6 +1089,19 @@
       if (viewMode === 'admin-draft') {
         document.getElementById('adminActingBannerMount').innerHTML =
           buildAdminActingBanner(dealer);
+      }
+
+      // ── CB-108 4c(PM 補充要求一):進入全新建單時,清掉屬於既有單的暫存 ──
+      //   sessionStorage 裡若是「某張既有單」的購物車(boundQuoteId 為非空字串),
+      //   它不屬於這張新單:不還原、整組清掉。之後 goNext() 會把 boundQuoteId
+      //   【正向寫成 null】。少了這一步,做完一張單接著建下一張時,step3 會因為
+      //   殘留的綁定而擋下新單;更早之前則是把上一張單的品項帶進新單。
+      //   boundQuoteId 為 null(本來就是新單,從 step2 返回)或鍵不存在(上線前
+      //   的舊暫存)→ 維持原本的還原行為。
+      if (cb108ReadBinding().boundToQuote) {
+        console.log('[CB-108 4c] new quote flow: discarding session data bound to an existing quote');
+        sessionStorage.removeItem('quoteStep1');
+        sessionStorage.removeItem('quoteStep2');
       }
 
       // ── Restore Step 1 data if coming back from Step 2 Edit ──
@@ -1155,7 +1183,8 @@
       .single();
 
     if (error || !draft) {
-      console.warn('Draft/Returned/Stock Review/Pending quote not found, starting fresh.', error);
+      // CB-108 F-346: 呼叫端(init)收到 null 會導回 quote-detail,不再「starting fresh」。
+      console.warn('Draft/Returned/Stock Review/Pending quote not found.', error);
       draftId = null;
       return null;
     }
@@ -1199,6 +1228,18 @@
     // The caller will overwrite with the resolved mode.
     const isAdminEditingOtherDealer = isAdminViewer && currentUser && draft.dealer_id && draft.dealer_id !== currentUser.id;
 
+    // ── CB-108 4c:購物車只屬於它被讀出的那張單 ──
+    //   step2 有 draftId 時會優先使用 sessionStorage 的購物車(D14b),不檢查
+    //   它屬於哪張單 → 另一張單、或一張新單殘留的購物車會被當成本單存回 DB
+    //   (CB-107 S0 指出的跨單殘留)。這裡以正向識別保留:只有先前的綁定
+    //   【恰為本單】才保留購物車(= 從 step2 返回 step1 的正常往返),其餘一律
+    //   清掉,讓 step2 從 DB 重建。
+    //   ⚠️ 上線當下的舊暫存沒有 boundQuoteId 鍵 → 也會被清掉(只影響上線
+    //      那一刻正好在 step1↔step2 之間來回、且尚未存檔的編輯)。
+    const cb108Prior = cb108ReadBinding();
+    if (!(cb108Prior.present && cb108Prior.boundQuoteId === draft.id)) {
+      sessionStorage.removeItem('quoteStep2');
+    }
     sessionStorage.setItem('quoteStep1', JSON.stringify({
       poNumber:           draft.po_number || draft.draft_number || null,  // 雙編號制: 帶顯示編號給返回 restore
       jobName:            draft.job_name,
@@ -1212,6 +1253,7 @@
       returnReason:       returnReason,
       viewMode:           null,  // resolved by init() right after
       quoteStatus:        draft.status,  // CB-4: pass status downstream for Step 2/3
+      boundQuoteId:       draft.id,      // CB-108 4c:這份暫存屬於哪張單(step2 / mods / step3 檢查)
     }));
 
     return draft;
@@ -1530,6 +1572,10 @@ function handleLogisticChange() {
       adminDraft, dealerIdForQuote,
       viewMode,           // CB-4: 'normal' | 'admin-draft' | 'admin-edit' | 'review'
       returnReason,       // CB-4: for re-display on Step 2/3 if needed
+      // CB-108 4c:綁定【一律寫入】。既有單 = 該單 id;新單 = 明確的 null
+      //   (PM 補充要求一:正向設為 null,不是不寫)。step3 以此判斷
+      //   「URL 沒有 draft」時能否新建:null 才放行。
+      boundQuoteId: draftId || null,
     };
     sessionStorage.setItem('quoteStep1', JSON.stringify(quoteData));
 
@@ -1603,6 +1649,35 @@ function handleLogisticChange() {
     if (Array.isArray(savedAddresses)) renderAddresses();
     const poEl = document.getElementById('poNumber');
     if (poEl) setPoNumberLabel(poEl.value || poEl.textContent || '');
+  });
+
+  // ── CB-108 4c:讀取 sessionStorage 中購物車的綁定 ──
+  //   present      :quoteStep1 是否帶有 boundQuoteId 鍵(上線前的舊暫存沒有)
+  //   boundQuoteId :綁定的單 id;新單為 null
+  //   boundToQuote :綁定到某張既有單(非空字串)—— 正向識別,F-35
+  //   ⚠️ 同名同義的讀法另有三份:new-quote-step2.html / new-quote-modifications.html /
+  //      new-quote-step3.html(各頁沒有共用 JS 檔)。改動時四處一起改。
+  function cb108ReadBinding() {
+    try {
+      const s1 = JSON.parse(sessionStorage.getItem('quoteStep1') || 'null');
+      if (s1 && typeof s1 === 'object' && Object.prototype.hasOwnProperty.call(s1, 'boundQuoteId')) {
+        const id = s1.boundQuoteId;
+        return {
+          present:      true,
+          boundQuoteId: (typeof id === 'string' && id) ? id : null,
+          boundToQuote: (typeof id === 'string' && id.length > 0),
+        };
+      }
+    } catch (_) { /* 解析失敗視同沒有綁定鍵 */ }
+    return { present: false, boundQuoteId: null, boundToQuote: false };
+  }
+
+  // ── CB-108 F-347:從 bfcache 還原時重新載入 ──
+  //   瀏覽器上一頁 / 下一頁會原封還原整頁(含 draftId 等記憶體狀態),不重跑 init()。
+  //   「隔天用舊分頁」與「上一頁回到舊的報價頁」都會帶著過期的狀態繼續操作。
+  //   persisted 才重載 —— 與 admin-quotes / quotes / admin-payments 相同寫法。
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) window.location.reload();
   });
 
   init();
